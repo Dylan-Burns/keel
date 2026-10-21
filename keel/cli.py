@@ -2,7 +2,7 @@
 
 Stage 1 ships `keel inventory` and `keel doctor`; stage 2 adds `keel parse`;
 stage 3 adds `keel chunk` and `keel parse --sections-report`; stage 4 adds
-`keel index`; stage 5 adds `keel understand`.
+`keel index`; stage 5 adds `keel understand`; stage 6 adds `keel retrieve`.
 Later stages add the commands that CLAUDE.md lists (index, ask, serve, and
 the rest).
 """
@@ -19,15 +19,18 @@ import time
 import keel
 from keel import chunker
 from keel import config
+from keel import context
 from keel import doctor
 from keel import errors
 from keel import extractor
 from keel import indexer
 from keel import inventory
+from keel import retriever
 from keel import sections
 from keel import understanding
 from keel.parsers import base as parser_base
 from keel.parsers import corpus as parser_corpus
+from keel.stores import chunk_store
 from keel.stores import numpy_dense
 
 logger = logging.getLogger("keel")
@@ -161,6 +164,28 @@ def build_parser() -> argparse.ArgumentParser:
         type=pathlib.Path,
         default=None,
         help="the corpus directory (default: corpus.dir)",
+    )
+
+    retrieve_parser = commands.add_parser(
+        "retrieve", help="retrieve the context of a question, no model call"
+    )
+    retrieve_parser.add_argument(
+        "text", nargs="?", default=None, help="the question"
+    )
+    retrieve_parser.add_argument(
+        "--question",
+        type=int,
+        default=None,
+        help="the number of an example question in demo.example_questions",
+    )
+    retrieve_parser.add_argument(
+        "--summary", action="store_true", help="print the plan and the counts"
+    )
+    retrieve_parser.add_argument(
+        "--index",
+        type=pathlib.Path,
+        default=None,
+        help="the index directory with `current` (default: index.dir)",
     )
 
     doctor_parser = commands.add_parser(
@@ -365,9 +390,11 @@ def _parse(
         manifest_files = inventory.load_manifest(manifest_path).files
     except errors.ManifestMissingError as error:
         logger.warning("%s", error)
-    context = parser_base.ParseContext.from_settings(settings, manifest_files)
+    parse_context = parser_base.ParseContext.from_settings(
+        settings, manifest_files
+    )
     return parser_corpus.finish_corpus(
-        parser_corpus.parse_files(files, context), context
+        parser_corpus.parse_files(files, parse_context), parse_context
     )
 
 
@@ -605,13 +632,32 @@ def run_index(
     return 0
 
 
+def _catalog(
+    settings: config.Settings, corpus_dir: pathlib.Path | None
+) -> understanding.Catalog:
+    """Read the corpus facts from the index, or parse the corpus."""
+    build = indexer.current_build(settings.index.dir)
+    if corpus_dir is None and build is not None:
+        conn = chunk_store.open_read_only(build / chunk_store.FILE_NAME)
+        try:
+            return understanding.Catalog.from_store(conn)
+        finally:
+            conn.close()
+    corpus_dir = corpus_dir or settings.corpus.dir
+    _ensure_corpus(settings, corpus_dir)
+    parse_context = parser_base.ParseContext.from_settings(settings)
+    return understanding.Catalog.from_parse(
+        parser_corpus.parse_corpus(corpus_dir, parse_context)
+    )
+
+
 def run_understand(
     settings: config.Settings, question: str, corpus_dir: pathlib.Path | None
 ) -> int:
     """Run `keel understand`: print the `QuestionAnalysis` as JSON.
 
-    The corpus facts come from the parse of the corpus until the index
-    (stage 4) carries them.
+    The corpus facts come from the index when one is published and no
+    corpus directory is named, else from the parse of the corpus.
 
     Args:
         settings: The loaded settings.
@@ -624,12 +670,7 @@ def run_understand(
     Raises:
         CorpusMissingError: The corpus directory and the zip are absent.
     """
-    corpus_dir = corpus_dir or settings.corpus.dir
-    _ensure_corpus(settings, corpus_dir)
-    context = parser_base.ParseContext.from_settings(settings)
-    catalog = understanding.Catalog.from_parse(
-        parser_corpus.parse_corpus(corpus_dir, context)
-    )
+    catalog = _catalog(settings, corpus_dir)
     step = understanding.Understander.from_settings(settings, catalog)
     try:
         analysis = step.analyze(question)
@@ -637,6 +678,110 @@ def run_understand(
         print(f"HTTP {error.http_status}: {error}")
         return 1
     print(analysis.model_dump_json(indent=2))
+    return 0
+
+
+def _print_retrieval(result: retriever.RetrievalResult) -> None:
+    """Print the plan, the counts, and the timings of 1 retrieval."""
+    built = result.context
+    print(f"sub-queries: {len(result.plan.sub_queries)}")
+    for sub in result.plan.sub_queries:
+        print(f"  {sub.label}: dense {sub.dense_text!r}")
+        print("    lexical: " + ", ".join(sub.terms))
+    print(
+        f"candidates: {result.candidates} before collapse, "
+        f"{result.candidates - result.collapsed} after "
+        f"({result.collapsed} collapsed), {result.reranked} reranked"
+    )
+    print("quota fills (taken/quota of candidates, tokens):")
+    for fill in built.fills:
+        print(
+            f"  {fill.label}: {fill.taken}/{fill.quota} of "
+            f"{fill.candidates}, {fill.tokens:,} tokens"
+        )
+    print(
+        f"context: {len(built.chunks)} chunks, about "
+        f"{built.token_estimate:,} tokens (budget "
+        f"{built.budget.max_tokens:,} and {built.budget.max_chunks}), "
+        f"{built.dropped} candidates dropped"
+    )
+    print(
+        "sections: "
+        + ", ".join(f"{k} {v}" for k, v in built.sections().items())
+    )
+    timings = result.timings
+    print(
+        f"time ms: lexical {timings.lexical_ms}, dense {timings.dense_ms}, "
+        f"rerank {timings.rerank_ms}, total {timings.total_ms}"
+    )
+    for gap in result.gaps:
+        print(f"gap: {gap}")
+    if result.degraded:
+        print("degraded: " + ", ".join(result.degraded))
+
+
+def run_retrieve(
+    settings: config.Settings,
+    text: str | None,
+    number: int | None,
+    *,
+    summary: bool,
+    index_dir: pathlib.Path | None,
+) -> int:
+    """Run `keel retrieve`: the context of a question, without a model call.
+
+    Args:
+        settings: The loaded settings.
+        text: The question, or None with `number`.
+        number: The 1-based number of an example question, or None.
+        summary: Print the plan and the counts instead of the context.
+        index_dir: The index directory, or None for `index.dir`.
+
+    Returns:
+        0, or 1 for a bad question number, an input check failure, or an
+        out-of-scope question.
+
+    Raises:
+        IndexMissingError: No published index.
+    """
+    examples = settings.demo.example_questions
+    if number is not None:
+        if not 1 <= number <= len(examples):
+            print(f"--question takes 1 to {len(examples)}")
+            return 1
+        text = examples[number - 1]
+    if not text:
+        print("give a question or --question N")
+        return 1
+    started = time.perf_counter()
+    step = retriever.Retriever.open(settings, index_dir)
+    loaded = time.perf_counter() - started
+    understander = understanding.Understander.from_settings(
+        settings, step.catalog
+    )
+    try:
+        analysis = understander.analyze(text)
+    except errors.QuestionInputError as error:
+        print(f"HTTP {error.http_status}: {error}")
+        return 1
+    if analysis.out_of_scope:
+        print(f"out of scope: {analysis.out_of_scope_reason}")
+        return 1
+    result = step.retrieve(analysis)
+    print(f"question: {text}")
+    types = ", ".join(analysis.types)
+    tickers = ", ".join(analysis.tickers)
+    print(
+        f"type: {analysis.primary_type} ({types}); tickers: {tickers}; "
+        f"models loaded in {loaded:.1f} s"
+    )
+    if summary:
+        _print_retrieval(result)
+    elif result.context.empty:
+        print(context.NO_CONTEXT_MESSAGE)
+    else:
+        print(context.render_index(result.context))
+        print(context.render_chunks(result.context))
     return 0
 
 
@@ -713,6 +858,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         settings = config.load_settings(args.config)
         if args.command == "understand":
             return run_understand(settings, args.question, args.corpus)
+        if args.command == "retrieve":
+            return run_retrieve(
+                settings,
+                args.text,
+                args.question,
+                summary=args.summary,
+                index_dir=args.index,
+            )
         return _dispatch(settings, args)
     except errors.KeelError as error:
         logger.error("%s: %s", type(error).__name__, error)
