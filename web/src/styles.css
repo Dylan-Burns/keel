@@ -1,0 +1,9 @@
+@import 'tailwindcss';
+
+/* Theme tokens for Tailwind CSS 4 (no tailwind.config.js). */
+@theme {
+  --color-ink: #0f172a;
+  --color-paper: #f8fafc;
+  --color-accent: #0e7490;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
