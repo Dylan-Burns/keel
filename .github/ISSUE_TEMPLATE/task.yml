@@ -1,0 +1,22 @@
+name: Task
+description: A unit of work tied to a stage or a chapter of the plan
+labels: [task]
+body:
+  - type: input
+    id: stage
+    attributes:
+      label: Stage or chapter
+      placeholder: "Stage 7 / chapter 12"
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Done when
+      description: The observable evidence that closes this task
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes

@@ -1,0 +1,235 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_FROZEN: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+
+jobs:
+  python-lint:
+    name: python lint, format, types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --all-extras
+      - name: ruff format
+        run: uv run ruff format --check .
+      - name: ruff lint
+        run: uv run ruff check --output-format=github .
+      - name: mypy strict
+        run: uv run mypy keel
+      - name: pylint with Google pylintrc
+        run: uv run pylint --rcfile=pylintrc keel
+
+  python-test:
+    name: python tests and coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --all-extras
+      - name: cache the pinned Hugging Face models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-models-${{ hashFiles('config/keel.yaml') }}
+      - name: download the pinned models (no-op before stage 4)
+        run: |
+          if uv run keel doctor --help 2>/dev/null | grep -q -- --download-models; then
+            uv run keel doctor --download-models
+          fi
+      - name: unit and integration tests
+        env:
+          HF_HUB_OFFLINE: "1"
+        run: >
+          uv run pytest -m "not eval"
+          --cov --cov-report=xml --cov-report=term-missing
+          --junitxml=reports/junit.xml
+      - name: upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            coverage.xml
+            reports/junit.xml
+          retention-days: 14
+
+  python-audit:
+    name: dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --all-extras
+      - name: pip-audit
+        run: uv run pip-audit --strict --desc on
+
+  web-check:
+    name: web lint, types, tests, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --prefix web
+      - name: gts lint (Google TypeScript style)
+        run: npm run lint --prefix web
+      - name: tsc strict
+        run: npm run typecheck --prefix web
+      - name: vitest
+        run: npm run test --prefix web
+      - name: vite build
+        run: npm run build --prefix web
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-dist-${{ github.run_number }}
+          path: web/dist
+          retention-days: 7
+
+  web-e2e:
+    name: web e2e
+    runs-on: ubuntu-latest
+    needs: [web-check]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --prefix web
+      - run: npm run build --prefix web
+      - run: npx --prefix web playwright install --with-deps chromium
+      - name: is the API built yet
+        id: api
+        run: |
+          if [ -f keel/api/app.py ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: astral-sh/setup-uv@v5
+        if: steps.api.outputs.present == 'true'
+        with:
+          enable-cache: true
+      - name: start keel serve with the mock provider
+        if: steps.api.outputs.present == 'true'
+        env:
+          KEEL_LLM__PROVIDER: mock
+          KEEL_API_TOKEN: ci-token
+          KEEL_INDEX__DIR: index/ci
+          HF_HUB_OFFLINE: "0"
+        run: |
+          uv sync --frozen
+          uv run keel index --corpus tests/fixtures/mini_corpus --out index/ci
+          nohup uv run keel serve > serve.log 2>&1 &
+          for _ in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:8000/api/health > /dev/null 2>&1 && break
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8000/api/health
+      - name: playwright against keel serve
+        if: steps.api.outputs.present == 'true'
+        env:
+          KEEL_E2E_BASE_URL: http://127.0.0.1:8000
+          KEEL_API_TOKEN: ci-token
+        run: npm run test:e2e --prefix web
+      - name: playwright against the built page (before the API exists)
+        if: steps.api.outputs.present == 'false'
+        run: npm run test:e2e --prefix web
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report-${{ github.run_number }}
+          path: |
+            web/playwright-report
+            web/test-results
+            serve.log
+          retention-days: 14
+
+  text-and-config:
+    name: markdown, yaml, shell, dashes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: markdownlint
+        uses: DavidAnson/markdownlint-cli2-action@v18
+        with:
+          globs: "**/*.md"
+      - name: yamllint
+        run: pipx run yamllint --strict .
+      - name: shellcheck
+        uses: ludeeus/action-shellcheck@2.0.0
+        with:
+          scandir: ./scripts
+          additional_files: ./infra/backup.sh
+      - name: no em or en dashes
+        run: |
+          # The two byte sequences are the em dash and the en dash in UTF-8.
+          if grep -rn --exclude-dir=.git --exclude-dir=corpus --exclude-dir=node_modules --exclude-dir=dist --exclude=uv.lock --exclude=package-lock.json $'\xe2\x80\x94\\|\xe2\x80\x93' . ; then
+            echo "::error::em or en dash found; use a comma, a colon, or a new sentence"
+            exit 1
+          fi
+
+  commits:
+    name: conventional commits
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: wagoid/commitlint-github-action@v6
+        with:
+          configFile: commitlint.config.cjs
+
+  secrets:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  docker:
+    name: docker build
+    runs-on: ubuntu-latest
+    needs: [python-lint, python-test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: build image without push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: keel:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: image smoke test
+        run: docker run --rm keel:ci keel --version

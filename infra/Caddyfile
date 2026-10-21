@@ -1,0 +1,25 @@
+# TLS from Let's Encrypt, security headers, SSE pass-through to the app.
+{$KEEL_HOSTNAME} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	reverse_proxy app:8000 {
+		# SSE: deliver each event as it arrives.
+		flush_interval -1
+		header_up X-Request-Id {http.request.uuid}
+	}
+
+	log {
+		output file /data/access.log {
+			roll_size 50mb
+			roll_keep 10
+		}
+	}
+}

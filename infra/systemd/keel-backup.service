@@ -1,0 +1,11 @@
+[Unit]
+Description=Keel nightly backup of the index, the audit log, and the feedback table
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/keel
+EnvironmentFile=/opt/keel/.env
+ExecStart=/opt/keel/infra/backup.sh
+StandardOutput=append:/opt/keel/logs/backup.log
+StandardError=append:/opt/keel/logs/backup.log

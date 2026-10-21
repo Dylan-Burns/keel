@@ -1,0 +1,45 @@
+name: deploy-aws
+
+# Alternative to deploy.yml for the AWS host of infra/terraform (chapter 29.6).
+# Manual, approved deploy of a released image over SSH. The production
+# environment in GitHub requires a reviewer before the job runs.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Image version to deploy, for example 0.3.1"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: https://${{ vars.KEEL_HOSTNAME }}
+    steps:
+      - name: pull and restart on the host
+        uses: appleboy/ssh-action@v1.1.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd /opt/keel
+            echo "KEEL_IMAGE_TAG=${{ inputs.version }}" > .image.env
+            docker compose --env-file .env --env-file .image.env pull app
+            docker compose --env-file .env --env-file .image.env up -d --remove-orphans
+            sleep 5
+            curl -fsS http://127.0.0.1:8000/api/health
+      - name: smoke test over HTTPS
+        run: curl -fsS "https://${{ vars.KEEL_HOSTNAME }}/api/health"

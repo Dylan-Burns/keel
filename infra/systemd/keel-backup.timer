@@ -1,0 +1,9 @@
+[Unit]
+Description=Run the keel backup nightly at 02:30, after the refresh
+
+[Timer]
+OnCalendar=*-*-* 02:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

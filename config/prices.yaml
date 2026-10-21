@@ -1,0 +1,14 @@
+# Model prices in USD per 1 million tokens. Confirm against the provider price page and set checked_on.
+# Values below are from third-party price pages on 2026-10-20 (assumption A-10) and must be verified.
+checked_on: TODO
+models:
+  sonnet-5-5:
+    input: 2.00
+    output: 10.00
+    cache_read: 0.20           # one report of a cut to 0.10; verify
+    cache_write: 2.50
+  haiku-5-5:
+    input: 0.10                # prompts up to 100,000 tokens
+    output: 0.50
+    cache_read: 0.01
+    cache_write: 0.125

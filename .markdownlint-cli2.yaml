@@ -1,0 +1,27 @@
+# markdownlint-cli2 reads this file (it does not read .markdownlintignore).
+# Google Markdown style: ATX headings, one list marker style, fenced code
+# blocks with a language. Line length is not enforced: the plan chapters and
+# the stage prompts carry long table rows and long sentences on purpose.
+config:
+  default: true
+  MD013: false
+  MD004:
+    style: dash
+  MD007:
+    indent: 4
+  MD024:
+    siblings_only: true
+  MD033: false
+  MD041: false
+  MD046:
+    style: fenced
+  MD060: false
+ignores:
+  - "docs/0*_*.md"
+  - "docs/1*_*.md"
+  - "docs/2*_*.md"
+  - "CHANGELOG.md"
+  - "web/node_modules/**"
+  - "web/dist/**"
+  - "corpus/**"
+  - "pylintrc"

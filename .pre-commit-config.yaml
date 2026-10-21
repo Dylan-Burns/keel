@@ -1,0 +1,98 @@
+# Mirrors the CI checks so a commit that passes locally passes in CI.
+# Install once: uv run pre-commit install --hook-type pre-commit --hook-type commit-msg --hook-type pre-push
+minimum_pre_commit_version: "3.8.0"
+default_install_hook_types: [pre-commit, commit-msg, pre-push]
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: detect-private-key
+      - id: no-commit-to-branch
+        args: [--branch, main]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        args: [--strict]
+
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.14.0
+    hooks:
+      - id: markdownlint-cli2
+
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.4.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: [--strict, feat, fix, docs, test, refactor, perf, build, ci, chore, revert]
+
+  - repo: local
+    hooks:
+      - id: no-dashes
+        name: no em or en dashes in text
+        entry: '\xe2\x80[\x93\x94]'
+        language: pygrep
+        types: [text]
+        exclude: ^(corpus/|uv\.lock$|web/package-lock\.json$)
+      - id: mypy
+        name: mypy strict on keel
+        entry: uv run mypy keel
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+      - id: pytest-unit
+        name: unit tests
+        entry: uv run pytest -m unit -q
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+      - id: web-lint
+        name: gts lint on web (Google TypeScript style)
+        entry: npm --prefix web run lint
+        language: system
+        pass_filenames: false
+        files: ^web/
+        stages: [pre-push]
+      - id: web-typecheck
+        name: tsc strict on web
+        entry: npm --prefix web run typecheck
+        language: system
+        pass_filenames: false
+        files: ^web/
+        stages: [pre-push]
+      - id: web-test
+        name: vitest on web
+        entry: npm --prefix web run test
+        language: system
+        pass_filenames: false
+        files: ^web/
+        stages: [pre-push]
