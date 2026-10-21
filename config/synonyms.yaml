@@ -1,0 +1,7 @@
+# Topic word expansion for the lexical query (chapter 9.3). A multi-word
+# term becomes a phrase query; the terms join with OR.
+revenue: ["net sales", "total revenues", "net revenue", "revenues"]
+growth: ["increase", "increased", "growth", "grew"]
+outlook: ["expect", "anticipate", "guidance", "outlook", "future"]
+risk: ["risk factors", "adversely affect", "could harm", "uncertainties"]
+regulatory: ["regulation", "regulatory", "FDA", "approval", "compliance", "antitrust", "legislation"]

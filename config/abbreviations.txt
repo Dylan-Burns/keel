@@ -1,0 +1,22 @@
+# Abbreviations that rule R1 never treats as a sentence end (chapter 7.5).
+# 1 abbreviation per line with its period; lines that start with # are comments.
+Inc.
+Corp.
+Co.
+No.
+Ltd.
+Mr.
+Dr.
+vs.
+Jr.
+Sr.
+St.
+Mrs.
+Ms.
+Nos.
+U.S.
+U.K.
+N.A.
+L.P.
+e.g.
+i.e.

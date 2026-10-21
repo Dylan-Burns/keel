@@ -1,0 +1,33 @@
+# Well-known companies outside the corpus (chapter 10.6), with a sector tag
+# each. A mention goes into `unknown_entities`, and the out-of-scope
+# response lists the covered companies of the same sector.
+Uber: technology
+Airbnb: consumer
+Shopify: technology
+Samsung: technology
+Toyota: automotive
+Ford: automotive
+General Motors: automotive
+Wells Fargo: financials
+Citigroup: financials
+PayPal: payments
+Qualcomm: semis
+Broadcom: semis
+Micron: semis
+Bristol-Myers Squibb: pharma
+AstraZeneca: pharma
+Novartis: pharma
+Walgreens: retail
+Kroger: retail
+ConocoPhillips: energy
+Shell: energy
+BP: energy
+Northrop Grumman: defense
+General Dynamics: defense
+T-Mobile: telecom
+SAP: software
+ServiceNow: software
+Snowflake: software
+Tencent: technology
+Alibaba: technology
+Sony: technology

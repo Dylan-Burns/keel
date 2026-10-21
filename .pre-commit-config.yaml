@@ -6,8 +6,11 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
+      # tests/fixtures holds bytes copied from real filings; no hook rewrites them.
       - id: trailing-whitespace
+        exclude: ^tests/fixtures/
       - id: end-of-file-fixer
+        exclude: ^tests/fixtures/
       - id: mixed-line-ending
         args: [--fix=lf]
       - id: check-yaml
@@ -21,7 +24,7 @@ repos:
         args: [--branch, main]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.9
+    rev: v0.17.1  # the ruff version in uv.lock, so the hook and `uv run ruff` agree
     hooks:
       - id: ruff
         args: [--fix]
@@ -62,7 +65,7 @@ repos:
         entry: '\xe2\x80[\x93\x94]'
         language: pygrep
         types: [text]
-        exclude: ^(corpus/|uv\.lock$|web/package-lock\.json$)
+        exclude: ^(corpus/|tests/fixtures/(mini_corpus|snippets)/|uv\.lock$|web/package-lock\.json$)
       - id: mypy
         name: mypy strict on keel
         entry: uv run mypy keel
