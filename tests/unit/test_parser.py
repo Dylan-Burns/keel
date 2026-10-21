@@ -449,8 +449,24 @@ def test_duplicate_filing_id(
     assert dropped.quarantine.evidence["kept"] == second.name
 
 
-def test_sec_url_only() -> None:
-    """E-D-28: only https on www.sec.gov is trusted."""
+def test_header_url_trust() -> None:
+    """E-D-28 at parse time: only a plain https URL on www.sec.gov."""
     assert form_10k_10q.url_trusted("https://www.sec.gov/Archives/x.htm")
-    assert not form_10k_10q.url_trusted("http://www.sec.gov/Archives/x.htm")
-    assert not form_10k_10q.url_trusted("https://sec.gov.evil.example/x")
+    for url in (
+        "http://www.sec.gov/Archives/x.htm",
+        "https://sec.gov.evil.example/x",
+        "https://www.sec.gov.evil.example/x",
+        "https://www.sec.gov@evil.com/x",
+        "https://user:pw@www.sec.gov/x",
+        "https://www.sec.gov:8443/x",
+        "https://www.sec.gov:bad/x",
+        "https://www.sec.gov\\@evil.com/x",
+        "https:\\\\www.sec.gov/x",
+        "https://www.sec.gov/x y",
+        "https://www.sec.gov/x" + chr(0x0A),
+        "https://www.sec.gov/x" + chr(0x09),
+        "HTTPS://www.sec.gov/x",
+        "https://WWW.SEC.GOV/x",
+        "https://www.sec.gov",
+    ):
+        assert not form_10k_10q.url_trusted(url), url
