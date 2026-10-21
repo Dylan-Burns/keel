@@ -1,0 +1,220 @@
+# The alias dictionary (chapter 10.2): 1 entry per ticker in the corpus with
+# the legal name, the aliases (lower case, matched on word boundaries), and
+# the groups. The company names follow the header `Company` key of the
+# filings. Add a company here before its filings (chapter 17.4).
+AAPL:
+  company: Apple Inc.
+  aliases: [apple, apple inc, aapl]
+  groups: [big_tech, technology]
+ABBV:
+  company: AbbVie Inc.
+  aliases: [abbvie, abbv]
+  groups: [pharma, healthcare]
+ADBE:
+  company: Adobe Inc.
+  aliases: [adobe, adbe]
+  groups: [software, technology]
+AMD:
+  company: Advanced Micro Devices, Inc.
+  aliases: [advanced micro devices, amd]
+  groups: [semis, technology]
+AMZN:
+  company: Amazon.com, Inc.
+  aliases: [amazon, amazon.com, aws, amzn]
+  groups: [big_tech, technology, consumer]
+AXP:
+  company: American Express Company
+  aliases: [american express, amex, axp]
+  groups: [payments, financials]
+BA:
+  company: The Boeing Company
+  aliases: [boeing, ba]
+  groups: [defense, industrials]
+BAC:
+  company: Bank of America Corporation
+  aliases: [bank of america, bofa, bac]
+  groups: [banks, financials]
+BLK:
+  company: BlackRock, Inc.
+  aliases: [blackrock, blk]
+  groups: [financials]
+BRK:
+  company: Berkshire Hathaway Inc.
+  aliases: [berkshire, berkshire hathaway, brk, brk.a, brk.b]
+  groups: [financials, conglomerates]
+CAT:
+  company: Caterpillar Inc.
+  aliases: [caterpillar, cat]
+  groups: [industrials]
+CMCSA:
+  company: Comcast Corporation
+  aliases: [comcast, nbcuniversal, cmcsa]
+  groups: [telecom, media]
+COST:
+  company: Costco Wholesale Corporation
+  aliases: [costco, costco wholesale, cost]
+  groups: [retail, consumer]
+CRM:
+  company: Salesforce, Inc.
+  aliases: [salesforce, crm]
+  groups: [software, technology]
+CSCO:
+  company: Cisco Systems, Inc.
+  aliases: [cisco, cisco systems, csco]
+  groups: [technology]
+CVX:
+  company: Chevron Corporation
+  aliases: [chevron, cvx]
+  groups: [energy]
+DE:
+  company: Deere & Company
+  aliases: [deere, john deere, deere & company, de]
+  groups: [industrials]
+DIS:
+  company: The Walt Disney Company
+  aliases: [disney, walt disney, the walt disney company, dis]
+  groups: [media, consumer]
+GE:
+  company: General Electric Company
+  aliases: [general electric, ge aerospace, ge]
+  groups: [industrials]
+GOOG:
+  company: Alphabet Inc.
+  aliases: [google, alphabet, goog, googl]
+  groups: [big_tech, technology]
+GS:
+  company: The Goldman Sachs Group, Inc.
+  aliases: [goldman, goldman sachs, gs]
+  groups: [banks, financials]
+HD:
+  company: The Home Depot, Inc.
+  aliases: [home depot, the home depot, hd]
+  groups: [retail, consumer]
+IBM:
+  company: International Business Machines Corporation
+  aliases: [ibm, international business machines]
+  groups: [technology]
+INTC:
+  company: Intel Corporation
+  aliases: [intel, intc]
+  groups: [semis, technology]
+JNJ:
+  company: Johnson & Johnson
+  aliases: [johnson & johnson, johnson and johnson, j&j, jnj]
+  groups: [pharma, healthcare]
+JPM:
+  company: JPMorgan Chase & Co.
+  aliases: [jpmorgan, jp morgan, jpmorgan chase, chase, jpm]
+  groups: [banks, financials]
+KO:
+  company: The Coca-Cola Company
+  aliases: [coca-cola, coca cola, coke, ko]
+  groups: [beverages, consumer]
+LLY:
+  company: Eli Lilly and Company
+  aliases: [lilly, eli lilly, lly]
+  groups: [pharma, healthcare]
+LMT:
+  company: Lockheed Martin Corporation
+  aliases: [lockheed, lockheed martin, lmt]
+  groups: [defense, industrials]
+MA:
+  company: Mastercard Incorporated
+  aliases: [mastercard, ma]
+  groups: [payments, financials]
+MCD:
+  company: McDonald's Corporation
+  aliases: [mcdonald's, mcdonalds, mcdonald, mcd]
+  groups: [restaurants, consumer]
+META:
+  company: Meta Platforms, Inc.
+  aliases: [meta, meta platforms, facebook, fb, instagram]
+  groups: [big_tech, technology]
+MRK:
+  company: Merck & Co., Inc.
+  aliases: [merck, mrk]
+  groups: [pharma, healthcare]
+MS:
+  company: Morgan Stanley
+  aliases: [morgan stanley, ms]
+  groups: [banks, financials]
+MSFT:
+  company: Microsoft Corporation
+  aliases: [microsoft, msft]
+  groups: [big_tech, software, technology]
+NFLX:
+  company: Netflix, Inc.
+  aliases: [netflix, nflx]
+  groups: [media, technology]
+NKE:
+  company: NIKE, Inc.
+  aliases: [nike, nke]
+  groups: [consumer]
+NVDA:
+  company: NVIDIA Corporation
+  aliases: [nvidia, nvda]
+  groups: [big_tech, semis, technology]
+ORCL:
+  company: Oracle Corporation
+  aliases: [oracle, orcl]
+  groups: [software, technology]
+PEP:
+  company: PepsiCo, Inc.
+  aliases: [pepsico, pepsi, pep]
+  groups: [beverages, consumer]
+PFE:
+  company: Pfizer Inc.
+  aliases: [pfizer, pfe]
+  groups: [pharma, healthcare]
+PG:
+  company: The Procter & Gamble Company
+  aliases: [procter & gamble, procter and gamble, p&g, pg]
+  groups: [consumer]
+RTX:
+  company: RTX Corporation
+  aliases: [rtx, raytheon, raytheon technologies]
+  groups: [defense, industrials]
+SBUX:
+  company: Starbucks Corporation
+  aliases: [starbucks, sbux]
+  groups: [restaurants, consumer]
+T:
+  company: AT&T Inc.
+  aliases: [at&t, at and t, t]
+  groups: [telecom]
+TGT:
+  company: Target Corporation
+  aliases: [target, target corporation, tgt]
+  groups: [retail, consumer]
+TMO:
+  company: Thermo Fisher Scientific Inc.
+  aliases: [thermo fisher, thermo fisher scientific, tmo]
+  groups: [healthcare]
+TSLA:
+  company: Tesla, Inc.
+  aliases: [tesla, tsla]
+  groups: [automotive, consumer]
+UNH:
+  company: UnitedHealth Group Incorporated
+  aliases: [unitedhealth, unitedhealth group, united health, unh]
+  groups: [healthcare]
+UPS:
+  company: United Parcel Service, Inc.
+  aliases: [ups, united parcel service]
+  groups: [industrials]
+V:
+  company: Visa Inc.
+  aliases: [visa, v]
+  groups: [payments, financials]
+VZ:
+  company: Verizon Communications Inc.
+  aliases: [verizon, verizon communications, vz]
+  groups: [telecom]
+WMT:
+  company: Walmart Inc.
+  aliases: [walmart, wal-mart, wmt]
+  groups: [retail, consumer]
+XOM:
+  company: Exxon Mobil Corporation
+  aliases: [exxon, exxonmobil, exxon mobil, xom]
+  groups: [energy]

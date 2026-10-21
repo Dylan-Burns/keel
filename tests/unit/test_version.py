@@ -1,4 +1,4 @@
-"""Placeholder test for the stage 0 package; stage 1 adds the real suite."""
+"""Tests for the package version and the bare `keel` command."""
 
 import re
 

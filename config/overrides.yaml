@@ -1,0 +1,10 @@
+# Manual lifts of a quarantine (chapter 7.10). An entry keyed by file name
+# states the correct ticker, company, form, and period end date. The GE file
+# stays quarantined (decision D-20), so the file holds no entry. Example:
+#
+# GE_10K_2015-02-27_full.txt:
+#   ticker: GE
+#   company: General Electric Capital Corporation
+#   form: 10-K
+#   period_end_date: 2014-12-31
+{}

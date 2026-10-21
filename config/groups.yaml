@@ -1,0 +1,43 @@
+# Sector groups (chapter 10.3, decision D-32). The resolver matches the
+# trigger phrases after the alias step. `all` expands to every indexed
+# ticker at run time, so it lists no tickers here.
+pharma:
+  triggers: [pharmaceutical companies, pharma, drug makers, big pharma]
+  tickers: [PFE, JNJ, MRK, LLY, ABBV]
+  note: TMO sells instruments and UNH is an insurer, so the group excludes both (A-06)
+banks:
+  triggers: [major banks, big banks, large banks, banks]
+  tickers: [JPM, BAC, GS, MS]
+  note: AXP, V, and MA are payment companies, so the group excludes them (A-07)
+big_tech:
+  triggers: [big tech, tech giants, mega-cap tech]
+  tickers: [AAPL, MSFT, GOOG, AMZN, META, NVDA]
+semis:
+  triggers: [chipmakers, semiconductor companies]
+  tickers: [NVDA, AMD, INTC]
+payments:
+  triggers: [payment networks, card networks]
+  tickers: [V, MA, AXP]
+retail:
+  triggers: [retailers, big-box retailers]
+  tickers: [WMT, TGT, COST, HD]
+energy:
+  triggers: [oil majors, energy companies]
+  tickers: [XOM, CVX]
+defense:
+  triggers: [defense contractors, aerospace and defense]
+  tickers: [LMT, RTX, BA]
+  note: GE is quarantined
+beverages:
+  triggers: [beverage companies]
+  tickers: [KO, PEP]
+telecom:
+  triggers: [telecom carriers, telecoms]
+  tickers: [T, VZ, CMCSA]
+software:
+  triggers: [software companies, enterprise software]
+  tickers: [MSFT, ORCL, CRM, ADBE]
+all:
+  triggers: [all companies, every company, the whole corpus]
+  tickers: []
+  note: every indexed ticker, capped at 12 companies per answer by the quotas of chapter 11
