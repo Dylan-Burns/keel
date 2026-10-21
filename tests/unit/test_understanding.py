@@ -186,6 +186,10 @@ def test_short_ticker_guard(step: understanding.Understander) -> None:
     assert step.analyze("Revenue of $T and ticker V?").tickers == ("T", "V")
     assert step.analyze("WHAT ARE THE RISKS OF MS AND GS?").tickers == ()
     assert step.analyze("What risks does T-Mobile face?").tickers == ()
+    assert step.analyze("Risks in the GS 10-K").tickers == ("GS",)
+    assert step.analyze("Compare GS & MS.").tickers == ("GS", "MS")
+    assert step.analyze("what does nvda say?").tickers == ("NVDA",)
+    assert step.analyze("what does it cost?").tickers == ()
 
 
 def test_common_word_guard(step: understanding.Understander) -> None:
@@ -219,6 +223,8 @@ def test_unknown_company(step: understanding.Understander) -> None:
     suffix = step.analyze("What risks does Acme Widgets Inc. face?")
     assert suffix.unknown_entities == ("Acme Widgets Inc",)
     assert suffix.out_of_scope
+    bare = step.analyze("Compare Apple and Airbnb")
+    assert not bare.out_of_scope
     mixed = step.analyze("Compare the risks of Apple and Airbnb")
     assert mixed.tickers == ("AAPL",)
     assert mixed.unknown_entities == ("Airbnb",)
@@ -320,8 +326,11 @@ def test_scope_last_two_years(step: understanding.Understander) -> None:
     assert window is not None
     assert window.anchor == datetime.date(2025, 10, 26)
     assert window.end == datetime.date(2025, 10, 26)
-    assert window.start == datetime.date(2023, 10, 26)
-    assert window.filings[0] == "Q3 fiscal 2024 10-Q (ended 2023-10-29)"
+    # The start follows the nominal months, so the 52/53-week calendar does
+    # not pull in a ninth quarter: fiscal 2024 Q4 to fiscal 2026 Q3.
+    assert window.start == datetime.date(2023, 11, 5)
+    assert window.filings[0] == "fiscal 2024 10-K (ended 2024-01-28)"
+    assert len(window.filings) == 8
     assert "fiscal 2025 10-K (ended 2025-01-26)" in window.filings
     # The anchor is per company (D-33): Pfizer ends on its own latest date.
     both = step.analyze("How did NVIDIA and Pfizer grow over the past 2 years?")
@@ -374,7 +383,7 @@ def test_multiple_scopes(step: understanding.Understander) -> None:
             "2024-12-17",
             "2025-09-27",
         ),
-        ("Apple's latest risks", "latest", "2025-09-27", "2025-09-27"),
+        ("Apple's latest risks", "latest", "2025-06-28", "2025-09-27"),
     ],
 )
 def test_scope_kinds(
@@ -390,6 +399,17 @@ def test_scope_kinds(
     assert window is not None
     assert window.start == datetime.date.fromisoformat(start)
     assert window.end == datetime.date.fromisoformat(end)
+
+
+def test_scope_not_a_form_or_balance(
+    step: understanding.Understander,
+) -> None:
+    assert step.analyze("What does Apple's Q3 10-Q say?").time_scope.kind == (
+        "none"
+    )
+    assert step.analyze("Apple's current liabilities").time_scope.kind == (
+        "none"
+    )
 
 
 def test_scope_without_filings() -> None:
@@ -415,8 +435,16 @@ def test_mixed_scope(step: understanding.Understander) -> None:
     assert not analysis.out_of_scope
     assert analysis.flags.has_out_of_scope_part
     later = step.analyze("What will Apple's revenue be in 2027?")
-    assert later.flags.has_out_of_scope_part
-    assert later.out_of_scope_parts == ("events in 2027 (after the corpus)",)
+    assert later.out_of_scope
+    assert later.out_of_scope_parts == ("in 2027 (after the corpus)",)
+    both = step.analyze("Apple revenue in fiscal 2025 and fiscal 2027")
+    assert not both.out_of_scope
+    assert both.flags.has_out_of_scope_part
+    invest = step.analyze("How much did Microsoft invest in AI?")
+    assert not invest.out_of_scope
+    assert not invest.flags.has_out_of_scope_part
+    target = step.analyze("What are Exxon's 2030 emissions targets?")
+    assert target.tickers == ("XOM",)
 
 
 def test_off_topic(step: understanding.Understander) -> None:

@@ -48,13 +48,16 @@ SHORT_TICKERS = _words("T V MA KO GE GS DE HD PG BA MS")
 # Item T) and the characters after it that make it a word (Ms., T-Mobile).
 SHORT_TICKER_LABELS = _words(
     "part item section schedule exhibit form article chapter title note "
-    "letter the a"
+    "letter a"
 )
-SHORT_TICKER_NEXT = re.compile(r"^(?:[-.'&/]|\s*&)")
+SHORT_TICKER_NEXT = re.compile(r"^(?:[-'&/]|\.\w)")
 # Rule 4: capitalized common words resolve only when capitalized in the
 # original text and not followed by 1 of the words below.
 GUARDED_WORDS = _words("apple target chase meta visa oracle caterpillar deere")
 GUARDED_NEXT = _words("company companies price market")
+# Lower-case aliases that are English words; these tickers resolve only in
+# upper case through rules 2 and 3.
+WORD_TICKERS = _words("t v ma ko ge gs de hd pg ba ms cost cat dis ups pep")
 # Rule 5: the fuzzy match threshold (a rapidfuzz ratio of 0 to 100).
 FUZZY_MIN_LENGTH = 5
 FUZZY_THRESHOLD = 88.0
@@ -107,8 +110,8 @@ OUT_OF_SCOPE = re.compile(
     r"|market\s+(?:cap|capitali[sz]ation|value)"
     r"|price\s+target|trading\s+at|should\s+i\s+(?:buy|sell|invest|short)"
     r"|buy\s+or\s+sell|good\s+investment|worth\s+(?:buying|investing)"
-    r"|invest\s+in|recommend\s+(?:buying|selling)|rumou?rs?"
-    r"|next\s+(?:year|quarter)|tomorrow)\b"
+    r"|should\s+i\s+invest\s+in|recommend\s+(?:buying|selling)|rumou?rs?"
+    r"|tomorrow)\b"
 )
 YEAR = re.compile(r"\b(19\d{2}|20\d{2})\b")
 
@@ -127,15 +130,6 @@ NUMERIC = re.compile(
     r"percent(?:age)?)\b|[%$\u20ac\u00a3])"
 )
 NUMERIC_TABLE_WEIGHT = 1.3
-TYPE_PRIORITY = (
-    "out_of_scope",
-    "sector",
-    "comparison",
-    "trend",
-    "numeric",
-    "single_company",
-    "generic",
-)
 
 QuestionType = Literal[
     "out_of_scope",
@@ -146,6 +140,15 @@ QuestionType = Literal[
     "single_company",
     "generic",
 ]
+TYPE_PRIORITY: tuple[QuestionType, ...] = (
+    "out_of_scope",
+    "sector",
+    "comparison",
+    "trend",
+    "numeric",
+    "single_company",
+    "generic",
+)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -281,7 +284,7 @@ SCOPE_PATTERNS: tuple[tuple[ScopeKind, re.Pattern[str]], ...] = (
         "fiscal_quarter",
         re.compile(
             r"(?i)\bQ([1-4])\s*(?:of\s+)?(?:fiscal\s+(?:year\s+)?|FY\s?)?"
-            r"'?(\d{4}|\d{2})\b"
+            r"'?(\d{4}|\d{2})(?![-\w])"
         ),
     ),
     (
@@ -293,7 +296,9 @@ SCOPE_PATTERNS: tuple[tuple[ScopeKind, re.Pattern[str]], ...] = (
     ),
     (
         "fiscal_year",
-        re.compile(r"(?i)\b(?:fiscal\s+(?:year\s+)?'?|FY\s?'?)(\d{4}|\d{2})\b"),
+        re.compile(
+            r"(?i)\b(?:fiscal\s+(?:year\s+)?'?|FY\s?'?)(\d{4}|\d{2})(?![-\w])"
+        ),
     ),
     (
         "range",
@@ -324,7 +329,13 @@ SCOPE_PATTERNS: tuple[tuple[ScopeKind, re.Pattern[str]], ...] = (
             r"(?:fiscal\s+)?quarter\b"
         ),
     ),
-    ("latest", re.compile(r"(?i)\b(?:latest|most\s+recent|current)\b")),
+    (
+        "latest",
+        re.compile(
+            r"(?i)\b(?:latest|most\s+recent|current\s+(?:fiscal\s+)?"
+            r"(?:year|quarter|filings?|10-K|10-Q|annual\s+report))\b"
+        ),
+    ),
     (
         "calendar_year",
         re.compile(
@@ -928,8 +939,8 @@ class Resolver:
             for alias in company.aliases:
                 if alias in GUARDED_WORDS:
                     guarded.append((alias, company.ticker))
-                elif alias == company.ticker.lower():
-                    continue  # a bare ticker resolves through rules 2 and 3
+                elif alias in WORD_TICKERS:
+                    continue  # an English word resolves through rules 2 and 3
                 else:
                     aliases.append((alias, company.ticker))
         aliases.sort(key=lambda pair: (-len(pair[0]), pair[0]))
@@ -1315,7 +1326,11 @@ def _anchored_window(
     if scope.kind == "since" and scope.start_year:
         return datetime.date(scope.start_year, 1, 1), anchor
     if scope.kind == "relative_years":
-        return _shift_years(anchor, -(scope.count or 1)), anchor
+        year, month = parser_base.nominal_month(anchor)
+        start, _ = _nominal_window(
+            _month_index(year - (scope.count or 1), month + 1), (year, month)
+        )
+        return start, anchor
     if scope.kind == "relative_quarters":
         months = 3 * ((scope.count or 1) - 1)
         start = _shift_months(anchor, -months) - datetime.timedelta(days=10)
@@ -1324,8 +1339,10 @@ def _anchored_window(
         quarters = [f for f in filings if f.form == "10-Q"] or list(filings)
         latest = quarters[-1].period_end_date
         return latest, latest
-    ten_ks = [f for f in filings if f.form == "10-K"]
-    return (ten_ks[-1].period_end_date if ten_ks else anchor), anchor
+    newest: dict[str, datetime.date] = {}
+    for filing in filings:  # earliest first, so the last one stays
+        newest[filing.form] = filing.period_end_date
+    return min(newest.values()), max(newest.values())
 
 
 def scope_window(
@@ -1409,25 +1426,37 @@ def topics(text: str) -> tuple[list[str], dict[str, float]]:
 
 
 def out_of_scope_parts(
-    text: str, last_filing: datetime.date | None
-) -> tuple[list[str], str]:
+    text: str, time_scope: TimeScope, last_filing: datetime.date | None
+) -> tuple[list[str], str, bool]:
     """Find the parts of a question that no filing answers (E-Q-09).
 
     Args:
         text: The normalized question.
+        time_scope: The time scope of the question.
         last_filing: The newest filing date of the corpus.
 
     Returns:
-        The parts, and the text with the parts removed.
+        The parts, the text with the parts removed, and True when every
+        scope of the question lies after the corpus.
     """
     parts = [m.group() for m in OUT_OF_SCOPE.finditer(text)]
     rest = OUT_OF_SCOPE.sub(" ", text)
-    if last_filing is not None:
-        later = sorted(
-            {int(y) for y in YEAR.findall(text) if int(y) > last_filing.year}
-        )
-        parts += [f"events in {year} (after the corpus)" for year in later]
-    return parts, rest
+    later = []
+    for scope in time_scope.scopes:
+        years = [
+            y
+            for y in (
+                scope.fiscal_year,
+                scope.calendar_year,
+                scope.start_year,
+            )
+            if y is not None
+        ]
+        if last_filing is not None and years and min(years) > last_filing.year:
+            later.append(scope)
+    parts += [f"{scope.text} (after the corpus)" for scope in later]
+    every = bool(time_scope.scopes) and len(later) == len(time_scope.scopes)
+    return parts, rest, every
 
 
 def classify(
@@ -1450,7 +1479,7 @@ def classify(
     Returns:
         The types in priority order; the first is the primary type.
     """
-    found: set[str] = set()
+    found: set[QuestionType] = set()
     if out_of_scope_reason is not None:
         found.add("out_of_scope")
     if groups:
@@ -1467,7 +1496,7 @@ def classify(
         found.add("generic")
     if not found:
         found.add("out_of_scope")
-    return [t for t in TYPE_PRIORITY if t in found]  # type: ignore[misc]
+    return [t for t in TYPE_PRIORITY if t in found]
 
 
 # --- The pipeline -------------------------------------------------------------
@@ -1602,8 +1631,10 @@ class Understander:
                 t for t in self._group_tickers(group) if t not in tickers
             ]
 
-        parts, rest = out_of_scope_parts(text, self.catalog.last_filing_date)
-        parts += [f"{name} (not in the corpus)" for name in unknown]
+        time_scope = parse_time_scope(text)
+        parts, rest, after_corpus = out_of_scope_parts(
+            text, time_scope, self.catalog.last_filing_date
+        )
         terms, weights = topics(rest)
         reason = self._out_of_scope_reason(
             entities=entities,
@@ -1612,7 +1643,9 @@ class Understander:
             unknown=unknown,
             terms=terms,
             parts=parts,
+            after_corpus=after_corpus,
         )
+        parts += [f"{name} (not in the corpus)" for name in unknown]
         types = classify(
             companies=len(entities),
             groups=groups,
@@ -1620,7 +1653,6 @@ class Understander:
             has_topic=bool(terms),
             out_of_scope_reason=reason,
         )
-        time_scope = parse_time_scope(text)
         windows = {
             ticker: company_window(
                 time_scope,
@@ -1664,10 +1696,16 @@ class Understander:
         unknown: Sequence[str],
         terms: Sequence[str],
         parts: Sequence[str],
+        after_corpus: bool,
     ) -> str | None:
-        """Decide whether anything in the question is in scope."""
+        """Decide whether anything in the question is in scope.
+
+        The parts here are the price, advice, and after-corpus requests;
+        an unknown company next to a resolved one is no reason (10.6).
+        """
         if tickers:
-            return None if terms or not parts else "out_of_scope_request"
+            request = after_corpus or (bool(parts) and not terms)
+            return "out_of_scope_request" if request else None
         if entities and not groups:
             return "not_indexed"
         if unknown:
