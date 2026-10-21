@@ -114,7 +114,7 @@ def header_keys(path: pathlib.Path) -> tuple[str, ...]:
     with path.open("rb") as stream:
         head = stream.read(HEADER_SCAN_BYTES).decode("utf-8", "replace")
     keys: list[str] = []
-    for line in head.lstrip("﻿").splitlines()[:HEADER_SCAN_LINES]:
+    for line in head.lstrip("\ufeff").splitlines()[:HEADER_SCAN_LINES]:
         if SEPARATOR.match(line):
             return tuple(keys)
         match = HEADER_KEY.match(line)

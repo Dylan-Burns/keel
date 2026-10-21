@@ -198,7 +198,8 @@ jobs:
         run: |
           # The two byte sequences are the em dash and the en dash in UTF-8.
           # The filing excerpts under tests/fixtures keep the bytes of the real filings.
-          if grep -rn --exclude-dir=.git --exclude-dir=corpus --exclude-dir=mini_corpus --exclude-dir=snippets --exclude-dir=node_modules --exclude-dir=dist --exclude=uv.lock --exclude=package-lock.json $'\xe2\x80\x94\\|\xe2\x80\x93' . ; then
+          if grep -rn --exclude-dir=.git --exclude-dir=corpus --exclude-dir=node_modules --exclude-dir=dist --exclude=uv.lock --exclude=package-lock.json $'\xe2\x80\x94\\|\xe2\x80\x93' . \
+            | grep -Ev '^\./tests/fixtures/(mini_corpus|snippets)/' ; then
             echo "::error::em or en dash found; use a comma, a colon, or a new sentence"
             exit 1
           fi

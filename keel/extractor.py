@@ -91,7 +91,8 @@ def check_archive(
         The entries with their destination paths, in archive order.
 
     Raises:
-        BadZipError: The archive exceeds the entry or size limit.
+        BadZipError: The archive exceeds the entry or size limit, or holds
+            2 entries with the same name.
         UnsafePathError: An entry fails the path checks.
     """
     entries = archive.infolist()
@@ -99,6 +100,10 @@ def check_archive(
         raise errors.BadZipError(
             f"zip has {len(entries)} entries, the limit is {max_entries}"
         )
+    names = [info.filename for info in entries]
+    if len(set(names)) != len(names):
+        duplicate = next(n for n in names if names.count(n) > 1)
+        raise errors.BadZipError(f"duplicate zip entry: {duplicate}")
     declared = sum(info.file_size for info in entries)
     if declared > max_total_bytes:
         raise errors.BadZipError(
@@ -147,9 +152,11 @@ def extract_zip(
     Raises:
         BadZipError: The archive is corrupt or exceeds a limit.
         UnsafePathError: An entry fails the path checks. Nothing is written.
-        ExtractTargetError: The target already holds files.
+        ExtractTargetError: The target is a file or already holds files.
     """
     target = target.resolve()
+    if target.exists() and not target.is_dir():
+        raise errors.ExtractTargetError(f"{target} is not a directory")
     if target.exists() and any(target.iterdir()):
         raise errors.ExtractTargetError(f"{target} already holds files")
     target.parent.mkdir(parents=True, exist_ok=True)
