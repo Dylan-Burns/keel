@@ -57,7 +57,7 @@ Documentation = "docs/01_reader_map_and_executive_summary.md"
 [dependency-groups]
 dev = [
   "hypothesis>=6.112",
-  "mypy>=1.11",
+  "mypy>=2.4.0",
   "pip-audit>=2.7",
   "pre-commit>=3.8",
   "pylint>=3.2",
