@@ -8,7 +8,7 @@
 ARG PYTHON_IMAGE=python:3.12-slim-bookworm
 ARG NODE_IMAGE=node:22-alpine
 
-FROM ghcr.io/astral-sh/uv:0.5 AS uv
+FROM ghcr.io/astral-sh/uv:0.13 AS uv
 
 FROM ${NODE_IMAGE} AS web
 WORKDIR /web
