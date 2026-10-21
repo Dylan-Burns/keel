@@ -86,9 +86,9 @@ def test_chunk_size_limits(
     split = [c for c in chunks if c.split_sentence]
     assert len(split) >= 3
     packed = [c for c in chunks if c.section == "risk_factors"]
-    assert all(
-        counter.count(c.text.split("\n", 1)[1]) <= sizes.target for c in packed
-    )
+    bodies = [counter.count(c.text.split("\n", 1)[1]) for c in packed]
+    assert all(size <= sizes.target for size in bodies)
+    assert all(size >= 300 for size in bodies[:-1])
 
 
 def test_overlap(
@@ -105,7 +105,7 @@ def test_overlap(
     for first, second in itertools.pairwise(risk):
         assert second.char_start < first.char_end
         shared = text[second.char_start : first.char_end]
-        assert 0 < counter.count(shared) <= sizes.overlap
+        assert 20 <= counter.count(shared) <= sizes.overlap
         assert first.text.endswith(shared.strip())
 
 
@@ -123,6 +123,7 @@ def test_no_section_crossing(
         ]
         assert len(holder) == 1
         assert holder[0].section == chunk.section
+        assert holder[0].item_label == chunk.item_label
     risk = [c for c in result.chunks if c.section == "risk_factors"]
     assert [c.sequence for c in risk] == list(range(len(risk)))
     assert risk[0].chunk_id == "NVDA_10K_2025-01-26__risk_factors__0000"
@@ -161,6 +162,7 @@ def test_table_caption(
     assert len(parts) >= 3
     caption = found[0].caption()
     assert caption.startswith("TABLE: Revenue by Segment")
+    assert "units: in millions" in caption
     for part in parts:
         assert part.text.split("\n")[1] == caption
         assert counter.count(part.text.split("\n", 1)[1]) <= sizes.target
@@ -223,7 +225,7 @@ def test_summary(
     counter: chunker.HFTokenCounter, sizes: chunker.ChunkSizes
 ) -> None:
     results = chunker.chunk_filings([filing(ten_k())], counter, sizes)
-    summary = chunker.summarize(results, sizes, 1.25)
+    summary = chunker.summarize(results, 1.25)
     assert summary.filings == 1
     assert summary.chunks == len(results[0].chunks)
     assert summary.by_form == {"10-K": summary.chunks}
@@ -270,3 +272,31 @@ def test_long_table_row_split(
     assert all(c.token_count <= 512 for c in parts)
     joined = " ".join(c.text for c in parts)
     assert joined.count("1,234,567") == 190
+
+
+def test_table_across_span_end_chunked_once(
+    counter: chunker.HFTokenCounter, sizes: chunker.ChunkSizes
+) -> None:
+    rows = "".join(f"| Line {n} | $ {n} |\n" for n in range(1, 30))
+    text = "Item 7. MD&A\n" + SENTENCE * 4 + "\nTitle\n" + rows + SENTENCE * 4
+    found = tuple(tables.find_tables(text))
+    (table,) = found
+    middle = (table.start + table.end) // 2
+
+    def span(name: str, start: int, end: int) -> sections.Section:
+        return sections.Section(
+            section=name, item_label=None, start=start, end=end, confidence=1
+        )
+
+    detected = sections.SectionResult(
+        sections=(
+            span("mdna", 0, middle),
+            span("unknown", middle, len(text)),
+        ),
+        candidates=(),
+    )
+    result = chunker.chunk_filing(filing(text, found), counter, sizes, detected)
+    joined = "\n".join(c.text for c in result.chunks)
+    assert joined.count("Line 17 | $ 17") == 1
+    unknown = [c for c in result.chunks if c.section == "unknown"]
+    assert all(c.char_start >= table.end for c in unknown)

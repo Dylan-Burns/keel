@@ -492,7 +492,7 @@ def run_chunk(
     result = _parse(settings, files, chunk_all, corpus_dir)
     started = time.perf_counter()
     chunked = chunker.chunk_filings(result.filings, counter, sizes)
-    summary = chunker.summarize(chunked, sizes, time.perf_counter() - started)
+    summary = chunker.summarize(chunked, time.perf_counter() - started)
     if as_json:
         print(json.dumps(summary.model_dump(mode="json"), indent=2))
     else:

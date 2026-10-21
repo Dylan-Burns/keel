@@ -14,7 +14,6 @@ from collections.abc import Iterable
 from collections.abc import Sequence
 import dataclasses
 import hashlib
-import logging
 import os
 import pathlib
 import re
@@ -31,15 +30,13 @@ from keel import sections as sections_mod
 from keel import tables
 from keel.parsers import base
 
-logger = logging.getLogger(__name__)
-
 SENTENCE_END = re.compile(r"(?<=[.!?])[\"')\]]*[ \t]+(?=[\"'(\[]?[A-Z0-9$])")
 SPLIT_POINT = re.compile(r"[;,][ \t]+")
 WORD = re.compile(r"[a-z0-9]+(?:['.][a-z0-9]+)*")
 SIMHASH_BITS = 64
 SHINGLE = 3
-# The prefix line of chapter 9.1 stays under 32 tokens (512 - 480).
-MAX_PREFIX_TOKENS = 32
+# The embedding model reads 512 tokens, 2 of them the special tokens.
+MODEL_TOKENS = 510
 # A table row piece holds at least this many tokens.
 MIN_ROW_ROOM = 16
 _SIGN_BIT = 1 << (SIMHASH_BITS - 1)
@@ -336,9 +333,19 @@ def _sentence_spans(text: str, start: int, end: int) -> list[tuple[int, int]]:
 class _Tokens:
     """Token starts of 1 range of text, for counts by character range."""
 
-    def __init__(self, base_offset: int, spans: list[tuple[int, int]]) -> None:
+    def __init__(
+        self, text: str, base_offset: int, spans: list[tuple[int, int]]
+    ) -> None:
+        self.text = text
         self.starts = [base_offset + s for s, _ in spans]
         self.ends = [base_offset + e for _, e in spans]
+
+    def _word_start(self, index: int, low: int) -> int:
+        """Move a cut back to a token after a space, so no word splits."""
+        for candidate in range(index, low, -1):
+            if self.ends[candidate - 1] < self.starts[candidate]:
+                return candidate
+        return index
 
     def count(self, start: int, end: int) -> int:
         return bisect.bisect_left(self.starts, end) - bisect.bisect_left(
@@ -350,11 +357,12 @@ class _Tokens:
         first = bisect.bisect_left(self.starts, start)
         last = bisect.bisect_left(self.starts, end)
         pieces: list[tuple[int, int]] = []
-        piece_start = start
-        for index in range(first + size, last, size):
-            boundary = self.starts[index]
+        piece_start, index = start, first
+        while last - index > size:
+            cut = self._word_start(index + size, index)
+            boundary = self.starts[cut]
             pieces.append((piece_start, boundary))
-            piece_start = boundary
+            piece_start, index = boundary, cut
         pieces.append((piece_start, end))
         return pieces
 
@@ -453,18 +461,17 @@ def _table_bodies(
     lines: list[str] = []
     total = caption_tokens
     split = False
-    room = max(sizes.maximum - caption_tokens, MIN_ROW_ROOM)
+    room = max(sizes.target - caption_tokens, MIN_ROW_ROOM)
     pieces: list[tuple[str, int, bool]] = []
     for row, size in zip(rows, row_tokens, strict=True):
         if size <= room:
             pieces.append((row, size, False))
             continue
-        # A row longer than the hard maximum splits like a long sentence.
-        spans = counter.offsets([row])[0]
-        for first in range(0, len(spans), room):
-            last = min(first + room, len(spans)) - 1
-            piece = row[spans[first][0] : spans[last][1]]
-            pieces.append((piece, last - first + 1, True))
+        # A row longer than the room splits like a long sentence.
+        row_tokens_ = _Tokens(row, 0, counter.offsets([row])[0])
+        for first, last in row_tokens_.cut(0, len(row), room):
+            piece = row[first:last].strip()
+            pieces.append((piece, row_tokens_.count(first, last), True))
     for line, size, cut in pieces:
         if lines and total + size > sizes.target:
             bodies.append(_table_body(table, caption, lines, total, split))
@@ -508,18 +515,25 @@ class FilingChunks:
 
 
 def _prose_ranges(
-    span: sections_mod.Section, table_list: Sequence[tables.Table]
+    span: sections_mod.Section,
+    table_list: Sequence[tables.Table],
+    consumed: int,
 ) -> list[tuple[str, int, int, tables.Table | None]]:
-    """Split a section span into prose ranges and the tables in it."""
+    """Split a section span into prose ranges and the tables in it.
+
+    A table belongs to the span where it starts, whole. When it runs past
+    the span end, the next span starts after it (`consumed`), so no row is
+    cut twice.
+    """
     pieces: list[tuple[str, int, int, tables.Table | None]] = []
-    cursor = span.start
+    cursor = max(span.start, consumed)
     for table in table_list:
-        if not span.start <= table.start < span.end:
+        if not cursor <= table.start < span.end:
             continue
         if table.start > cursor:
             pieces.append(("prose", cursor, table.start, None))
         pieces.append(("table", table.start, table.end, table))
-        cursor = max(cursor, min(table.end, span.end))
+        cursor = table.end
     if cursor < span.end:
         pieces.append(("prose", cursor, span.end, None))
     return pieces
@@ -543,14 +557,20 @@ def chunk_filing(
         The sections and the chunks.
 
     Raises:
-        KeelError: The filing is quarantined or has no filing ID.
+        FilingNotIndexableError: The filing is quarantined or has no ID.
     """
     meta = filing.metadata
     filing_key = filing.filing_id
     if filing.quarantined or filing_key is None or meta.form is None:
-        raise errors.KeelError(f"{meta.file_name}: not indexable")
+        raise errors.FilingNotIndexableError(
+            f"{meta.file_name}: quarantined or without a filing ID"
+        )
     text = filing.text
-    result = detected or sections_mod.detect(text, meta.form)
+    result = (
+        detected
+        if detected is not None
+        else sections_mod.detect(text, meta.form)
+    )
     spans = [s for s in result.sections if not s.excluded]
     prose_texts: list[str] = []
     layout: list[
@@ -559,14 +579,17 @@ def chunk_filing(
             list[tuple[str, int, int, tables.Table | None]],
         ]
     ] = []
+    consumed = 0
     for span in spans:
-        pieces = _prose_ranges(span, filing.tables)
+        pieces = _prose_ranges(span, filing.tables, consumed)
+        if pieces:
+            consumed = max(consumed, pieces[-1][2])
         layout.append((span, pieces))
         prose_texts.extend(
             text[a:b] for kind, a, b, _ in pieces if kind == "prose"
         )
     offsets = iter(counter.offsets(prose_texts))
-    prefixes = {span.title for span in spans}
+    prefixes = sorted({span.title for span in spans})
     prefix_tokens = {
         title: len(spans_)
         for title, spans_ in zip(
@@ -579,13 +602,20 @@ def chunk_filing(
     chunks: list[Chunk] = []
     for span, pieces in layout:
         bodies: list[_Body] = []
+        # The prefix line and the body fit the 510 tokens of the model.
+        room = MODEL_TOKENS - prefix_tokens[span.title]
+        span_sizes = dataclasses.replace(
+            sizes,
+            maximum=min(sizes.maximum, room),
+            target=min(sizes.target, room),
+        )
         for kind, a, b, table in pieces:
             if kind == "table" and table is not None:
-                bodies.extend(_table_bodies(table, counter, sizes))
+                bodies.extend(_table_bodies(table, counter, span_sizes))
                 continue
-            tokens = _Tokens(a, next(offsets))
-            units = _units(text, a, b, tokens, sizes.maximum)
-            for group in pack(units, sizes):
+            tokens = _Tokens(text, a, next(offsets))
+            units = _units(text, a, b, tokens, span_sizes.maximum)
+            for group in pack(units, span_sizes):
                 first, last = group[0].start, group[-1].end
                 bodies.append(
                     _Body(
@@ -672,6 +702,9 @@ def chunk_filings(
 
     Returns:
         1 result per indexable filing, in the given order.
+
+    Raises:
+        FilingNotIndexableError: A filing without a form reached the chunker.
     """
     return [
         chunk_filing(f, counter, sizes)
@@ -697,7 +730,8 @@ class ChunkSummary(pydantic.BaseModel):
         tokens_p95: The 95th percentile token count.
         tokens_min: The smallest token count.
         tokens_max: The largest token count.
-        over_limit: The chunks over the hard maximum plus the prefix line.
+        over_limit: The chunks over the 510 tokens the model reads besides
+            its 2 special tokens.
         seconds: The wall time of the chunking.
     """
 
@@ -718,14 +752,11 @@ class ChunkSummary(pydantic.BaseModel):
     seconds: float
 
 
-def summarize(
-    results: Sequence[FilingChunks], sizes: ChunkSizes, seconds: float
-) -> ChunkSummary:
+def summarize(results: Sequence[FilingChunks], seconds: float) -> ChunkSummary:
     """Summarize the chunks of a corpus.
 
     Args:
         results: The chunked filings.
-        sizes: The chunk sizes.
         seconds: The wall time of the chunking.
 
     Returns:
@@ -738,7 +769,7 @@ def summarize(
     for chunk in chunks:
         by_form[chunk.form] = by_form.get(chunk.form, 0) + 1
         by_section[chunk.section] = by_section.get(chunk.section, 0) + 1
-    limit = sizes.maximum + MAX_PREFIX_TOKENS
+    limit = MODEL_TOKENS
     return ChunkSummary(
         filings=len(results),
         chunks=len(chunks),
