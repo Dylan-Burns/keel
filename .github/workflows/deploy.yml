@@ -1,0 +1,54 @@
+name: deploy
+
+# Manual, approved deploy of a released version to the Railway pilot host
+# (chapter 29.9). The production environment in GitHub requires a reviewer
+# before the job runs. Railway builds the Dockerfile from the tagged commit.
+# For the AWS host, use deploy-aws.yml instead.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Released version to deploy, for example 0.3.1"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production
+      url: https://${{ vars.KEEL_HOSTNAME }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ inputs.version }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: install the Railway CLI
+        run: npm install --global @railway/cli
+      - name: deploy the tagged commit
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up --service keel --ci
+      - name: wait for the new version to answer
+        run: |
+          for _ in $(seq 1 60); do
+            if curl -fsS "https://${{ vars.KEEL_HOSTNAME }}/api/health" | grep -q "\"${{ inputs.version }}\""; then
+              echo "version ${{ inputs.version }} is live"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "the host did not report version ${{ inputs.version }} within 10 minutes"
+          exit 1
+      - name: smoke test
+        run: curl -fsS "https://${{ vars.KEEL_HOSTNAME }}/api/ready"

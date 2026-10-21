@@ -1,0 +1,58 @@
+# Local run and pilot host run. `docker compose up` builds locally; on the pilot
+# host, deploy.yml sets KEEL_IMAGE to the released image.
+services:
+  app:
+    image: ${KEEL_IMAGE:-keel:local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: .env
+    environment:
+      KEEL_CORPUS__DIR: /app/corpus/edgar
+      KEEL_INDEX__DIR: /app/index
+      KEEL_LOGS__DIR: /app/logs
+      KEEL_CACHE__ANSWERS_DIR: /app/demo/answer_cache
+      KEEL_EDGAR__CACHE_DIR: /app/cache/edgar
+      HF_HOME: /app/cache/hf
+      HF_HUB_OFFLINE: "1"
+    volumes:
+      - ./corpus:/app/corpus:ro
+      - ./index:/app/index
+      - ./cache:/app/cache
+      - ./logs:/app/logs
+      - ./demo/answer_cache:/app/demo/answer_cache
+    ports:
+      - "127.0.0.1:8000:8000"
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    profiles: [production]
+    environment:
+      KEEL_HOSTNAME: ${KEEL_HOSTNAME:?set KEEL_HOSTNAME in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

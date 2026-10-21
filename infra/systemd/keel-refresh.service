@@ -1,0 +1,11 @@
+[Unit]
+Description=Keel nightly refresh of watched tickers from EDGAR (chapter 26.3)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/keel
+ExecStart=/usr/bin/docker compose run --rm --no-deps app refresh
+StandardOutput=append:/opt/keel/logs/refresh.log
+StandardError=append:/opt/keel/logs/refresh.log

@@ -1,0 +1,16 @@
+# Railway service definition for the pilot host (chapter 29.9).
+# The service needs one volume mounted at /data and the variables listed in
+# infra/README.md. Deploys are explicit: .github/workflows/deploy.yml runs
+# `railway up` from a tagged commit, so turn off the automatic deploy on push
+# in the Railway service settings.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "keel serve --bootstrap"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

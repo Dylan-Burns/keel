@@ -1,0 +1,28 @@
+name: Bug
+description: Something the system does that the plan says it must not do
+labels: [bug]
+body:
+  - type: input
+    id: request_id
+    attributes:
+      label: Request ID
+      description: From the page footer or the audit log, if the bug is an answer
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+      description: Cite the requirement, decision, or edge case ID
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true

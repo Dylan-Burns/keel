@@ -1,0 +1,25 @@
+name: release-please
+
+# Opens and maintains a release PR from Conventional Commits on main. Merging
+# the PR tags the release (vX.Y.Z) and updates CHANGELOG.md and pyproject.toml.
+# The tag triggers release.yml, which builds and publishes the image.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          # A fine-grained token (RELEASE_PLEASE_TOKEN): PRs and tags made with
+          # the default GITHUB_TOKEN start no workflow, so the release PR could
+          # never pass the required checks and the tag would never build.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

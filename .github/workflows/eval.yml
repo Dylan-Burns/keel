@@ -1,0 +1,57 @@
+name: eval
+
+# Runs the golden set against the mini corpus with the live provider.
+# Nightly, on every push to main, and on demand. The gate fails the job when a
+# metric is below its threshold (chapter 18.8). The full-corpus eval runs on the
+# engineer's machine because the full index is not in the repo.
+on:
+  schedule:
+    - cron: "17 9 * * *"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eval-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  golden-set:
+    runs-on: ubuntu-latest
+    environment: eval
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: is the eval harness built yet
+        id: harness
+        run: |
+          if [ -f eval/golden.yaml ] && [ -f keel/api/app.py ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "eval/golden.yaml is not in the repository yet (stage 10); nothing to run"
+          fi
+      - run: uv sync --frozen
+        if: steps.harness.outputs.present == 'true'
+      - name: build the mini index
+        if: steps.harness.outputs.present == 'true'
+        run: uv run keel index --corpus tests/fixtures/mini_corpus --out index/ci
+      - name: run the gated eval
+        if: steps.harness.outputs.present == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          KEEL_INDEX__DIR: index/ci
+        run: uv run keel eval --set eval/golden.yaml --subset ci --gate --report eval/report.md
+      - name: upload report
+        if: always() && steps.harness.outputs.present == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report-${{ github.run_number }}
+          path: eval/report.md
+          retention-days: 90

@@ -1,0 +1,101 @@
+# Keel configuration. Secrets never live in this file.
+#
+# Environment overrides: a top-level key is KEEL_<KEY>, a nested key is
+# KEEL_<SECTION>__<KEY> (two underscores). Examples: KEEL_OFFLINE=1,
+# KEEL_LLM__MODEL=..., KEEL_INDEX__DIR=/data/index. List values are JSON.
+# Every TODO below must be resolved before stage 1 (see CLAUDE.md).
+
+offline: false                 # KEEL_OFFLINE=1 serves every question from the answer cache (chapter 16)
+
+server:
+  host: 127.0.0.1              # KEEL_SERVER__HOST=0.0.0.0 in the container
+  port: 8000
+
+cache:
+  answers_dir: demo/answer_cache   # the answer cache; committed for the offline drill, on the volume in the pilot
+
+corpus:
+  zip: corpus/edgar_corpus.zip
+  url: null                    # KEEL_CORPUS__URL: where `keel bootstrap` downloads the zip when it is absent
+  dir: corpus/edgar
+  manifest: corpus/edgar/manifest.json
+  date_filter: null            # or {min: "2023-01-01", max: "2025-12-31"}; decision D-19 keeps all files
+
+index:
+  dir: index                   # the build writes index/<build_id> and moves the `current` pointer
+
+logs:
+  dir: logs                    # audit.jsonl, refresh.log
+
+parser:
+  version: 1.0.0
+  protected_names: config/protected_names.txt
+  abbreviations: config/abbreviations.txt
+  overrides: config/overrides.yaml
+  fiscal_year_ends: config/fiscal_year_ends.yaml
+
+chunker:
+  version: 1.0.0
+  target_tokens: 400
+  max_tokens: 480
+  overlap_tokens: 50
+
+embedding:
+  model: BAAI/bge-small-en-v1.5
+  revision: TODO               # commit hash of the model on Hugging Face
+  batch_size: 32
+
+reranker:
+  enabled: true
+  model: cross-encoder/ms-marco-MiniLM-L-6-v2
+  revision: TODO               # commit hash of the model on Hugging Face
+  top_n: 80
+
+retrieval:
+  lexical_k: 100
+  dense_k: 100
+  rrf_k: 60
+  max_context_tokens: 32000
+  max_chunks: 48
+  simhash_max_distance: 3
+  calibration_factor: 1.15
+
+llm:
+  provider: anthropic
+  model: TODO                  # dated snapshot id for Claude Sonnet 5.5 from the models list
+  fallback_model: TODO         # dated snapshot id for Claude Haiku 5.5
+  judge_model: TODO            # eval only; a different snapshot from llm.model where possible (D-35)
+  temperature: 0
+  max_output_tokens: 4000
+  prompt_version: 1.0.0
+  cache_system_block: true
+  timeout_seconds: 120
+  max_retries: 2               # before any content only (D-04)
+
+limits:
+  question_min_chars: 3
+  question_max_chars: 1000
+  rate_per_minute: 10
+  rate_per_hour: 100
+  daily_budget_usd: 20
+
+edgar:
+  user_agent: TODO             # "Your Name your@email.example" as the SEC requires
+  cache_dir: cache/edgar
+  min_request_interval_seconds: 0.2
+
+demo:
+  example_questions:
+    - "What are the primary risk factors facing Apple, Tesla, and JPMorgan, and how do they compare?"
+    - "How has NVIDIA's revenue and growth outlook changed over the last two years?"
+    - "What regulatory risks do the major pharmaceutical companies face, and how are they addressing them?"
+  add_companies: TODO          # 2 tickers outside the corpus for keel add (chapter 26.6), e.g. ["ZTS", "WDAY"]
+
+scheduler:
+  enabled: false               # KEEL_SCHEDULER__ENABLED=1 on Railway (chapter 29.9); systemd timers on the AWS host
+  refresh_at: "02:00"
+  backup_at: "02:30"
+  backup_bucket: null          # KEEL_SCHEDULER__BACKUP_BUCKET: S3-compatible bucket for the nightly archive
+
+deploy:
+  host: railway                # railway (default, chapter 29.9), aws (chapter 29.6), or a hostname

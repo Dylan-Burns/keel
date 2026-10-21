@@ -1,0 +1,598 @@
+# Stage cards for the build (chapter 28). One card per stage. The /stage command
+# reads a card and expands it into the session prompt. The card names what to
+# read, what to build, which tests must exist, and what evidence ends the stage.
+# The chapters stay the specification; a card is the index into them.
+#
+# Fields:
+#   branch      the branch name for the stage
+#   read        docs to read before the stage (file globs and chapter numbers)
+#   build       files to create or change
+#   tests       test names that must exist and pass. A name that a chapter also
+#               names (chapters 7 to 19, 26) is binding as the chapter describes
+#               it. The other names (stages 10 and 12 to 22) are the minimum
+#               set for stages whose chapters name no tests; add tests the
+#               chapters imply.
+#   done_when   the done-when evidence from the chapter 28 table
+#   evidence    commands whose output goes into the PR body and the build report
+#   commits     the logical commit plan, in reviewer order
+#   cuttable    true when the chapter 28 cut order allows the stage to be dropped
+
+stages:
+  - id: 0
+    name: Repository foundation
+    branch: chore/stage-00-foundation
+    read: [docs/29_*.md, docs/28_*.md, CLAUDE.md, CONTRIBUTING.md, docs/GOTCHAS.md]
+    build:
+      - keel/__init__.py with __version__
+      - keel/cli.py with `keel --version`
+      - tests/unit/test_version.py (placeholder until stage 1)
+      - pylintrc (run scripts/fetch_pylintrc.sh)
+      - uv.lock, web/package-lock.json
+      - the front-end placeholder: web/index.html, web/src/main.tsx, web/src/App.tsx (renders the name Keel with one Motion fade and Tailwind classes), web/src/styles.css, web/src/motion/presets.ts (the pageLoad preset with its reduced twin), web/src/test-setup.ts (matchMedia stub), web/src/App.test.tsx, web/e2e/smoke.spec.ts (the title and the heading)
+    tests: [test_version, App.test.tsx, smoke.spec.ts]
+    done_when: >
+      The CI workflow is green on the empty package and the front-end
+      placeholder (both web jobs included), main is protected, and the first
+      PR merged with a rebase.
+    evidence:
+      - uv run pre-commit run --all-files
+      - make test
+      - npm run check --prefix web
+      - npm run test:e2e --prefix web
+      - docker build -t keel:local .
+      - gh pr checks
+    commits:
+      - "chore(stage-00): package skeleton and version command"
+      - "chore(stage-00): front-end placeholder on the React stack"
+      - "chore(stage-00): lockfiles and vendored pylintrc"
+    cuttable: false
+
+  - id: 1
+    name: Repo skeleton, config, inventory
+    branch: feat/stage-01-inventory
+    read: [docs/17_*.md chapter 17.6, docs/15_*.md control S-10, docs/23_*.md, docs/07_*.md chapter 7.1, docs/19_*.md rows E-D-* on the inventory and the zip]
+    build:
+      - keel/config.py (pydantic-settings, KEEL_ prefix, __ nested delimiter, YAML then env)
+      - keel/extractor.py (zip safety checks: path traversal, symlinks, size caps, member count)
+      - keel/inventory.py and `keel inventory`
+      - keel/cli.py commands inventory and doctor
+      - config/companies.yaml, config/groups.yaml, config/synonyms.yaml, config/known_external.yaml, config/fiscal_year_ends.yaml, config/overrides.yaml, config/protected_names.txt, config/abbreviations.txt
+      - tests/fixtures/mini_corpus (3 small filings) and tests/fixtures/snippets
+    tests:
+      - test_inventory_counts
+      - test_manifest_mismatch
+      - test_date_filter_config
+      - test_filename_patterns
+      - test_doctor_time_check
+    done_when: >
+      The counts match the corpus facts (246 files, 54 tickers, 89 10-K and
+      157 10-Q, filing dates February 2022 to February 2026, 1 GE file dated
+      2015), every discrepancy is stated, and assumption A-15 is recorded in
+      the build report.
+    evidence:
+      - uv run keel inventory
+      - uv run keel doctor
+    commits:
+      - "feat(stage-01): config loader and repo skeleton"
+      - "feat(stage-01): zip extraction with safety checks and inventory"
+      - "test(stage-01): inventory and config tests with the mini corpus"
+      - "docs(stage-01): build report with the corpus facts and A-15"
+    cuttable: false
+
+  - id: 2
+    name: Parser
+    branch: feat/stage-02-parser
+    read: [docs/07_*.md, docs/19_*.md rows E-D-*]
+    build:
+      - keel/parsers/base.py, keel/parsers/form_10k_10q.py (the 11 checks, quarantine)
+      - keel/tables.py (table rebuild, units)
+      - "keel parse with --all and --summary"
+    tests:
+      - test_header_parse
+      - test_separator_missing
+      - test_xbrl_cut_at_cover
+      - test_xbrl_long_block
+      - test_no_xbrl_block
+      - test_cover_fused_or
+      - test_cover_fused_transition
+      - test_fiscal_q1_apple
+      - test_fiscal_q3_nvda
+      - test_nominal_month
+      - test_registrant_mismatch
+      - test_fused_items
+      - test_nbsp_item_label
+      - test_heading_split
+      - test_page_artifact
+      - test_protected_name
+      - test_table_units
+      - test_idempotent_ids
+      - test_giant_line_parse
+      - test_large_file_parse_time
+      - test_bom_and_crlf
+      - test_invalid_utf8
+      - test_truncated_file_quarantine
+      - test_duplicate_filing_id
+    done_when: All 246 files parse, GE is quarantined, the 18 parser tests of chapter 7 pass, and the chapter 19 rows on the card have their tests.
+    evidence:
+      - uv run keel parse --all --summary
+      - uv run pytest tests/unit/test_parser.py -q
+    commits:
+      - "feat(parser): header, separator, and XBRL cut"
+      - "feat(parser): cover page period, fiscal math, and quarantine"
+      - "feat(parser): table rebuild with units"
+      - "test(parser): snippets for the 11 checks"
+    cuttable: false
+
+  - id: 3
+    name: Sections and chunker
+    branch: feat/stage-03-sections-chunker
+    read: [docs/08_*.md, docs/09_*.md chapters 9.1 to 9.3, docs/19_*.md rows E-D-* on sections and chunks]
+    build:
+      - keel/sections.py (canonical sections, TOC and cross-reference rejection, order constraint)
+      - keel/chunker.py (token targets, overlap, SimHash, no section crossing)
+    tests:
+      - test_10k_properties_other
+      - test_10q_mdna
+      - test_10q_part_ii_risk
+      - test_cross_reference_rejected
+      - test_toc_rows_rejected
+      - test_exhibits_excluded
+      - test_nvda_item_1a_once
+      - test_short_items
+      - test_unknown_fallback
+      - test_forward_looking_flag
+      - test_table_caption
+      - test_chunk_size_limits
+      - test_overlap
+      - test_no_section_crossing
+    done_when: >
+      95% of 10-Ks have the 3 core sections, and the chunk count is in the
+      35,000 to 40,000 range.
+    evidence:
+      - uv run keel parse --all --sections-report
+      - uv run keel chunk --all --summary
+    commits:
+      - "feat(sections): canonical section detector"
+      - "feat(chunker): token chunks with overlap and simhash"
+      - "test(sections): section and chunk tests from snippets"
+    cuttable: false
+
+  - id: 4
+    name: Index build
+    branch: feat/stage-04-index
+    read: [docs/09_*.md chapters 9.4 to 9.8, docs/GOTCHAS.md]
+    build:
+      - keel/stores/chunk_store.py, keel/stores/sqlite_fts.py, keel/stores/numpy_dense.py
+      - keel/indexer.py and `keel index` with --incremental, the manifest, the current pointer
+    tests:
+      - test_deterministic_build
+      - test_manifest_checksums
+      - test_vector_rows
+      - test_lexical_known_phrase
+      - test_dense_self_retrieval
+      - test_incremental_add
+    done_when: "`keel index` completes, and vectors.npy matches the chunk count."
+    evidence:
+      - uv run keel index
+      - uv run keel index --incremental
+      - ls -la index/current
+    commits:
+      - "feat(index): chunk store and FTS5 lexical index"
+      - "feat(index): dense vectors with the pinned embedding model"
+      - "feat(index): manifest, current pointer, incremental build"
+      - "test(index): determinism and self-retrieval"
+    cuttable: false
+    cut_within_stage: the dense index (chapter 28 cut order, last resort); the lexical index alone must still pass the stage
+
+  - id: 5
+    name: Question understanding
+    branch: feat/stage-05-understanding
+    read: [docs/10_*.md, docs/19_*.md rows E-Q-*]
+    build:
+      - keel/understanding.py (entities, aliases, fuzzy match, groups, type, scope, flags)
+    tests:
+      - test_alias_berkshire
+      - test_alias_coke
+      - test_alias_exxon
+      - test_alias_facebook
+      - test_alias_google_alphabet
+      - test_alias_jnj
+      - test_alias_jpmorgan
+      - test_alias_lilly
+      - test_common_word_guard
+      - test_short_ticker_guard
+      - test_fuzzy_typo
+      - test_unknown_company
+      - test_ge_quarantined
+      - test_group_banks
+      - test_group_pharma
+      - test_type_comparison
+      - test_type_sector
+      - test_type_trend
+      - test_scope_fiscal_year
+      - test_scope_last_two_years
+      - test_last_quarter_label
+      - test_mixed_scope
+      - test_multiple_scopes
+      - test_injection_flag
+      - test_non_english
+      - test_out_of_scope_price
+      - test_off_topic
+      - test_too_long
+    done_when: The 3 example questions resolve as planned in chapter 10.
+    evidence:
+      - uv run keel understand "What are the primary risk factors facing Apple, Tesla, and JPMorgan, and how do they compare?"
+      - uv run keel understand "How has NVIDIA's revenue and growth outlook changed over the last two years?"
+      - uv run keel understand "What regulatory risks do the major pharmaceutical companies face, and how are they addressing them?"
+    commits:
+      - "feat(understanding): entity resolution with aliases and fuzzy match"
+      - "feat(understanding): question type, scope, and flags"
+      - "test(understanding): the chapter 10 cases"
+    cuttable: false
+
+  - id: 6
+    name: Retriever
+    branch: feat/stage-06-retriever
+    read: [docs/11_*.md, docs/19_*.md rows E-C-* on retrieval and the context, docs/GOTCHAS.md]
+    build:
+      - keel/retriever.py (hybrid, RRF, reranker, quotas, collapse)
+      - keel/context.py (budget, order, token estimate with calibration)
+    tests:
+      - test_trend_cells
+      - test_rrf_fusion
+      - test_comparison_quotas
+      - test_quota_redistribution
+      - test_sector_cap
+      - test_simhash_collapse
+      - test_budget_never_exceeded
+      - test_section_weights
+      - test_boilerplate_weight
+      - test_latest_filing_weight
+      - test_risk_10k_supplement
+      - test_context_order
+      - test_empty_context
+      - test_calibration_adjust
+      - test_lexical_only_fallback
+      - test_single_10k_trend_gap
+    done_when: Each example question gives the planned context under 32,000 tokens.
+    evidence:
+      - uv run keel retrieve --question 1 --summary
+      - uv run keel retrieve --question 2 --summary
+      - uv run keel retrieve --question 3 --summary
+    commits:
+      - "feat(retriever): hybrid retrieval with RRF and the reranker"
+      - "feat(retriever): quotas, collapse, and the context budget"
+      - "test(retriever): fusion, quotas, and budget"
+    cuttable: false
+    cut_within_stage: the reranker (reranker.enabled false, chapter 28 cut order); hybrid retrieval without it must still pass the stage
+
+  - id: 7
+    name: The single call
+    branch: feat/stage-07-single-call
+    read: [docs/12_*.md, docs/16_*.md chapters on retries and the cache, docs/17_*.md chapters 17.1 to 17.5, docs/19_*.md rows E-C-* on the call and the answer, docs/GOTCHAS.md]
+    build:
+      - keel/providers/base.py, keel/providers/anthropic.py, keel/providers/mock.py (request counter)
+      - prompts/answer_system_v1.0.0.md, prompts/answer_user_v1.0.0.md, prompts/answer_schema_v1.0.0.json
+      - keel/prompt.py, keel/citations.py, keel/cache.py, keel/audit.py
+      - "keel ask"
+    tests:
+      - test_malformed_json_path
+      - test_single_request
+      - test_stream_deltas
+      - test_schema_valid
+      - test_prompt_hash_stable
+      - test_system_block_size
+      - test_citation_drift_removed
+      - test_quote_mismatch
+      - test_unverified_finding
+      - test_untrusted_context
+      - test_truncated_citation_marker
+      - test_offline_cache_hit
+      - test_cost_with_cache_miss
+      - test_model_pinned
+      - test_retry_before_content
+      - test_no_retry_after_content
+    done_when: >
+      `keel ask` answers example question 1 live with valid citations, and
+      the audit record shows 1 request; test_single_request passes.
+    evidence:
+      - uv run keel ask "What are the primary risk factors facing Apple, Tesla, and JPMorgan, and how do they compare?"
+      - tail -n 1 logs/audit.jsonl
+    commits:
+      - "feat(provider): adapter, mock with request counter, prompt 1.0.0"
+      - "feat(citations): validator, answer cache, audit log"
+      - "test(provider): single request, stream, schema, citations"
+      - "docs(stage-07): prompt log entry 1.0.0"
+    cuttable: false
+
+  - id: 8
+    name: Prompt iterations
+    branch: feat/stage-08-prompt-iterations
+    read: [docs/13_*.md, docs/12_*.md chapter on versions]
+    build:
+      - prompts/*_v1.x.0.md with the prompt log in docs/PROMPT_LOG.md
+    tests: [test_prompt_hash_stable]
+    done_when: The NVDA answer carries fiscal labels, and the pharma answer names the 1-10-K limit.
+    evidence:
+      - uv run keel ask "How has NVIDIA's revenue and growth outlook changed over the last two years?"
+      - uv run keel ask "What regulatory risks do the major pharmaceutical companies face, and how are they addressing them?"
+    commits:
+      - "feat(prompt): iterations from the 3 answers"
+      - "docs(prompt): prompt log with the before and after"
+    cuttable: false
+
+  - id: 9
+    name: API and front-end
+    branch: feat/stage-09-api-web
+    read: [docs/14_*.md all of it, with 14.8 and 14.9, docs/15_*.md rows on the web, docs/19_*.md rows E-F-*, docs/GOTCHAS.md]
+    build:
+      - keel/api/app.py (serves web/dist with the index.html fallback), routes.py (with GET /api/results/{request_id}), sse.py, auth.py, ratelimit.py and `keel serve`
+      - the mock provider fault header X-Keel-Mock (only when llm.provider is mock)
+      - web/src/state.ts (the 11 states as a union type and the reducer)
+      - web/src/api/client.ts (fetch and the SSE parser), web/src/api/types.ts (the 14.2 schemas)
+      - web/src/components/ (one file per region of 14.5 and per banner of 14.6), web/src/lib/markdown.ts
+      - web/src/motion/presets.ts (one export per moment of table 14.8, each with a reduced twin)
+      - web/e2e/smoke.spec.ts, ask.spec.ts, states.spec.ts, security.spec.ts, motion.spec.ts, mobile.spec.ts
+    tests:
+      - test_result_by_request_id
+      - test_copy_partial_header
+      - test_missing_key_ready
+      - test_ask_stream_events
+      - test_ask_json
+      - test_auth_required
+      - test_rate_limit
+      - test_question_limits
+      - test_ready_without_index
+      - test_chunk_lookup
+      - test_sec_url_only
+      - state.test.ts
+      - client.test.ts
+      - markdown.test.ts
+      - one Vitest file per component
+      - test_ui_escapes_model_text (security.spec.ts)
+      - test_ui_reduced_motion (motion.spec.ts)
+    done_when: >
+      A streamed answer shows in the browser with citation chips, the pipeline
+      steps light up in order, reduced motion turns the animations off, and
+      the Playwright specs of chapter 14.9 pass in CI.
+    evidence:
+      - uv run keel serve (then curl /api/health, /api/ready, and a streamed /api/ask)
+      - npm run check --prefix web
+      - KEEL_E2E_BASE_URL=http://127.0.0.1:8000 npm run test:e2e --prefix web
+    commits:
+      - "feat(api): routes, SSE stream, auth, rate limit, static front-end"
+      - "feat(web): state machine, API client, and the regions of 14.5"
+      - "feat(web): motion presets and the animations of 14.8"
+      - "test(web): vitest components and playwright specs"
+      - "test(api): stream events, limits, lookups"
+    cuttable: false
+
+  - id: 10
+    name: Eval harness
+    branch: feat/stage-10-eval
+    read: [docs/18_*.md, docs/19_*.md rows E-F-* on the eval]
+    build:
+      - eval/golden.yaml (28 questions), eval/labels/, eval/run_eval.py, eval/judge.py, prompts/judge_v1.0.0.md
+      - "keel eval with --set, --subset, --gate, --report"
+    tests: [test_eval_gate, test_judge_schema]
+    done_when: eval/report.md exists with the gates and the lexical versus dense versus hybrid ablation.
+    evidence:
+      - uv run keel eval --set eval/golden.yaml --report eval/report.md
+    commits:
+      - "feat(eval): golden set and section-level labels"
+      - "feat(eval): retrieval metrics, judge, ablation, gates"
+      - "docs(eval): first report"
+    cuttable: false
+
+  - id: 11
+    name: Reliability and timebox security
+    branch: feat/stage-11-reliability
+    read: [docs/16_*.md, docs/15_*.md, docs/19_*.md rows E-F-* on operations]
+    build:
+      - keel/reliability.py (breaker, fallback model, budget stop, degraded mode)
+      - the timebox security controls of chapter 15 that stages 7 and 9 did not cover
+    tests:
+      - test_index_checksum_mismatch
+      - test_breaker_opens
+      - test_budget_stop
+      - test_context_overflow_halves
+      - test_degraded_mode
+      - test_fallback_model_named
+      - test_stale_index_flag
+      - test_two_concurrent_questions
+      - test_port_fallback
+      - test_refusal_path
+    done_when: The offline drill passes with the network off.
+    evidence:
+      - KEEL_OFFLINE=1 uv run keel serve (then the 3 example questions from the cache)
+    commits:
+      - "feat(api): breaker, fallback, budget stop, degraded mode"
+      - "feat(api): security controls S-01 to S-11"
+      - "test(api): reliability set"
+    cuttable: false
+
+  - id: 12
+    name: Trace drawer, eval page, adversarial preset
+    branch: feat/stage-12-trace-eval-page
+    read: [docs/25_*.md chapters 25.1, 25.2, 25.4, docs/14_*.md chapter 14.8, docs/GOTCHAS.md]
+    build:
+      - web/src/components/TraceDrawer.tsx with the drawer preset (spring and pulse) in presets.ts, keel/api/sse.py (audit record in final)
+      - keel/api/routes.py (/api/eval page) and web/src/components/EvalPage.tsx
+      - the G-27 preset button
+    tests: [test_final_event_audit, test_eval_page_renders, TraceDrawer.test.tsx, ask.spec.ts updated for the drawer]
+    done_when: "The drawer springs up and shows `model requests: 1` on a live answer."
+    evidence:
+      - uv run keel ask --json "What are the primary risk factors facing Apple, Tesla, and JPMorgan, and how do they compare?" | jq .audit.model_requests
+    commits:
+      - "feat(web): answer-trace drawer"
+      - "feat(api): eval page and adversarial preset"
+      - "test(api): final event carries the audit record"
+    cuttable: false
+
+  - id: 13
+    name: Company facts
+    branch: feat/stage-13-company-facts
+    read: [docs/26_*.md chapter 26.1, docs/15_*.md control S-11, docs/GOTCHAS.md]
+    build:
+      - keel/edgar.py (ticker map, company facts fetch with the cache and the rate limit)
+      - config/facts.yaml (8 concepts), the facts block, fact citations
+    tests: [test_no_network, test_ticker_to_cik, test_facts_block, test_facts_citation]
+    done_when: The NVIDIA revenue question answers with exact reported values and units.
+    evidence:
+      - uv run keel ask "What was NVIDIA's revenue in fiscal 2025 and fiscal 2024?"
+    commits:
+      - "feat(edgar): ticker map and company facts with cache"
+      - "feat(prompt): facts block and fact citations"
+      - "test(edgar): facts tests with recorded responses"
+    cuttable: false
+
+  - id: 14
+    name: keel add
+    branch: feat/stage-14-keel-add
+    read: [docs/26_*.md chapter 26.2, docs/GOTCHAS.md]
+    build:
+      - "keel add TICKER end to end (submissions, filing pick, HTML to text, parse, incremental index)"
+    tests: [test_submissions_pick, test_html_to_text, test_add_incremental]
+    done_when: 2 companies outside the corpus answer questions.
+    evidence:
+      - uv run keel add <ticker from demo.add_companies>
+      - uv run keel ask "<a question about that company>"
+    commits:
+      - "feat(edgar): submissions and filing download"
+      - "feat(edgar): html to text and incremental add"
+      - "test(edgar): add path with recorded responses"
+    cuttable: true
+
+  - id: 15
+    name: Memo, drills, warm cache
+    branch: docs/stage-15-memo-drills
+    read: [docs/25_*.md chapters 25.3, 25.5, docs/16_*.md chapter on the cache, docs/21_*.md]
+    build:
+      - docs/PERFORMANCE_MEMO.md, docs/PUSHBACK.md, docs/CODE_WALK.md
+      - the pre-fetch of the 54 company facts files, `keel warm-cache`
+    tests: [test_warm_cache_complete]
+    done_when: Everything the demo touches is on disk.
+    evidence:
+      - uv run keel warm-cache
+      - KEEL_OFFLINE=1 uv run keel ask "How has NVIDIA's revenue and growth outlook changed over the last two years?"
+    commits:
+      - "feat(cache): warm-cache command and facts pre-fetch"
+      - "docs(stage-15): performance memo, pushback drills, code walk"
+    cuttable: false
+
+  - id: 16
+    name: Rehearsal
+    branch: docs/stage-16-rehearsal
+    read: [docs/21_*.md, docs/25_*.md chapters 25.6, 25.7, 25.8]
+    build:
+      - docs/REHEARSAL.md with the timings, the failure drills, and the recording checklist
+      - scripts/demo_preflight.sh
+    tests: []
+    done_when: The rehearsal fits 25 minutes with 5 minutes to spare (recorded by the engineer; the agent prepares the script and the preflight).
+    evidence:
+      - scripts/demo_preflight.sh
+    commits:
+      - "docs(stage-16): rehearsal script and failure drills"
+      - "chore(stage-16): demo preflight script"
+    cuttable: false
+
+  - id: 17
+    name: Users, history, shareable links
+    branch: feat/stage-17-users-history
+    read: [docs/27_*.md chapters 27.1 to 27.3]
+    build:
+      - users and tokens, the audit record per user, /api/history, /a/{request_id}
+    tests: [test_user_token_scope, test_history_per_user, test_share_link]
+    done_when: 2 users see their own history, and a link opens a stored answer.
+    evidence:
+      - curl with 2 tokens against /api/history
+    commits:
+      - "feat(api): users and tokens"
+      - "feat(api): history and shareable links"
+      - "feat(web): history page"
+      - "test(api): user scope and links"
+    cuttable: false
+
+  - id: 18
+    name: Comp sets, templates, feedback
+    branch: feat/stage-18-compsets-feedback
+    read: [docs/27_*.md chapters on comp sets, templates, feedback]
+    build:
+      - comp sets, question templates, the feedback table and /api/feedback
+    tests: [test_compset_resolves, test_template_fill, test_feedback_vote]
+    done_when: A question that names a comp set resolves it, and a thumbs vote lands in the feedback table.
+    evidence:
+      - uv run keel understand "<a question that names a comp set>"
+    commits:
+      - "feat(understanding): comp sets and templates"
+      - "feat(api): feedback"
+      - "test(api): comp sets and feedback"
+    cuttable: false
+
+  - id: 19
+    name: Memo export
+    branch: feat/stage-19-export
+    read: [docs/27_*.md chapter on export]
+    build:
+      - keel/export.py (Markdown, then DOCX behind the export extra)
+    tests: [test_export_markdown, test_export_docx]
+    done_when: An exported memo opens in Word with numbered sources and SEC links.
+    evidence:
+      - uv run keel export <request_id> --format docx
+    commits:
+      - "feat(export): markdown memo"
+      - "feat(export): docx memo"
+      - "test(export): sources and links"
+    cuttable: false
+    cut_within_stage: the DOCX export (chapter 28 cut order); the Markdown export must still pass the stage
+
+  - id: 20
+    name: Watch list and refresh
+    branch: feat/stage-20-refresh
+    read: [docs/26_*.md chapter 26.3, docs/27_*.md, docs/29_*.md chapter 29.9, docs/GOTCHAS.md]
+    build:
+      - the watch list, `keel refresh`, the in-app scheduler (config scheduler.*), the banner
+    tests: [test_refresh_new_filing, test_scheduler_disabled_by_default]
+    done_when: A new filing for a watched ticker appears after the next refresh.
+    evidence:
+      - uv run keel refresh --dry-run
+    commits:
+      - "feat(edgar): watch list and refresh"
+      - "feat(api): in-app scheduler and banner"
+      - "test(edgar): refresh"
+    cuttable: true
+
+  - id: 21
+    name: Deploy, backup, restore, data use page
+    branch: feat/stage-21-deploy
+    read: [docs/29_*.md chapters 29.5, 29.6, 29.9, docs/27_*.md, infra/README.md, docs/GOTCHAS.md]
+    build:
+      - keel bootstrap, and keel serve --bootstrap (the server starts first, the bootstrap runs in a background task, /api/ready reports the state)
+      - the backup routine in the scheduler, the restore test, the data use page
+      - the release through release-please, the deploy workflow run
+    tests: [test_bootstrap_skips_when_present, test_backup_archive_checksum]
+    done_when: A colleague uses Keel from a phone over HTTPS (in unattended mode, the deploy workflow run is started and waits for the approval).
+    evidence:
+      - gh workflow run deploy.yml -f version=<version>
+      - curl -fsS https://<hostname>/api/health
+    commits:
+      - "feat(cli): bootstrap"
+      - "feat(infra): scheduler backup and restore test"
+      - "docs(stage-21): data use page and restore date"
+    cuttable: false
+
+  - id: 22
+    name: Start guide, metrics, second rehearsal
+    branch: docs/stage-22-pilot
+    read: [docs/27_*.md chapter 27.6, docs/21_*.md]
+    build:
+      - docs/START_GUIDE.md, scripts/pilot_metrics.py, docs/REHEARSAL.md update
+      - README.md from the chapter 23 outline (replaces the stage 0 placeholder)
+    tests: [test_pilot_metrics]
+    done_when: The pilot plan of chapter 27.6 is ready for 5 users.
+    evidence:
+      - uv run python scripts/pilot_metrics.py logs/audit.jsonl
+    commits:
+      - "feat(cli): pilot metrics script"
+      - "docs(stage-22): start guide and second rehearsal"
+    cuttable: false
