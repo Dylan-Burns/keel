@@ -301,6 +301,10 @@ def run_parse(
 
     Returns:
         The process exit code: 2 without files to parse, else 0.
+
+    Raises:
+        CorpusMissingError: `--all` finds no filings and no zip.
+        ConfigError: A parser dictionary is absent or invalid.
     """
     if not parse_all and not files:
         logger.error("name files to parse, or pass --all")

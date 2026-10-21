@@ -46,4 +46,8 @@ class SeparatorMissingError(KeelError):
 
 
 class CoverPageNotFoundError(KeelError):
-    """A filing has no cover page period and no period code (CK-07)."""
+    """A filing has no cover page period and no period code (CK-07).
+
+    Reserved: the parser records this condition as the quarantine reason
+    `cover_page_not_found` instead of raising (chapter 6.5 names it).
+    """

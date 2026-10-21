@@ -301,7 +301,15 @@ class FilingParser(Protocol):
     forms: tuple[str, ...]
 
     def parse(self, path: pathlib.Path, context: ParseContext) -> ParsedFiling:
-        """Parse 1 file. A failed check quarantines; it never raises."""
+        """Parse 1 file. A failed check quarantines; it never raises.
+
+        Args:
+            path: The filing file.
+            context: The dictionaries and corpus facts.
+
+        Returns:
+            The parsed filing, with a quarantine record on a failed check.
+        """
 
 
 def sha256_hex(data: bytes) -> str:

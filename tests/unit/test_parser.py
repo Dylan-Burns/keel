@@ -115,7 +115,11 @@ def test_xbrl_long_block() -> None:
     assert "xbrl_block_over_max" in form_10k_10q.cut_xbrl(longer).warnings
 
 
-def test_no_xbrl_block(caplog: pytest.LogCaptureFixture) -> None:
+def test_no_xbrl_block(
+    caplog: pytest.LogCaptureFixture,
+    tmp_path: pathlib.Path,
+    context: base.ParseContext,
+) -> None:
     text = snippet("ge_10k_2015_cover.txt")
     body = base.normalize_text(text[text.index("=" * 60) + 60 :])
     cut = form_10k_10q.cut_xbrl(body)
@@ -131,7 +135,9 @@ def test_no_xbrl_block(caplog: pytest.LogCaptureFixture) -> None:
     assert kept.warnings == ("no_xbrl_block",)
     # No cover marker and no prose window: no cut point at all.
     assert form_10k_10q.cut_xbrl("dei:x" * 10).warnings == ("no_xbrl_block",)
-    del caplog
+    caplog.set_level("INFO", logger=form_10k_10q.__name__)
+    parse(write(tmp_path, GE_10K, text), context)
+    assert "no_xbrl_block in " + GE_10K in caplog.messages
 
 
 def test_cover_fused_or() -> None:
@@ -272,6 +278,15 @@ def test_page_artifact() -> None:
     )
     assert count == 1
     assert "\nIn July 2023, the USG" in real
+    # Rule A4 removes a fused footer and never takes the prose before it.
+    footer, count = form_10k_10q.remove_artifacts(
+        "sales grew In Fiscal Apple Inc. | 2025 Form 10-K | 1Services"
+    )
+    assert (footer, count) == ("sales grew In Fiscal Apple Inc. \nServices", 1)
+    footer, _ = form_10k_10q.remove_artifacts(
+        "accessories.Apple Inc. | 2025 Form 10-K | 12Services"
+    )
+    assert footer == "accessories.\nServices"
     # Rule A1 keeps the real heading in upper case (chapter 8 uses it).
     assert form_10k_10q.remove_artifacts("TABLE OF CONTENTS") == (
         "TABLE OF CONTENTS",

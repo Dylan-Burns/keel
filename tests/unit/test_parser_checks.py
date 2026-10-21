@@ -185,6 +185,13 @@ def test_header_errors(
     assert parsed.quarantine is not None
     assert parsed.quarantine.reason == "header_error"
     assert "CIK" in parsed.quarantine.detail
+    bad_date = cover.replace(
+        "Filing Date: 2024-11-20", "Filing Date: 2024-11-31"
+    )
+    dated = parse_as(tmp_path, NVDA_10Q, bad_date, context)
+    assert dated.quarantine is not None
+    assert dated.quarantine.reason == "header_error"
+    assert "filing date" in dated.quarantine.detail
     eight_k = cover.replace("10-Q (Quarterly Report)", "8-K (Current Report)")
     with pytest.raises(errors.HeaderError):
         form_10k_10q.parse_header(eight_k.split("\n")[:9])
