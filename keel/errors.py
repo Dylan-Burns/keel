@@ -59,3 +59,19 @@ class ModelMissingError(KeelError):
 
 class FilingNotIndexableError(KeelError):
     """A quarantined filing or a filing without an ID reached the chunker."""
+
+
+class EmbeddingModelUnavailableError(KeelError):
+    """The pinned embedding model cannot load (chapter 6.5)."""
+
+
+class IndexWriteError(KeelError):
+    """An index build cannot write or publish its files (chapter 6.5)."""
+
+
+class IndexMissingError(KeelError):
+    """No index build sits behind the `current` pointer (chapter 6.5)."""
+
+
+class IndexCorruptError(KeelError):
+    """An index file does not match its manifest checksum (chapter 16)."""
