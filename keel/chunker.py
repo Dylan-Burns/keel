@@ -259,9 +259,9 @@ def simhash(text: str) -> int:
     # 1 row of 64 bits per 3-gram, most significant bit first.
     bits = numpy.unpackbits(numpy.frombuffer(digests, dtype=numpy.uint8))
     votes = bits.reshape(len(grams), SIMHASH_BITS).sum(axis=0) * 2
-    unsigned = 0
-    for vote in votes > len(grams):
-        unsigned = unsigned << 1 | int(vote)
+    # Pack the 64 majority bits, most significant first, into an integer.
+    majority = numpy.packbits(votes > len(grams)).tobytes()
+    unsigned = int.from_bytes(majority, "big")
     return unsigned - (1 << SIMHASH_BITS) if unsigned & _SIGN_BIT else unsigned
 
 
