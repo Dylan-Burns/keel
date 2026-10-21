@@ -55,3 +55,7 @@ class CoverPageNotFoundError(KeelError):
 
 class ModelMissingError(KeelError):
     """A pinned model or its tokenizer is not in the local cache."""
+
+
+class FilingNotIndexableError(KeelError):
+    """A quarantined filing or a filing without an ID reached the chunker."""

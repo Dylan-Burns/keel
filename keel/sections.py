@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 import dataclasses
-import logging
 import re
 from typing import Literal
 
@@ -20,8 +19,6 @@ import pydantic
 from rapidfuzz import fuzz
 
 from keel import tables
-
-logger = logging.getLogger(__name__)
 
 CORE_10K = ("risk_factors", "mdna", "financial_statements")
 CORE_10Q = ("mdna", "financial_statements")
@@ -283,7 +280,11 @@ class SectionResult(pydantic.BaseModel):
     warnings: tuple[str, ...] = ()
 
     def names(self) -> set[str]:
-        """Return the canonical names present in the result."""
+        """Return the canonical names present in the result.
+
+        Returns:
+            The set of canonical section names.
+        """
         return {s.section for s in self.sections}
 
     def of(self, name: str) -> list[Section]:
@@ -430,16 +431,30 @@ def _raw_candidates(text: str, form: str) -> list[_Raw]:
 
 
 def _parts_by_order(found: list[_Raw]) -> list[_Raw]:
-    """Assign Part II to the items after Part I Item 4 (chapter 8.6)."""
-    seen_four = False
+    """Assign Part II to the items after Part I Item 4 (chapter 8.6).
+
+    The order restarts at Part I when a Part II item number goes back down,
+    so the table of contents does not push the body into Part II.
+    """
+    part, last = "I", -1
     result: list[_Raw] = []
     for raw in found:
-        part = "II" if seen_four and raw.item != "4" else "I"
-        if raw.item == "4" and not seen_four:
-            seen_four, part = True, "I"
-        elif raw.item in {"1A", "5", "6"} and seen_four:
-            part = "II"
+        key = (
+            _FORM_Q_ORDER.index(("II", raw.item))
+            if (
+                "II",
+                raw.item,
+            )
+            in _FORM_Q_TITLES
+            else None
+        )
+        if part == "II" and key is not None and key < last:
+            part, last = "I", -1
         result.append(dataclasses.replace(raw, part=part))
+        if part == "II" and key is not None:
+            last = key
+        if part == "I" and raw.item == "4":
+            part = "II"
     return result
 
 
@@ -679,19 +694,29 @@ def _title(form: str, head: Candidate) -> str:
     return expected[0] if expected else "Unknown section"
 
 
-def _unknown_spans(start: int, end: int) -> list[Section]:
+def _unknown_spans(text: str, start: int, end: int) -> list[Section]:
+    """Cut a span without a heading into spans of at most 20,000 chars.
+
+    Each cut moves back to a line start, so a table row stays whole.
+    """
     spans: list[Section] = []
-    for first in range(start, end, UNKNOWN_MAX):
+    first = start
+    while first < end:
+        last = min(first + UNKNOWN_MAX, end)
+        if last < end:
+            line = text.rfind("\n", first + 1, last)
+            last = line + 1 if line > first else last
         spans.append(
             Section(
                 section="unknown",
                 item_label=None,
                 start=first,
-                end=min(first + UNKNOWN_MAX, end),
+                end=last,
                 confidence=0.0,
                 title="Unknown section",
             )
         )
+        first = last
     return spans
 
 
@@ -954,9 +979,9 @@ def detect(text: str, form: str) -> SectionResult:
     no_part_two = form == "10-Q" and not any(p == "II" for _, p in _parts(text))
     sections: list[Section] = []
     if chosen and chosen[0].start > 0:
-        sections.extend(_unknown_spans(0, chosen[0].start))
+        sections.extend(_unknown_spans(text, 0, chosen[0].start))
     elif not chosen:
-        sections.extend(_unknown_spans(0, len(text)))
+        sections.extend(_unknown_spans(text, 0, len(text)))
     for index, head in enumerate(chosen):
         end = chosen[index + 1].start if index + 1 < len(chosen) else len(text)
         name = canonical(form, head.part, head.item)

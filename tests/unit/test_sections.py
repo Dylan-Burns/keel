@@ -304,3 +304,20 @@ def test_coverage_report() -> None:
     ]
     assert report.present["10-Q"]["risk_factors"] == 1
     assert report.warnings == {"sections_incomplete": 1}
+
+
+def test_10q_parts_by_order_after_toc() -> None:
+    toc = (
+        "Item 1. | Financial Statements | 3\nItem 2. | Management's "
+        "Discussion and Analysis | 9\nItem 4. | Controls and Procedures "
+        "| 20\nItem 1A. | Risk Factors | 21\nItem 6. | Exhibits | 22\n"
+    )
+    text = toc + ten_q().replace("PART I. FINANCIAL INFORMATION\n", "")
+    text = text.replace("PART II. OTHER INFORMATION\n", "")
+    result = sections.detect(text, "10-Q")
+    assert result.of("financial_statements")[0].item_label == "Part I Item 1"
+    assert result.of("mdna")[0].item_label == "Part I Item 2"
+    (risk,) = result.of("risk_factors")
+    assert risk.item_label == "Part II Item 1A"
+    mine = [s for s in result.sections if s.item_label == "Part II Item 4"]
+    assert [s.section for s in mine] == ["other"]
