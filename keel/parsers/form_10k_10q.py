@@ -264,7 +264,8 @@ def parse_header(lines: Sequence[str]) -> Header:
         The header.
 
     Raises:
-        HeaderError: A required key is absent or the form is unknown.
+        HeaderError: A required key is absent, the form is unknown, or the
+            filing date is not an ISO date.
     """
     values: dict[str, str] = {}
     for line in lines:
@@ -278,6 +279,10 @@ def parse_header(lines: Sequence[str]) -> Header:
     if form is None:
         raise errors.HeaderError(
             "unknown filing type " + repr(values["Filing Type"])
+        )
+    if _date(values["Filing Date"]) is None:
+        raise errors.HeaderError(
+            "filing date is not an ISO date: " + repr(values["Filing Date"])
         )
     return Header(
         values=values, form=form, url_trusted=url_trusted(values["URL"])
@@ -323,9 +328,6 @@ def prose_window_start(text: str, limit: int) -> int | None:
 def cut_xbrl(body: str) -> XbrlCut:
     """Detect the XBRL block after the separator (chapter 7.4).
 
-    Args:
-        body: The normalized body, from the end of the separator line.
-
     The cover marker is the cut point, and the prose window is the
     fallback for a body without the marker. Chapter 7.4 takes the earlier
     of the 2 points; on the corpus the window starts before the marker in
@@ -333,7 +335,9 @@ def cut_xbrl(body: str) -> XbrlCut:
     the spaces of the cover text, or the hidden facts at the top of the
     block hold text with spaces (DIS, MCD, MSFT, XOM). That rule leaves
     XBRL in the body (15 to about 100 characters, or the whole block).
-    The data wins.
+    The data wins. A prefix of 200 characters or less without an XBRL
+    sign is still cut (GE: `10-K`, `1`, the document name) and counts as
+    0 XBRL characters.
 
     Args:
         body: The normalized body, from the end of the separator line.
@@ -360,6 +364,26 @@ def cut_xbrl(body: str) -> XbrlCut:
     return XbrlCut(cut, cut, True, cover, tuple(found))
 
 
+def _footer_start(text: str, name: re.Match[str]) -> int:
+    """Start the footer name right after a period, a line end, or a pipe.
+
+    The corpus fuses the footer to the sentence before it
+    (`accessories.Apple Inc. | 2025 Form 10-K | 1`). The name match may
+    take capital words of the prose (`grew In Fiscal Apple Inc.`); words
+    drop from the left until the name follows such a boundary. Without
+    one, only the tail after the name is removed.
+    """
+    start = name.start()
+    while start < name.end():
+        if start == 0 or text[start - 1] in ".\n|":
+            return start
+        space = text.find(" ", start, name.end())
+        if space < 0:
+            break
+        start = space + 1
+    return name.end()
+
+
 def _remove_footers(text: str) -> tuple[str, int]:
     """Replace each fused page footer (rule A4) with a line break."""
     parts: list[str] = []
@@ -367,9 +391,8 @@ def _remove_footers(text: str) -> tuple[str, int]:
     for tail in A4_FOOTER_TAIL.finditer(text):
         reach = max(position, tail.start() - A4_NAME_REACH)
         name = A4_FOOTER_NAME.search(text, reach, tail.start())
-        if name is None:
-            continue
-        parts.extend((text[position : name.start()], "\n"))
+        start = _footer_start(text, name) if name else tail.start()
+        parts.extend((text[position:start], "\n"))
         position = tail.end()
         count += 1
     parts.append(text[position:])
@@ -834,6 +857,8 @@ class TenKTenQParser:
         body = base.normalize_text(text[body_start:])
         xbrl = cut_xbrl(body)
         checks.warnings.extend(xbrl.warnings)
+        if not xbrl.xbrl_present:
+            logger.info("no_xbrl_block in %s", meta.file_name)
         body, removals = remove_artifacts(body[xbrl.cut :])
         # The cover page reads the text before the boundary repair, so a
         # rule R3 split never breaks a registrant name across lines.
