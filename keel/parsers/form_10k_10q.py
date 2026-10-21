@@ -49,6 +49,7 @@ SEPARATOR = re.compile(r"^={60}$")
 SEPARATOR_SCAN_LINES = 20
 TRUSTED_SCHEME = "https"
 TRUSTED_HOST = "www.sec.gov"
+TRUSTED_PREFIX = "https://www.sec.gov/"
 
 # Chapter 7.4: the XBRL block.
 COVER_MARKER = re.compile(
@@ -222,14 +223,35 @@ def find_separator(lines: Sequence[str]) -> int:
 def url_trusted(url: str) -> bool:
     """Tell whether a source URL may render as a link (E-D-28).
 
+    The check is strict so that no URL parser downstream (a browser, the
+    front-end) can read another host from a URL this parser trusts.
+
     Args:
         url: The header URL.
 
     Returns:
-        True for the https scheme on the host `www.sec.gov`.
+        True only for `https://www.sec.gov/...` with no whitespace or
+        control character, no backslash, no `@`, no user, password, or
+        port, the https scheme, and the exact host `www.sec.gov`.
     """
-    parts = urllib.parse.urlsplit(url)
-    return parts.scheme == TRUSTED_SCHEME and parts.hostname == TRUSTED_HOST
+    if any(
+        char.isspace() or ord(char) < 0x20 or ord(char) == 0x7F for char in url
+    ):
+        return False
+    if "\\" in url or "@" in url or not url.startswith(TRUSTED_PREFIX):
+        return False
+    try:
+        parts = urllib.parse.urlsplit(url)
+        port = parts.port
+    except ValueError:
+        return False
+    return (
+        parts.scheme == TRUSTED_SCHEME
+        and parts.hostname == TRUSTED_HOST
+        and parts.username is None
+        and parts.password is None
+        and port is None
+    )
 
 
 def parse_header(lines: Sequence[str]) -> Header:
