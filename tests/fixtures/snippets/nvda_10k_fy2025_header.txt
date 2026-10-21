@@ -1,0 +1,8 @@
+Company: NVIDIA Corporation
+Ticker: NVDA
+Filing Type: 10-K (Annual Report)
+Filing Date: 2025-02-26
+CIK: 0001045810
+Source: SEC EDGAR
+URL: https://www.sec.gov/Archives/edgar/data/1045810/000104581025000023/nvda-20250126.htm
+============================================================

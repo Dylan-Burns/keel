@@ -1,0 +1,10 @@
+Company: Apple Inc
+Ticker: AAPL
+Filing Type: 10-Q (Quarterly Report)
+Filing Date: 2023-02-03
+Report Period: 2022-12-31
+Quarter: 2022Q4
+CIK: 0000320193
+Source: SEC EDGAR
+URL: https://www.sec.gov/Archives/edgar/data/320193/000032019323000006/aapl-20221231.htm
+============================================================
