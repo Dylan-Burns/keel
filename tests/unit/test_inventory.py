@@ -46,7 +46,7 @@ def test_filename_patterns() -> None:
 
 def test_header_without_separator(tmp_path: pathlib.Path) -> None:
     path = tmp_path / "A_10K_2024-01-01_full.txt"
-    path.write_text("﻿Company: A\nTicker: A\nbody\n", encoding="utf-8")
+    path.write_text("\ufeffCompany: A\nTicker: A\nbody\n", encoding="utf-8")
     assert inventory.header_keys(path) == ()
 
 

@@ -152,3 +152,27 @@ def test_dictionaries_are_consistent(settings: config.Settings) -> None:
         assert len(words) == len(set(words)), path
     assert config.read_yaml(settings.dictionaries.synonyms)["revenue"]
     assert config.read_yaml(settings.dictionaries.known_external)["Uber"]
+
+
+def test_config_error_never_shows_secrets(
+    clean_env: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    clean_env.setenv("ANTHROPIC_API_KEY", "sk-secret-in-env-987")
+    clean_env.setenv("KEEL_API_TOKEN", "token-secret-654")
+    data = config.read_yaml(conftest.CONFIG_FILE)
+    del data["embedding"]
+    data["llm"]["api_key"] = "sk-secret-in-yaml-321"
+    broken = tmp_path / "broken.yaml"
+    broken.write_text(yaml.safe_dump(data), encoding="utf-8")
+    with pytest.raises(errors.ConfigError) as caught:
+        config.load_settings(broken, env_file=None)
+    message = str(caught.value)
+    assert "embedding: Field required" in message
+    assert "llm.api_key: Extra inputs are not permitted" in message
+    for secret in (
+        "sk-secret-in-env-987",
+        "token-secret-654",
+        "secret-in-yaml",
+    ):
+        assert secret not in message
+    assert caught.value.__cause__ is None

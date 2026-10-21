@@ -375,7 +375,9 @@ def download_models(settings: config.Settings) -> list[CheckResult]:
         started = time.perf_counter()
         try:
             loader(model, revision=revision)
-        except (OSError, ValueError, RuntimeError) as error:
+        # The hub client, httpx, and torch raise unrelated error types; a
+        # failed download becomes a `fail` line, never a traceback.
+        except Exception as error:  # pylint: disable=broad-exception-caught
             results.append(
                 CheckResult(f"download {model}", FAIL, f"failed: {error}")
             )

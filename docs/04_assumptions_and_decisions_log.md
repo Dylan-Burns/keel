@@ -56,7 +56,7 @@ This log records 36 decisions and 15 assumptions. Each decision names at least 1
 | A-06 | The major pharmaceutical companies in the corpus are PFE, JNJ, MRK, LLY, and ABBV. | TMO sells instruments, and UNH is an insurer. | Ask the panel (P-09). |
 | A-07 | The major banks in the corpus are JPM, BAC, GS, and MS. | AXP, V, MA, and BLK are financial but not banks. BRK is a conglomerate. | Ask the panel (P-09). |
 | A-08 | The demo happens in late October 2026, and the wall-clock date is the demo date. | The brief. | None. |
-| A-09 | The corpus facts in the brief are correct. | The consultant measured the corpus. | Run `keel inventory` and compare. Stage 1 check: confirmed (246 files, 54 tickers, 89 10-Ks, 157 10-Qs, filing dates 2022-02-09 to 2026-02-19 plus the GE file of 2015-02-27). |
+| A-09 | The corpus facts in the brief are correct. | The consultant measured the corpus. | Run `keel inventory` and compare. Stage 1 check: confirmed (246 files, 54 tickers, 89 10-Ks, 157 10-Qs, filing dates 2022-02-09 to 2026-02-19 plus the GE file of 2015-02-27). The data differs from chapter 7.2 on 1 point: 192 files carry 9 header keys (`Report Period` and `Quarter` after `Filing Date`), and 54 carry the 7 keys. |
 | A-10 | Model prices are as published on third-party price pages on 2026-10-20. | Table 2.4.3. | Confirm on the provider price page. |
 | A-11 | The deal team has about 10 analysts and associates. | A mid-market firm. | Ask the panel (P-10). |
 | A-12 | Terminal and vendor seats cost $10,000 to $25,000 per seat per year. | Assumed list prices. | Ask the panel (P-10). |

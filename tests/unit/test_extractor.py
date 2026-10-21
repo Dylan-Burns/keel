@@ -117,3 +117,21 @@ def test_target_with_files_refused(tmp_path: pathlib.Path) -> None:
     with pytest.raises(errors.ExtractTargetError):
         extractor.extract_zip(archive, target)
     assert (target / "keep.txt").read_text(encoding="utf-8") == "existing"
+
+
+def test_duplicate_entry_rejected(tmp_path: pathlib.Path) -> None:
+    archive = tmp_path / "dup.zip"
+    with zipfile.ZipFile(archive, "w") as handle:
+        handle.writestr("a.txt", b"first")
+        with pytest.warns(UserWarning, match="Duplicate name"):
+            handle.writestr("a.txt", b"second")
+    with pytest.raises(errors.BadZipError, match="duplicate zip entry"):
+        extractor.extract_zip(archive, tmp_path / "edgar")
+
+
+def test_target_that_is_a_file_refused(tmp_path: pathlib.Path) -> None:
+    archive = _zip(tmp_path / "corpus.zip", {"a.txt": b"x"})
+    target = tmp_path / "edgar"
+    target.write_text("a file", encoding="utf-8")
+    with pytest.raises(errors.ExtractTargetError, match="not a directory"):
+        extractor.extract_zip(archive, target)

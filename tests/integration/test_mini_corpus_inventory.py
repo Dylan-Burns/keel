@@ -15,7 +15,7 @@ from keel import inventory
 pytestmark = pytest.mark.integration
 
 
-def test_inventory_counts() -> None:
+def test_inventory_counts(tmp_path: pathlib.Path) -> None:
     """The counts of the mini corpus, and E-D-25 on a quarterly claim."""
     report = inventory.build_inventory(
         conftest.MINI_CORPUS, conftest.MINI_CORPUS / "manifest.json"
@@ -50,9 +50,7 @@ def test_inventory_counts() -> None:
     assert latest.filing_date == datetime.date(2025, 2, 26)
     assert report.latest("NVDA", "10-Q") is None
 
-
-def test_quarterly_claim_discrepancy(tmp_path: pathlib.Path) -> None:
-    """E-D-25: the manifest claims more quarterly companies than exist."""
+    # E-D-25: a manifest that claims more quarterly companies than exist.
     corpus = tmp_path / "edgar"
     shutil.copytree(conftest.MINI_CORPUS, corpus)
     manifest = json.loads((corpus / "manifest.json").read_text())
@@ -68,7 +66,12 @@ def test_quarterly_claim_discrepancy(tmp_path: pathlib.Path) -> None:
     ]
 
 
-def test_inventory_command(capsys: pytest.CaptureFixture[str]) -> None:
+def test_inventory_command(
+    capsys: pytest.CaptureFixture[str],
+    clean_env: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+) -> None:
+    clean_env.chdir(tmp_path)
     code = cli.main(
         [
             "--config",
@@ -86,7 +89,12 @@ def test_inventory_command(capsys: pytest.CaptureFixture[str]) -> None:
     assert "discrepancies: 0" in out
 
 
-def test_inventory_command_json(capsys: pytest.CaptureFixture[str]) -> None:
+def test_inventory_command_json(
+    capsys: pytest.CaptureFixture[str],
+    clean_env: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+) -> None:
+    clean_env.chdir(tmp_path)
     code = cli.main(
         [
             "--config",
@@ -104,8 +112,11 @@ def test_inventory_command_json(capsys: pytest.CaptureFixture[str]) -> None:
 
 
 def test_inventory_command_without_corpus(
-    tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+    clean_env: pytest.MonkeyPatch,
 ) -> None:
+    clean_env.chdir(tmp_path)
     code = cli.main(
         [
             "--config",

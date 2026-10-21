@@ -340,7 +340,27 @@ def load_settings(
         options: dict[str, Any] = {**data, "_env_file": env_file}
         return Settings(**options)
     except pydantic.ValidationError as error:
-        raise errors.ConfigError(f"invalid config: {error}") from error
+        raise errors.ConfigError(
+            f"invalid config: {_describe(error)}"
+        ) from None
+
+
+def _describe(error: pydantic.ValidationError) -> str:
+    """Describe validation errors by location and message, never by input.
+
+    The input of a validation error can hold a secret from the environment,
+    so the message carries only the key path and the reason.
+
+    Args:
+        error: The validation error.
+
+    Returns:
+        1 line per error, joined by semicolons.
+    """
+    return "; ".join(
+        ".".join(str(part) for part in item["loc"]) + ": " + item["msg"]
+        for item in error.errors(include_input=False, include_url=False)
+    )
 
 
 class LongPromptPrices(_Section):
@@ -391,8 +411,8 @@ def load_prices(path: pathlib.Path) -> Prices:
         return Prices.model_validate(read_yaml(path))
     except pydantic.ValidationError as error:
         raise errors.ConfigError(
-            f"invalid prices in {path}: {error}"
-        ) from error
+            f"invalid prices in {path}: {_describe(error)}"
+        ) from None
 
 
 def models_without_prices(settings: Settings, prices: Prices) -> list[str]:

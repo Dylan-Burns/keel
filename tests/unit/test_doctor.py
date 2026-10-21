@@ -166,7 +166,7 @@ def test_download_models_uses_shared_api(
         def load(name: str, revision: str) -> None:
             calls.append((kind, name, revision))
             if kind == "cross":
-                raise OSError("offline")
+                raise RuntimeError("hub unreachable")
 
         return load
 
