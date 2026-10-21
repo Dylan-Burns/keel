@@ -129,7 +129,7 @@ def test_schema_rows(store: sqlite3.Connection) -> None:
     (reason,) = store.execute("SELECT reason FROM quarantine").fetchone()
     assert reason == "registrant_mismatch"
     rows = store.execute(
-        "SELECT chunk_id, vector_row, rowid FROM chunks ORDER BY rowid"
+        "SELECT chunk_id, vector_row, id FROM chunks ORDER BY id"
     ).fetchall()
     assert [r[0] for r in rows] == [c.chunk_id for c in CHUNKS]
     assert [r[1] for r in rows] == [0, 1, 2]

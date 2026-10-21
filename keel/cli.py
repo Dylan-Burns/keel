@@ -560,14 +560,17 @@ def run_index(
         _ensure_corpus(settings, directory)
     # SIGTERM exits through SystemExit, so the build removes its staging
     # directory before the process ends.
-    signal.signal(signal.SIGTERM, _exit_on_sigterm)
-    result = indexer.build_index(
-        settings,
-        directory,
-        out_dir or settings.index.dir,
-        lambda: numpy_dense.SentenceEmbedder.from_settings(settings),
-        incremental=incremental,
-    )
+    handler = signal.signal(signal.SIGTERM, _exit_on_sigterm)
+    try:
+        result = indexer.build_index(
+            settings,
+            directory,
+            out_dir or settings.index.dir,
+            lambda: numpy_dense.SentenceEmbedder.from_settings(settings),
+            incremental=incremental,
+        )
+    finally:
+        signal.signal(signal.SIGTERM, handler)
     manifest = result.manifest
     counts = manifest.counts
     build = manifest.build

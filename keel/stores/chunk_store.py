@@ -3,8 +3,10 @@
 The store is 1 SQLite file, `chunks.sqlite`, that also holds the FTS5
 table of `keel.stores.sqlite_fts`. Row `vector_row` of `vectors.npy` holds
 the vector of the chunk with that `vector_row`. The build inserts the chunks
-in chunk-ID order, so `vector_row` equals the chunk-ID rank and the rowid
-minus 1.
+in chunk-ID order, so `vector_row` equals the chunk-ID rank and `id` minus
+1. `id` is an INTEGER PRIMARY KEY, the stable rowid that the external-content
+FTS5 table keys on (a hidden rowid may change on VACUUM); `chunk_id` is
+UNIQUE instead of the chapter 9.2 TEXT PRIMARY KEY.
 """
 
 from __future__ import annotations
@@ -46,7 +48,8 @@ CREATE TABLE filings (
 );
 
 CREATE TABLE chunks (
-  chunk_id TEXT PRIMARY KEY,
+  id INTEGER PRIMARY KEY,
+  chunk_id TEXT NOT NULL UNIQUE,
   filing_id TEXT NOT NULL REFERENCES filings(filing_id),
   ticker TEXT NOT NULL,
   company TEXT NOT NULL,
@@ -115,13 +118,13 @@ _INSERT_FILING = (
     "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 )
 _INSERT_CHUNK = (
-    "INSERT INTO chunks (chunk_id, filing_id, ticker, company, cik, form, "
+    "INSERT INTO chunks (id, chunk_id, filing_id, ticker, company, cik, form, "
     "fiscal_year, fiscal_period, period_end_date, filing_date, section, "
     "item_label, section_confidence, sequence, text, token_count, "
     "char_start, char_end, is_table, delta_only, boilerplate_flag, "
     "source_url, chunk_hash, simhash, vector_row) VALUES "
     "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "
-    "?, ?)"
+    "?, ?, ?)"
 )
 
 
@@ -296,7 +299,7 @@ def write_quarantine(
 
 def _chunk_row(chunk: chunker.Chunk, vector_row: int) -> tuple[object, ...]:
     values = [getattr(chunk, column) for column in _CHUNK_COLUMNS]
-    return (*values, vector_row)
+    return (vector_row + 1, *values, vector_row)
 
 
 def write_chunks(
