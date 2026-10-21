@@ -1,0 +1,23 @@
+Company: General Electric Company
+Ticker: GE
+Filing Type: 10-K (Annual Report)
+Filing Date: 2015-02-27
+CIK: 0000040554
+Source: SEC EDGAR
+URL: https://www.sec.gov/Archives/edgar/data/40554/000004054515000032/gecc10k2014.htm
+============================================================
+
+10-K
+1
+gecc10k2014.htm
+UNITED STATES SECURITIES AND EXCHANGE COMMISSION
+WASHINGTON, D.C. 20549
+FORM 10-K
+(Mark One)
+RAnnual Report Pursuant to Section 13 or 15(d) of the Securities Exchange Act of 1934
+For the fiscal year ended December 31, 2014
+or
+oTransition Report pursuant to Section 13 or 15(d) of the Securities Exchange Act of 1934
+For the transition period from ___________to ___________
+Commission file number 1-6461
+General Electric Capital Corporation(Exact name of registrant as specified in charter)

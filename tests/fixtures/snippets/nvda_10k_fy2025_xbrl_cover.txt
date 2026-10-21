@@ -1,0 +1,13 @@
+p:ValuationAllowanceOfDeferredTaxAssetsMember2023-01-302024-01-280001045810us-gaap:AllowanceForCreditLossMember2022-01-300001045810us-gaap:AllowanceForCreditLossMember2022-01-312023-01-290001045810nvda:SECSchedule1209AllowanceSalesReturnsMember2022-01-300001045810nvda:SECSchedule1209AllowanceSalesReturnsMember2022-01-312023-01-290001045810us-gaap:ValuationAllowanceOfDeferredTaxAssetsMember2022-01-300001045810us-gaap:ValuationAllowanceOfDeferredTaxAssetsMember2022-01-312023-01-29Table of ContentsUNITED STATESSECURITIES AND EXCHANGE COMMISSIONWashington, D.C. 20549____________________________________________________________________________________________FORM 10-K
+☒ | ANNUAL REPORT PURSUANT TO SECTION 13 OR 15(d) OF THE SECURITIES EXCHANGE ACT OF 1934
+For the fiscal year ended January 26, 2025OR
+☐ | TRANSITION REPORT PURSUANT TO SECTION 13 OR 15(d) OF THE SECURITIES EXCHANGE ACT OF 1934
+Commission file number: 0-23985   NVIDIA CORPORATION(Exact name of registrant as specified in its charter)
+Delaware | 94-3177549
+(State or other jurisdiction of | (I.R.S. Employer
+incorporation or organization) | Identification No.)
+2788 San Tomas Expressway,Santa Clara,California | 95051
+(Address of principal executive offices) | (Zip Code)
+Registrant’s telephone number, including area code: (408) 486-2000 Securities registered pursuant to Section 12(b) of the Act:
+Title of each class | Trading Symbol(s) | Name of each exchange on which registered
+Common Stock, $0.001 par value per share | NVDA

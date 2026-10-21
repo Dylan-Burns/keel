@@ -31,3 +31,19 @@ class CorpusMissingError(KeelError):
 
 class ManifestMissingError(KeelError):
     """The manifest file is absent or unreadable (a warning in inventory)."""
+
+
+class FilingDecodeError(KeelError):
+    """A filing is not valid UTF-8 (E-D-27); the file goes to quarantine."""
+
+
+class HeaderError(KeelError):
+    """A filing header lacks a key or names an unknown form (CK-01)."""
+
+
+class SeparatorMissingError(KeelError):
+    """No separator line within the first 20 lines of a filing (CK-02)."""
+
+
+class CoverPageNotFoundError(KeelError):
+    """A filing has no cover page period and no period code (CK-07)."""

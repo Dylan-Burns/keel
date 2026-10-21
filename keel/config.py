@@ -307,6 +307,26 @@ def read_yaml(path: pathlib.Path) -> dict[str, Any]:
     return data
 
 
+def read_word_list(path: pathlib.Path) -> tuple[str, ...]:
+    """Read a word list: 1 entry per line, `#` starts a comment line.
+
+    Args:
+        path: The text file to read.
+
+    Returns:
+        The entries in file order, stripped, without blank lines.
+
+    Raises:
+        ConfigError: The file is absent or unreadable.
+    """
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError as error:
+        raise errors.ConfigError(f"cannot read {path}: {error}") from error
+    stripped = (line.strip() for line in lines)
+    return tuple(line for line in stripped if line and not line.startswith("#"))
+
+
 def config_path() -> pathlib.Path:
     """Return the config file path from `KEEL_CONFIG_FILE` or the default.
 
