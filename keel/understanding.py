@@ -18,8 +18,10 @@ from collections.abc import Mapping
 from collections.abc import Sequence
 import dataclasses
 import datetime
+import json
 import logging
 import re
+import sqlite3
 import time
 from typing import Literal
 import unicodedata
@@ -490,6 +492,7 @@ class FilingRef:
         fiscal_year: The fiscal year.
         fiscal_period: `FY`, `Q1`, `Q2`, `Q3`, or `unknown`.
         filing_date: The filing date.
+        filing_id: The filing ID, or None when unknown.
     """
 
     ticker: str
@@ -498,6 +501,7 @@ class FilingRef:
     fiscal_year: int
     fiscal_period: str
     filing_date: datetime.date
+    filing_id: str | None = None
 
     @property
     def label(self) -> str:
@@ -620,6 +624,7 @@ class Catalog:
                     fiscal_year=meta.fiscal_year,
                     fiscal_period=meta.fiscal_period or "unknown",
                     filing_date=meta.filing_date,
+                    filing_id=filing.filing_id,
                 )
             )
         return cls(
@@ -627,6 +632,80 @@ class Catalog:
             quarantined=tuple(quarantined),
             year_end_months=dict(result.year_end_months),
         )
+
+    @classmethod
+    def from_store(cls, conn: sqlite3.Connection) -> Catalog:
+        """Build the catalog from the `filings` and `quarantine` tables.
+
+        The index holds the same facts as the parse, so a command with an
+        index reads them in milliseconds instead of parsing the corpus.
+
+        Args:
+            conn: An open chunk store.
+
+        Returns:
+            The catalog.
+        """
+        filings: list[FilingRef] = []
+        months: dict[str, int] = {}
+        rows = conn.execute(
+            "SELECT filing_id, ticker, form, period_end_date, fiscal_year, "
+            "fiscal_period, filing_date, fiscal_year_end_month FROM filings "
+            "ORDER BY filing_id"
+        )
+        for filing_id, ticker, form, period, year, fiscal, filed, month in rows:
+            if not period or year is None or not filed:
+                continue
+            filings.append(
+                FilingRef(
+                    ticker=ticker,
+                    form=form,
+                    period_end_date=datetime.date.fromisoformat(period),
+                    fiscal_year=int(year),
+                    fiscal_period=fiscal or "unknown",
+                    filing_date=datetime.date.fromisoformat(filed),
+                    filing_id=filing_id,
+                )
+            )
+            if month is not None:
+                months[ticker] = int(month)
+        quarantined = [
+            QuarantineNote(
+                ticker=file_name.split("_")[0],
+                file_name=file_name,
+                reason=reason,
+                detail=_quarantine_detail(reason, evidence),
+            )
+            for file_name, reason, evidence in conn.execute(
+                "SELECT file_name, reason, evidence FROM quarantine "
+                "ORDER BY file_name"
+            )
+        ]
+        return cls(
+            filings=tuple(filings),
+            quarantined=tuple(quarantined),
+            year_end_months=months,
+        )
+
+
+def _quarantine_detail(reason: str, evidence: str | None) -> str:
+    """Rebuild the 1-sentence detail from the stored evidence.
+
+    The store keeps the evidence, not the sentence; the CK-06 sentence is
+    rebuilt word for word, any other reason lists its evidence.
+    """
+    try:
+        values = json.loads(evidence or "{}")
+    except json.JSONDecodeError:
+        values = {}
+    if not isinstance(values, dict):
+        values = {}
+    if reason == "registrant_mismatch":
+        cover = values.get("cover_registrant")
+        header = values.get("header_company")
+        return f"cover registrant {cover!r}, header company {header!r}"
+    shown = ", ".join(f"{k} {v}" for k, v in sorted(values.items()))
+    return f"{reason}: {shown}" if shown else reason
 
 
 # --- Output: the QuestionAnalysis (chapter 10.8) -----------------------------
@@ -1494,6 +1573,9 @@ def classify(
         found.add("single_company")
     if companies == 0 and not groups and has_topic:
         found.add("generic")
+    if companies >= 2 and not found:
+        # 2 companies without a compare word still need 1 quota each.
+        found.add("comparison")
     if not found:
         found.add("out_of_scope")
     return [t for t in TYPE_PRIORITY if t in found]
