@@ -52,14 +52,14 @@ This log records 36 decisions and 15 assumptions. Each decision names at least 1
 | A-02 | The demo venue has internet access. The offline fallback covers a loss of access. | The brief gives no venue details. | Ask the panel (P-07). |
 | A-03 | The build laptop has 8 CPU cores and 16 GB of RAM and no GPU. The timebox includes the model downloads of about 150 MB. | The consultant's hardware. | Run `keel doctor`. |
 | A-04 | The engineer uses an AI coding assistant during the 4-hour build. | The consultant's practice. | None. |
-| A-05 | SEC EDGAR filings are public domain. The manifest `license` key confirms the terms. | The source is EDGAR. | Read the manifest `license` key. |
+| A-05 | SEC EDGAR filings are public domain. The manifest `license` key confirms the terms. | The source is EDGAR. | Read the manifest `license` key. Stage 1 check: the key reads `Public domain (SEC filings are US government documents)`. |
 | A-06 | The major pharmaceutical companies in the corpus are PFE, JNJ, MRK, LLY, and ABBV. | TMO sells instruments, and UNH is an insurer. | Ask the panel (P-09). |
 | A-07 | The major banks in the corpus are JPM, BAC, GS, and MS. | AXP, V, MA, and BLK are financial but not banks. BRK is a conglomerate. | Ask the panel (P-09). |
 | A-08 | The demo happens in late October 2026, and the wall-clock date is the demo date. | The brief. | None. |
-| A-09 | The corpus facts in the brief are correct. | The consultant measured the corpus. | Run `keel inventory` and compare. |
+| A-09 | The corpus facts in the brief are correct. | The consultant measured the corpus. | Run `keel inventory` and compare. Stage 1 check: confirmed (246 files, 54 tickers, 89 10-Ks, 157 10-Qs, filing dates 2022-02-09 to 2026-02-19 plus the GE file of 2015-02-27). |
 | A-10 | Model prices are as published on third-party price pages on 2026-10-20. | Table 2.4.3. | Confirm on the provider price page. |
 | A-11 | The deal team has about 10 analysts and associates. | A mid-market firm. | Ask the panel (P-10). |
 | A-12 | Terminal and vendor seats cost $10,000 to $25,000 per seat per year. | Assumed list prices. | Ask the panel (P-10). |
 | A-13 | The panel accepts a local cross-encoder reranker as a step that is not an LLM call. | D-01. | Ask the panel (P-02). |
-| A-14 | The 12 companies with quarterly coverage are the ones in the brief. The manifest claim of 15 is a known discrepancy. | The file list. | Run `keel inventory`. |
-| A-15 | The NVDA 10-K filed in February 2026 is in the corpus. | 27 files carry a 2026 date, and NVDA has 14 to 17 filings. | Run `keel inventory`. The worked example in chapter 11 covers both cases. |
+| A-14 | The 12 companies with quarterly coverage are the ones in the brief. The manifest claim of 15 is a known discrepancy. | The file list. | Run `keel inventory`. Stage 1 check: confirmed. 12 tickers have 3 10-Qs filed in each of 2023, 2024, and 2025 (AAPL, AMZN, DIS, GOOG, JNJ, KO, MSFT, NVDA, PFE, TSLA, UNH, XOM); 5 more have partial 10-Q coverage (BAC 3, JPM 3, META 6, MCD 1, PEP 1). |
+| A-15 | The NVDA 10-K filed in February 2026 is in the corpus. | 27 files carry a 2026 date, and NVDA has 14 to 17 filings. | Run `keel inventory`. The worked example in chapter 11 covers both cases. Stage 1 check: false, the data wins. The latest NVDA 10-K is `NVDA_10K_2025-02-26_full.txt` (fiscal 2025), and the latest NVDA filing is the 10-Q filed 2025-11-19, so the chapter 11 branch without the fiscal 2026 10-K applies. |
