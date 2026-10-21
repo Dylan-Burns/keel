@@ -9,24 +9,33 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'node_modules/**', 'playwright-report/**', 'test-results/**'],
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      'playwright-report/**',
+      'test-results/**',
+    ],
   },
   ...gts,
+  {
+    // This config file is an ES module (package.json sets type: module).
+    files: ['*.js'],
+    languageOptions: {sourceType: 'module'},
+  },
   jsxA11y.flatConfigs.recommended,
-  reactHooks.configs['recommended-latest'],
+  reactHooks.configs.flat['recommended-latest'],
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {
       parserOptions: {
-        projectService: true,
         tsconfigRootDir: import.meta.dirname,
       },
     },
     plugins: {jsdoc},
     rules: {
       // Google TypeScript Style Guide
-      'curly': ['error', 'all'],
-      'eqeqeq': ['error', 'always'],
+      curly: ['error', 'all'],
+      eqeqeq: ['error', 'always'],
       'no-var': 'error',
       'prefer-const': 'error',
       '@typescript-eslint/no-explicit-any': 'error',
@@ -40,13 +49,20 @@ export default tseslint.config(
       '@typescript-eslint/naming-convention': [
         'error',
         {selector: 'default', format: ['camelCase']},
-        {selector: 'variable', format: ['camelCase', 'PascalCase', 'UPPER_CASE']},
+        {
+          selector: 'variable',
+          format: ['camelCase', 'PascalCase', 'UPPER_CASE'],
+        },
         {selector: 'function', format: ['camelCase', 'PascalCase']},
         {selector: 'typeLike', format: ['PascalCase']},
         {selector: 'enumMember', format: ['UPPER_CASE']},
         {selector: 'import', format: ['camelCase', 'PascalCase']},
         {selector: 'objectLiteralProperty', format: null},
-        {selector: 'parameter', format: ['camelCase'], leadingUnderscore: 'allow'},
+        {
+          selector: 'parameter',
+          format: ['camelCase'],
+          leadingUnderscore: 'allow',
+        },
       ],
       'no-restricted-syntax': [
         'error',
@@ -99,5 +115,5 @@ export default tseslint.config(
     rules: {
       'jsdoc/require-jsdoc': 'off',
     },
-  }
+  },
 );
