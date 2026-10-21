@@ -15,7 +15,7 @@ import sqlite3
 
 SCHEMA = """
 CREATE VIRTUAL TABLE chunks_fts USING fts5(
-  text, content='chunks', content_rowid='rowid',
+  text, content='chunks', content_rowid='id',
   tokenize='unicode61 remove_diacritics 2'
 );
 """
@@ -23,7 +23,7 @@ CREATE VIRTUAL TABLE chunks_fts USING fts5(
 # The ticker filter is a JSON list parameter, so the SQL text never changes.
 _SEARCH = (
     "SELECT c.chunk_id, c.vector_row, bm25(chunks_fts) AS rank "
-    "FROM chunks_fts JOIN chunks AS c ON c.rowid = chunks_fts.rowid "
+    "FROM chunks_fts JOIN chunks AS c ON c.id = chunks_fts.rowid "
     "WHERE chunks_fts MATCH ? "
     "AND (c.ticker IN (SELECT value FROM json_each(?)) OR ?) "
     "ORDER BY rank, c.chunk_id LIMIT ?"

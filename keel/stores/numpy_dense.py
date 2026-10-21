@@ -26,6 +26,7 @@ import numpy.typing
 
 from keel import config
 from keel import errors
+from keel.parsers import base
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +156,21 @@ def shard_path(build_dir: pathlib.Path, filing_id: str) -> pathlib.Path:
 
     Returns:
         `{build_dir}/vectors/{filing_id}.npy`.
+
+    Raises:
+        InvalidFilingIdError: The filing ID does not have the chapter 7.11
+            shape, or the path would leave the shard directory.
     """
+    if not base.FILING_ID.match(filing_id):
+        raise errors.InvalidFilingIdError(
+            f"{filing_id!r} is not a filing ID; no shard is written for it"
+        )
+    shard_dir = (build_dir / SHARD_DIR).resolve()
+    path = shard_dir / f"{filing_id}.npy"
+    if path.resolve().parent != shard_dir:
+        raise errors.InvalidFilingIdError(
+            f"the shard of {filing_id!r} would leave {shard_dir}"
+        )
     return build_dir / SHARD_DIR / f"{filing_id}.npy"
 
 

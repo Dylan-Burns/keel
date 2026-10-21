@@ -75,3 +75,7 @@ class IndexMissingError(KeelError):
 
 class IndexCorruptError(KeelError):
     """An index file does not match its manifest checksum (chapter 16)."""
+
+
+class InvalidFilingIdError(KeelError):
+    """A filing ID does not have the chapter 7.11 shape, so no file uses it."""

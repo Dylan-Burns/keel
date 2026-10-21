@@ -5,6 +5,7 @@ checksum check (chapters 7.12, 9.5, 9.7). The tests with the pinned model
 are in `test_index_build.py`.
 """
 
+from collections.abc import Sequence
 import json
 import pathlib
 import shutil
@@ -28,11 +29,11 @@ class FailingEmbedder(conftest.FakeEmbedder):
         super().__init__()
         self.calls = 0
 
-    def encode(self, texts: object) -> numpy_dense.Vectors:
+    def encode(self, texts: Sequence[str]) -> numpy_dense.Vectors:
         self.calls += 1
         if self.calls > 1:
             raise RuntimeError("embedding failed")
-        return super().encode(texts)  # type: ignore[arg-type]
+        return super().encode(texts)
 
 
 def build(
@@ -79,7 +80,7 @@ def test_failed_build_keeps_current(
     settings: config.Settings, tmp_path: pathlib.Path
 ) -> None:
     first = build(settings, tmp_path)
-    with pytest.raises(RuntimeError):
+    with pytest.raises(errors.EmbeddingModelUnavailableError):
         build(settings, tmp_path, embedder=FailingEmbedder())
     assert indexer.current_build(tmp_path) == first.build_dir.resolve()
     assert indexer.verify(tmp_path / indexer.CURRENT) == first.manifest
@@ -208,8 +209,73 @@ def test_broken_current_is_ignored(
     assert result.manifest.build.embedded_filings == 3
 
 
-def test_next_version() -> None:
+def test_next_version(
+    settings: config.Settings, tmp_path: pathlib.Path
+) -> None:
     assert indexer.next_version(None, "1.0.0", "1.0.0", False) == "1.0.0"
+    manifest = build(settings, tmp_path).manifest.model_copy(
+        update={"index_version": "2.3.4"}
+    )
+    assert indexer.next_version(manifest, "1.0.0", "1.0.0", False) == "2.3.5"
+    assert indexer.next_version(manifest, "1.0.0", "1.0.0", True) == "2.4.0"
+    assert indexer.next_version(manifest, "1.1.0", "1.0.0", True) == "3.0.0"
+    assert indexer.next_version(manifest, "1.0.0", "1.1.0", False) == "3.0.0"
+    broken = manifest.model_copy(update={"index_version": "two"})
+    with pytest.raises(errors.IndexCorruptError):
+        indexer.next_version(broken, "1.0.0", "1.0.0", False)
+
+
+def test_incremental_change(
+    settings: config.Settings, tmp_path: pathlib.Path
+) -> None:
+    corpus = tmp_path / "corpus"
+    shutil.copytree(conftest.MINI_CORPUS, corpus)
+    out = tmp_path / "index"
+    full = build(settings, out, corpus)
+    changed = next(corpus.glob("NVDA_*.txt"))
+    changed.write_bytes(changed.read_bytes() + b"\n")
+    result = build(settings, out, corpus, incremental=True)
+    info = result.manifest.build
+    assert info.embedded_filings == 1
+    assert info.reused_filings == 2
+    assert result.manifest.index_version == "1.1.0"
+    assert result.manifest.corpus_sha256 != full.manifest.corpus_sha256
+
+
+def test_corrupt_shard_is_not_reused(
+    settings: config.Settings, tmp_path: pathlib.Path
+) -> None:
+    first = build(settings, tmp_path)
+    shard = next((first.build_dir / "vectors").glob("*.npy"))
+    numpy_dense.write_shard(
+        shard, numpy.zeros((1, numpy_dense.DIMENSIONS), numpy.float32)
+    )
+    result = build(settings, tmp_path, incremental=True)
+    assert result.manifest.build.embedded_filings == 1
+    # A current build whose files fail their checksums is not reused.
+    vectors = result.build_dir / numpy_dense.FILE_NAME
+    vectors.write_bytes(vectors.read_bytes()[:-4] + b"\0\0\0\0")
+    again = build(settings, tmp_path, incremental=True)
+    assert again.manifest.build.embedded_filings == 3
+    assert again.manifest.build.previous_build is None
+
+
+def test_publish_failure_cleans_up(
+    settings: config.Settings,
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first = build(settings, tmp_path)
+
+    def fail(*args: object) -> None:
+        raise OSError("disk full")
+
+    monkeypatch.setattr(indexer.os, "replace", fail)
+    with pytest.raises(errors.IndexWriteError):
+        build(settings, tmp_path)
+    assert indexer.current_build(tmp_path) == first.build_dir.resolve()
+    names = sorted(p.name for p in tmp_path.iterdir())
+    assert names == sorted([first.build_dir.name, indexer.CURRENT])
 
 
 def test_corpus_hash_is_order_free() -> None:

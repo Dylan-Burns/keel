@@ -78,6 +78,22 @@ def test_ticker_and_form_mismatch_quarantine(
     assert form.quarantine.reason == "form_mismatch"
 
 
+@pytest.mark.parametrize("ticker", ["../x", "NV DA", "a/b", "TOOLONGTICKER"])
+def test_invalid_ticker_quarantine(
+    tmp_path: pathlib.Path,
+    cover: str,
+    context: base.ParseContext,
+    ticker: str,
+) -> None:
+    # The filing ID names index files, so a header ticker that is not a
+    # symbol quarantines the file even when the file name has no pattern.
+    text = cover.replace("Ticker: NVDA", f"Ticker: {ticker}", 1)
+    assert text != cover
+    parsed = parse_as(tmp_path, "unpatterned.txt", text, context)
+    assert parsed.quarantine is not None
+    assert parsed.quarantine.reason == "ticker_invalid"
+
+
 def test_warnings_do_not_quarantine(
     tmp_path: pathlib.Path, cover: str, context: base.ParseContext
 ) -> None:

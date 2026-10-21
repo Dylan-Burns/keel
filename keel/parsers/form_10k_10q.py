@@ -634,6 +634,34 @@ def _date(value: str | None) -> datetime.date | None:
         return None
 
 
+def _check_ticker(
+    checks: _Checks,
+    name: inventory.FileName | None,
+    meta: base.FilingMetadata,
+) -> None:
+    """Run CK-03: the header ticker is a symbol and matches the file name.
+
+    The filing ID built from the ticker names index files, so a header
+    ticker that is not a symbol (such as `../x`) quarantines the file.
+    """
+    if meta.ticker is not None and not base.TICKER.match(meta.ticker):
+        checks.block(
+            "CK-03",
+            "ticker_invalid",
+            f"header ticker {meta.ticker!r} is not a ticker symbol",
+        )
+    elif name is None:
+        checks.warn("CK-03", "filename_unmatched", "file name has no pattern")
+    elif name.ticker != meta.ticker:
+        checks.block(
+            "CK-03",
+            "ticker_mismatch",
+            f"file name ticker {name.ticker}, header {meta.ticker}",
+        )
+    else:
+        checks.passed("CK-03")
+
+
 def _check_identity(
     checks: _Checks,
     name: inventory.FileName | None,
@@ -647,16 +675,7 @@ def _check_identity(
     may have caught the state of incorporation (DIS). It gives the warning
     `registrant_not_found` and no registrant.
     """
-    if name is None:
-        checks.warn("CK-03", "filename_unmatched", "file name has no pattern")
-    elif name.ticker != meta.ticker:
-        checks.block(
-            "CK-03",
-            "ticker_mismatch",
-            f"file name ticker {name.ticker}, header {meta.ticker}",
-        )
-    else:
-        checks.passed("CK-03")
+    _check_ticker(checks, name, meta)
     forms = {meta.form}
     if name is not None:
         forms.add(name.form)

@@ -5,9 +5,12 @@ HF_HUB_OFFLINE=1. The vectors are compared on 1 machine only: torch 2.2 on
 the Intel laptop and torch 2.x on Linux CI may differ in the last float bits.
 """
 
+from collections.abc import Iterator
+import os
 import pathlib
 import re
 import shutil
+import signal
 import sqlite3
 
 import numpy
@@ -16,6 +19,7 @@ import pytest
 import conftest
 from keel import cli
 from keel import config
+from keel import errors
 from keel import indexer
 from keel.stores import chunk_store
 from keel.stores import numpy_dense
@@ -23,26 +27,36 @@ from keel.stores import sqlite_fts
 
 pytestmark = pytest.mark.integration
 
-SETTINGS = config.load_settings(conftest.CONFIG_FILE, env_file=None)
 # Words skipped at the body start, past the overlap with the previous chunk.
 PHRASE_SKIP = 60
 PHRASE_WORDS = 8
 
 
 @pytest.fixture(scope="module")
-def embedder() -> numpy_dense.SentenceEmbedder:
-    return numpy_dense.SentenceEmbedder.from_settings(SETTINGS)
+def module_settings() -> Iterator[config.Settings]:
+    """The repository config without KEEL_ variables or the dotenv file."""
+    with pytest.MonkeyPatch.context() as patch:
+        for name in list(os.environ):
+            if name.startswith("KEEL_"):
+                patch.delenv(name)
+        yield config.load_settings(conftest.CONFIG_FILE, env_file=None)
+
+
+@pytest.fixture(scope="module")
+def embedder(module_settings: config.Settings) -> numpy_dense.SentenceEmbedder:
+    return numpy_dense.SentenceEmbedder.from_settings(module_settings)
 
 
 def build(
-    embedder: numpy_dense.Embedder,
+    embedder: numpy_dense.SentenceEmbedder,
     out: pathlib.Path,
     corpus: pathlib.Path = conftest.MINI_CORPUS,
     *,
     incremental: bool = False,
 ) -> indexer.BuildResult:
+    settings = config.load_settings(conftest.CONFIG_FILE, env_file=None)
     return indexer.build_index(
-        SETTINGS, corpus, out, lambda: embedder, incremental=incremental
+        settings, corpus, out, lambda: embedder, incremental=incremental
     )
 
 
@@ -185,12 +199,41 @@ def test_incremental_add(
     assert result.manifest.files == built.manifest.files
 
 
-def test_index_command(tmp_path: pathlib.Path) -> None:
+def test_index_command(
+    clean_env: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    del clean_env
+    before = signal.getsignal(signal.SIGTERM)
     out = tmp_path / "ci"
     code = cli.main(
         ["index", "--corpus", str(conftest.MINI_CORPUS), "--out", str(out)]
     )
     assert code == 0
+    assert signal.getsignal(signal.SIGTERM) == before
     pointer = out / indexer.CURRENT
     assert pointer.is_symlink()
     assert indexer.verify(pointer).counts.indexed == 3
+
+
+def test_sentence_embedder(embedder: numpy_dense.SentenceEmbedder) -> None:
+    assert embedder.dimensions == numpy_dense.DIMENSIONS
+    assert embedder.encode([]).shape == (0, numpy_dense.DIMENSIONS)
+    vectors = embedder.encode(["Net sales increased 12%.", "Risk factors."])
+    assert vectors.dtype == numpy.float32
+    assert vectors.shape == (2, numpy_dense.DIMENSIONS)
+    assert numpy.allclose(numpy.linalg.norm(vectors, axis=1), 1.0, atol=1e-5)
+
+
+def test_missing_model(
+    settings: config.Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HF_HUB_OFFLINE", "1")
+    pinned = settings.model_copy(
+        update={
+            "embedding": settings.embedding.model_copy(
+                update={"model": "keel-test/absent-model"}
+            )
+        }
+    )
+    with pytest.raises(errors.EmbeddingModelUnavailableError):
+        numpy_dense.SentenceEmbedder.from_settings(pinned)

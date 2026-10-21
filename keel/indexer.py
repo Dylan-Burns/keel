@@ -287,7 +287,7 @@ def next_version(
     previous: Manifest | None,
     parser_version: str,
     chunker_version: str,
-    filings_changed: bool,
+    content_changed: bool,
 ) -> str:
     """Return the index version of a new build (chapter 9.5).
 
@@ -295,22 +295,33 @@ def next_version(
         previous: The manifest of the current build, or None.
         parser_version: The parser version of the new build.
         chunker_version: The chunker version of the new build.
-        filings_changed: True when the build adds or removes filings.
+        content_changed: True when the build adds, removes, or changes
+            filings (a different filing set, corpus hash, or chunk digest).
 
     Returns:
         `1.0.0` for a first build; else the major version up for a new
-        parser or chunker version, the minor version up for added or removed
-        filings, and the patch version up otherwise.
+        parser or chunker version, the minor version up for a content
+        change, and the patch version up for a rebuild of the same text.
+
+    Raises:
+        IndexCorruptError: The previous version is not `major.minor.patch`.
     """
     if previous is None:
         return FIRST_VERSION
-    major, minor, patch = (int(p) for p in previous.index_version.split("."))
+    try:
+        major, minor, patch = (
+            int(p) for p in previous.index_version.split(".")
+        )
+    except ValueError as error:
+        raise errors.IndexCorruptError(
+            f"index_version {previous.index_version!r} is not semantic"
+        ) from error
     if (
         previous.parser_version != parser_version
         or previous.chunker_version != chunker_version
     ):
         return f"{major + 1}.0.0"
-    if filings_changed:
+    if content_changed:
         return f"{major}.{minor + 1}.0"
     return f"{major}.{minor}.{patch + 1}"
 
@@ -324,7 +335,7 @@ def _load_previous(index_dir: pathlib.Path) -> _Previous | None:
     if build_dir is None:
         return None
     try:
-        manifest = load_manifest(build_dir)
+        manifest = verify(build_dir)
         conn = chunk_store.open_read_only(build_dir / chunk_store.FILE_NAME)
     except errors.KeelError as error:
         logger.warning("ignoring the current build: %s", error)
@@ -379,34 +390,46 @@ def _can_reuse(
         and state.chunk_hashes == tuple(c.chunk_hash for c in chunks)
     )
     shard = numpy_dense.shard_path(previous.build_dir, filing.filing_id)
-    return shard if unchanged and shard.is_file() else None
+    if not unchanged or not shard.is_file():
+        return None
+    rows = numpy_dense.load(shard).shape[0]
+    return shard if rows == len(chunks) else None
 
 
-@dataclasses.dataclass
-class _EmbedProgress:
-    """Mutable counters of the embedding step, local to 1 build."""
+@dataclasses.dataclass(frozen=True)
+class _EmbedStats:
+    """What the embedding step did."""
 
-    total_filings: int
-    total_chunks: int
-    done_filings: int = 0
-    done_chunks: int = 0
-    embedded_filings: int = 0
-    embedded_chunks: int = 0
-    embed_seconds: float = 0.0
+    embedded_filings: int
+    embedded_chunks: int
+    embed_seconds: float
 
 
-def _write_shards(
+def _embed(
+    embedder: numpy_dense.Embedder, chunks: Sequence[chunker.Chunk]
+) -> numpy_dense.Vectors:
+    """Embed the chunks of 1 filing; a model failure is a Keel error."""
+    try:
+        return embedder.encode([c.text for c in chunks])
+    # torch and the tokenizer raise unrelated error types.
+    except Exception as error:  # pylint: disable=broad-exception-caught
+        raise errors.EmbeddingModelUnavailableError(
+            f"embedding failed: {error}"
+        ) from error
+
+
+def _write_shards(  # pylint: disable=too-many-locals
     build_dir: pathlib.Path,
     work: Sequence[tuple[base.ParsedFiling, list[chunker.Chunk]]],
     previous: _Previous | None,
     settings: config.Settings,
     embedder_factory: EmbedderFactory,
-) -> _EmbedProgress:
-    progress = _EmbedProgress(
-        total_filings=len(work), total_chunks=sum(len(c) for _, c in work)
-    )
+) -> _EmbedStats:
+    total_chunks = sum(len(c) for _, c in work)
+    done_chunks = embedded_filings = embedded_chunks = 0
+    embed_seconds = 0.0
     embedder: numpy_dense.Embedder | None = None
-    for filing, chunks in work:
+    for number, (filing, chunks) in enumerate(work, start=1):
         filing_id = filing.filing_id or ""
         target = numpy_dense.shard_path(build_dir, filing_id)
         reused = _can_reuse(previous, settings, filing, chunks)
@@ -417,30 +440,28 @@ def _write_shards(
             if embedder is None:
                 embedder = embedder_factory()
             started = time.perf_counter()
-            vectors = embedder.encode([c.text for c in chunks])
-            progress.embed_seconds += time.perf_counter() - started
+            vectors = _embed(embedder, chunks)
+            embed_seconds += time.perf_counter() - started
             numpy_dense.write_shard(target, vectors)
-            progress.embedded_filings += 1
-            progress.embedded_chunks += len(chunks)
-        progress.done_filings += 1
-        progress.done_chunks += len(chunks)
-        rate = (
-            progress.embedded_chunks / progress.embed_seconds
-            if progress.embed_seconds
-            else 0.0
-        )
+            embedded_filings += 1
+            embedded_chunks += len(chunks)
+        done_chunks += len(chunks)
         logger.info(
             "shard %d/%d %s: %d chunks, %s; %d/%d chunks done, %.1f chunks/s",
-            progress.done_filings,
-            progress.total_filings,
+            number,
+            len(work),
             filing_id,
             len(chunks),
             "reused" if reused is not None else "embedded",
-            progress.done_chunks,
-            progress.total_chunks,
-            rate,
+            done_chunks,
+            total_chunks,
+            embedded_chunks / embed_seconds if embed_seconds else 0.0,
         )
-    return progress
+    return _EmbedStats(
+        embedded_filings=embedded_filings,
+        embedded_chunks=embedded_chunks,
+        embed_seconds=embed_seconds,
+    )
 
 
 def _write_store(
@@ -480,6 +501,9 @@ def _publish(index_dir: pathlib.Path, staging: pathlib.Path) -> pathlib.Path:
         link.symlink_to(build_id, target_is_directory=True)
         os.replace(link, pointer)
     except OSError as error:
+        link.unlink(missing_ok=True)
+        if final.is_dir() and pointer.resolve() != final.resolve():
+            shutil.rmtree(final, ignore_errors=True)
         raise errors.IndexWriteError(
             f"cannot publish {final}: {error}"
         ) from error
@@ -512,6 +536,9 @@ def _chunk_all(
         if not f.quarantined and f.filing_id is not None
     }
     results = chunker.chunk_filings(by_id.values(), counter, sizes)
+    # Filing IDs have 1 shape (base.FILING_ID), so no ID is a prefix of
+    # another and the shards in filing-ID order hold the chunks in global
+    # chunk-ID order; chunk_store.write_chunks checks that order.
     return sorted(
         (
             (by_id[r.filing_id], sorted(r.chunks, key=lambda c: c.chunk_id))
@@ -604,21 +631,28 @@ def build_index(  # pylint: disable=too-many-locals
             )
         seconds["vectors"] = time.perf_counter() - step
         filing_ids = {f.filing_id for f, _ in work}
+        corpus_digest = corpus_sha256(
+            [f.metadata.file_sha256 for f in parsed.filings]
+        )
+        chunk_digest = chunks_sha256(chunks)
+        content_changed = previous is not None and (
+            filing_ids != set(previous.states)
+            or corpus_digest != previous.manifest.corpus_sha256
+            or chunk_digest != previous.manifest.chunks_sha256
+        )
         seconds["total"] = time.perf_counter() - started
         manifest = Manifest(
             index_version=next_version(
                 previous.manifest if previous else None,
                 settings.parser.version,
                 settings.chunker.version,
-                previous is not None and filing_ids != set(previous.states),
+                content_changed,
             ),
             built_at=datetime.datetime.now(datetime.UTC).strftime(
                 "%Y-%m-%dT%H:%M:%SZ"
             ),
-            corpus_sha256=corpus_sha256(
-                [f.metadata.file_sha256 for f in parsed.filings]
-            ),
-            chunks_sha256=chunks_sha256(chunks),
+            corpus_sha256=corpus_digest,
+            chunks_sha256=chunk_digest,
             parser_version=settings.parser.version,
             chunker_version=settings.chunker.version,
             embedding_model=ModelRef(
@@ -660,6 +694,9 @@ def build_index(  # pylint: disable=too-many-locals
             manifest.model_dump_json(indent=2) + "\n", encoding="utf-8"
         )
         final = _publish(index_dir, staging)
+    except OSError as error:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise errors.IndexWriteError(f"build failed: {error}") from error
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)
         raise

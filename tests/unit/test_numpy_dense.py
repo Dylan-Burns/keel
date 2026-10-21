@@ -6,7 +6,6 @@ import numpy
 import pytest
 
 import conftest
-from keel import config
 from keel import errors
 from keel.stores import numpy_dense
 
@@ -77,26 +76,18 @@ def test_top_k() -> None:
     assert numpy_dense.top_k(vectors, query, 5, rows=[]) == []
 
 
-def test_missing_model(
-    settings: config.Settings, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    "filing_id",
+    ["../x", "../../etc/passwd", "AAPL_10K_2024-12-31/../../x", "", "a_10K_x"],
+)
+def test_shard_path_rejects_traversal(
+    tmp_path: pathlib.Path, filing_id: str
 ) -> None:
-    monkeypatch.setenv("HF_HUB_OFFLINE", "1")
-    pinned = settings.model_copy(
-        update={
-            "embedding": settings.embedding.model_copy(
-                update={"model": "keel-test/absent-model"}
-            )
-        }
-    )
-    with pytest.raises(errors.EmbeddingModelUnavailableError):
-        numpy_dense.SentenceEmbedder.from_settings(pinned)
+    with pytest.raises(errors.InvalidFilingIdError):
+        numpy_dense.shard_path(tmp_path, filing_id)
 
 
-def test_sentence_embedder(settings: config.Settings) -> None:
-    embedder = numpy_dense.SentenceEmbedder.from_settings(settings)
-    assert embedder.dimensions == numpy_dense.DIMENSIONS
-    assert embedder.encode([]).shape == (0, numpy_dense.DIMENSIONS)
-    vectors = embedder.encode(["Net sales increased 12%.", "Risk factors."])
-    assert vectors.dtype == numpy.float32
-    assert vectors.shape == (2, numpy_dense.DIMENSIONS)
-    assert numpy.allclose(numpy.linalg.norm(vectors, axis=1), 1.0, atol=1e-5)
+def test_shard_path_accepts_filing_ids(tmp_path: pathlib.Path) -> None:
+    for filing_id in ["AAPL_10Q_2022-12-31", "BRK.B_10K_2024-12-31"]:
+        path = numpy_dense.shard_path(tmp_path, filing_id)
+        assert path == tmp_path / "vectors" / f"{filing_id}.npy"

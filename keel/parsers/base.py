@@ -27,6 +27,12 @@ from keel import errors
 from keel import tables
 
 FORM_CODES = {"10-K": "10K", "10-Q": "10Q"}
+# A header ticker: letters and digits, with `.` or `-` for a share class.
+TICKER = re.compile(r"^[A-Z0-9][A-Z0-9.\-]{0,9}$")
+# A filing ID of chapter 7.11; it names files, so nothing else passes.
+FILING_ID = re.compile(
+    r"^[A-Z0-9][A-Z0-9.\-]{0,9}_(?:10K|10Q)_\d{4}-\d{2}-\d{2}$"
+)
 CHECK_IDS = tuple(f"CK-{number:02d}" for number in range(1, 12))
 
 # Character mapping of the normalization stage (chapter 7.7). NFKC already
