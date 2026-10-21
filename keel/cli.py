@@ -1,7 +1,8 @@
 """Command line entry point for Keel.
 
-Stage 1 ships `keel inventory` and `keel doctor`. Later stages add the
-commands that CLAUDE.md lists (parse, index, ask, serve, and the rest).
+Stage 1 ships `keel inventory` and `keel doctor`; stage 2 adds `keel parse`.
+Later stages add the commands that CLAUDE.md lists (index, ask, serve, and
+the rest).
 """
 
 import argparse
@@ -17,6 +18,8 @@ from keel import doctor
 from keel import errors
 from keel import extractor
 from keel import inventory
+from keel.parsers import base as parser_base
+from keel.parsers import corpus as parser_corpus
 
 logger = logging.getLogger("keel")
 
@@ -68,6 +71,28 @@ def build_parser() -> argparse.ArgumentParser:
     )
     inventory_parser.add_argument(
         "--json", action="store_true", help="print the report as JSON"
+    )
+
+    parse_parser = commands.add_parser(
+        "parse", help="parse filings: header, XBRL cut, cover page, checks"
+    )
+    parse_parser.add_argument(
+        "files", nargs="*", type=pathlib.Path, help="filing files to parse"
+    )
+    parse_parser.add_argument(
+        "--all", action="store_true", help="parse every file of the corpus"
+    )
+    parse_parser.add_argument(
+        "--corpus",
+        type=pathlib.Path,
+        default=None,
+        help="the corpus directory for --all (default: corpus.dir)",
+    )
+    parse_parser.add_argument(
+        "--summary", action="store_true", help="print the corpus summary"
+    )
+    parse_parser.add_argument(
+        "--json", action="store_true", help="print JSON with 1 row per file"
     )
 
     doctor_parser = commands.add_parser(
@@ -184,6 +209,139 @@ def run_inventory(
     return 0
 
 
+def _file_row(filing: parser_base.ParsedFiling) -> dict[str, object]:
+    meta = filing.metadata
+    return {
+        "file": meta.file_name,
+        "filing_id": filing.filing_id,
+        "fiscal": f"{meta.fiscal_period} {meta.fiscal_year}",
+        "period_end": str(meta.period_end_date),
+        "period_source": meta.period_source,
+        "xbrl_block_chars": meta.xbrl_block_chars,
+        "tables": len(filing.tables),
+        "seconds": round(filing.parse_seconds, 3),
+        "warnings": list(filing.warnings),
+        "quarantine": filing.quarantine.reason if filing.quarantine else None,
+    }
+
+
+def _print_parse_summary(summary: parser_corpus.ParseSummary) -> None:
+    print(f"files: {summary.files}")
+    print(f"parsed: {summary.parsed}")
+    print(f"quarantined: {len(summary.quarantined)}")
+    for record in summary.quarantined:
+        evidence = ", ".join(f"{k}={v}" for k, v in record.evidence.items())
+        print(f"  - {record.file_name}: {record.reason} ({record.detail})")
+        if evidence:
+            print(f"    evidence: {evidence}")
+    warnings = ", ".join(f"{k} {v}" for k, v in summary.warnings.items())
+    print("warnings: " + (warnings or "none"))
+    for check, counts in summary.check_status.items():
+        line = ", ".join(f"{k} {v}" for k, v in counts.items())
+        print(f"  {check}: {line}")
+    if summary.xbrl_min and summary.xbrl_max:
+        print(
+            f"xbrl_block_chars: min {summary.xbrl_min[0]:,} "
+            f"({summary.xbrl_min[1]}), median {summary.xbrl_median:,.0f}, "
+            f"max {summary.xbrl_max[0]:,} ({summary.xbrl_max[1]})"
+        )
+    print(
+        f"no XBRL block: {len(summary.no_xbrl_block)} "
+        + "("
+        + ", ".join(summary.no_xbrl_block)
+        + ")"
+    )
+    print(
+        "period_source=filename: "
+        f"{len(summary.period_source_filename)} "
+        + "("
+        + ", ".join(summary.period_source_filename)
+        + ")"
+    )
+    print(
+        f"cover period from split cells: {len(summary.split_cover_layout)} "
+        + "("
+        + ", ".join(summary.split_cover_layout)
+        + ")"
+    )
+    print(f"artifact removals: {summary.artifact_removals:,}")
+    print(f"tables rebuilt: {summary.tables:,}")
+    slowest = ", ".join(f"{n} {t:.2f} s" for n, t in summary.slowest)
+    print(
+        f"parse time: total {summary.parse_seconds_total:.1f} s, median "
+        f"{summary.parse_seconds_median:.3f} s, slowest {slowest}"
+    )
+    print(f"files over 60 s: {len(summary.slow_files)}")
+    months = ", ".join(
+        f"{t} {m}" for t, m in summary.year_end_months.items() if m != 12
+    )
+    print(f"non-December fiscal year ends: {months}")
+    for note in summary.notes:
+        print(f"note: {note}")
+
+
+def run_parse(
+    settings: config.Settings,
+    files: list[pathlib.Path],
+    *,
+    parse_all: bool,
+    corpus_dir: pathlib.Path | None,
+    show_summary: bool,
+    as_json: bool,
+) -> int:
+    """Run `keel parse`.
+
+    Args:
+        settings: The loaded settings.
+        files: The files to parse when `parse_all` is False.
+        parse_all: Parse every file of the corpus directory.
+        corpus_dir: The corpus directory, or None for `corpus.dir`.
+        show_summary: Print the summary instead of 1 line per file.
+        as_json: Print JSON instead of text.
+
+    Returns:
+        The process exit code: 2 without files to parse, else 0.
+    """
+    if not parse_all and not files:
+        logger.error("name files to parse, or pass --all")
+        return 2
+    directory = corpus_dir or settings.corpus.dir
+    if parse_all:
+        _ensure_corpus(settings, directory)
+        files = sorted(directory.glob("*.txt"))
+    manifest_path = directory / "manifest.json"
+    manifest_files = None
+    try:
+        manifest_files = inventory.load_manifest(manifest_path).files
+    except errors.ManifestMissingError as error:
+        logger.warning("%s", error)
+    context = parser_base.ParseContext.from_settings(settings, manifest_files)
+    result = parser_corpus.finish_corpus(
+        parser_corpus.parse_files(files, context), context
+    )
+    summary = parser_corpus.summarize(result)
+    if as_json:
+        payload: dict[str, object] = {
+            "files": [_file_row(f) for f in result.filings]
+        }
+        if show_summary:
+            payload["summary"] = summary.model_dump(mode="json")
+        print(json.dumps(payload, indent=2))
+    elif show_summary:
+        _print_parse_summary(summary)
+    else:
+        for filing in result.filings:
+            row = _file_row(filing)
+            fields = (
+                row["quarantine"] or "ok",
+                row["filing_id"],
+                row["fiscal"],
+                str(row["seconds"]) + " s",
+            )
+            print(str(row["file"]) + ": " + ", ".join(str(f) for f in fields))
+    return 0
+
+
 def run_doctor(settings: config.Settings, download: bool, as_json: bool) -> int:
     """Run `keel doctor`.
 
@@ -226,6 +384,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "inventory":
             return run_inventory(
                 settings, args.corpus, args.manifest, args.json
+            )
+        if args.command == "parse":
+            return run_parse(
+                settings,
+                args.files,
+                parse_all=args.all,
+                corpus_dir=args.corpus,
+                show_summary=args.summary,
+                as_json=args.json,
             )
         return run_doctor(settings, args.download_models, args.json)
     except errors.KeelError as error:

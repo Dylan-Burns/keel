@@ -17,4 +17,5 @@ ORCL: 5
 PG: 6
 SBUX: 9
 TGT: 1
+V: 9  # not in the E-D-06 list; the V 10-K period ends on September 30 (stage 2)
 WMT: 1
