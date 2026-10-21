@@ -1,0 +1,9 @@
+Financial Statements.52Table of ContentsNVIDIA Corporation and SubsidiariesConsolidated Statements of Comprehensive Income(In millions)
+| Year Ended
+| Jan 26, 2025 |  | Jan 28, 2024 |  | Jan 29, 2023
+Net income | $ | 72,880 |  |  | $ | 29,760 |  |  | $ | 4,368 |
+Other comprehensive income (loss), net of tax |  |  |  |  |
+Available-for-sale securities: |  |  |  |  |
+Net change in unrealized gain (loss) | 1 |  |  | 80 |  |  | (31) |
+Reclassification adjustments for net realized gain included in net income | — |  |  | — |  |  | 1 |
+Net change in unrealized gain (loss) | 1 |  |  | 80 |  |  | (30) |
