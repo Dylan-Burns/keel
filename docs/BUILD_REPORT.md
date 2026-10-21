@@ -1,6 +1,6 @@
 # Build report
 
-Status: next stage 5
+Status: next stage 6
 
 One entry per stage of `docs/28_build_sequence.md`. Claude Code appends to this file after each stage. The panel reads it during the demo code walk.
 
@@ -134,6 +134,32 @@ Entry format:
 - Cut or deferred: none.
 - Attempts: 1. A first full build was stopped twice by hand: once to measure without the test suite competing for the CPU, once to apply the review fixes, which change `chunks.sqlite`.
 
+## Stage 5: Question understanding
+
+- Built: `keel/understanding.py` (the input checks of chapter 10.7, the normalization, the entity rules 1 to 6 of chapter 10.2 with the short-ticker and capitalized-word guards and the rapidfuzz match at 0.88, the group expansion of chapter 10.3, the unknown companies of chapter 10.6 from `config/known_external.yaml` and the company-suffix pattern, the fiscal-aware time scope of chapter 10.4 with a window per company on `period_end_date`, the type rules and the priority order of chapter 10.5, the topic terms and section weights, the out-of-scope parts, and the `QuestionAnalysis` of chapter 10.8), a `Catalog` of the corpus facts (the indexed filings with their fiscal labels and the quarantined files) built from the parse, `keel understand "question"` with `--corpus`, and 4 error classes (`QuestionInputError` with `http_status`, `EmptyQuestionError` 400, `QuestionTooLongError` 413, `NonEnglishQuestionError` 400).
+- Tests: Python 195 passing in PR runs (49 new: the 28 card tests, a parametrized alias test, the scope kinds, the generic type, the empty question, the quote normalization, the dictionary validation, and 3 integration tests on the mini corpus and the command), and 10 `eval` tests on the full corpus passing locally (2 new: the 3 example questions and the GE quarantine). Coverage of `keel/` 97.2% (`understanding.py` 96%).
+- Measured (`keel understand`, the card evidence):
+    - Example 1: tickers AAPL, TSLA, JPM (aliases Apple, Tesla, JPMorgan); time scope none, windows null; primary type `comparison`; topic terms `risk factors`; section weights `risk_factors` 1.5, `legal_proceedings` 1.1, `mdna` 1.0, `business` 0.8 (chapter 11.7).
+    - Example 2: NVDA; `relative_years` with N 2; window 2023-10-26 to 2025-10-26 anchored on the fiscal 2026 Q3 10-Q (A-15 false, case B of chapter 11.8) with 9 filings from `Q3 fiscal 2024 10-Q (ended 2023-10-29)` to `Q3 fiscal 2026 10-Q (ended 2025-10-26)`, including `fiscal 2024 10-K (ended 2024-01-28)` and `fiscal 2025 10-K (ended 2025-01-26)`; types `trend`, `numeric`, `single_company`; section weights `mdna` 1.5, `financial_statements` 1.2, `business` 0.8, `risk_factors` 0.6; table weight 1.3.
+    - Example 3: group `pharma`, tickers PFE, JNJ, MRK, LLY, ABBV; primary type `sector`; topic terms `regulatory`, `risks`; section weights `risk_factors` 1.5, `legal_proceedings` 1.2, `business` 1.0, `mdna` 0.8 (chapter 11.9).
+    - The analysis itself takes 1 to 3 ms per question (chapter 10: under 10 ms). The command takes 46 to 52 s on the Intel laptop, because it parses the 246 files to build the catalog.
+    - GE: `General Electric` resolves to GE in `not_indexed` with status `in_manifest_not_indexed`, reason `registrant_mismatch`, and the file `GE_10K_2015-02-27_full.txt`.
+    - A sweep of the 30 golden questions of chapter 18 and 10 more resolved every company as labeled (G-26 Target through the capitalization rule, G-25 GE as not indexed, G-27 with `injection_suspect`, G-23 out of scope by price).
+- Deviations from the specification:
+    - The corpus facts come from the parse (`Catalog.from_parse`), not from the index: stage 4 builds the index in parallel, and the card asks for no dependency on it. Stage 6 can build the same `Catalog` from the `filings` and `quarantine` tables.
+    - The out-of-scope response: a question whose companies are all unknown (`unknown_company`), all not indexed (`not_indexed`, the GE case), whose only topic is a price, advice, or post-corpus request (`out_of_scope_request`), or with no company, group, or topic word (`off_topic`) gets `primary_type` `out_of_scope` and an `out_of_scope_reason`. A mixed question keeps its in-scope part and sets `has_out_of_scope_part` with the parts listed in `out_of_scope_parts`; an unknown company next to a resolved one is listed there too (chapter 10.6). `suggested_tickers` holds the covered companies in the sector of an unknown company.
+    - A bare ticker that is also an alias (`cost`, `dis`, `ups`, `t`) resolves only through the upper-case rules 2 and 3, never through the lower-case alias match; otherwise every `cost` or `don't` would resolve. The capitalized-word guard of rule 4 applies to the chapter words, and `Meta` stays a guarded word although it is also the ticker.
+    - Rule 3: the position guard rejects a short ticker after `Part`, `Item`, `Section`, `the`, `a`, and similar label words, and before a hyphen, a period, an apostrophe, or `&` (`Part V`, `T-Mobile`, `Ms.`). A question with 60% or more upper-case letters skips rules 2 and 3.
+    - Rule 5: the fuzzy match takes only capitalized tokens of 5 or more letters that are not alias words, against the aliases of 5 or more letters, so `costs` never becomes COST.
+    - The language detector of chapter 10.7 is optional and the project has no detector dependency; a list of function words of French, Spanish, German, Italian, and Portuguese stands in (2 or more of them and more than the English function words). A French question has mostly ASCII letters, so the 70% letter rule alone does not catch it.
+    - The type rules add `net sales` to the numeric words (G-16) and `how do`, `both`, and `each` to the comparison words, which apply only with 2 or more companies or a group (G-09: `How do Google and Meta describe...`).
+    - The section weights come from the first matching topic profile in the order regulatory, legal, risk, financial, business; the weights are those of the worked examples in chapters 11.7 to 11.9. A question with no topic gets 1.0 for `mdna`, `business`, and `risk_factors`.
+    - The fiscal year window covers the period end dates whose nominal month (chapter 7.9) falls in the fiscal year, so a JNJ year that ends on January 1 stays in the previous fiscal year. A scope with several phrases takes the widest window per company and lists every phrase (E-Q-17). A year after the newest filing date of the corpus (2026) is an out-of-scope part.
+    - The card commit plan has 3 commits with the tests in the third; the unit tests land with the module so every commit passes the 85% coverage gate, the second commit holds the command with the integration and eval tests, and the third this report.
+    - `test_question_limits` (E-Q-10, E-Q-11) and `test_sector_cap` (E-Q-04) belong to the API (stage 9) and the retriever (stage 6); the understanding errors carry the HTTP status they need.
+- Cut or deferred: none.
+- Attempts: 1.
+
 ## Gaps
 
 Values that were not available when the build needed them, and what the build did instead.
@@ -149,6 +175,7 @@ Decisions that CLAUDE.md says to ask about, taken in unattended mode. One line e
 - The pre-commit ruff hook ran ruff 0.6.9 while `uv.lock` pins 0.17.1, and the 2 versions disagreed on stage 1 code (ANN101 against PLC0415). The hook moves to v0.17.1, the version CI already runs; no package dependency changes. Stage 1.
 - The filing excerpts under `tests/fixtures/mini_corpus` and `tests/fixtures/snippets` keep the em dashes and en dashes of the real filings. The `no-dashes` hook, the CI dash check, and the whitespace hooks skip those 2 directories instead of altering the data. Stage 1.
 - The chunker imports `tokenizers`, which `pyproject.toml` does not declare: it is the tokenizer library of `transformers` and `sentence-transformers` and is in `uv.lock`. Loading `tokenizer.json` from the pinned snapshot avoids loading torch and the model to count tokens. No dependency changes; mypy ignores its missing stubs. Stage 3.
+- Chapter 10.7 names an optional language detector. No detector library is added; a list of function words of 5 languages next to the 70% ASCII letter rule catches a French, Spanish, German, Italian, or Portuguese question. Stage 5.
 
 ## Placeholders resolved
 
