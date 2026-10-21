@@ -63,7 +63,7 @@ jobs:
           --junitxml=reports/junit.xml
       - name: upload reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-reports
           path: |
@@ -100,7 +100,7 @@ jobs:
         run: npm run test --prefix web
       - name: vite build
         run: npm run build --prefix web
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: web-dist-${{ github.run_number }}
           path: web/dist
@@ -158,7 +158,7 @@ jobs:
       - name: playwright against the built page (before the API exists)
         if: steps.api.outputs.present == 'false'
         run: npm run test:e2e --prefix web
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-report-${{ github.run_number }}
