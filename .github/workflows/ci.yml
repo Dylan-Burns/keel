@@ -244,4 +244,4 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: image smoke test
-        run: docker run --rm keel:ci keel --version
+        run: docker run --rm keel:ci --version
