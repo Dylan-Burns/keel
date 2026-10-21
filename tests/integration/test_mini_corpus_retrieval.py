@@ -1,0 +1,173 @@
+"""Retrieval on the mini corpus index with the 2 pinned models.
+
+The models come from the local Hugging Face cache; pytest runs with
+HF_HUB_OFFLINE=1.
+"""
+
+from collections.abc import Iterator
+import os
+import pathlib
+
+import pytest
+
+import conftest
+from keel import cli
+from keel import config
+from keel import indexer
+from keel import retriever
+from keel import understanding
+from keel.parsers import corpus as parser_corpus
+from keel.stores import numpy_dense
+
+pytestmark = pytest.mark.integration
+
+
+@pytest.fixture(scope="module")
+def module_settings() -> Iterator[config.Settings]:
+    """The repository config without KEEL_ variables or the dotenv file."""
+    with pytest.MonkeyPatch.context() as patch:
+        for name in list(os.environ):
+            if name.startswith("KEEL_"):
+                patch.delenv(name)
+        yield config.load_settings(conftest.CONFIG_FILE, env_file=None)
+
+
+@pytest.fixture(scope="module")
+def index_dir(
+    module_settings: config.Settings,
+    tmp_path_factory: pytest.TempPathFactory,
+) -> pathlib.Path:
+    out = tmp_path_factory.mktemp("index")
+    indexer.build_index(
+        module_settings,
+        conftest.MINI_CORPUS,
+        out,
+        lambda: numpy_dense.SentenceEmbedder.from_settings(module_settings),
+    )
+    return out
+
+
+@pytest.fixture(scope="module")
+def step(
+    module_settings: config.Settings, index_dir: pathlib.Path
+) -> retriever.Retriever:
+    return retriever.Retriever.open(module_settings, index_dir)
+
+
+def run(capsys: pytest.CaptureFixture[str], *args: str) -> tuple[int, str]:
+    code = cli.main(["--config", str(conftest.CONFIG_FILE), *args])
+    return code, capsys.readouterr().out
+
+
+def test_models_load_once(step: retriever.Retriever) -> None:
+    assert isinstance(step.reranker, retriever.CrossEncoderReranker)
+    assert isinstance(step.embedder, numpy_dense.SentenceEmbedder)
+    assert step.degraded == ()
+    assert step.catalog.indexed_tickers == ["AAPL", "JPM", "NVDA"]
+
+
+def test_comparison_on_mini_corpus(
+    step: retriever.Retriever, module_settings: config.Settings
+) -> None:
+    understander = understanding.Understander.from_settings(
+        module_settings, step.catalog
+    )
+    analysis = understander.analyze(
+        "What are the primary risk factors facing Apple and JPMorgan?"
+    )
+    result = step.retrieve(analysis)
+    chunks = [c.candidate for c in result.context.chunks]
+    assert {c.ticker for c in chunks} == {"AAPL", "JPM"}
+    # Question order: Apple first, JPMorgan after.
+    tickers = [c.ticker for c in chunks]
+    assert tickers == sorted(tickers, key=["AAPL", "JPM"].index)
+    assert result.reranked > 0
+    reranked = [c.rerank for c in chunks if c.rerank is not None]
+    assert reranked
+    assert all(0.0 < r < 1.0 for r in reranked)
+    assert result.context.token_estimate <= 32000
+    assert result.timings.rerank_ms > 0
+
+
+def test_retrieve_command_summary(
+    clean_env: pytest.MonkeyPatch,
+    index_dir: pathlib.Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    del clean_env
+    code, out = run(
+        capsys,
+        "retrieve",
+        "What are the primary risk factors facing Apple and JPMorgan?",
+        "--summary",
+        "--index",
+        str(index_dir),
+    )
+    assert code == 0
+    assert "sub-queries: 2" in out
+    assert "quota fills" in out
+    assert "  AAPL: " in out
+    assert "time ms: lexical" in out
+
+
+def test_retrieve_command_context(
+    clean_env: pytest.MonkeyPatch,
+    index_dir: pathlib.Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    clean_env.setenv("KEEL_INDEX__DIR", str(index_dir))
+    code, out = run(capsys, "retrieve", "--question", "2")
+    assert code == 0
+    assert "type: trend" in out
+    assert "NVDA_10K_2025-01-26__" in out
+    assert '<chunk id="NVDA_10K_2025-01-26__' in out
+
+
+@pytest.mark.parametrize(
+    ("args", "expected"),
+    [
+        (["--question", "4"], "--question takes 1 to 3"),
+        ([], "give a question or --question N"),
+        (["ab"], "HTTP 400"),
+        (["What is the weather in Paris?"], "out of scope: off_topic"),
+    ],
+)
+def test_retrieve_command_refusals(
+    clean_env: pytest.MonkeyPatch,
+    index_dir: pathlib.Path,
+    capsys: pytest.CaptureFixture[str],
+    args: list[str],
+    expected: str,
+) -> None:
+    clean_env.setenv("KEEL_INDEX__DIR", str(index_dir))
+    code, out = run(capsys, "retrieve", *args)
+    assert code == 1
+    assert expected in out
+
+
+def test_retrieve_command_no_index(
+    clean_env: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    del clean_env
+    code, _ = run(
+        capsys, "retrieve", "--question", "1", "--index", str(tmp_path)
+    )
+    assert code == 2
+
+
+def test_understand_reads_the_index(
+    clean_env: pytest.MonkeyPatch,
+    index_dir: pathlib.Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    clean_env.setenv("KEEL_INDEX__DIR", str(index_dir))
+
+    def no_parse(*args: object, **kwargs: object) -> None:
+        raise AssertionError("the catalog comes from the index")
+
+    clean_env.setattr(parser_corpus, "parse_corpus", no_parse)
+    code, out = run(capsys, "understand", "What risks does NVIDIA face?")
+    assert code == 0
+    assert '"NVDA"' in out
