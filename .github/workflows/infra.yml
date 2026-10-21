@@ -34,9 +34,13 @@ jobs:
           directory: infra/terraform
           framework: terraform
           output_format: sarif
-          output_file_path: results.sarif
+          # checkov treats the path as a directory and writes
+          # results_sarif.sarif into it.
+          output_file_path: checkov-results
+          # checkov reports and never fails the job (chapter 29.5).
+          soft_fail: true
       - name: upload checkov results
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: infra/terraform/results.sarif
+          sarif_file: checkov-results

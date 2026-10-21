@@ -58,9 +58,9 @@ main() {
   if [[ -z "${command}" ]]; then
     exit 0
   fi
-  block_if "${command}" 'git[[:space:]]+push[^|;&]*([[:space:]]-f([[:space:]]|$)|--force)' \
+  block_if "${command}" 'git[[:space:]]+push[^|;&]*([[:space:]]-f([[:space:]]|$)|--force|[[:space:]]\+[^[:space:]])' \
     "force pushes are forbidden (CLAUDE.md); open a fix commit instead"
-  block_if "${command}" 'git[[:space:]]+push[^|;&]*[[:space:]](origin[[:space:]]+)?(HEAD:|[a-zA-Z0-9_/.-]+:)?main([[:space:]]|$)' \
+  block_if "${command}" 'git[[:space:]]+push[^|;&]*[[:space:]](origin[[:space:]]+)?\+?(HEAD:|[a-zA-Z0-9_/.-]+:)?(refs/heads/)?main([[:space:]]|$)' \
     "pushes to main are forbidden; push the stage branch and open a PR"
   block_if "${command}" 'git[[:space:]]+commit[^|;&]*(--no-verify|[[:space:]]-n([[:space:]]|$))' \
     "commits must run the hooks; fix the findings instead of skipping them"

@@ -26,3 +26,4 @@ serve.log
 coverage.xml
 reports/
 web/tsconfig.tsbuildinfo
+requirements-audit.txt

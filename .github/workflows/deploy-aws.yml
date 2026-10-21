@@ -26,20 +26,33 @@ jobs:
       name: production
       url: https://${{ vars.KEEL_HOSTNAME }}
     steps:
+      - name: check the version input
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::version must look like 1.2.3"
+            exit 1
+          fi
       - name: pull and restart on the host
+        env:
+          KEEL_VERSION: ${{ inputs.version }}
         uses: appleboy/ssh-action@v1.1.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script_stop: true
+          envs: KEEL_VERSION
           script: |
             set -euo pipefail
             cd /opt/keel
-            echo "KEEL_IMAGE_TAG=${{ inputs.version }}" > .image.env
+            echo "KEEL_IMAGE_TAG=${KEEL_VERSION}" > .image.env
             docker compose --env-file .env --env-file .image.env pull app
             docker compose --env-file .env --env-file .image.env up -d --remove-orphans
             sleep 5
             curl -fsS http://127.0.0.1:8000/api/health
       - name: smoke test over HTTPS
-        run: curl -fsS "https://${{ vars.KEEL_HOSTNAME }}/api/health"
+        env:
+          HOST: ${{ vars.KEEL_HOSTNAME }}
+        run: curl -fsS "https://${HOST}/api/health"
