@@ -12,6 +12,7 @@ import re
 import pytest
 
 import conftest
+from keel import chunker
 from keel import config
 from keel import errors
 from keel import tables
@@ -327,29 +328,27 @@ def test_table_units(context: base.ParseContext) -> None:
     assert rendered[0].split("\n")[0] == caption
 
 
-def test_idempotent_ids(context: base.ParseContext) -> None:
+def test_idempotent_ids(
+    context: base.ParseContext, settings: config.Settings
+) -> None:
+    """Chapter 7.11 and 7.12: a second run gives the same IDs and hashes."""
     path = conftest.MINI_CORPUS / NVDA_10K
     first, second = parse(path, context), parse(path, context)
     assert first.filing_id == second.filing_id == "NVDA_10K_2025-01-26"
     assert first.text == second.text
     assert first.metadata == second.metadata
+    counter = chunker.HFTokenCounter.from_settings(settings)
+    sizes = chunker.ChunkSizes.from_settings(settings)
 
-    def ids(filing: base.ParsedFiling) -> list[tuple[str, str]]:
-        assert filing.filing_id is not None
-        return [
-            (
-                base.chunk_id(filing.filing_id, "table", index),
-                base.chunk_hash(part),
-            )
-            for index, part in enumerate(
-                part for table in filing.tables for part in table.render()
-            )
-        ]
+    def ids(filing: base.ParsedFiling) -> list[tuple[str, str, int]]:
+        result = chunker.chunk_filing(filing, counter, sizes)
+        return [(c.chunk_id, c.chunk_hash, c.simhash) for c in result.chunks]
 
     assert ids(first) == ids(second)
-    assert ids(first)
-    assert ids(first)[0][0] == "NVDA_10K_2025-01-26__table__0000"
-    assert len(ids(first)[0][1]) == 16
+    chunk_ids = [chunk for chunk, _, _ in ids(first)]
+    assert len(chunk_ids) == len(set(chunk_ids))
+    assert "NVDA_10K_2025-01-26__risk_factors__0000" in chunk_ids
+    assert all(len(digest) == 16 for _, digest, _ in ids(first))
 
 
 # Chapter 19 rows on the stage card -----------------------------------------

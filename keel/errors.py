@@ -51,3 +51,7 @@ class CoverPageNotFoundError(KeelError):
     Reserved: the parser records this condition as the quarantine reason
     `cover_page_not_found` instead of raising (chapter 6.5 names it).
     """
+
+
+class ModelMissingError(KeelError):
+    """A pinned model or its tokenizer is not in the local cache."""
