@@ -5,7 +5,7 @@ import re
 import pytest
 
 import keel
-from keel import cli
+import keel.cli
 
 
 @pytest.mark.unit
@@ -16,12 +16,12 @@ def test_version() -> None:
 @pytest.mark.unit
 def test_version_command(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as exit_info:
-        cli.main(["--version"])
+        keel.cli.main(["--version"])
     assert exit_info.value.code == 0
     assert capsys.readouterr().out.strip() == f"keel {keel.__version__}"
 
 
 @pytest.mark.unit
 def test_no_arguments_prints_help(capsys: pytest.CaptureFixture[str]) -> None:
-    assert cli.main([]) == 0
+    assert keel.cli.main([]) == 0
     assert "usage: keel" in capsys.readouterr().out
