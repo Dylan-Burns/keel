@@ -275,6 +275,16 @@ def test_type_comparison(step: understanding.Understander) -> None:
     assert "risk factors" in analysis.topic_terms
 
 
+def test_two_companies_without_compare_word(
+    step: understanding.Understander,
+) -> None:
+    analysis = step.analyze(
+        "What are the primary risk factors facing Apple and JPMorgan?"
+    )
+    assert analysis.primary_type == "comparison"
+    assert analysis.out_of_scope_reason is None
+
+
 def test_type_trend(step: understanding.Understander) -> None:
     analysis = step.analyze(EXAMPLE_2)
     assert analysis.tickers == ("NVDA",)
