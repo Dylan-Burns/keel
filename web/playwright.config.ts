@@ -20,12 +20,15 @@ export default defineConfig({
     {name: 'desktop', use: {...devices['Desktop Chrome']}},
     {name: 'phone', use: {...devices['Pixel 7']}},
   ],
-  webServer:
-    process.env['KEEL_E2E_BASE_URL'] === undefined
-      ? {
-          command: 'npm run preview -- --port 4173 --strictPort',
+  // Without KEEL_E2E_BASE_URL, serve the built page with vite preview.
+  ...(process.env['KEEL_E2E_BASE_URL'] === undefined
+    ? {
+        webServer: {
+          command:
+            'npm run preview -- --host 127.0.0.1 --port 4173 --strictPort',
           url: 'http://127.0.0.1:4173',
           reuseExistingServer: !isCi,
-        }
-      : undefined,
+        },
+      }
+    : {}),
 });
