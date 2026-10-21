@@ -1,6 +1,7 @@
 """Command line entry point for Keel.
 
-Stage 1 ships `keel inventory` and `keel doctor`; stage 2 adds `keel parse`.
+Stage 1 ships `keel inventory` and `keel doctor`; stage 2 adds `keel parse`;
+stage 3 adds `keel chunk` and `keel parse --sections-report`.
 Later stages add the commands that CLAUDE.md lists (index, ask, serve, and
 the rest).
 """
@@ -11,13 +12,16 @@ import json
 import logging
 import pathlib
 import sys
+import time
 
 import keel
+from keel import chunker
 from keel import config
 from keel import doctor
 from keel import errors
 from keel import extractor
 from keel import inventory
+from keel import sections
 from keel.parsers import base as parser_base
 from keel.parsers import corpus as parser_corpus
 
@@ -93,6 +97,33 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parse_parser.add_argument(
         "--json", action="store_true", help="print JSON with 1 row per file"
+    )
+    parse_parser.add_argument(
+        "--sections-report",
+        action="store_true",
+        help="print the canonical section coverage (chapter 8.6)",
+    )
+
+    chunk_parser = commands.add_parser(
+        "chunk", help="detect the sections and cut the token chunks"
+    )
+    chunk_parser.add_argument(
+        "files", nargs="*", type=pathlib.Path, help="filing files to chunk"
+    )
+    chunk_parser.add_argument(
+        "--all", action="store_true", help="chunk every file of the corpus"
+    )
+    chunk_parser.add_argument(
+        "--corpus",
+        type=pathlib.Path,
+        default=None,
+        help="the corpus directory for --all (default: corpus.dir)",
+    )
+    chunk_parser.add_argument(
+        "--summary", action="store_true", help="print the chunk summary"
+    )
+    chunk_parser.add_argument(
+        "--json", action="store_true", help="print the summary as JSON"
     )
 
     doctor_parser = commands.add_parser(
@@ -280,35 +311,13 @@ def _print_parse_summary(summary: parser_corpus.ParseSummary) -> None:
         print(f"note: {note}")
 
 
-def run_parse(
+def _parse(
     settings: config.Settings,
     files: list[pathlib.Path],
-    *,
     parse_all: bool,
     corpus_dir: pathlib.Path | None,
-    show_summary: bool,
-    as_json: bool,
-) -> int:
-    """Run `keel parse`.
-
-    Args:
-        settings: The loaded settings.
-        files: The files to parse when `parse_all` is False.
-        parse_all: Parse every file of the corpus directory.
-        corpus_dir: The corpus directory, or None for `corpus.dir`.
-        show_summary: Print the summary instead of 1 line per file.
-        as_json: Print JSON instead of text.
-
-    Returns:
-        The process exit code: 2 without files to parse, else 0.
-
-    Raises:
-        CorpusMissingError: `--all` finds no filings and no zip.
-        ConfigError: A parser dictionary is absent or invalid.
-    """
-    if not parse_all and not files:
-        logger.error("name files to parse, or pass --all")
-        return 2
+) -> parser_corpus.CorpusParse:
+    """Parse the named files, or the whole corpus with `parse_all`."""
     directory = corpus_dir or settings.corpus.dir
     if parse_all:
         _ensure_corpus(settings, directory)
@@ -320,19 +329,98 @@ def run_parse(
     except errors.ManifestMissingError as error:
         logger.warning("%s", error)
     context = parser_base.ParseContext.from_settings(settings, manifest_files)
-    result = parser_corpus.finish_corpus(
+    return parser_corpus.finish_corpus(
         parser_corpus.parse_files(files, context), context
     )
+
+
+def _print_sections_report(report: sections.SectionsReport) -> None:
+    for form, count in sorted(report.filings.items()):
+        core = ", ".join(
+            sections.CORE_10K if form == "10-K" else sections.CORE_10Q
+        )
+        print(
+            f"{form}: {count} filings, {report.core_complete[form]} with "
+            f"every core section ({core}): {report.core_share[form]:.1%}"
+        )
+        present = ", ".join(
+            f"{name} {n}" for name, n in report.present[form].items()
+        )
+        print(f"  filings with the section: {present}")
+        spans = ", ".join(
+            f"{name} {n}" for name, n in report.spans[form].items() if n
+        )
+        print(f"  spans: {spans}")
+    warnings = ", ".join(f"{k} {v}" for k, v in report.warnings.items())
+    print("section warnings: " + (warnings or "none"))
+    for file_name, absent in report.incomplete:
+        absent_names = ", ".join(absent)
+        print(f"  - {file_name}: no {absent_names}")
+
+
+def _sections_report(
+    result: parser_corpus.CorpusParse,
+) -> sections.SectionsReport:
+    rows = [
+        (
+            f.metadata.file_name,
+            f.metadata.form or "",
+            sections.detect(f.text, f.metadata.form or ""),
+        )
+        for f in result.filings
+        if not f.quarantined
+    ]
+    return sections.coverage_report(rows)
+
+
+def run_parse(
+    settings: config.Settings,
+    files: list[pathlib.Path],
+    *,
+    parse_all: bool,
+    corpus_dir: pathlib.Path | None,
+    show_summary: bool,
+    as_json: bool,
+    sections_report: bool = False,
+) -> int:
+    """Run `keel parse`.
+
+    Args:
+        settings: The loaded settings.
+        files: The files to parse when `parse_all` is False.
+        parse_all: Parse every file of the corpus directory.
+        corpus_dir: The corpus directory, or None for `corpus.dir`.
+        show_summary: Print the summary instead of 1 line per file.
+        as_json: Print JSON instead of text.
+        sections_report: Print the section coverage of chapter 8.6.
+
+    Returns:
+        The process exit code: 2 without files to parse, else 0.
+
+    Raises:
+        CorpusMissingError: `--all` finds no filings and no zip.
+        ConfigError: A parser dictionary is absent or invalid.
+    """
+    if not parse_all and not files:
+        logger.error("name files to parse, or pass --all")
+        return 2
+    result = _parse(settings, files, parse_all, corpus_dir)
     summary = parser_corpus.summarize(result)
+    report = _sections_report(result) if sections_report else None
     if as_json:
         payload: dict[str, object] = {
             "files": [_file_row(f) for f in result.filings]
         }
         if show_summary:
             payload["summary"] = summary.model_dump(mode="json")
+        if report is not None:
+            payload["sections"] = report.model_dump(mode="json")
         print(json.dumps(payload, indent=2))
-    elif show_summary:
-        _print_parse_summary(summary)
+    elif show_summary or report is not None:
+        if show_summary:
+            _print_parse_summary(summary)
+        if report is not None:
+            _print_sections_report(report)
     else:
         for filing in result.filings:
             row = _file_row(filing)
@@ -343,6 +431,72 @@ def run_parse(
                 str(row["seconds"]) + " s",
             )
             print(str(row["file"]) + ": " + ", ".join(str(f) for f in fields))
+    return 0
+
+
+def _print_chunk_summary(summary: chunker.ChunkSummary) -> None:
+    print(f"filings chunked: {summary.filings}")
+    print(f"chunks: {summary.chunks:,}")
+    print(
+        "by form: "
+        + ", ".join(f"{k} {v:,}" for k, v in summary.by_form.items())
+    )
+    print(
+        "by section: "
+        + ", ".join(f"{k} {v:,}" for k, v in summary.by_section.items())
+    )
+    print(
+        f"table chunks: {summary.tables:,}, split sentences: "
+        f"{summary.split_sentences:,}, forward_looking: "
+        f"{summary.forward_looking:,}, delta_only: {summary.delta_only:,}"
+    )
+    print(
+        f"tokens per chunk: mean {summary.tokens_mean}, median "
+        f"{summary.tokens_median}, p95 {summary.tokens_p95}, min "
+        f"{summary.tokens_min}, max {summary.tokens_max}; over the limit: "
+        f"{summary.over_limit}"
+    )
+    print(f"chunk time: {summary.seconds} s")
+
+
+def run_chunk(
+    settings: config.Settings,
+    files: list[pathlib.Path],
+    *,
+    chunk_all: bool,
+    corpus_dir: pathlib.Path | None,
+    as_json: bool,
+) -> int:
+    """Run `keel chunk`: parse, detect the sections, cut the chunks.
+
+    Args:
+        settings: The loaded settings.
+        files: The files to chunk when `chunk_all` is False.
+        chunk_all: Chunk every file of the corpus directory.
+        corpus_dir: The corpus directory, or None for `corpus.dir`.
+        as_json: Print the summary as JSON.
+
+    Returns:
+        The process exit code: 2 without files to chunk, else 0.
+
+    Raises:
+        CorpusMissingError: `--all` finds no filings and no zip.
+        ConfigError: A parser dictionary is absent or invalid.
+        ModelMissingError: The embedding tokenizer is not cached.
+    """
+    if not chunk_all and not files:
+        logger.error("name files to chunk, or pass --all")
+        return 2
+    counter = chunker.HFTokenCounter.from_settings(settings)
+    sizes = chunker.ChunkSizes.from_settings(settings)
+    result = _parse(settings, files, chunk_all, corpus_dir)
+    started = time.perf_counter()
+    chunked = chunker.chunk_filings(result.filings, counter, sizes)
+    summary = chunker.summarize(chunked, sizes, time.perf_counter() - started)
+    if as_json:
+        print(json.dumps(summary.model_dump(mode="json"), indent=2))
+    else:
+        _print_chunk_summary(summary)
     return 0
 
 
@@ -396,6 +550,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 parse_all=args.all,
                 corpus_dir=args.corpus,
                 show_summary=args.summary,
+                as_json=args.json,
+                sections_report=args.sections_report,
+            )
+        if args.command == "chunk":
+            return run_chunk(
+                settings,
+                args.files,
+                chunk_all=args.all,
+                corpus_dir=args.corpus,
                 as_json=args.json,
             )
         return run_doctor(settings, args.download_models, args.json)
