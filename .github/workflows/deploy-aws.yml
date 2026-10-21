@@ -27,7 +27,7 @@ jobs:
       url: https://${{ vars.KEEL_HOSTNAME }}
     steps:
       - name: pull and restart on the host
-        uses: appleboy/ssh-action@v1.1.0
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
