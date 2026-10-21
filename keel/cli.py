@@ -2,7 +2,7 @@
 
 Stage 1 ships `keel inventory` and `keel doctor`; stage 2 adds `keel parse`;
 stage 3 adds `keel chunk` and `keel parse --sections-report`; stage 4 adds
-`keel index`.
+`keel index`; stage 5 adds `keel understand`.
 Later stages add the commands that CLAUDE.md lists (index, ask, serve, and
 the rest).
 """
@@ -25,6 +25,7 @@ from keel import extractor
 from keel import indexer
 from keel import inventory
 from keel import sections
+from keel import understanding
 from keel.parsers import base as parser_base
 from keel.parsers import corpus as parser_corpus
 from keel.stores import numpy_dense
@@ -149,6 +150,17 @@ def build_parser() -> argparse.ArgumentParser:
         type=pathlib.Path,
         default=None,
         help="the index directory with `current` (default: index.dir)",
+    )
+
+    understand_parser = commands.add_parser(
+        "understand", help="resolve a question without a model call"
+    )
+    understand_parser.add_argument("question", help="the question")
+    understand_parser.add_argument(
+        "--corpus",
+        type=pathlib.Path,
+        default=None,
+        help="the corpus directory (default: corpus.dir)",
     )
 
     doctor_parser = commands.add_parser(
@@ -593,6 +605,41 @@ def run_index(
     return 0
 
 
+def run_understand(
+    settings: config.Settings, question: str, corpus_dir: pathlib.Path | None
+) -> int:
+    """Run `keel understand`: print the `QuestionAnalysis` as JSON.
+
+    The corpus facts come from the parse of the corpus until the index
+    (stage 4) carries them.
+
+    Args:
+        settings: The loaded settings.
+        question: The question.
+        corpus_dir: The corpus directory, or None for `corpus.dir`.
+
+    Returns:
+        0, or 1 when the question fails an input check.
+
+    Raises:
+        CorpusMissingError: The corpus directory and the zip are absent.
+    """
+    corpus_dir = corpus_dir or settings.corpus.dir
+    _ensure_corpus(settings, corpus_dir)
+    context = parser_base.ParseContext.from_settings(settings)
+    catalog = understanding.Catalog.from_parse(
+        parser_corpus.parse_corpus(corpus_dir, context)
+    )
+    step = understanding.Understander.from_settings(settings, catalog)
+    try:
+        analysis = step.analyze(question)
+    except errors.QuestionInputError as error:
+        print(f"HTTP {error.http_status}: {error}")
+        return 1
+    print(analysis.model_dump_json(indent=2))
+    return 0
+
+
 def run_doctor(settings: config.Settings, download: bool, as_json: bool) -> int:
     """Run `keel doctor`.
 
@@ -664,6 +711,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     try:
         settings = config.load_settings(args.config)
+        if args.command == "understand":
+            return run_understand(settings, args.question, args.corpus)
         return _dispatch(settings, args)
     except errors.KeelError as error:
         logger.error("%s: %s", type(error).__name__, error)
