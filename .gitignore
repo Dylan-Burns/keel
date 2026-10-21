@@ -22,3 +22,7 @@ serve.log
 .claude/stop_blocks
 .claude/review.diff
 .claude/review.log
+.coverage
+coverage.xml
+reports/
+web/tsconfig.tsbuildinfo

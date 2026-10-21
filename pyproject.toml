@@ -83,7 +83,7 @@ packages = ["keel"]
 line-length = 80
 target-version = "py312"
 src = ["keel", "tests", "eval", "scripts"]
-extend-exclude = ["corpus", "index", "cache", "web/node_modules", "web/dist"]
+extend-exclude = ["corpus", "index", "cache", "docs", "web/node_modules", "web/dist"]
 
 [tool.ruff.format]
 quote-style = "double"
