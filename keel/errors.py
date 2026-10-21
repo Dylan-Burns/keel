@@ -79,3 +79,27 @@ class IndexCorruptError(KeelError):
 
 class InvalidFilingIdError(KeelError):
     """A filing ID does not have the chapter 7.11 shape, so no file uses it."""
+
+
+class QuestionInputError(KeelError):
+    """A question fails an input check of chapter 10.7.
+
+    Attributes:
+        http_status: The HTTP status the API returns for it.
+    """
+
+    http_status = 400
+
+
+class EmptyQuestionError(QuestionInputError):
+    """The trimmed question is shorter than the minimum (HTTP 400)."""
+
+
+class QuestionTooLongError(QuestionInputError):
+    """The question is longer than the limit (HTTP 413, chapter 10.7)."""
+
+    http_status = 413
+
+
+class NonEnglishQuestionError(QuestionInputError):
+    """The question is not in English (HTTP 400, chapter 10.7)."""
