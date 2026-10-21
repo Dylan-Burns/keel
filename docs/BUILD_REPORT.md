@@ -1,6 +1,6 @@
 # Build report
 
-Status: next stage 4
+Status: next stage 5
 
 One entry per stage of `docs/28_build_sequence.md`. Claude Code appends to this file after each stage. The panel reads it during the demo code walk.
 
@@ -111,6 +111,28 @@ Entry format:
 - Review: the reviewer subagent found that a table across a span end was chunked twice and an unknown cut could split a table, that the 512 budget ignored the 2 special tokens, that a hard cut could split a word into word pieces, that the 10-Q Part fallback put the body into Part II after a table of contents and forced a Part II Item 4 into Part I, that a long table row could make a 480-token part, a bare `KeelError`, missing docstring sections, unused loggers, and 4 weak test assertions. All fixed in 1 commit with tests. The `tokenizers` import is recorded below.
 - Cut or deferred: none.
 - Attempts: 1.
+
+## Stage 4: Index build
+
+- Built: `keel/stores/chunk_store.py` (the chapter 9.2 tables in `chunks.sqlite`, chunks inserted in chunk-ID order, the per-filing state for incremental builds), `keel/stores/sqlite_fts.py` (the external-content `chunks_fts` table, the `rebuild` step, a BM25 search that quotes every term and passes the ticker filter as a JSON parameter), `keel/stores/numpy_dense.py` (bge-small at the pinned revision on the CPU through `SentenceTransformer(name, revision=...)`, `normalize_embeddings=True`, float32, `embedding.batch_size`; the query instruction for questions only; 1 shard per filing, `vectors.npy` in chunk-ID order, a read-only memory map, top-k), `keel/indexer.py` (the build, the chapter 9.5 manifest with the sha256 of both files, the staging directory, the `current` pointer, incremental reuse, the version rule, checksum verification), `keel index` with `--incremental`, `--corpus`, and `--out` (the flags of the CI web e2e job), and 5 error classes (`EmbeddingModelUnavailableError`, `IndexWriteError`, `IndexMissingError`, `IndexCorruptError`, `InvalidFilingIdError`). The build logs 1 progress line per shard with the running chunks per second.
+- Tests: Python 197 passing in PR runs (51 new: the 6 card tests `test_deterministic_build`, `test_manifest_checksums`, `test_vector_rows`, `test_lexical_known_phrase`, `test_dense_self_retrieval`, `test_incremental_add` on the mini corpus with the pinned model, `test_index_command` as CI runs it, plus the store, FTS5 escaping, shard, traversal ID, invalid ticker, pointer, failed build, failed publish, corrupt shard, changed filing, removed filing, version, and prune tests with a fake embedder). Coverage of `keel/` 97.6%.
+- Measured (`keel index`, Intel i9 laptop, torch 2.2.2 with 8 threads, nothing else running): 246 files, 245 indexed, 1 quarantined (GE), 64,727 chunks, 22,677 table chunks; `vectors.npy` (64,727, 384) float32, equal to the 64,727 rows of `chunks`. Time 6,213 s (1 h 44 min): parse 26.9 s, chunk 67.7 s, embed 6,110.8 s at 10.6 chunks per second, SQLite and FTS5 6.7 s, concatenation 0.7 s. `chunks.sqlite` 164 MB, `vectors.npy` 99 MB, shards 99 MB; 6.6 GB peak resident memory (`/usr/bin/time -l`).
+- Measured (`keel index --incremental` right after): 0 filings embedded, 245 shards reused, 100.5 s (parse 30.5 s, chunk 59.2 s), index version 1.0.1. Both sha256 values equal the full build (`chunks.sqlite` `3f229256...`, `vectors.npy` `817821b6...`, `chunks_sha256` `722b9b56...`), so a full and an incremental build give the same bytes on the full corpus.
+- Measured (`ls -la index/current`): `current -> 20261021T231603728106Z`, a relative symlink; the previous build `20261021T213217342159Z` stays beside it.
+- Deviations from the specification (also in the decisions log under A-03 and A-09):
+    - Embedding speed: 10.6 chunks per second on this CPU, not the 30 of chapter 9.6 and A-03, and 64,727 chunks, not 38,000; the full build takes 1 h 44 min instead of about 27 minutes (NFR-07 targets the estimate). Larger batches were slower in a probe (64: 13 per second against 19 for 32 on the mini corpus), so the build keeps `embedding.batch_size` 32.
+    - `index/current` is a relative symlink to `index/<build_id>`, swapped with 1 atomic `os.replace`, instead of a directory renamed to `current` (7.12 step 7, 6.2 step 11): a directory cannot replace a non-empty directory atomically. Readers use `<index.dir>/current`, so `KEEL_INDEX__DIR=index/ci` works for stage 9. The build writes into `index/.tmp-<build_id>`; a failed, terminated (SIGTERM), or unpublishable build removes it and leaves `current` as it was. The previous build is kept for a rollback; older builds are pruned.
+    - Incremental builds (9.7 step 2, 7.12 step 3) parse and chunk every file, because the fiscal year-end month and CK-11 are corpus-wide, then copy the shard of each filing whose file hash, parser and chunker versions, chunk hashes, embedding model, and shard row count are unchanged, from a current build whose checksums verify. The parse and chunk take 90 s; the embedding is 98% of a full build.
+    - Each filing is embedded in its own `encode` call, so its vectors do not depend on the other filings in a batch; that makes the full and the incremental build byte-identical.
+    - `chunks` gains `id INTEGER PRIMARY KEY` (`vector_row + 1`) as the FTS5 `content_rowid`, and `chunk_id` is `UNIQUE` instead of the primary key: the hidden rowid of a `TEXT PRIMARY KEY` table may change on VACUUM.
+    - The manifest adds `chunks_sha256` (the chunk IDs and hashes, equal on every machine) and a `build` block (build ID, previous build, embedded and reused counts, step seconds, chunks per second). The reranker entry carries the Hub's new id.
+    - Versions (9.5): a changed or removed filing, or a changed chunk digest, bumps the minor version like an added filing; only a rebuild with the same text bumps the patch.
+    - Determinism across platforms: torch 2.2 on the laptop and torch 2.x on Linux CI may differ in the last float bits, so `vectors.npy` and its sha256 can differ between machines. `test_deterministic_build` compares 2 builds on 1 machine; `chunks_sha256` and the chunk IDs and hashes compare across machines.
+    - Security (orchestrator review): a filing ID names a shard file only when it matches `base.FILING_ID` and the path stays in `vectors/`; CK-03 quarantines a header ticker that is not a symbol (`ticker_invalid`), as defense in depth. The full corpus still gives 1 quarantine (GE).
+    - The card plans 4 commits plus the report; the review findings came after the 4 were pushed, so a fix commit carries them (6 commits in all).
+- Review: the reviewer subagent found a failed publish that left a build directory and a `.current-*` link, embedding and OS errors that escaped as tracebacks, incremental reuse without checksum or row checks, a patch version for changed text, the hidden-rowid FTS5 key, a malformed version raising `ValueError`, test isolation from the environment and the SIGTERM handler, missing tests for a changed filing and the version table, a mutable dataclass, and the model tests under `tests/unit`. All fixed in 1 commit with tests. The missing report was this entry.
+- Cut or deferred: none.
+- Attempts: 1. A first full build was stopped twice by hand: once to measure without the test suite competing for the CPU, once to apply the review fixes, which change `chunks.sqlite`.
 
 ## Gaps
 
