@@ -1,7 +1,8 @@
 """Command line entry point for Keel.
 
 Stage 1 ships `keel inventory` and `keel doctor`; stage 2 adds `keel parse`;
-stage 3 adds `keel chunk` and `keel parse --sections-report`.
+stage 3 adds `keel chunk` and `keel parse --sections-report`; stage 4 adds
+`keel index`.
 Later stages add the commands that CLAUDE.md lists (index, ask, serve, and
 the rest).
 """
@@ -11,6 +12,7 @@ from collections.abc import Sequence
 import json
 import logging
 import pathlib
+import signal
 import sys
 import time
 
@@ -20,10 +22,12 @@ from keel import config
 from keel import doctor
 from keel import errors
 from keel import extractor
+from keel import indexer
 from keel import inventory
 from keel import sections
 from keel.parsers import base as parser_base
 from keel.parsers import corpus as parser_corpus
+from keel.stores import numpy_dense
 
 logger = logging.getLogger("keel")
 
@@ -124,6 +128,27 @@ def build_parser() -> argparse.ArgumentParser:
     )
     chunk_parser.add_argument(
         "--json", action="store_true", help="print the summary as JSON"
+    )
+
+    index_parser = commands.add_parser(
+        "index", help="build the chunk store, FTS5, vectors, and manifest"
+    )
+    index_parser.add_argument(
+        "--incremental",
+        action="store_true",
+        help="embed only new or changed filings; reuse the other shards",
+    )
+    index_parser.add_argument(
+        "--corpus",
+        type=pathlib.Path,
+        default=None,
+        help="the directory of filings (default: corpus.dir)",
+    )
+    index_parser.add_argument(
+        "--out",
+        type=pathlib.Path,
+        default=None,
+        help="the index directory with `current` (default: index.dir)",
     )
 
     doctor_parser = commands.add_parser(
@@ -500,6 +525,71 @@ def run_chunk(
     return 0
 
 
+def _exit_on_sigterm(signum: int, frame: object) -> None:
+    del frame
+    sys.exit(128 + signum)
+
+
+def run_index(
+    settings: config.Settings,
+    *,
+    corpus_dir: pathlib.Path | None,
+    out_dir: pathlib.Path | None,
+    incremental: bool,
+) -> int:
+    """Run `keel index`: build and publish an index (chapter 9).
+
+    Args:
+        settings: The loaded settings.
+        corpus_dir: The directory of filings, or None for `corpus.dir`
+            (extracted from the zip when empty).
+        out_dir: The index directory, or None for `index.dir`.
+        incremental: Reuse the shards of unchanged filings.
+
+    Returns:
+        The process exit code: 0 after a published build.
+
+    Raises:
+        CorpusMissingError: No filings and no zip.
+        ModelMissingError: The tokenizer is not cached.
+        EmbeddingModelUnavailableError: The embedding model cannot load.
+        IndexWriteError: The build cannot be written or published.
+    """
+    directory = corpus_dir or settings.corpus.dir
+    if corpus_dir is None:
+        _ensure_corpus(settings, directory)
+    # SIGTERM exits through SystemExit, so the build removes its staging
+    # directory before the process ends.
+    signal.signal(signal.SIGTERM, _exit_on_sigterm)
+    result = indexer.build_index(
+        settings,
+        directory,
+        out_dir or settings.index.dir,
+        lambda: numpy_dense.SentenceEmbedder.from_settings(settings),
+        incremental=incremental,
+    )
+    manifest = result.manifest
+    counts = manifest.counts
+    build = manifest.build
+    print(f"build: {result.build_dir}")
+    print(f"index version: {manifest.index_version}")
+    print(
+        f"files {counts.files}, indexed {counts.indexed}, quarantined "
+        f"{counts.quarantined}, chunks {counts.chunks:,}, table chunks "
+        f"{counts.table_chunks:,}"
+    )
+    print(
+        f"embedded filings {build.embedded_filings}, reused "
+        f"{build.reused_filings}, embedded chunks {build.embedded_chunks:,}, "
+        f"chunks/s {build.chunks_per_second}"
+    )
+    print("seconds: " + ", ".join(f"{k} {v}" for k, v in build.seconds.items()))
+    for name, digest in manifest.files.items():
+        print(f"sha256 {name}: {digest}")
+    print(f"chunks_sha256: {manifest.chunks_sha256}")
+    return 0
+
+
 def run_doctor(settings: config.Settings, download: bool, as_json: bool) -> int:
     """Run `keel doctor`.
 
@@ -518,6 +608,38 @@ def run_doctor(settings: config.Settings, download: bool, as_json: bool) -> int:
         for result in results:
             print(f"{result.status:<5} {result.name}: {result.detail}")
     return 1 if any(r.status == doctor.FAIL for r in results) else 0
+
+
+def _dispatch(settings: config.Settings, args: argparse.Namespace) -> int:
+    """Run the chosen command with its arguments."""
+    if args.command == "inventory":
+        return run_inventory(settings, args.corpus, args.manifest, args.json)
+    if args.command == "parse":
+        return run_parse(
+            settings,
+            args.files,
+            parse_all=args.all,
+            corpus_dir=args.corpus,
+            show_summary=args.summary,
+            as_json=args.json,
+            sections_report=args.sections_report,
+        )
+    if args.command == "chunk":
+        return run_chunk(
+            settings,
+            args.files,
+            chunk_all=args.all,
+            corpus_dir=args.corpus,
+            as_json=args.json,
+        )
+    if args.command == "index":
+        return run_index(
+            settings,
+            corpus_dir=args.corpus,
+            out_dir=args.out,
+            incremental=args.incremental,
+        )
+    return run_doctor(settings, args.download_models, args.json)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -539,29 +661,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     try:
         settings = config.load_settings(args.config)
-        if args.command == "inventory":
-            return run_inventory(
-                settings, args.corpus, args.manifest, args.json
-            )
-        if args.command == "parse":
-            return run_parse(
-                settings,
-                args.files,
-                parse_all=args.all,
-                corpus_dir=args.corpus,
-                show_summary=args.summary,
-                as_json=args.json,
-                sections_report=args.sections_report,
-            )
-        if args.command == "chunk":
-            return run_chunk(
-                settings,
-                args.files,
-                chunk_all=args.all,
-                corpus_dir=args.corpus,
-                as_json=args.json,
-            )
-        return run_doctor(settings, args.download_models, args.json)
+        return _dispatch(settings, args)
     except errors.KeelError as error:
         logger.error("%s: %s", type(error).__name__, error)
         return 2
