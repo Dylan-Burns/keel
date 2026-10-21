@@ -73,7 +73,7 @@ Values that were not available when the build needed them, and what the build di
 
 | Gap | Effect | Resolution |
 | --- | --- | --- |
-| Local `docker build` at stage 0 | The Docker Desktop disk on the laptop is full (other projects), so the build failed at the last copy step after `uv sync --frozen` passed in the builder stage | Resolved after stage 0: the image built locally at 1.5 GB, and `docker run --rm keel:local keel --version` prints `keel 0.1.0` |
+| Local `docker build` at stage 0 | The Docker Desktop disk on the laptop is full (other projects), so the build failed at the last copy step after `uv sync --frozen` passed in the builder stage | Resolved after stage 0: the image built locally at 1.5 GB, and `docker run --rm keel:local --version` prints `keel 0.1.0` |
 
 ## Decisions taken without review
 
