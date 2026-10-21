@@ -1,7 +1,10 @@
+# Version updates are paused (limit 0) at the engineer's request on
+# 2026-10-21; security alerts still arrive. Raise the limits to resume.
 version: 2
 updates:
   - package-ecosystem: uv
     directory: /
+    open-pull-requests-limit: 0
     schedule:
       interval: weekly
       day: monday
@@ -12,24 +15,28 @@ updates:
       prefix: "build(deps)"
   - package-ecosystem: npm
     directory: /web
+    open-pull-requests-limit: 0
     schedule:
       interval: weekly
     commit-message:
       prefix: "build(deps)"
   - package-ecosystem: github-actions
     directory: /
+    open-pull-requests-limit: 0
     schedule:
       interval: weekly
     commit-message:
       prefix: "ci(deps)"
   - package-ecosystem: docker
     directory: /
+    open-pull-requests-limit: 0
     schedule:
       interval: weekly
     commit-message:
       prefix: "build(deps)"
   - package-ecosystem: terraform
     directory: /infra/terraform
+    open-pull-requests-limit: 0
     schedule:
       interval: monthly
     commit-message:

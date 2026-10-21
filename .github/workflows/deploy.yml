@@ -27,6 +27,14 @@ jobs:
       name: production
       url: https://${{ vars.KEEL_HOSTNAME }}
     steps:
+      - name: check the version input
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::version must look like 1.2.3"
+            exit 1
+          fi
       - uses: actions/checkout@v4
         with:
           ref: v${{ inputs.version }}
@@ -40,15 +48,20 @@ jobs:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: railway up --service keel --ci
       - name: wait for the new version to answer
+        env:
+          VERSION: ${{ inputs.version }}
+          HOST: ${{ vars.KEEL_HOSTNAME }}
         run: |
           for _ in $(seq 1 60); do
-            if curl -fsS "https://${{ vars.KEEL_HOSTNAME }}/api/health" | grep -q "\"${{ inputs.version }}\""; then
-              echo "version ${{ inputs.version }} is live"
+            if curl -fsS "https://${HOST}/api/health" | grep -q "\"${VERSION}\""; then
+              echo "version ${VERSION} is live"
               exit 0
             fi
             sleep 10
           done
-          echo "the host did not report version ${{ inputs.version }} within 10 minutes"
+          echo "the host did not report version ${VERSION} within 10 minutes"
           exit 1
       - name: smoke test
-        run: curl -fsS "https://${{ vars.KEEL_HOSTNAME }}/api/ready"
+        env:
+          HOST: ${{ vars.KEEL_HOSTNAME }}
+        run: curl -fsS "https://${HOST}/api/ready"
