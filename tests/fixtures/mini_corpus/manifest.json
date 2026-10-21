@@ -1,0 +1,16 @@
+{
+  "corpus": "SEC EDGAR 10-K and 10-Q Filings (test excerpt)",
+  "description": "Trimmed excerpts of 3 filings from the EDGAR corpus: the header, the separator, the start of the XBRL block, the cover page, the table of contents, and a window after each item heading. 0 companies have full quarterly coverage for 2023-2025.",
+  "file_count": 3,
+  "filing_types": {
+    "10-K": 2,
+    "10-Q": 1
+  },
+  "files": [
+    "AAPL_10Q_2022Q4_2023-02-03_full.txt",
+    "JPM_10K_2026-02-13_full.txt",
+    "NVDA_10K_2025-02-26_full.txt"
+  ],
+  "license": "Public domain (SEC filings are US government documents)",
+  "source": "https://www.sec.gov/edgar/"
+}

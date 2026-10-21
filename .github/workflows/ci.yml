@@ -197,7 +197,8 @@ jobs:
       - name: no em or en dashes
         run: |
           # The two byte sequences are the em dash and the en dash in UTF-8.
-          if grep -rn --exclude-dir=.git --exclude-dir=corpus --exclude-dir=node_modules --exclude-dir=dist --exclude=uv.lock --exclude=package-lock.json $'\xe2\x80\x94\\|\xe2\x80\x93' . ; then
+          # The filing excerpts under tests/fixtures keep the bytes of the real filings.
+          if grep -rn --exclude-dir=.git --exclude-dir=corpus --exclude-dir=mini_corpus --exclude-dir=snippets --exclude-dir=node_modules --exclude-dir=dist --exclude=uv.lock --exclude=package-lock.json $'\xe2\x80\x94\\|\xe2\x80\x93' . ; then
             echo "::error::em or en dash found; use a comma, a colon, or a new sentence"
             exit 1
           fi

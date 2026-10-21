@@ -1,0 +1,68 @@
+Company: Apple Inc
+Ticker: AAPL
+Filing Type: 10-Q (Quarterly Report)
+Filing Date: 2023-02-03
+Report Period: 2022-12-31
+Quarter: 2022Q4
+CIK: 0000320193
+Source: SEC EDGAR
+URL: https://www.sec.gov/Archives/edgar/data/320193/000032019323000006/aapl-20221231.htm
+============================================================
+
+aapl-20221231false2023Q10000320193--09-30P1Y63P1Y27P1Y8200003201932022-09-252022-12-310000320193us-gaap:CommonStockMember2022-09-252022-12-310000320193aapl:A1.375NotesDue2024Member2022-09-252022-12-310000320193aapl:A0.000Notesdue2025Member2022-09-252022-12-310000320193aapl:A0.875NotesDue2025Member2022-09-252022-12-310000320193aapl:A1.625NotesDue2026Member2022-09-252022-12-310000320193aapl:A2.000NotesDue2027Member2022-09-252022-12-310000320193aapl:A1.375NotesDue2029Member2022-09-252022-12-310000320193aapl:A3.050NotesDue2029Member2022-09-252022-12-310000320193aapl:A0.500Notesdue2031Member2022-09-252022-12-310000320193aapl:A3.600NotesDue2042Member2022-09-252022-12-3100003201932023-01-20xbrli:shares0000320193us-gaap:ProductMember2022-09-252022-12-31iso4217:USD0000320193us-gaap:ProductMember2021-09-262021-12-250000320193us-gaap:ServiceMember2022-09-252022-12-310000320193us-gaap:ServiceMember2021-09-262021-12-2500003201932021-09-262021-12-25iso4217:USDxbrli:shares00003201932022-12-3100003201932022-09-2400003201932021-09-250000320193us-gaap:CommonStockIncludingAdditionalPaidInCapitalMember2022-09-240000320193us-gaap:CommonStockIncludingAdditionalPaidInCapitalMember2021-09-250000320193us-gaap:CommonStockIncludingAdditionalPaidInCapitalMember2022-09-252022-12-310000320193us-gaap:CommonStockIncludingAdditionalPaidInCapitalMember2021-09-262021-12-250000320193us-gaap:CommonStockIncludingAdditionalPaidInCapitalMember2022-12-310000320193us-gaap:CommonStockIncludingAdditionalPaidInCapitalMeUNITED STATESSECURITIES AND EXCHANGE COMMISSIONWashington, D.C. 20549FORM 10-Q(Mark One)☒ QUARTERLY REPORT PURSUANT TO SECTION 13 OR 15(d) OF THE SECURITIES EXCHANGE ACT OF 1934For the quarterly period ended December 31, 2022or☐ TRANSITION REPORT PURSUANT TO SECTION 13 OR 15(d) OF THE SECURITIES EXCHANGE ACT OF 1934For the transition period from              to             .Commission File Number: 001-36743Apple Inc.(Exact name of Registrant as specified in its charter)
+California |  | 94-2404110
+(State or other jurisdictionof incorporation or organization) |  | (I.R.S. Employer Identification No.)
+One Apple Park Way |  |
+Cupertino,California |  | 95014
+(Address of principal executive offices) |  | (Zip Code)
+(408) 996-1010(Registrant’s telephone number, including area code)Securities registered pursuant to Section 12(b) of the Act:
+Title of each class | Trading symbol(s) | Name of each exchange on which registered
+Common Stock, $0.00001 par value per share | AAPL | The Nasdaq Stock Market LLC
+1.375% Notes due 2024 | — | The Nasdaq Stock Market LLC
+0.000% Notes due 2025 | — | The Nasdaq Stock Market LLC
+0.875% Notes due 2025 | — | The Nasdaq Stock Market LLC
+1.625% Notes due 2026 | — | The Nasdaq Stock Market LLC
+2.000% Notes due 2027 | — | The Nasdaq Stock Market LLC
+1.375% Notes due 2029 | — | The Nasdaq Stock Market LLC
+3.050% Notes due 2029 | — | The Nasdaq Stock Market LLC
+0.500% Notes due 2031 | — | The Nasdaq Stock Market LLC
+3.600% Notes due 2042 | — | The Nasdaq Stock Market LLC
+Indicate by check mark whether the Registrant (1) has filed all reports required to be filed by Section 13 or 15(d) of the Securities Exchange Act of 1934 during the preceding 12 months (or for such shorter period that the Registrant was required to file such reports), and (2) has been subject to such filing requirements for the past 90 days.Yes  ☒     No  ☐Indicate by check mark whether the Registrant has submitted electronically every Interactive Data File required to be submitted pursuant to Rule 405 of Regulation S-T (§232.405 of this chapter) during the preceding 12 months (or for such shorter period that the Registrant was required to submit such files).Yes  ☒     No  ☐Indicate by check mark whether the Registrant is a large accelerated filer, an accelerated filer, a non-accelerated filer, a smaller reporting company, or an emerging growth company. See the definitions of “large accelerated filer,” “accelerated filer,” “smaller reporting company,” and “emerging growth company” in Rule 12b-2 of the Exchange Act.
+Large accelerated filer |  | ☒ |  | Accelerated filer |  | ☐
+Non-accelerated filer |  | ☐ |  | Smaller reporting company |  | ☐
+|  |  |  | Emerging growth company |  | ☐
+If an emerging growth company, indicate by check mark if the Registrant has elected not to use the extended transition period for complying with any new or revised financial accounting standards provided pursuant to Section 13(a) of the Exchange Act.          ☐Indicate by check mark whether the Registrant is a shell company (as defined in Rule 12b-2 of the Exchange Act).Yes  ☐     No  ☒15,821,946,000 shares of common stock were issued and outstanding as of January 20, 2023.Apple Inc.Form 10-QFor the Fiscal Quarter Ended December 31, 2022 TABLE OF CONTENTS
+| Page
+Part I
+Item 1. | Financial Statements | 1
+Item 2. | Management’s Discussion and Analysis of Financial Condition and Results of Operations | 15
+Item 3. | Quantitative and Qualitative Disclosures About Market Risk | 20
+Item 4. | Controls and Procedures | 20
+Part II
+Item 1. | Legal Proceedings | 21
+Item 1A. | Risk Factors | 21
+Item 2. | Unregistered Sales of Equity Securities and Use of Proceeds | 21
+Item 3. | Defaults Upon Senior Securities | 21
+Item 4. | Mine Safety Disclosures | 22
+Item 5. | Other Information | 22
+Item 6. | Exhibits | 22
+PART I  —  FINANCIAL INFORMATIONItem 1.    Financial StatementsApple Inc.CONDENSED CONSOLIDATED STATEMENTS OF OPERATIONS (Unaudited)(In millions, except number of shares which are reflected in thousands and per share amounts)
+| Three Months Ended |  |
+| December 31,2022 |  | December 25,2021 |  |  |  |
+Net sales: |  |  |  |  |  |  |
+Products | $ | 96,388 |  |  | $ | 104,429 |  |  |  |  |
+Apple Inc. | Q1 2023 Form 10-Q | 14Item 2.    Management’s Discussion and Analysis of Financial Condition and Results of OperationsThis section and other parts of this Quarterly Report on Form 10-Q (“Form 10-Q”) contain forward-looking statements, within the meaning of the Private Securities Litigation Reform Act of 1995, that involve risks and uncertainties. Forward-looking statements provide current expectations of future events based on certain assumptions and include any statement that does not directly relate to any historical or current fact. For example, statements in this Form 10-Q regarding the potential future impact of the COVID-19 pandemic on the Company’s business and results of operations are forward-looking statements. Item 2.    Management’s Discussion and Analysis of Financial Condition and Results of OperationsThis section and other parts of this Quarterly Report on Form 10-Q (“Form 10-Q”) contain forward-looking statements, within the meaning of the Private Securities Litigation Reform Act of 1995, that involve risks and uncertainties. Forward-looking statements provide current expectations of future events based on certain assumptions and include any statement that does not directly relate to any historical or current fact. For example, statements in this Form 10-Q regarding the potential future impact of the COVID-19 pandemic on the Company’s business and results of operations are forward-looking statements.
+| Three Months Ended |  |
+| December 31,2022 |  | December 25,2021 |  | Change |  |  |  |  |  |
+Net sales by reportable segment: |  |  |  |  |  |  |  |  |  |  |
+Americas | $ | 49,278 |  |  | $ | 51,496 |  |  | (4) | % |  |  |  |  |  |
+The Company’s effective tax rate for the first quarter of 2023 was lower than the statutory federal income tax rate due primarily to a lower effective tax rate on foreign earnings, tax benefits from share-based compensation, and the U.S. federal R&D credit, partially offset by state income taxes.The Company’s effective tax rate for the first quarter of 2023 was lower compared to the same quarter in 2022 due primarily to a higher U.S. federal R&D credit, lower state income taxes and a lower effective tax rate on foreign earnings, largely offset by lower tax benefits from share-based compensation.Liquidity and Capital ResourcesThe Company believes its balances of cash, cash equivalents and unrestricted marketable securities, along with cash generated by ongoing operations and continued access to debt markets, will be sufficient to satisfy its cash requirements and capital return program over the next 12 months and beyond. Item 3.    Quantitative and Qualitative Disclosures About Market RiskThere have been no material changes to the Company’s market risk during the first three months of 2023. For a discussion of the Company’s exposure to market risk, refer to the Company’s market risk disclosures set forth in Part II, Item 7A, “Quantitative and Qualitative Disclosures About Market Risk” of the 2022 Form 10-K.Item 4.    Controls and ProceduresEvaluation of Disclosure Controls and ProceduresBased on an evaluation under the supervision and with the participation of the Company’s management, the Company’s principal executive officer and principal financial officer have concluded that the Company’s disclosure contr PART II  —  OTHER INFORMATIONItem 1.    Legal ProceedingsEpic GamesEpic Games, Inc. (“Epic”) filed a lawsuit in the U.S. District Court for the Northern District of California (the “Northern California District Court”) against the Company alleging violations of federal and state antitrust laws and California’s unfair competition law based upon the Company’s operation of its App Store. The Company filed a counterclaim for breach of contract. On September 10, 2021, the Northern California District Court ruled in favor of the Company with respect to nine out of the ten counts included in Epic’s claim, and in favor of the Company with respect to the Company’s claims for breach of contract. The Northern California District Court found that certain provisions of the Company’s App Store Review Guidelines violate California’s unfair competition law and issued an injunction. Item 1A.    Risk FactorsThe Company’s business, reputation, results of operations, financial condition and stock price can be affected by a number of factors, whether currently known or unknown, including those described in Part I, Item 1A of the 2022 Form 10-K under the heading “Risk Factors.” When any one or more of these risks materialize from time to time, the Company’s business, reputation, results of operations, financial condition and stock price can be materially and adversely affected. There have been no material changes to the Company’s risk factors since the 2022 Form 10-K.Item 2.    Unregistered Sales of Equity Securities and Use of ProceedsPurchases of Equity Securities by the I
+Periods |  | Total Numberof Shares Purchased |  | Average PricePaid Per Share |  | Total Number of SharesPurchased as Part of PubliclyAnnounced Plans or Programs |  | Approximate Dollar Value ofShares That May Yet Be PurchasedUnder the Plans or Programs(1)
+September 25, 2022 to October 29, 2022: |  |  |  |  |  |  |  |
+Open market and privately negotiated purchases |  | 69,169 |  |  | $ | 144.57 |  |  | 69,169 |  |  |
+October 30, 2022 to November 26, 2022: |  |  |  |  |  |  |  |
+(1)On April 28, 2022, the Board of Directors authorized the purchase of an additional $90 billion of the Company’s common stock under the Program. As of December 31, 2022, total utilization under the April 2022 authorization was $48.3 billion. The Program does not obligate the Company to acquire a minimum amount of shares. Under the Program, shares may be repurchased in privately negotiated and/or open market transactions, including under plans complying with Rule 10b5-1 under the Exchange Act.Item 3.    Defaults Upon Senior SecuritiesNone.Apple Inc. | Q1 2023 Form 10-Q | 21Item 4.    Mine Safety DisclosuresNot applicable.Item 5.    Other InformationRule 10b5-1 Trading PlansDuring the three months ended December 31, 2022, Katherine L. Item 3.    Defaults Upon Senior SecuritiesNone.Apple Inc. | Q1 2023 Form 10-Q | 21Item 4.    Mine Safety DisclosuresNot applicable.Item 5.    Other InformationRule 10b5-1 Trading PlansDuring the three months ended December 31, 2022, Katherine L. Adams, Timothy D. Cook, Luca Maestri, Deirdre O’Brien and Jeffrey Williams, each an officer for purposes of Section 16 of the Exchange Act, had equity trading plans in place in accordance with Rule 10b5-1(c)(1) under the Exchange Act. An equity trading plan is a written document that preestablishes the amounts, prices and dates (or formula for determining the amounts, prices and dates) of future purchases or sales of the Company’s stock, including sales of shares acquired under the Company’s employee and director equity plans. Item 6.    Exhibits
+|  |  |  | Incorporated by Reference
+ExhibitNumber |  | Exhibit Description |  | Form |  | Exhibit |  | Filing Date/Period End Date
+10.1* |  | Form of CEO Restricted Stock Unit Award Agreement under 2022Employee Stock Plan effective as of September 25, 2022. |  |  |  |  |  |
+10.2* |  | Form of CEO Performance Award Agreement under 2022Employee Stock Plan effective as of September 25, 2022. |  |  |  |  |  |
