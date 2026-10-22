@@ -20,6 +20,16 @@ from keel import understanding
 pytestmark = pytest.mark.unit
 
 VERSION = "1.0.0"
+# Every prompt version in the repository (docs/PROMPT_LOG.md keeps them all).
+VERSIONS = sorted(
+    p.name.removeprefix("answer_system_v").removesuffix(".md")
+    for p in prompt.PROMPTS_DIR.glob("answer_system_v*.md")
+)
+# Model tokens per bge token for plain prompt prose: the live request of
+# stage 7 cached 2,320 tokens for the 1,764 bge tokens of the 1.0.0 system
+# block and tool. The configured calibration factor also absorbs the
+# wrapper line of each chunk, so it overstates plain text.
+PROSE_FACTOR = 1.32
 
 
 def sample() -> dict[str, object]:
@@ -90,31 +100,37 @@ def built(*candidates: context.Candidate) -> context.Context:
     )
 
 
-def test_prompt_hash_stable(tmp_path: pathlib.Path) -> None:
-    first = prompt.PromptFiles.load(VERSION)
-    second = prompt.PromptFiles.load(VERSION)
+@pytest.mark.parametrize("version", VERSIONS)
+def test_prompt_hash_stable(tmp_path: pathlib.Path, version: str) -> None:
+    first = prompt.PromptFiles.load(version)
+    second = prompt.PromptFiles.load(version)
     assert first.prompt_hash == second.prompt_hash
     assert first.prompt_hash.startswith("sha256:")
     copy = tmp_path / "prompts"
     shutil.copytree(prompt.PROMPTS_DIR, copy)
     assert (
-        prompt.PromptFiles.load(VERSION, copy).prompt_hash == first.prompt_hash
+        prompt.PromptFiles.load(version, copy).prompt_hash == first.prompt_hash
     )
-    system = copy / f"answer_system_v{VERSION}.md"
+    system = copy / f"answer_system_v{version}.md"
     system.write_text(system.read_text() + " ")
     assert (
-        prompt.PromptFiles.load(VERSION, copy).prompt_hash != first.prompt_hash
+        prompt.PromptFiles.load(version, copy).prompt_hash != first.prompt_hash
     )
 
 
-def test_system_block_size(settings: config.Settings) -> None:
-    files = prompt.PromptFiles.load(VERSION)
+def test_prompt_versions_differ() -> None:
+    hashes = {prompt.PromptFiles.load(v).prompt_hash for v in VERSIONS}
+    assert len(hashes) == len(VERSIONS)
+    assert VERSION in VERSIONS
+
+
+@pytest.mark.parametrize("version", VERSIONS)
+def test_system_block_size(settings: config.Settings, version: str) -> None:
+    files = prompt.PromptFiles.load(version)
     counter = chunker.HFTokenCounter.from_settings(settings)
     schema = json.dumps(files.tool())
     tokens = counter.count(files.system + "\n" + schema)
-    estimate = tokens * settings.retrieval.calibration_factor
-    # The live request of stage 7 cached 2,320 tokens for both.
-    assert 1000 <= estimate <= 2500
+    assert 1000 <= tokens * PROSE_FACTOR <= 2500
     # The schema goes in the tool, never in the system block.
     for word in ("input_schema", '"properties"', "additionalProperties"):
         assert word not in files.system
