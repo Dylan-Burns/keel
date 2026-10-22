@@ -692,6 +692,14 @@ Entry format:
 - Tests: Vitest 182 (new: chip label from the resolved citation, the retrieved chunk, and the ID alone; a fact chip; no raw ID visible; the accessible name; a click opens the source; chip text stays text; the unverified tag; the fold of a repeat; the open bracket hidden while streaming; block identity kept while chips stream in and turn clickable). Playwright 48 in each mode, mocked and live against `keel serve` with the mock provider (new: the answer text shows chips, no raw ID, and a chip opens its source). Python 908 passing.
 - Attempts: 1. No provider spend.
 
+## Follow-up after stage 22: CI eval sample size
+
+- Problem: the `eval / golden-set` workflow on main failed about every other run (2026-10-22: 12:37, 15:48, 17:46, 18:38 UTC, passes between). The `ci` subset has 4 questions; 3 are expected refusals, so the judge scores 1 answer (G-15), and its faithfulness moves across the 0.90 gate from run to run (latest 0.88). A gate on 1 judged answer measures noise; the full set (24 judged answers) gave 0.926 on prompt 1.5.1.
+- Built: the minimum sample rule (chapter 18.8). `keel/evaluation/gates.py` has `MIN_JUDGED_ANSWERS = 5` for the 2 judge gates (faithfulness, citation precision); `EvalRun.gates()` passes the number of judged answers with a faithfulness score, and below 5 those gates are `pending (sample n=N)` with their value kept in the report, the JSON (`sample`), and the CLI output. The verdict line of the report says why. Every other gate still blocks on the CI subset: schema validity, refusal correctness, numeric accuracy, coverage, latency, cost, recall, and MRR. The eval page shows an undersampled gate as pending, not failed. The 0.90 thresholds and the full-set behavior do not change; the CI cost does not change (about $0.06 per run).
+- Options weighed: widening the `ci` subset to 5 or more answerable questions needs gold values the mini corpus excerpts hold (G-18 already left the subset for that reason) and costs about 5 times more per push; a CI-only tolerance would keep a threshold the docs do not name. The minimum sample rule keeps the threshold and moves the judge gates to the run that has the sample.
+- Tests: Python 915 passing, 13 deselected, coverage 97.0% (new: `test_judge_gates_pending_below_minimum_sample`, `test_deterministic_gates_block_on_a_small_sample`, `test_judge_gates_block_at_minimum_sample`, `test_unmeasured_judge_gate_is_not_undersampled`, `test_verdict_names_the_minimum_sample`, `test_eval_page_pending_gate_has_no_verdict`, `test_run_gates_carry_the_judged_sample`).
+- Attempts: 1.
+
 ## Gaps
 
 Values that were not available when the build needed them, and what the build did instead.
