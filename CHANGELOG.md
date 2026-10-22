@@ -4,6 +4,30 @@ All notable changes to this project are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 release-please maintains the released sections from Conventional Commits.
 
+## [0.4.0](https://github.com/Dylan-Burns/keel/compare/v0.3.0...v0.4.0) (2026-10-22)
+
+
+### Features
+
+* **infra:** cloudfront address in front of the aws host ([2abb946](https://github.com/Dylan-Burns/keel/commit/2abb946d3eafc021d3640958623832356360adf9))
+* **infra:** deploy from an s3 bundle without github downloads ([5ca3acf](https://github.com/Dylan-Burns/keel/commit/5ca3acfb291aa8983fcaaabd3362ecc99f27351c))
+* **web:** add the admin pages behind a role-gated shell ([1ce257e](https://github.com/Dylan-Burns/keel/commit/1ce257ee97ec6fb92b02239e5dd07b6a50dba213))
+* **web:** add the debug page for understand and retrieve ([2e1b9e8](https://github.com/Dylan-Burns/keel/commit/2e1b9e86f3224b2e6f6f586817712fa5a698f782))
+* **web:** download the answer memo as markdown or docx ([687f416](https://github.com/Dylan-Burns/keel/commit/687f4169bace95ac1fa133f80150a8491e02b0bb))
+
+
+### Bug fixes
+
+* **infra:** run the bundle from a private temp dir, check the tag commit ([0c21bd4](https://github.com/Dylan-Burns/keel/commit/0c21bd41840aad2aaa66d136d428b344375d266b))
+* **infra:** run the ssm deploy command without bash-only options ([a21f987](https://github.com/Dylan-Burns/keel/commit/a21f987315e057e5834c2d40baa478fde51e8190))
+* **release:** lowercase the image name for the sbom, scan, and attest ([ea05642](https://github.com/Dylan-Burns/keel/commit/ea05642e190bb0a4a7a036d86785bc77d81637b9))
+* **web:** address the review and map the cli to the web ui ([ad88e81](https://github.com/Dylan-Burns/keel/commit/ad88e81e290ea05c9c693d9a294585d739d766f7))
+
+
+### Documentation
+
+* **docs:** remove the demo preparation files from the public repo ([8555cd5](https://github.com/Dylan-Burns/keel/commit/8555cd5033d8489cc17f270750f3d04fe984d0d4))
+
 ## [0.3.0](https://github.com/Dylan-Burns/keel/compare/v0.2.0...v0.3.0) (2026-10-22)
 
 
