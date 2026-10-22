@@ -152,9 +152,15 @@ def test_add_incremental(
     assert len(fake.seen) == report.embedded_chunks
     assert manifest.counts.indexed == MINI_FILINGS + 2
     sources = _sources(indexer.current_build(index) or index)
-    assert sources.pop("ZTS_10K_2025-12-31") == "edgar"
-    assert sources.pop("ZTS_10Q_2026-06-30") == "edgar"
-    assert set(sources.values()) == {"corpus"}
+    added = {
+        k: sources[k] for k in ("ZTS_10K_2025-12-31", "ZTS_10Q_2026-06-30")
+    }
+    assert added == {
+        "ZTS_10K_2025-12-31": "edgar",
+        "ZTS_10Q_2026-06-30": "edgar",
+    }
+    rest = {v for k, v in sources.items() if k not in added}
+    assert rest == {"corpus"}
 
     # The corpus manifest lists the files with their source.
     listed = json.loads((corpus / "manifest.json").read_text())
