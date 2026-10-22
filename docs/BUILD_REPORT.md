@@ -1,6 +1,6 @@
 # Build report
 
-Status: next stage 16
+Status: next stage 21
 
 One entry per stage of `docs/28_build_sequence.md`. Claude Code appends to this file after each stage. The panel reads it during the demo code walk.
 
@@ -487,6 +487,18 @@ Entry format:
 - Commits: the card plans 2; the stage has 6: feat(cache), the cherry-picked fix(eval) of PR #37, docs(eval), docs(stage-15), the review fix(cache), and this report.
 - Cut or deferred: none. The rehearsal timings of the code walk are stage 16.
 - Attempts: 1. The first warm-cache run missed the BRK facts file; fixed and re-run (1 request, $0).
+
+## Stage 16: Rehearsal
+
+- Built: `scripts/demo_preflight.sh` (bash 3.2 on macOS, shellcheck clean; `--skip-tests`, `--no-start`, `--port N`) checks `make test`, `keel doctor` with the clock row on its own line, free disk above 2 GB, a running `keel serve` on ports 8000 to 8010 (it starts one in the background when none answers and leaves it running), `/api/health`, `/api/ready` against `index/current/manifest.json`, the answer cache for the 28 golden questions (D-29 key), the recording, and `demo/static/`. It prints a pass, warn, and fail table and the manual items of chapter 21.1, exits 1 on any failure, and never prints a secret. `docs/REHEARSAL.md`: the pre-flight table (the night before, 30 minutes before), the 9-segment timing table (30 minutes in the specification, 25 as the target, 5 to spare), the discussion half (25.7 and 26.6), the 8 failure drills of 21.4 with a safe way to stage each, the cold-read module table of 25.6, the recording checklist, and a blank rehearsal log.
+- Measured (card evidence): `scripts/demo_preflight.sh --skip-tests` in the main checkout after stage 15 (index 1.2.0, warm cache): pass 7, warn 3, fail 0. `/api/ready` ready on index 1.2.0; answer cache 28 of 28 golden questions; clock 2026-10-22, newest filing 2026-02-19 (245 days); free disk 649 GB. The 3 warnings: `make test` skipped by the flag, `demo/recording.mp4` missing, `demo/static/` empty (both are the engineer's, chapter 21.1). A second run with another process on port 8000 reported "not a Keel response" and still printed the summary.
+- Done when: the rehearsal timing is the engineer's (the card: the agent prepares the script and the preflight). Pending: the engineer records the rehearsal in the `docs/REHEARSAL.md` log against the 25-minute target with 5 minutes to spare.
+- Deviations from the specification:
+    - The 25-minute plan reads 25.7 ("the code walk shrinks by 2 minutes") as the architecture segment going from 4 minutes to 2. The recovery targets of the drills are suggestions, not figures from the chapters.
+    - Commits: the card plans 2 in the order docs, then the script; the stage has 3 in the order script, docs, then a `fix` commit with the review findings.
+- Review: the reviewer subagent's findings on the preflight (port handling, a non-Keel listener, the summary on failure) are fixed in the `fix` commit.
+- Cut or deferred: none.
+- Attempts: 1. No live provider spend.
 
 ## Gaps
 
