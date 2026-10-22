@@ -201,6 +201,7 @@ def test_retry_before_content(index_dir, run_settings) -> None:
     assert record["meta"]["model_requests"] == 2
     assert "error" not in [e.name for e in events]
     assert audit_lines(run_settings)[-1]["model_requests"] == 2
+    assert record["audit"]["failed_before_content"] == 1
     # 3 failures: the first request and 2 retries, then the error event.
     sleeps = Sleeps()
     down = mock.MockProvider(
@@ -290,6 +291,11 @@ def test_offline_cache_hit(index_dir, run_settings) -> None:
     assert cached["request_id"] != record["request_id"]
     assert provider.requests == 0
     assert audit_lines(run_settings)[-1]["outcome"] == "cached"
+    # The final event carries the audit record of this request, not the
+    # record stored with the cached answer.
+    assert cached["audit"] == audit_lines(run_settings)[-1]
+    assert cached["audit"]["request_id"] == cached["request_id"]
+    assert cached["audit"]["flags"]["from_cache"] is True
     # A question that is not in the cache gets the retrieval, no request.
     events = ask(offline, "What are the risk factors of Tesla?")
     missed = final(events)
