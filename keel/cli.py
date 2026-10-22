@@ -5,8 +5,8 @@ stage 3 adds `keel chunk` and `keel parse --sections-report`; stage 4 adds
 `keel index`; stage 5 adds `keel understand`; stage 6 adds `keel retrieve`;
 stage 7 adds `keel ask`; stage 8 adds `keel calibrate`; stage 9 adds
 `keel serve`; stage 10 adds `keel eval`; stage 13 adds `keel facts`; stage
-14 adds `keel add`. Later stages add the commands that CLAUDE.md lists
-(warm-cache and the rest).
+14 adds `keel add`; stage 20 adds `keel watch` and `keel refresh`. Later
+stages add the commands that CLAUDE.md lists (warm-cache and the rest).
 """
 
 import argparse
@@ -38,6 +38,7 @@ from keel import export
 from keel import extractor
 from keel import indexer
 from keel import inventory
+from keel import refresh
 from keel import retriever
 from keel import sections
 from keel import security
@@ -51,6 +52,7 @@ from keel.parsers import base as parser_base
 from keel.parsers import corpus as parser_corpus
 from keel.stores import chunk_store
 from keel.stores import numpy_dense
+from keel.stores import state_store
 
 logger = logging.getLogger("keel")
 
@@ -466,6 +468,8 @@ def build_parser() -> argparse.ArgumentParser:
         )
     )
 
+    _add_refresh_commands(commands)
+
     commands.add_parser(
         "doctor",
         parents=[_doctor_arguments()],
@@ -475,6 +479,52 @@ def build_parser() -> argparse.ArgumentParser:
         commands.add_parser("export", help="write a stored answer as a memo")
     )
     return parser
+
+
+def _add_refresh_commands(
+    commands: "argparse._SubParsersAction[argparse.ArgumentParser]",
+) -> None:
+    """Add `keel watch` and `keel refresh` to the subcommands (26.3)."""
+    watch_parser = commands.add_parser(
+        "watch", help="add, remove, or list the watched tickers"
+    )
+    watch_parser.add_argument(
+        "action", choices=("add", "remove", "list"), help="what to do"
+    )
+    watch_parser.add_argument(
+        "tickers", nargs="*", help="the tickers, such as ZTS WDAY"
+    )
+    watch_parser.add_argument(
+        "--user",
+        default=None,
+        help=f"the user (default: {state_store.DEFAULT_USER}; list: all users)",
+    )
+
+    refresh_parser = commands.add_parser(
+        "refresh", help="add the new 10-K and 10-Q of the watched tickers"
+    )
+    refresh_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="list the new filings; write no file and no index",
+    )
+    refresh_parser.add_argument(
+        "--offline",
+        action="store_true",
+        help="compare against the cached submissions, make no request",
+    )
+    refresh_parser.add_argument(
+        "--corpus",
+        type=pathlib.Path,
+        default=None,
+        help="the directory of filings (default: corpus.dir)",
+    )
+    refresh_parser.add_argument(
+        "--out",
+        type=pathlib.Path,
+        default=None,
+        help="the index directory with `current` (default: index.dir)",
+    )
 
 
 def _ensure_corpus(settings: config.Settings, corpus_dir: pathlib.Path) -> None:
@@ -1454,6 +1504,119 @@ def run_add(
     return 1 if any(f.quarantine for f in report.filings) else 0
 
 
+def run_watch(
+    settings: config.Settings,
+    action: str,
+    tickers: Sequence[str],
+    user: str | None,
+) -> int:
+    """Run `keel watch`: add, remove, or list watched tickers (26.3).
+
+    Args:
+        settings: The loaded settings.
+        action: `add`, `remove`, or `list`.
+        tickers: The tickers for `add` and `remove`.
+        user: The user, or None (`cli` for a change, all users for a list).
+
+    Returns:
+        0, or 1 when `add` or `remove` gets no ticker.
+
+    Raises:
+        EdgarError: A ticker cannot name a corpus file.
+        StateStoreError: The app-state database fails.
+    """
+    path = state_store.state_path(settings)
+    if action == "list":
+        entries = state_store.list_watch(path, user)
+        for entry in entries:
+            print(
+                f"{entry.ticker:<8} {entry.user:<12} added {entry.added_date}"
+            )
+        print(f"{len(entries)} watched tickers in {path}")
+        return 0
+    if not tickers:
+        print(f"keel watch {action} needs at least 1 ticker", file=sys.stderr)
+        return 1
+    name = user or state_store.DEFAULT_USER
+    for ticker in tickers:
+        spelled = add.corpus_ticker(ticker)
+        if action == "add":
+            changed = state_store.add_watch(path, spelled, name)
+            verb = "watching" if changed else "already watching"
+        else:
+            changed = state_store.remove_watch(path, spelled, name)
+            verb = "stopped watching" if changed else "was not watching"
+        print(f"{name} {verb} {spelled}")
+    return 0
+
+
+def run_refresh(
+    settings: config.Settings,
+    *,
+    dry_run: bool,
+    offline: bool,
+    corpus_dir: pathlib.Path | None,
+    out_dir: pathlib.Path | None,
+) -> int:
+    """Run `keel refresh`: new filings of the watched tickers (26.3).
+
+    Args:
+        settings: The loaded settings.
+        dry_run: List the new filings only.
+        offline: Compare against the cached submissions only.
+        corpus_dir: The directory of filings, or None for `corpus.dir`.
+        out_dir: The index directory, or None for `index.dir`.
+
+    Returns:
+        0, or 1 when a ticker failed or a new filing was quarantined.
+
+    Raises:
+        StateStoreError: The watch list or the log fails.
+        ManifestMissingError: The manifest is not JSON.
+        IndexCorruptError: The current build cannot be read.
+    """
+    handler = signal.signal(signal.SIGTERM, _exit_on_sigterm)
+    try:
+        with edgar.EdgarClient.from_settings(
+            settings, offline=offline or None
+        ) as client:
+            report = refresh.run_refresh(
+                settings,
+                dry_run=dry_run,
+                client=client,
+                corpus_dir=corpus_dir,
+                index_dir=out_dir,
+            )
+    finally:
+        signal.signal(signal.SIGTERM, handler)
+    for result in report.tickers:
+        if result.error:
+            print(f"{result.ticker}: error: {result.error}")
+            continue
+        if not result.new:
+            print(f"{result.ticker}: up to date")
+        for ref in result.new:
+            print(
+                f"{result.ticker}: new {ref.form} filed {ref.filing_date} "
+                f"accession {ref.accession} period {ref.report_date}"
+            )
+        for filing in result.added:
+            state = (
+                f"quarantined: {filing.quarantine}"
+                if filing.quarantine
+                else f"added as {filing.filing_id}, {filing.chunks} chunks"
+            )
+            print(f"  {filing.file_name}: {state}")
+    mode = "dry run: " if dry_run else ""
+    print(
+        f"{mode}{len(report.tickers)} tickers, {report.new_count} new, "
+        f"{report.added_count} added, {report.error_count} errors, "
+        f"{report.requests} EDGAR requests; log {refresh.log_path(settings)}"
+    )
+    quarantined = any(f.quarantine for r in report.tickers for f in r.added)
+    return 1 if report.error_count or quarantined else 0
+
+
 def run_doctor(settings: config.Settings, download: bool, as_json: bool) -> int:
     """Run `keel doctor`.
 
@@ -1552,8 +1715,25 @@ def _dispatch_questions(
     return None
 
 
+def _dispatch_refresh(
+    settings: config.Settings, args: argparse.Namespace
+) -> int:
+    """Run `keel watch` or `keel refresh` with its arguments."""
+    if args.command == "watch":
+        return run_watch(settings, args.action, args.tickers, args.user)
+    return run_refresh(
+        settings,
+        dry_run=args.dry_run,
+        offline=args.offline,
+        corpus_dir=args.corpus,
+        out_dir=args.out,
+    )
+
+
 def _dispatch(settings: config.Settings, args: argparse.Namespace) -> int:
     """Run the chosen command with its arguments."""
+    if args.command in ("watch", "refresh"):
+        return _dispatch_refresh(settings, args)
     handlers: dict[str, Callable[[], int]] = {
         "inventory": lambda: run_inventory(
             settings, args.corpus, args.manifest, args.json
