@@ -194,3 +194,15 @@ class UnknownTickerError(EdgarError):
 
 class StateStoreError(KeelError):
     """The app-state database (the watch list) fails (chapter 26.3)."""
+
+
+class PilotStoreError(KeelError):
+    """The pilot store (comp sets, feedback) cannot be read or written."""
+
+
+class InvalidCompSetError(KeelError):
+    """A comp set name or ticker list fails validation (chapter 27.2)."""
+
+
+class TemplateError(KeelError):
+    """A question template is unknown, invalid, or misses a value."""

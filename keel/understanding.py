@@ -13,6 +13,7 @@ the parse of the corpus, on the index, or on a test fixture.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from collections.abc import Iterable
 from collections.abc import Mapping
 from collections.abc import Sequence
@@ -20,6 +21,7 @@ import dataclasses
 import datetime
 import json
 import logging
+import pathlib
 import re
 import sqlite3
 import time
@@ -34,6 +36,7 @@ from keel import config
 from keel import errors
 from keel.parsers import base as parser_base
 from keel.parsers import corpus as parser_corpus
+from keel.stores import pilot
 
 logger = logging.getLogger(__name__)
 
@@ -778,6 +781,22 @@ class NotIndexed(_Model):
     file_name: str | None = None
 
 
+class CompSetUse(_Model):
+    """1 comp set that the question names (chapter 27.2).
+
+    Attributes:
+        name: The comp set name.
+        text: The text of the question that named it.
+        tickers: Every ticker of the set, in the saved order.
+        missing: The tickers of the set without an indexed filing.
+    """
+
+    name: str
+    text: str
+    tickers: tuple[str, ...]
+    missing: tuple[str, ...] = ()
+
+
 class Scope(_Model):
     """1 time scope phrase of the question.
 
@@ -856,6 +875,8 @@ class QuestionAnalysis(_Model):
         tickers: The indexed tickers in question order, groups expanded.
         entities: How each company resolved.
         groups: The resolved groups.
+        comp_sets: The saved comp sets the question names, expanded into
+            `tickers` after the companies it names itself.
         unknown_entities: Company mentions outside the corpus.
         not_indexed: Companies of the corpus without an indexed filing.
         time_scope: The time scope.
@@ -891,6 +912,7 @@ class QuestionAnalysis(_Model):
     out_of_scope_reason: str | None
     suggested_tickers: tuple[str, ...]
     elapsed_ms: float
+    comp_sets: tuple[CompSetUse, ...] = ()
 
     @property
     def out_of_scope(self) -> bool:
@@ -1020,6 +1042,51 @@ class _Text:
         return upper / len(letters) >= UPPER_SHARE_LIMIT
 
 
+CompSetSource = Callable[[], Mapping[str, Sequence[str]]]
+COMP_SET_SUFFIX = r"(?:comps|comp\s+set|comparables|peers|peer\s+set)"
+
+
+def comp_set_pattern(name: str) -> re.Pattern[str]:
+    """The phrase that names a comp set in a lower-case question.
+
+    `my software comps`, `our software comp set`, and `software peers`
+    all name the set `software` (chapter 27.2).
+
+    Args:
+        name: The comp set name, lower case.
+
+    Returns:
+        The pattern; it matches the optional `my`, `our`, or `the`.
+    """
+    words = r"\s+".join(re.escape(word) for word in name.split())
+    return re.compile(
+        rf"(?<![\w&])(?:(?:my|our|the)\s+)?{words}\s+{COMP_SET_SUFFIX}"
+        r"(?![\w&])"
+    )
+
+
+def _no_comp_sets() -> dict[str, tuple[str, ...]]:
+    return {}
+
+
+def store_comp_sets(path: pathlib.Path) -> CompSetSource:
+    """The comp sets of the pilot store, read again on every question.
+
+    Args:
+        path: The pilot store file (`pilot.db`).
+
+    Returns:
+        A function that returns the tickers per comp set name.
+    """
+    store = pilot.PilotStore(path)
+
+    def read() -> dict[str, tuple[str, ...]]:
+        sets = store.comp_sets()
+        return {name: entry.tickers for name, entry in sets.items()}
+
+    return read
+
+
 def _alias_pattern(alias: str) -> re.Pattern[str]:
     return re.compile(rf"(?<![\w&]){re.escape(alias)}(?![\w&]|\.\w)")
 
@@ -1084,17 +1151,21 @@ class Resolver:
             score=score,
         )
 
-    def resolve(self, text: str) -> tuple[list[Entity], _Text]:
+    def resolve(
+        self, text: str, work: _Text | None = None
+    ) -> tuple[list[Entity], _Text]:
         """Resolve the company mentions of a question (rules 1 to 6).
 
         Args:
             text: The normalized question.
+            work: The text with the spans already claimed (the comp set
+                names), or None to start from `text`.
 
         Returns:
             The entities in question order without duplicates, and the
             text with the claimed spans for the later steps.
         """
-        work = _Text(text)
+        work = work or _Text(text)
         hits: list[_Hit] = []
         hits += self._aliases(work)
         hits += self._explicit_tickers(work)
@@ -1615,6 +1686,8 @@ class Understander:
         catalog: The corpus facts.
         min_chars: The shortest trimmed question allowed.
         max_chars: The longest question allowed.
+        comp_sets: The saved comp sets (chapter 27.2), read on every
+            question; None for none.
     """
 
     def __init__(
@@ -1623,7 +1696,10 @@ class Understander:
         catalog: Catalog,
         min_chars: int = 3,
         max_chars: int = 1000,
+        *,
+        comp_sets: CompSetSource | None = None,
     ) -> None:
+        self.comp_sets = comp_sets or _no_comp_sets
         self.dictionaries = dictionaries
         self.catalog = catalog
         self.resolver = Resolver(dictionaries)
@@ -1652,7 +1728,67 @@ class Understander:
             catalog,
             settings.limits.question_min_chars,
             settings.limits.question_max_chars,
+            comp_sets=store_comp_sets(settings.pilot.db),
         )
+
+    def _read_comp_sets(self) -> list[tuple[str, tuple[str, ...]]]:
+        """The saved comp sets, longest name first; none on a store error.
+
+        A broken pilot store must not stop the questions that name no
+        comp set, so the error is logged and the sets are skipped.
+        """
+        try:
+            sets = self.comp_sets()
+        except errors.PilotStoreError as error:
+            logger.warning("comp sets skipped: %s", error)
+            return []
+        return sorted(
+            ((name, tuple(tickers)) for name, tickers in sets.items()),
+            key=lambda item: (-len(item[0]), item[0]),
+        )
+
+    def names_comp_set(self, question: str) -> bool:
+        """True when the question names a saved comp set.
+
+        The answer cache skips these questions: the key holds the
+        question, and a comp set can change under the same words.
+
+        Args:
+            question: The raw question.
+
+        Returns:
+            True when a comp set phrase appears in the question.
+        """
+        text = normalize(question).lower()
+        return any(
+            comp_set_pattern(name).search(text)
+            for name, _ in self._read_comp_sets()
+        )
+
+    def _match_comp_sets(self, work: _Text) -> list[CompSetUse]:
+        """Claim the comp set phrases before the entity rules run."""
+        found: list[tuple[int, CompSetUse]] = []
+        for name, tickers in self._read_comp_sets():
+            for match in comp_set_pattern(name).finditer(work.lower):
+                if not work.free(*match.span()):
+                    continue
+                work.claim(*match.span())
+                if any(use.name == name for _, use in found):
+                    continue
+                found.append(
+                    (
+                        match.start(),
+                        CompSetUse(
+                            name=name,
+                            text=work.original[match.start() : match.end()],
+                            tickers=tickers,
+                            missing=tuple(
+                                t for t in tickers if t not in self.indexed
+                            ),
+                        ),
+                    )
+                )
+        return [use for _, use in sorted(found, key=lambda pair: pair[0])]
 
     def _not_indexed(self, ticker: str) -> NotIndexed:
         company = self.dictionaries.companies[ticker].name
@@ -1720,7 +1856,9 @@ class Understander:
         if injection:
             logger.warning("injection pattern in the question")
 
-        entities, work = self.resolver.resolve(text)
+        work = _Text(text)
+        comp_sets = self._match_comp_sets(work)
+        entities, work = self.resolver.resolve(text, work)
         groups = self.resolver.groups(work)
         unknown = self.resolver.unknown(work)
 
@@ -1731,6 +1869,17 @@ class Understander:
                 tickers.append(entity.ticker)
             else:
                 not_indexed.append(self._not_indexed(entity.ticker))
+        outside: list[str] = []
+        for use in comp_sets:
+            for ticker in use.tickers:
+                if ticker in self.indexed:
+                    if ticker not in tickers:
+                        tickers.append(ticker)
+                elif ticker in self.dictionaries.companies:
+                    if all(n.ticker != ticker for n in not_indexed):
+                        not_indexed.append(self._not_indexed(ticker))
+                elif ticker not in outside:
+                    outside.append(ticker)
         for group in groups:
             tickers += [
                 t for t in self._group_tickers(group) if t not in tickers
@@ -1742,7 +1891,7 @@ class Understander:
         )
         terms, weights = topics(rest)
         reason = self._out_of_scope_reason(
-            entities=entities,
+            entities=[*entities, *comp_sets],
             groups=groups,
             tickers=tickers,
             unknown=unknown,
@@ -1751,8 +1900,11 @@ class Understander:
             after_corpus=after_corpus,
         )
         parts += [f"{name} (not in the corpus)" for name in unknown]
+        parts += [f"{t} (comp set, not in the corpus)" for t in outside]
+        named = {e.ticker for e in entities}
+        named.update(t for use in comp_sets for t in use.tickers)
         types = classify(
-            companies=len(entities),
+            companies=len(named),
             groups=groups,
             text=text,
             has_topic=bool(terms),
@@ -1790,12 +1942,13 @@ class Understander:
             out_of_scope_reason=reason,
             suggested_tickers=tuple(self._suggestions(unknown)),
             elapsed_ms=round(elapsed, 3),
+            comp_sets=tuple(comp_sets),
         )
 
     @staticmethod
     def _out_of_scope_reason(
         *,
-        entities: Sequence[Entity],
+        entities: Sequence[Entity | CompSetUse],
         groups: Sequence[str],
         tickers: Sequence[str],
         unknown: Sequence[str],

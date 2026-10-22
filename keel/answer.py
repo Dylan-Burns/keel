@@ -464,6 +464,14 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             question, self.index_version, self.files.version, self.model
         )
 
+    def _cacheable(self, question: str) -> bool:
+        """False for a question that names a comp set (chapter 27.2).
+
+        The cache key holds the question, not the tickers of the set, so
+        an edited comp set would get the answer of its old tickers.
+        """
+        return not self.understander.names_comp_set(question)
+
     def _elapsed(self, run: _Run) -> float:
         return round((time.perf_counter() - run.started) * 1000, 1)
 
@@ -514,7 +522,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         stopped = not offline and (
             await asyncio.to_thread(self.budget.exhausted)
         )
-        if offline or use_cache or stopped:
+        if (offline or use_cache or stopped) and self._cacheable(question):
             cached = self.cache.get(self.cache_key(question))
             if cached is not None:
                 async for event in self._from_cache(run, cached):
@@ -814,9 +822,8 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
                 },
             )
             cached = None
-            if (
-                not run.content
-            ):  # chapter 16.12 step 3: the cache after a failure
+            # Chapter 16.12 step 3: the cache after a failure.
+            if not run.content and self._cacheable(run.question):
                 cached = self.cache.get(self.cache_key(run.question))
             if cached is not None:
                 async for event in self._from_cache(run, cached):
@@ -833,7 +840,8 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         real = self.provider.name != mock.MockProvider.name
         primary = run.model == self.model
         answered = validated is not None and record.data["answer"]
-        if real and primary and answered:
+        named_set = run.analysis is not None and bool(run.analysis.comp_sets)
+        if real and primary and answered and not named_set:
             # The audit record belongs to this request, not to the entry.
             entry = {k: v for k, v in record.data.items() if k != "audit"}
             self.cache.put(self.cache_key(run.question), entry)
@@ -1150,6 +1158,7 @@ def _analysis_summary(
     return {
         "tickers": list(analysis.tickers),
         "groups": list(analysis.groups),
+        "comp_sets": [use.model_dump() for use in analysis.comp_sets],
         "primary_type": analysis.primary_type,
         "types": list(analysis.types),
         "time_scope": {"kind": analysis.time_scope.kind},

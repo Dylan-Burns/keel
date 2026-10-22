@@ -34,10 +34,24 @@ def clean_env(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
 
 
 @pytest.fixture
-def settings(clean_env: pytest.MonkeyPatch) -> config.Settings:
-    """The repository config, with no environment and no dotenv file."""
+def settings(
+    clean_env: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> config.Settings:
+    """The repository config, with no environment and no dotenv file.
+
+    The pilot store (comp sets and feedback) moves to the test's folder,
+    so no test reads or writes `logs/pilot.sqlite` of the checkout.
+    """
     del clean_env
-    return config.load_settings(CONFIG_FILE, env_file=None)
+    loaded = config.load_settings(CONFIG_FILE, env_file=None)
+    return loaded.model_copy(
+        update={
+            "pilot": config.PilotConfig(
+                db=tmp_path / "pilot.sqlite",
+                templates=REPO_ROOT / "config" / "templates.yaml",
+            )
+        }
+    )
 
 
 class FakeEmbedder:
