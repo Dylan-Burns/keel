@@ -56,7 +56,11 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           KEEL_INDEX__DIR: index/ci
-        run: uv run keel eval --set eval/golden.yaml --subset ci --gate --report eval/report.md
+        # --answers runs the live answer and judge gates as well (1 answer and
+        # 1 judge request per question, about 0.15 USD per run).
+        run: >
+          uv run keel eval --set eval/golden.yaml --subset ci --gate --answers
+          --report eval/report.md
       - name: upload report
         if: always() && steps.harness.outputs.present == 'true'
         uses: actions/upload-artifact@v4
