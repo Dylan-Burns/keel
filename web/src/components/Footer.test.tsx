@@ -8,6 +8,7 @@ describe('Footer', () => {
     const onCopy = vi.fn();
     const onExport = vi.fn();
     const onShare = vi.fn();
+    const onMemo = vi.fn();
     render(
       <Footer
         requestId="r-1"
@@ -18,6 +19,7 @@ describe('Footer', () => {
         onExport={onExport}
         canShare
         onShare={onShare}
+        onMemo={onMemo}
       />,
     );
     expect(screen.getByTestId('request-id')).toHaveTextContent('request r-1');
@@ -31,6 +33,9 @@ describe('Footer', () => {
     fireEvent.click(screen.getByTestId('share-link'));
     expect(onShare).toHaveBeenCalledOnce();
     expect(screen.getByRole('status')).toHaveTextContent('Copied');
+    fireEvent.click(screen.getByRole('button', {name: 'Memo .md'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Memo .docx'}));
+    expect(onMemo.mock.calls).toEqual([['markdown'], ['docx']]);
   });
 
   it('turns the buttons off without an answer', () => {
@@ -44,12 +49,15 @@ describe('Footer', () => {
         onExport={vi.fn()}
         canShare={false}
         onShare={vi.fn()}
+        onMemo={vi.fn()}
       />,
     );
     expect(
       screen.getByRole('button', {name: 'Copy as markdown'}),
     ).toBeDisabled();
     expect(screen.getByTestId('share-link')).toBeDisabled();
+    expect(screen.getByTestId('memo-markdown')).toBeDisabled();
+    expect(screen.getByTestId('memo-docx')).toBeDisabled();
   });
 
   it('opens the history page and the data use page', () => {
@@ -65,6 +73,7 @@ describe('Footer', () => {
         onExport={vi.fn()}
         canShare={false}
         onShare={vi.fn()}
+        onMemo={vi.fn()}
       />,
     );
     fireEvent.click(screen.getByTestId('history-link'));

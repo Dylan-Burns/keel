@@ -7,7 +7,8 @@ import {
 import type {JSX} from 'react';
 import {useCallback, useState} from 'react';
 
-import {fetchChunk, takeRerunQuestion} from './api/client';
+import type {MemoFormat} from './api/admin';
+import {ApiError, fetchChunk, takeRerunQuestion} from './api/client';
 import {AnswerArea} from './components/AnswerArea';
 import {CoverageSummary} from './components/CoverageSummary';
 import {FeedbackBar} from './components/FeedbackBar';
@@ -28,6 +29,7 @@ import {TokenField} from './components/TokenField';
 import {TopBar} from './components/TopBar';
 import {TraceDrawer} from './components/TraceDrawer';
 import {answerToJson, answerToMarkdown} from './lib/answerExport';
+import {downloadMemo, saveBlob} from './lib/download';
 import type {Example} from './lib/examples';
 import {EXAMPLES} from './lib/examples';
 import {copyText, sharedRequestId, shareUrl} from './lib/links';
@@ -36,19 +38,19 @@ import {baseState, canAsk, currentRun, hasOverlay, health} from './state';
 import {useKeel} from './useKeel';
 
 /**
- * Saves a text as a file through a temporary link.
+ * The status line of a failed memo download.
  *
- * @param name The file name.
- * @param text The content.
+ * @param error The error.
+ * @return The text for the footer.
  */
-function download(name: string, text: string): void {
-  const url = URL.createObjectURL(new Blob([text], {type: 'application/json'}));
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = name;
-  link.click();
-  // Revoke later: an immediate revoke can cancel the download in some browsers.
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+function memoFailure(error: unknown): string {
+  if (error instanceof ApiError && error.status === 501) {
+    return 'Memo failed: the server has no DOCX export installed';
+  }
+  if (error instanceof ApiError && error.status === 404) {
+    return 'Memo failed: the answer is no longer stored';
+  }
+  return 'Memo failed';
 }
 
 /**
@@ -137,11 +139,21 @@ export function App(): JSX.Element {
   };
   const onExport = (): void => {
     if (run !== null) {
-      download(
+      saveBlob(
         `keel-${run.meta?.request_id ?? run.requestId}.json`,
-        answerToJson(run),
+        new Blob([answerToJson(run)], {type: 'application/json'}),
       );
     }
+  };
+  const onMemo = (format: MemoFormat): void => {
+    const requestId = run?.final?.request_id;
+    if (requestId === undefined) {
+      return;
+    }
+    setCopyStatus('Preparing the memo');
+    downloadMemo(requestId, format)
+      .then(name => setCopyStatus(`Saved ${name}`))
+      .catch((error: unknown) => setCopyStatus(memoFailure(error)));
   };
 
   if (base.kind === 'index_not_built') {
@@ -326,6 +338,7 @@ export function App(): JSX.Element {
           onExport={onExport}
           canShare={run?.final !== null && run?.final !== undefined}
           onShare={onShare}
+          onMemo={onMemo}
         />
       </div>
     </MotionConfig>
