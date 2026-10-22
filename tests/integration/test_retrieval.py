@@ -379,7 +379,7 @@ def test_risk_trend_10q_cells(
         conftest.make_chunk(
             annual, "risk_factors", k, f"risk factor {k} pricing changes"
         )
-        for k in range(30)
+        for k in range(60)
     ]
     chunks += [
         conftest.make_chunk(
@@ -399,10 +399,11 @@ def test_risk_trend_10q_cells(
         c.candidate for c in result.context.chunks if c.candidate.form == "10-Q"
     ]
     # The 10-Q cell reads only its risk delta; its unused quota and
-    # rerank pairs go to the 10-K risk chunks.
+    # rerank pairs go to the 10-K risk chunks: 40 + 1 in equal shares,
+    # then the 10-K cell takes its last 20.
     assert [c.section for c in quarter_chunks] == ["risk_factors"]
-    assert len(result.context.chunks) == 31
-    assert result.reranked == 31
+    assert len(result.context.chunks) == 48
+    assert result.reranked == 61
 
 
 def test_catalog_from_store(tmp_path: pathlib.Path) -> None:

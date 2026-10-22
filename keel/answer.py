@@ -1097,6 +1097,8 @@ def _retrieval_trace(
                 "sections": list(query.filter.sections),
                 "filings": len(query.filter.filing_ids),
                 "windows": [list(w) for w in query.filter.windows],
+                "superseded": len(query.filter.superseded),
+                "unknown": query.filter.unknown,
             }
             for query in result.plan.sub_queries
         ],
