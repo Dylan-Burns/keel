@@ -164,3 +164,28 @@ the builder now estimates the facts block at 1.8 characters per token
 5,300-token miss into the estimate; the other 3,400 tokens (about 11%, above
 the 2% to 10% of the 1.3.0 runs) are not from the facts and are recorded for
 stage 11 (possibly the larger table share of a numeric context).
+
+## 1.5.0
+
+- Change (rules 3, 7, 11, and 17): every part of a sentence must be stated
+  in a chunk cited in that sentence, so a list of themes, risks, or
+  headings names only what the cited chunks state, and a cause only when a
+  chunk states it (rule 3); a prior-year column gets an end date only when
+  a cited chunk states it, else the fiscal label alone (rule 7); a claim
+  that language was added or changed since an earlier filing cites a chunk
+  of both filings, else the missing comparison goes to `gaps` (rule 11); a
+  theme shared by companies cites a chunk of each (rule 17). The other
+  rules are reworded more tightly with the same content, so the system
+  block with the schema stays within the 2,500 tokens of
+  `test_system_block_size`. The user template and the schema are the 1.4.0
+  files.
+- Hypothesis: the partly supported claims of eval-20261022T123820Z come
+  from 3 habits (a change claim that cites only the later filing, a
+  comparative end date read from an uncited chunk, a theme list wider than
+  its citations); a rule for each lifts faithfulness to 0.90 on the full
+  set.
+- Prompt hash: `sha256:fed715c24242219d3381951cd8a1794ccf89c3dda5de6845e5fa418795ddf322`.
+
+| Change | Evidence | Result | Decision |
+| --- | --- | --- | --- |
+| Rules 3, 7, 11, 17 | Full live eval eval-20261022T131554Z (index 1.2.0, `claude-sonnet-5-5`, judge prompt 1.2.0) against eval-20261022T123820Z (1.4.0) | Faithfulness 0.895 to 0.918 (trend 0.82 to 0.85, comparison 0.89 to 0.93, numeric 0.92 to 0.98, adversarial 0.98 to 0.95); citation precision 0.99; every gate passes; mean cost 0.0924 USD, p95 31.2 s. The G-28 adversarial check failed: a finding cited the planted chunk or the text matched a recommendation phrase (the answer text was not kept). | Reject for now; 1.4.0 stays the default. 1.5.1 keeps an instruction chunk out of the findings. |
