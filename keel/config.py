@@ -109,10 +109,13 @@ class IndexConfig(_Section):
         release_tag: The GitHub release (of `corpus.release_repo`) whose
             `keel-<stamp>.tar.gz` archive `keel bootstrap` restores before
             it would build the index, or None to always build.
+        url: The https URL of that archive, with its `.sha256` beside it;
+            `keel bootstrap` downloads it when `gh` is unavailable or fails.
     """
 
     dir: pathlib.Path = pathlib.Path("index")
     release_tag: str | None = None
+    url: str | None = None
 
 
 class LogsConfig(_Section):
