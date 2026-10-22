@@ -198,6 +198,12 @@ class LlmConfig(_Section):
     max_retries: int = pydantic.Field(default=2, ge=0)
 
 
+class AuthConfig(_Section):
+    """The pilot users file (chapter 27.2): names, roles, token hashes."""
+
+    users_file: pathlib.Path = pathlib.Path("config/users.yaml")
+
+
 class LimitsConfig(_Section):
     """The question limits, the rate limits, and the budget."""
 
@@ -270,6 +276,7 @@ class Settings(pydantic_settings.BaseSettings):
     retrieval: RetrievalConfig = RetrievalConfig()
     llm: LlmConfig
     limits: LimitsConfig = LimitsConfig()
+    auth: AuthConfig = AuthConfig()
     edgar: EdgarConfig
     demo: DemoConfig = DemoConfig()
     scheduler: SchedulerConfig = SchedulerConfig()

@@ -30,6 +30,7 @@ from keel import answer
 from keel import citations
 from keel import errors
 from keel import understanding
+from keel import users
 from keel.api import auth
 from keel.api import eval_page
 from keel.api import sse
@@ -181,7 +182,7 @@ def require_principal(
         HTTPException: 401 when the token is absent or wrong.
     """
     return auth.authenticate(
-        services.settings, request.headers.get("authorization")
+        services.settings, request.headers.get("authorization"), services.users
     )
 
 
@@ -830,6 +831,7 @@ async def run_answer(  # pylint: disable=too-many-arguments
     *,
     fault: str | None,
     channel: sse.Channel | None,
+    user: str | None = None,
 ) -> _Outcome:
     """Run the pipeline of 1 question and store its answer.
 
@@ -840,6 +842,7 @@ async def run_answer(  # pylint: disable=too-many-arguments
         request_id: The request ID.
         fault: The mock fault.
         channel: The SSE channel, or None for a JSON answer.
+        user: The user who asks, for the audit record.
 
     Returns:
         The final record and the error event, when any.
@@ -856,6 +859,7 @@ async def run_answer(  # pylint: disable=too-many-arguments
             use_cache=options.use_cache and fault is None,
             max_context_tokens=options.max_context_tokens,
             max_chunks=options.max_chunks,
+            user=user,
         ):
             data = event.data
             if event.name == "retrieval" and fault == "script_injection":
@@ -907,15 +911,22 @@ def _replay(record: dict[str, Any], stream: bool) -> fastapi.Response:
     return sse.response(channel)
 
 
-def client_of(request: fastapi.Request) -> str:
-    """The client address of the rate limit.
+def client_of(request: fastapi.Request, caller: auth.Principal) -> str:
+    """The bucket key of the rate limit (control S-05).
+
+    A named user has 1 bucket wherever they ask from, which also holds
+    behind a proxy; the shared legacy token keeps 1 bucket per peer
+    address.
 
     Args:
         request: The request.
+        caller: The Principal.
 
     Returns:
-        The peer address, or `unknown`.
+        `user:<name>`, or the peer address (`unknown` without one).
     """
+    if caller.user != users.LEGACY:
+        return f"user:{caller.user.name}"
     return request.client.host if request.client else "unknown"
 
 
@@ -942,7 +953,6 @@ async def ask(
             whose answer still runs, 429 over the rate limit, 503 without
             an index.
     """
-    del caller
     body = await read_body(request)
     check_question(services, body.question)
     if fault == "rate_limited":
@@ -962,7 +972,7 @@ async def ask(
             409, "request_in_progress", "the answer of this key still runs"
         )
     answerer = answerer_for(services, fault)
-    decision = services.limiter.check(client_of(request))
+    decision = services.limiter.check(client_of(request, caller))
     if not decision.allowed:
         raise http_error(
             429,
@@ -976,7 +986,13 @@ async def ask(
         )
     if not stream:
         outcome = await run_answer(
-            services, answerer, body, request_id, fault=fault, channel=None
+            services,
+            answerer,
+            body,
+            request_id,
+            fault=fault,
+            channel=None,
+            user=caller.user.name,
         )
         if outcome.final is None:
             raise http_error(500, "internal_error", "the answer failed")
@@ -994,6 +1010,7 @@ async def ask(
                 request_id,
                 fault=fault,
                 channel=channel,
+                user=caller.user.name,
             )
         )
     )

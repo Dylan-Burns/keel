@@ -96,6 +96,9 @@ limits:
   rate_per_hour: 100
   daily_budget_usd: 20
 
+auth:
+  users_file: config/users.yaml  # chapter 27.2: name, role, token hash; `keel users add`; /data/users.yaml in the pilot
+
 edgar:
   user_agent: "Dylan Burns dylanburns1524@gmail.com"  # as the SEC requires
   cache_dir: cache/edgar

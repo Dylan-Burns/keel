@@ -236,6 +236,7 @@ class _Run:  # pylint: disable=too-many-instance-attributes
     request_id: str
     question: str
     started: float
+    user: str | None = None
     analysis: understanding.QuestionAnalysis | None = None
     result: retriever.RetrievalResult | None = None
     facts: edgar.FactsResult = dataclasses.field(
@@ -474,6 +475,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         use_cache: bool = False,
         max_context_tokens: int | None = None,
         max_chunks: int | None = None,
+        user: str | None = None,
     ) -> AsyncIterator[Event]:
         """Answer 1 question and yield the events of chapter 14.3.
 
@@ -487,6 +489,8 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
                 or None; never above `retrieval.max_context_tokens`.
             max_chunks: A lower chunk budget for this request, or None;
                 never above `retrieval.max_chunks`.
+            user: The user who asks, for the audit record (chapter 27.2),
+                or None from the command line.
 
         Yields:
             The events, ending with `done`.
@@ -495,6 +499,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             request_id=request_id or uuid.uuid4().hex,
             question=question,
             started=time.perf_counter(),
+            user=user,
         )
         yield Event(
             "meta",
@@ -1014,6 +1019,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
                 timespec="seconds"
             ),
             "question": run.question,
+            "user_name": run.user,
             "tickers": list(analysis.tickers)
             if analysis
             else list(stored.get("tickers", [])),
