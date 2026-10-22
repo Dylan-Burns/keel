@@ -40,3 +40,4 @@ config/users.yaml
 *.tfstate.*
 *.tfvars
 tfplan
+demo/static/
