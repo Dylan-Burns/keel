@@ -78,3 +78,49 @@ test('the trace drawer reduced twin: the drawer and the request line land still'
     /^(none|)$/,
   );
 });
+
+test('the streamed answer: each block mounts once, and nothing scales the text', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const seen = {removed: 0, scaled: 0, mounted: 0};
+    (window as unknown as {keelStream: typeof seen}).keelStream = seen;
+    const isBlock = (node: Node): boolean =>
+      node instanceof Element &&
+      (node.matches('[data-testid="answer-block"]') ||
+        node.querySelector('[data-testid="answer-block"]') !== null);
+    new MutationObserver(records => {
+      for (const record of records) {
+        record.addedNodes.forEach(node => {
+          seen.mounted += isBlock(node) ? 1 : 0;
+        });
+        record.removedNodes.forEach(node => {
+          seen.removed += isBlock(node) ? 1 : 0;
+        });
+      }
+    }).observe(document, {childList: true, subtree: true});
+    const sample = (): void => {
+      const box = document.querySelector('[data-testid="answer-container"]');
+      const transform = box === null ? 'none' : getComputedStyle(box).transform;
+      const match = /^matrix\(([^,]+), [^,]+, [^,]+, ([^,]+),/.exec(transform);
+      if (match !== null && (match[1] !== '1' || match[2] !== '1')) {
+        seen.scaled += 1;
+      }
+      requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  });
+  await openKeel(page);
+  await askExample2(page);
+  const seen = await page.evaluate(
+    () =>
+      (
+        window as unknown as {
+          keelStream: {removed: number; scaled: number; mounted: number};
+        }
+      ).keelStream,
+  );
+  expect(seen.mounted).toBeGreaterThan(0);
+  expect(seen.removed).toBe(0);
+  expect(seen.scaled).toBe(0);
+});
