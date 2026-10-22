@@ -398,7 +398,7 @@ def test_export_log(
     assert moment.utcoffset() == datetime.timedelta(0)
     assert QUESTION not in log.read_text()
     # An older file with a wider mode is tightened on the next line.
-    os.chmod(log, 0o644)
+    os.chmod(log, 0o640)
     written = export.log_export(local.logs.dir, "cli-2", export.MARKDOWN, "cli")
     assert written
     assert log.stat().st_mode & 0o777 == 0o600
