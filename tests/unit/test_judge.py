@@ -3,14 +3,22 @@
 No model is called: a fake judge client returns canned JSON.
 """
 
+from collections.abc import AsyncIterator
+from collections.abc import Callable
+import datetime
+import decimal
 import json
 import pathlib
 import types
 from typing import Any
+from typing import cast
 
 import pytest
 
+from keel import answer
 from keel import config
+from keel import context
+from keel import edgar
 from keel import errors
 from keel.evaluation import answers
 from keel.evaluation import golden
@@ -375,3 +383,60 @@ def test_chunk_text_carries_the_filing_line() -> None:
         "2025-01-26, filed 2025-02-26, section mdna"
     )
     assert body == "Revenue was $130.5 billion."
+
+
+def _fact_line() -> edgar.FactLine:
+    return edgar.FactLine(
+        fact_id="facts:AAPL:Revenues:FY2025",
+        ticker="AAPL",
+        cik="0000320193",
+        concept="revenue",
+        xbrl_name="Revenues",
+        value=decimal.Decimal(416_161_000_000),
+        unit="USD",
+        display_value="416,161",
+        display_unit="USD millions",
+        fiscal_label="FY2025",
+        period_kind="annual",
+        period_start=datetime.date(2024, 9, 29),
+        period_end=datetime.date(2025, 9, 27),
+        form="10-K",
+        filed=datetime.date(2025, 10, 31),
+        accession="0000320193-25-000079",
+    )
+
+
+class _FactsAnswerer:
+    """Calls its facts loader once per question, as the pipeline does."""
+
+    def __init__(self, result: edgar.FactsResult) -> None:
+        self.calibration = context.Calibration(1.0)
+        self.result = result
+        self.facts_loader: Callable[[Any], edgar.FactsResult] = self.load
+
+    def load(self, analysis: Any) -> edgar.FactsResult:
+        del analysis
+        return self.result
+
+    async def ask(self, question: str) -> AsyncIterator[answer.Event]:
+        if question == "numeric":
+            self.facts_loader(None)
+        yield answer.Event("final", {"question": question})
+
+
+def test_judge_reads_fact_citations() -> None:
+    line = _fact_line()
+    block = edgar.FactsBlock(
+        ticker="AAPL", cik="0000320193", entity_name="Apple Inc.", lines=(line,)
+    )
+    fake = _FactsAnswerer(edgar.FactsResult(blocks=(block,), source="cache"))
+    session = answers.AnswerSession(cast(answer.Answerer, fake))
+    try:
+        session.ask("numeric")
+        text = session.facts[line.fact_id]
+        assert "416,161 | USD millions | FY2025" in text
+        assert text.startswith("filing: AAPL, 10-K, fiscal FY2025")
+        session.ask("other")
+        assert not session.facts
+    finally:
+        session.close()
