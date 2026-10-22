@@ -18,6 +18,7 @@ import datetime
 import html
 import logging
 import math
+import re
 import threading
 
 logger = logging.getLogger(__name__)
@@ -25,6 +26,19 @@ logger = logging.getLogger(__name__)
 WRAPPER_TOKENS = 60
 MAX_CHUNK_TOKENS = 480
 DRIFT_LIMIT = 0.10
+# The wrapper elements of the prompt (chapter 12.2); a tag of one inside
+# untrusted text could end or open an element, so the guard escapes it.
+WRAPPER_TAGS = (
+    "question_analysis",
+    "question",
+    "context_index",
+    "context",
+    "chunk",
+    "facts",
+)
+_WRAPPER_TAG = re.compile(
+    r"<(\s*/?\s*(?:" + "|".join(WRAPPER_TAGS) + r")\b)", re.IGNORECASE
+)
 NO_CONTEXT_MESSAGE = (
     "No filing text matched the question and its filters, so no answer "
     "was generated."
@@ -467,6 +481,21 @@ def render_index(context: Context) -> str:
     )
 
 
+def guard_untrusted(text: str) -> str:
+    """Escape every opening or closing wrapper tag in untrusted text.
+
+    The match ignores case and whitespace (`</CONTEXT>`, `< /chunk>`), and
+    the result is deterministic, so the prompt bytes stay stable.
+
+    Args:
+        text: Filing text or text derived from the question.
+
+    Returns:
+        The text with `<` of each wrapper tag written as `&lt;`.
+    """
+    return _WRAPPER_TAG.sub(r"&lt;\1", text)
+
+
 def _attribute(value: object) -> str:
     return html.escape(str(value), quote=True)
 
@@ -499,7 +528,7 @@ def render_chunk(chunk: ContextChunk) -> str:
         "truncated": str(chunk.truncated).lower(),
     }
     head = " ".join(f'{k}="{_attribute(v)}"' for k, v in attributes.items())
-    body = c.text.replace("</chunk", "&lt;/chunk")
+    body = guard_untrusted(c.text)
     return f"<chunk {head}>\n{body}\n</chunk>"
 
 

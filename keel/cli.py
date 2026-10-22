@@ -2,12 +2,13 @@
 
 Stage 1 ships `keel inventory` and `keel doctor`; stage 2 adds `keel parse`;
 stage 3 adds `keel chunk` and `keel parse --sections-report`; stage 4 adds
-`keel index`; stage 5 adds `keel understand`; stage 6 adds `keel retrieve`.
-Later stages add the commands that CLAUDE.md lists (index, ask, serve, and
-the rest).
+`keel index`; stage 5 adds `keel understand`; stage 6 adds `keel retrieve`;
+stage 7 adds `keel ask`. Later stages add the commands that CLAUDE.md
+lists (serve, eval, and the rest).
 """
 
 import argparse
+import asyncio
 from collections.abc import Sequence
 import json
 import logging
@@ -15,8 +16,10 @@ import pathlib
 import signal
 import sys
 import time
+from typing import Any
 
 import keel
+from keel import answer
 from keel import chunker
 from keel import config
 from keel import context
@@ -182,6 +185,25 @@ def build_parser() -> argparse.ArgumentParser:
         "--summary", action="store_true", help="print the plan and the counts"
     )
     retrieve_parser.add_argument(
+        "--index",
+        type=pathlib.Path,
+        default=None,
+        help="the index directory with `current` (default: index.dir)",
+    )
+
+    ask_parser = commands.add_parser(
+        "ask", help="answer a question with 1 model request"
+    )
+    ask_parser.add_argument("question", help="the question")
+    ask_parser.add_argument(
+        "--json", action="store_true", help="print the full answer record"
+    )
+    ask_parser.add_argument(
+        "--cached",
+        action="store_true",
+        help="serve the answer cache when it holds the question",
+    )
+    ask_parser.add_argument(
         "--index",
         type=pathlib.Path,
         default=None,
@@ -785,6 +807,144 @@ def run_retrieve(
     return 0
 
 
+def _print_findings(result: dict[str, Any]) -> None:
+    """Print the findings of each company, marking the unverified ones."""
+    for company in result["company_findings"]:
+        ticker, name = company["ticker"], company["company"]
+        print(f"\n{ticker} ({name})")
+        for finding in company["findings"]:
+            mark = " [unverified]" if finding["unverified"] else ""
+            point = finding["point"]
+            print(f"  - {point}{mark}")
+
+
+def _print_citations(record: dict[str, Any]) -> None:
+    """Print the resolved citations with their markers and quotes."""
+    print("\ncitations:")
+    for cited in record["citations_resolved"]:
+        marks = [m for m in ("truncated", "quote_mismatch") if cited[m]]
+        extra = " [" + ", ".join(marks) + "]" if marks else ""
+        chunk_id, filing = cited["chunk_id"], cited["filing_name"]
+        section, quote = cited["section_title"], cited["quote"]
+        print(f"  [{chunk_id}] {filing}, {section}{extra}")
+        print(f'      "{quote}"')
+
+
+def _meta_line(record: dict[str, Any]) -> str:
+    """Describe the request, the tokens, the cost, and the latency."""
+    meta = record["meta"]
+    usage = meta.get("usage") or {}
+    latency = meta.get("latency_ms") or {}
+    requests = meta.get("model_requests", 0)
+    fresh = usage.get("input_tokens", 0)
+    cached = usage.get("cached_input_tokens", 0)
+    written = usage.get("cache_write_tokens", 0)
+    output = usage.get("output_tokens", 0)
+    cost = meta.get("cost_usd", 0.0)
+    first, total = latency.get("first_token"), latency.get("total")
+    parts = [
+        "request " + str(record["request_id"]),
+        str(meta["model"]),
+        f"{requests} request(s)",
+        f"input {fresh} + cached {cached} + cache write {written}, "
+        f"output {output}",
+        f"${cost:.4f}",
+        f"first token {first} ms, total {total} ms",
+    ]
+    if meta.get("from_cache"):
+        parts.append("from cache")
+    return " | ".join(parts)
+
+
+def _print_answer(record: dict[str, Any], streamed: bool) -> None:
+    """Print the findings, the citations, the gaps, and the meta line."""
+    result = record.get("answer")
+    if result is None:
+        print(record.get("message") or "no answer")
+        if record.get("raw_text"):
+            print(record["raw_text"])
+        retrieval = record.get("retrieval") or {}
+        for chunk in retrieval.get("chunks", []):
+            print("  " + chunk["chunk_id"] + " | " + chunk["filing_name"])
+    else:
+        if not streamed:
+            print(result["direct_answer"])
+        if result.get("refusal"):
+            print("refusal: " + result["refusal"]["reason"])
+        _print_findings(result)
+        _print_citations(record)
+        for gap in result["gaps"]:
+            print("gap: " + gap)
+    print("\n" + _meta_line(record))
+    flags = record["meta"].get("flags") or {}
+    if flags:
+        drift = flags.get("citation_drift", 0)
+        unverified = flags.get("unverified", 0)
+        mismatch = flags.get("quote_mismatch", 0)
+        periods = flags.get("period_mismatch", [])
+        print(
+            f"citation drift {drift}, unverified {unverified}, quote "
+            f"mismatch {mismatch}, period mismatch {periods}"
+        )
+
+
+async def _ask(
+    answerer: answer.Answerer, question: str, as_json: bool, cached: bool
+) -> int:
+    """Stream 1 answer to the terminal and print the record."""
+    record: dict[str, Any] | None = None
+    streamed = False
+    code = 0
+    async for event in answerer.ask(question, use_cache=cached):
+        if event.name == "answer_delta" and not as_json:
+            print(event.data["text"], end="", flush=True)
+            streamed = True
+        elif event.name == "error":
+            code = 1
+            if not as_json:
+                code_name = event.data["code"]
+                message = event.data["message"]
+                print(f"\nerror {code_name}: {message}")
+        elif event.name == "final":
+            record = event.data
+    if streamed:
+        print()
+    if record is None:
+        return 1
+    if as_json:
+        print(json.dumps(record, indent=2, ensure_ascii=False))
+    else:
+        _print_answer(record, streamed)
+    return code
+
+
+def run_ask(
+    settings: config.Settings,
+    question: str,
+    *,
+    as_json: bool,
+    cached: bool,
+    index_dir: pathlib.Path | None,
+) -> int:
+    """Run `keel ask`: stream the direct answer, then print the record.
+
+    Args:
+        settings: The loaded settings.
+        question: The question.
+        as_json: Print the full record as JSON instead of the text.
+        cached: Serve the answer cache when it holds the question.
+        index_dir: The index directory, or None for `index.dir`.
+
+    Returns:
+        0, or 1 after an error event or an input check failure.
+
+    Raises:
+        IndexMissingError: No published index.
+    """
+    answerer = answer.Answerer.open(settings, index_dir)
+    return asyncio.run(_ask(answerer, question, as_json, cached))
+
+
 def run_doctor(settings: config.Settings, download: bool, as_json: bool) -> int:
     """Run `keel doctor`.
 
@@ -858,6 +1018,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         settings = config.load_settings(args.config)
         if args.command == "understand":
             return run_understand(settings, args.question, args.corpus)
+        if args.command == "ask":
+            return run_ask(
+                settings,
+                args.question,
+                as_json=args.json,
+                cached=args.cached,
+                index_dir=args.index,
+            )
         if args.command == "retrieve":
             return run_retrieve(
                 settings,

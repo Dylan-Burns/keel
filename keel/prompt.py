@@ -333,11 +333,6 @@ def _not_indexed(analysis: understanding.QuestionAnalysis) -> str:
     )
 
 
-def _guard(text: str, tag: str) -> str:
-    """Neutralize a closing tag inside untrusted text."""
-    return text.replace(f"</{tag}", f"&lt;/{tag}")
-
-
 def render_user(template: str, values: Mapping[str, str]) -> str:
     """Fill the placeholders of the user template in 1 pass.
 
@@ -393,10 +388,9 @@ def build_bundle(
     """
     types = [t for t in analysis.types if t != analysis.primary_type]
     index = context.render_index(built)
-    # A chunk may hold a closing tag; it must not end the context element.
-    chunks = _guard(context.render_chunks(built), "context")
+    chunks = context.render_chunks(built)  # each body is guarded
     values = {
-        "question": _guard(_guard(analysis.question, "question"), "context"),
+        "question": analysis.question,
         "tickers": _listed(analysis.tickers),
         "groups": _listed(analysis.groups),
         "unknown_entities": _listed(analysis.unknown_entities),
@@ -413,7 +407,11 @@ def build_bundle(
         "context_index": index,
         "context": chunks,
     }
-    user = render_user(files.user_template, values)
+    # Every value but the rendered chunks may carry question text (the
+    # question, unknown company names, scope phrases), so each is guarded.
+    guarded = {k: context.guard_untrusted(v) for k, v in values.items()}
+    guarded["context"] = chunks
+    user = render_user(files.user_template, guarded)
     tool = files.tool()
     static = files.system + json.dumps(tool, separators=(",", ":"))
     outside = len(user) - len(chunks)
