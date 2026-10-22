@@ -66,8 +66,10 @@ def test_cache_write_failure_is_logged(
 
 def test_audit_line(tmp_path: pathlib.Path) -> None:
     log = audit.AuditLog(tmp_path / "logs")
-    assert log.write({"request_id": "r1", "model_requests": 1})
-    assert log.write({"request_id": "r2", "model_requests": 1})
+    first = log.write({"request_id": "r1", "model_requests": 1})
+    second = log.write({"request_id": "r2", "model_requests": 1})
+    assert first
+    assert second
     lines = log.path.read_text().splitlines()
     assert [json.loads(line)["request_id"] for line in lines] == ["r1", "r2"]
     assert stat.S_IMODE(log.path.stat().st_mode) == audit.FILE_MODE
@@ -80,12 +82,14 @@ def test_audit_refuses_prompt_and_logs_failure(
     tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     log = audit.AuditLog(tmp_path / "logs")
-    assert not log.write({"request_id": "r", "prompt": "the full prompt"})
+    written = log.write({"request_id": "r", "prompt": "the full prompt"})
+    assert not written
     assert "AuditWriteError" in caplog.text
     assert not log.path.exists()
     blocker = tmp_path / "file"
     blocker.write_text("")
-    assert not audit.AuditLog(blocker).write({"request_id": "r"})
+    blocked = audit.AuditLog(blocker).write({"request_id": "r"})
+    assert not blocked
 
 
 def test_audit_rotates_daily(tmp_path: pathlib.Path) -> None:
