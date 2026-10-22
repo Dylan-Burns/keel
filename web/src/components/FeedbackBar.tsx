@@ -72,7 +72,7 @@ export function FeedbackBar({requestId}: FeedbackBarProps): JSX.Element {
       />
       <button
         type="button"
-        className="rounded border border-slate-300 px-2 py-1 disabled:opacity-50"
+        className="rounded border border-slate-300 px-2 py-1 disabled:border-slate-200 disabled:text-slate-400"
         disabled={vote === null || status.kind === 'sending'}
         data-testid="feedback-send-note"
         onClick={() => {
