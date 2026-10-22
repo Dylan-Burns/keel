@@ -90,7 +90,7 @@ def client(
         "Keel Test test@example.com",
         workspace[0].edgar.cache_dir,
         offline=True,
-        transport=httpx.MockTransport(handler),
+        transport=conftest.peer_transport(handler),
     ) as value:
         yield value
 

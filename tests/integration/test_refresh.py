@@ -88,7 +88,7 @@ def _offline(settings: config.Settings) -> edgar.EdgarClient:
         "Keel Test test@example.com",
         settings.edgar.cache_dir,
         offline=True,
-        transport=httpx.MockTransport(handler),
+        transport=conftest.peer_transport(handler),
     )
 
 
@@ -113,7 +113,7 @@ class RecordedSec:
         return edgar.EdgarClient(
             "Keel Test test@example.com",
             settings.edgar.cache_dir,
-            transport=httpx.MockTransport(self),
+            transport=conftest.peer_transport(self),
             resolver=lambda host: ["162.159.152.4"],
             sleep=lambda seconds: None,
         )
