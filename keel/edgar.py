@@ -959,6 +959,7 @@ def facts_lines(
     start: datetime.date | None = None,
     end: datetime.date | None = None,
     max_lines: int = MAX_FACT_LINES,
+    cik: str | None = None,
 ) -> FactsBlock:
     """Build the facts lines of 1 company for a period window.
 
@@ -977,11 +978,13 @@ def facts_lines(
         start: The first period end date to keep, or None for no bound.
         end: The last period end date to keep, or None for no bound.
         max_lines: The line limit (40 in chapter 26.1).
+        cik: The CIK from the ticker map, or None to read the body's.
 
     Returns:
         The block. A company with no mapped concept yields no line.
     """
     ticker = normalize_ticker(ticker)
+    cik = _document_cik(document) if cik is None else cik
     entries = _entries(document, facts_config.concepts)
     labels = _current_labels(entries)
     first_filing: dict[
@@ -1014,7 +1017,7 @@ def facts_lines(
         lines[(entry.concept, label)] = FactLine(
             fact_id=fact_id,
             ticker=ticker,
-            cik=_document_cik(document),
+            cik=cik,
             concept=entry.concept,
             xbrl_name=entry.xbrl_name,
             value=entry.value,
@@ -1044,7 +1047,7 @@ def facts_lines(
     )
     return FactsBlock(
         ticker=ticker,
-        cik=_document_cik(document),
+        cik=cik,
         entity_name=str(document.get("entityName", "")),
         lines=tuple(kept),
         dropped=len(lines) - len(kept),
@@ -1057,3 +1060,108 @@ def _document_cik(document: Mapping[str, Any]) -> str:
         return cik10(document.get("cik", ""))
     except errors.EdgarError:
         return ""
+
+
+# --- The facts of 1 question (chapter 26.1, steps 4 and 8) --------------------
+
+FactsSource = Literal["cache", "network", "none"]
+Window = tuple[datetime.date | None, datetime.date | None]
+
+
+@dataclasses.dataclass(frozen=True)
+class FactsResult:
+    """The facts blocks of the resolved companies of 1 question.
+
+    Attributes:
+        blocks: 1 block per company with at least 1 line, in ticker order.
+        source: `network` when a company facts file was fetched, `cache`
+            when every file came from the disk cache, `none` when no line
+            came back.
+        files: The company facts files read.
+        errors: 1 message per company whose facts failed; the answer goes
+            on without those lines.
+    """
+
+    blocks: tuple[FactsBlock, ...] = ()
+    source: FactsSource = "none"
+    files: int = 0
+    errors: tuple[str, ...] = ()
+
+    @property
+    def lines(self) -> tuple[FactLine, ...]:
+        """All lines of the blocks, in block order."""
+        return tuple(line for block in self.blocks for line in block.lines)
+
+    def by_id(self) -> dict[str, FactLine]:
+        """Map each fact ID to its line, for the citation validator.
+
+        Returns:
+            The lines by fact ID.
+        """
+        return {line.fact_id: line for line in self.lines}
+
+    def text(self) -> str:
+        """Render every line, 1 per row, without the enclosing tags.
+
+        Returns:
+            The lines joined by newlines; empty when there is no line.
+        """
+        return "\n".join(block.text() for block in self.blocks if block.lines)
+
+
+def collect_facts(
+    client: EdgarClient,
+    facts_config: FactsConfig,
+    windows: Mapping[str, Window],
+    *,
+    max_lines: int = MAX_FACT_LINES,
+) -> FactsResult:
+    """Build the facts blocks of several companies, each in its window.
+
+    A failure of 1 company (an unknown ticker, a cache miss offline, a
+    fetch error) drops that company's lines and is recorded; it never
+    raises, because the facts never block an answer.
+
+    Args:
+        client: The EDGAR client; offline, it reads only the cache.
+        facts_config: The mapped concepts.
+        windows: The first and last period end dates per ticker, None for
+            no bound.
+        max_lines: The line limit per company.
+
+    Returns:
+        The blocks, the source, and the errors.
+    """
+    before = client.requests
+    blocks = []
+    problems = []
+    files = 0
+    for ticker, (start, end) in windows.items():
+        try:
+            cik = client.cik(ticker)
+            document = client.company_facts(cik)
+        except errors.EdgarError as error:
+            logger.warning("no company facts for %s: %s", ticker, error)
+            problems.append(f"{ticker}: {error}")
+            continue
+        files += 1
+        block = facts_lines(
+            document.data,
+            ticker,
+            facts_config,
+            start=start,
+            end=end,
+            max_lines=max_lines,
+            cik=cik10(cik),
+        )
+        if block.lines:
+            blocks.append(block)
+    source: FactsSource = "none"
+    if blocks:
+        source = "network" if client.requests > before else "cache"
+    return FactsResult(
+        blocks=tuple(blocks),
+        source=source,
+        files=files,
+        errors=tuple(problems),
+    )

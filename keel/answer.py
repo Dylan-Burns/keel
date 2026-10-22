@@ -1,12 +1,14 @@
 """The question pipeline around the single call (chapter 6.3).
 
 `Answerer.ask` runs 1 question: the answer cache when allowed, question
-understanding, retrieval, the prompt, exactly 1 provider request (with up
-to 2 retries before any content, decision D-04), the citation validator,
-the answer cache write, and 1 audit record. It yields the events of
-chapter 14.3 (`meta`, `analysis`, `retrieval`, `answer_delta`, `findings`,
-`final`, `error`, `done`), which `keel ask` prints and the API of stage 9
-streams. No other step calls a model (D-01, D-02, D-28).
+understanding, retrieval, the company facts of a numeric question (from
+the EDGAR disk cache, chapter 26.1; never a blocker), the prompt, exactly 1
+provider request (with up to 2 retries before any content, decision D-04),
+the citation validator, the answer cache write, and 1 audit record. It
+yields the events of chapter 14.3 (`meta`, `analysis`, `retrieval`,
+`answer_delta`, `findings`, `final`, `error`, `done`), which `keel ask`
+prints and the API of stage 9 streams. No other step calls a model (D-01,
+D-02, D-28).
 
 Chapter 16 wraps the call: the circuit breaker sends a question straight to
 the fallback model while the primary model is down, the fallback gets its
@@ -40,6 +42,7 @@ from keel import cache
 from keel import citations
 from keel import config
 from keel import context
+from keel import edgar
 from keel import errors
 from keel import indexer
 from keel import partial_json
@@ -76,6 +79,7 @@ SERVER_DELAYS = (2.0, 6.0)
 MAX_RETRY_WAIT = 30.0  # a longer Retry-After would pass the 120 s total
 
 Sleep = Callable[[float], Awaitable[None]]
+FactsLoader = Callable[[understanding.QuestionAnalysis], edgar.FactsResult]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -234,6 +238,9 @@ class _Run:  # pylint: disable=too-many-instance-attributes
     started: float
     analysis: understanding.QuestionAnalysis | None = None
     result: retriever.RetrievalResult | None = None
+    facts: edgar.FactsResult = dataclasses.field(
+        default_factory=edgar.FactsResult
+    )
     bundle: prompt.PromptBundle | None = None
     stream: partial_json.AnswerStream = dataclasses.field(
         default_factory=partial_json.AnswerStream
@@ -268,6 +275,8 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         fallback: The fallback model provider, or None for no fallback.
         breaker: The circuit breaker of the primary model, or None for a
             new one.
+        facts_loader: Loads the company facts of a numeric question, or
+            None for the EDGAR client of the settings.
 
     Raises:
         ConfigError: The prompt version asks for another output mode than
@@ -284,6 +293,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         sleep: Sleep = asyncio.sleep,
         fallback: base.LLMProvider | None = None,
         breaker: reliability.CircuitBreaker | None = None,
+        facts_loader: FactsLoader | None = None,
     ) -> None:
         self.settings = settings
         self.retriever = step
@@ -292,6 +302,10 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         self.breaker = breaker or reliability.CircuitBreaker()
         self.index_version = index_version
         self.sleep = sleep
+        self.facts_loader = facts_loader or self.load_facts
+        self._edgar: edgar.EdgarClient | None = None
+        # 1 client per pipeline keeps the 0.2 s interval across questions.
+        self._edgar_lock = threading.Lock()
         self.files = prompt.PromptFiles.load(
             settings.llm.prompt_version, settings.llm.prompts_dir
         )
@@ -398,6 +412,38 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         if sleep is not None:
             twin.sleep = sleep
         return twin
+
+    def load_facts(
+        self, analysis: understanding.QuestionAnalysis
+    ) -> edgar.FactsResult:
+        """Load the facts lines of each resolved company in its window.
+
+        The EDGAR disk cache serves first; a missing file is fetched when
+        the settings are online, through 1 client per pipeline so the
+        minimum interval holds across questions. Any failure yields no
+        lines and is recorded, so the facts never block an answer.
+
+        Args:
+            analysis: The question analysis.
+
+        Returns:
+            The facts blocks, their source, and the errors.
+        """
+        windows: dict[str, edgar.Window] = {}
+        for ticker in analysis.tickers:
+            window = analysis.windows.get(ticker)
+            windows[ticker] = (
+                (window.start, window.end) if window else (None, None)
+            )
+        try:
+            facts_config = edgar.load_facts_config(self.settings.edgar.facts)
+            with self._edgar_lock:
+                if self._edgar is None:
+                    self._edgar = edgar.EdgarClient.from_settings(self.settings)
+                return edgar.collect_facts(self._edgar, facts_config, windows)
+        except (errors.KeelError, OSError) as error:
+            logger.warning("no company facts: %s", error)
+            return edgar.FactsResult(errors=(str(error),))
 
     @property
     def model(self) -> str:
@@ -554,16 +600,32 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             yield self._final(run, None)
             yield Event("done", {})
             return
+        if self.files.takes_facts and prompt.wants_facts(run.analysis):
+            run.facts = await self._facts(run.analysis)
         run.bundle = prompt.build_bundle(
             self.files,
             run.analysis,
             run.result.context,
             self.retriever.catalog.filings,
+            run.facts.lines,
         )
         async for event in self._call(run):
             yield event
         async for event in self._finish(run):
             yield event
+
+    async def _facts(
+        self, analysis: understanding.QuestionAnalysis
+    ) -> edgar.FactsResult:
+        """Run the facts loader off the event loop; never raise."""
+        try:
+            return await asyncio.to_thread(self.facts_loader, analysis)
+        except Exception as error:  # pylint: disable=broad-exception-caught
+            # The facts are optional context: any failure leaves them out.
+            logger.exception("company facts failed")
+            return edgar.FactsResult(
+                errors=(f"{type(error).__name__}: {error}",)
+            )
 
     async def _call(self, run: _Run) -> AsyncIterator[Event]:
         """Ask the primary model, then the fallback (chapters 16.3, 16.4).
@@ -711,6 +773,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             run.analysis,
             halved,
             self.retriever.catalog.filings,
+            run.facts.lines,
         )
 
     def _on_event(self, run: _Run, event: base.ProviderEvent) -> list[Event]:
@@ -792,7 +855,9 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             self.retriever.conn,
             [c.candidate.filing_id for c in run.result.context.chunks],
         )
-        return citations.validate(answer, run.result.context, urls)
+        return citations.validate(
+            answer, run.result.context, urls, run.facts.by_id()
+        )
 
     def _retrieval(self, result: retriever.RetrievalResult) -> dict[str, Any]:
         built = result.context
@@ -889,6 +954,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             ),
             "cost_usd": cost,
             "model_requests": run.requests,
+            "facts": _facts_summary(run.facts),
             "degraded": run.outcome in DEGRADED_OUTCOMES,
             "from_cache": False,
             "flags": {
@@ -975,6 +1041,10 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             "quote_mismatch": flags.get("quote_mismatch", 0),
             "period_mismatch": flags.get("period_mismatch", []),
             "unverified": flags.get("unverified", 0),
+            "facts_lines": len(run.facts.lines),
+            "facts_source": run.facts.source,
+            "fact_ids": list(run.bundle.fact_ids) if run.bundle else [],
+            "facts_errors": list(run.facts.errors),
             "flags": {
                 "injection_suspect": flags.get("injection_suspect", False),
                 "schema_violation": flags.get("schema_violation", False),
@@ -1043,6 +1113,16 @@ _MESSAGES = {
     "refused": REFUSED_MESSAGE,
     "schema_violation": SCHEMA_WARNING,
 }
+
+
+def _facts_summary(facts: edgar.FactsResult) -> dict[str, Any]:
+    """The facts line of the trace drawer (chapter 26.1, step 8)."""
+    return {
+        "lines": len(facts.lines),
+        "source": facts.source,
+        "files": facts.files,
+        "errors": list(facts.errors),
+    }
 
 
 def _message(run: _Run) -> str | None:
