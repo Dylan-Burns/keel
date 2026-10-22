@@ -105,11 +105,13 @@ def _feedback_db(path: pathlib.Path) -> pathlib.Path:
         request_id="r2", user_name="ben", vote="down", note="wrong year"
     )
     store.record_vote(request_id="r4", user_name="cy", vote="up")
+    store.record_vote(request_id="r5", user_name="eng", vote="down")
     with sqlite3.connect(path) as conn:
         for request_id, created in (
             ("r1", "2026-10-19T10:01:00+00:00"),
             ("r2", "2026-10-20T11:01:00+00:00"),
             ("r4", "2026-10-27T09:01:00+00:00"),
+            ("r5", "2026-10-21T08:01:00+00:00"),
         ):
             conn.execute(
                 "UPDATE feedback SET created_at = ? WHERE request_id = ?",
@@ -254,16 +256,19 @@ def test_pilot_metrics_since_and_gaps(
         records,
         votes=pilot_metrics.read_votes(tmp_path / "absent.sqlite"),
         since="2026-W44",
+        until="2026-W47",
     )
     assert [w.week for w in metrics.weeks] == [
         "2026-W44",
         "2026-W45",
         "2026-W46",
+        "2026-W47",
     ]
-    assert [w.questions for w in metrics.weeks] == [0, 0, 1]
+    # The idle week 4 is a 0 row, so the questions target cannot hold.
+    assert [w.questions for w in metrics.weeks] == [0, 0, 1, 0]
     assert metrics.questions == 1
     rows = {r["metric"]: r for r in pilot_metrics.targets(metrics)}
-    assert rows["questions each week"]["value"] == 1
+    assert rows["questions each week"]["value"] == 0
     assert rows["active users each week"]["holds"] is False
 
 
@@ -321,7 +326,7 @@ def test_pilot_metrics_main(
     assert code == 0
     body = json.loads(capsys.readouterr().out)
     assert body["questions"] == 5
-    assert body["votes"] == 3
+    assert body["votes"] == 4
     assert body["filings_refreshed"] == 1
     assert body["sources"]["feedback_table"] is True
     assert len(body["targets"]) == 4

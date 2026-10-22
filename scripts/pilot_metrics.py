@@ -140,10 +140,12 @@ class Vote:
     Attributes:
         positive: True for a thumbs up.
         week: The ISO week of the vote, or None when its time is not one.
+        user: The user who voted, or None.
     """
 
     positive: bool
     week: str | None
+    user: str | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -329,7 +331,10 @@ def read_votes(path: pathlib.Path | None) -> list[Vote] | None:
     except errors.PilotStoreError as error:
         logger.warning("feedback table unreadable: %s", error)
         return None
-    return [Vote(row.vote == "up", iso_week(row.created_at)) for row in rows]
+    return [
+        Vote(row.vote == "up", iso_week(row.created_at), row.user_name)
+        for row in rows
+    ]
 
 
 def _corpus_tickers(files: object, added: dict[str, Any]) -> set[str]:
@@ -444,7 +449,12 @@ class _Tally:
     undated: int = 0
 
     def add(self, record: dict[str, Any], week: str) -> None:
-        """Count 1 question record in its week."""
+        """Count 1 question record in its week.
+
+        Args:
+            record: The audit record of the question.
+            week: Its ISO week.
+        """
         user, named = user_of(record)
         self.named_user = self.named_user or named
         self.users[week].add(user)
@@ -463,6 +473,7 @@ def compute(  # pylint: disable=too-many-arguments,too-many-locals
     refreshed: Sequence[str | None] | None = None,
     *,
     since: str | None = None,
+    until: str | None = None,
     exclude_users: Iterable[str] = (),
     files: Sequence[str] = (),
     skipped_lines: int = 0,
@@ -476,7 +487,10 @@ def compute(  # pylint: disable=too-many-arguments,too-many-locals
         refreshed: The week of each filing the refresh added, or None.
         since: The ISO week the pilot starts; earlier entries are left
             out, and it is week 1 of the success metrics.
-        exclude_users: Users left out of every count (the engineer).
+        until: The last ISO week to show, such as the current week, so a
+            week with no activity at the end still counts as a 0 row.
+        exclude_users: Users left out of every count, votes included (the
+            engineer, and `legacy` for the CLI runs and the shared token).
         files: The audit files read, for the report.
         skipped_lines: The lines that were not a JSON object.
 
@@ -499,7 +513,7 @@ def compute(  # pylint: disable=too-many-arguments,too-many-locals
             seen.add(week)
     vote_weeks: dict[str, list[bool]] = collections.defaultdict(list)
     for vote in votes or ():
-        if keep(vote.week):
+        if keep(vote.week) and vote.user not in excluded:
             vote_weeks[str(vote.week)].append(vote.positive)
     # An addition without a corpus file has no week; it still counts.
     kept_additions = [
@@ -511,6 +525,8 @@ def compute(  # pylint: disable=too-many-arguments,too-many-locals
     seen.update(str(w) for w in refresh_weeks)
     if since is not None and seen:
         seen.add(since)
+    if until is not None and seen and until > max(seen):
+        seen.add(until)
     rows = []
     for week in week_range(min(seen), max(seen)) if seen else ():
         week_votes = vote_weeks.get(week, [])
@@ -778,12 +794,13 @@ def build_parser() -> argparse.ArgumentParser:
         type=datetime.date.fromisoformat,
         default=None,
         help="the first day of the pilot (YYYY-MM-DD): its week is week 1, "
-        "and earlier records are left out",
+        "earlier records are left out, and the rows run to the current "
+        "week",
     )
     parser.add_argument(
         "--exclude-user",
         action="append",
-        default=[],
+        default=None,
         metavar="NAME",
         help="a user left out of every count, such as the engineer "
         "(repeatable)",
@@ -871,7 +888,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         additions=read_additions(sources.manifest),
         refreshed=read_refreshed(sources.refresh_log),
         since=iso_week(args.since) if args.since else None,
-        exclude_users=args.exclude_user,
+        until=iso_week(datetime.datetime.now(tz=datetime.UTC))
+        if args.since
+        else None,
+        exclude_users=args.exclude_user or (),
         files=[str(f) for f in files],
         skipped_lines=skipped,
     )
