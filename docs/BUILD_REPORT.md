@@ -663,6 +663,12 @@ Entry format:
 - Decisions taken without review: the 1.4.0 entries are removed rather than kept beside the new ones, so the pre-flight count stays 28. `demo/static/` keeps its 1.4.0 example answers until the static export runs again against a server on the new cache.
 - Attempts: 1.
 
+## Follow-up after stage 22: static export for prompt 1.5.1
+
+- Built: `demo/static/answer-1.html` to `answer-3.html` exported again with `npm run static-export --prefix web -- http://127.0.0.1:8010`, against `keel serve --port 8010` with `KEEL_OFFLINE=1`, the rewarmed cache of prompt 1.5.1, a throwaway `KEEL_API_TOKEN`, a placeholder `ANTHROPIC_API_KEY`, and a scratch `KEEL_LOGS__DIR`. The draft video `demo/recording.webm` (11.4 MB, not committed) was recorded again from the same server.
+- Measured: `answer-1.html` 87,539 bytes, `answer-2.html` 85,836, `answer-3.html` 86,477, all `complete`, each naming prompt 1.5.1; 0 `<script` tags, 0 `Bearer`, 0 matches for the token value, 0 em or en dashes. The scratch audit log holds 3 records, outcome `cached`, `model_requests` sum 0.
+- Attempts: 1. No provider spend.
+
 ## Gaps
 
 Values that were not available when the build needed them, and what the build did instead.
