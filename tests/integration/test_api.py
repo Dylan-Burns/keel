@@ -670,9 +670,6 @@ def test_read_routes(client, api_settings) -> None:
     status = client.get("/api/index/status", headers=AUTH).json()
     assert status["corpus_checksum_match"] is True
     assert status["index_version"] == "1.0.0"
-    feedback = client.post("/api/feedback", headers=AUTH)
-    assert feedback.status_code == 501
-    assert feedback.json()["code"] == "not_implemented"
 
 
 def test_golden_questions(tmp_path) -> None:

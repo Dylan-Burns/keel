@@ -30,6 +30,7 @@ from keel import errors
 from keel.api import export_routes
 from keel.api import routes
 from keel.api import state
+from keel.api import workspace
 
 logger = logging.getLogger(__name__)
 
@@ -155,6 +156,7 @@ def create_app(services: Services) -> fastapi.FastAPI:
     app.state.services = services
     app.include_router(routes.router)
     app.include_router(export_routes.router)
+    app.include_router(workspace.router)
     _frontend(app, services.settings.server.web_dist)
     app.add_middleware(SecurityHeaders)
     return app

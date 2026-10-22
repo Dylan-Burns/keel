@@ -578,23 +578,6 @@ async def eval_report(services: Services, caller: Caller) -> eval_page.EvalPage:
     )
 
 
-@router.post("/feedback")
-async def feedback(caller: Caller) -> responses.JSONResponse:
-    """The feedback stub of phase 1 of the roadmap.
-
-    Args:
-        caller: The Principal.
-
-    Returns:
-        HTTP 501 in this release.
-    """
-    del caller
-    return responses.JSONResponse(
-        error_body("not_implemented", "feedback arrives in phase 1"),
-        status_code=501,
-    )
-
-
 def for_viewer(
     record: dict[str, Any], caller: auth.Principal
 ) -> dict[str, Any]:
