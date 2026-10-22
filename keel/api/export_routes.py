@@ -69,8 +69,8 @@ async def export_memo(
                 False,
             )
         memo = export.build_memo(record, request_id)
-    except export.ExportError as error:
-        logger.info("no memo for %s: %s", request_id, error)
+    except export.ExportError:
+        logger.info("no stored answer for a memo request")
         raise routes.http_error(
             404, "not_found", "no stored answer for this request"
         ) from None

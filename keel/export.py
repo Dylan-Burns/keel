@@ -83,10 +83,20 @@ _BLOCK_START = re.compile(r"^(\d+)([.)])|^([-+=])")
 # `<>[]()` and whitespace, is percent-encoded.
 URL_SAFE = "/:?=&%#.-_~"
 _URL_FORBIDDEN = re.compile(r"[<>\[\]()`\s\\]")
-# Characters that XML 1.0 (and so a DOCX file) cannot hold.
-_XML_INVALID = re.compile(
-    "[^\t\n\r\u0020-\ud7ff\ue000-\ufffd\U00010000-\U0010ffff]"
+# The code point ranges that XML 1.0 (and so a DOCX file) can hold.
+_XML_VALID = (
+    (0x20, 0xD7FF),
+    (0xE000, 0xFFFD),
+    (0x10000, 0x10FFFF),
 )
+
+
+def _xml_char(char: str) -> bool:
+    """Tell whether XML 1.0 can hold 1 character."""
+    point = ord(char)
+    return char in "\t\n\r" or any(lo <= point <= hi for lo, hi in _XML_VALID)
+
+
 _MARKER = re.compile(r"\s*\[([^\[\]\n]{1,400})\]")
 
 # A run of memo text: strings and footnote numbers in reading order.
@@ -210,7 +220,7 @@ def _flat(text: object) -> str:
     Characters that XML cannot hold are dropped, so the DOCX writer never
     fails on them.
     """
-    return " ".join(_XML_INVALID.sub("", str(text)).split())
+    return " ".join("".join(c for c in str(text) if _xml_char(c)).split())
 
 
 def _source_facts(record: Mapping[str, Any]) -> dict[str, dict[str, Any]]:

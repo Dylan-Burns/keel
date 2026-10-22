@@ -215,9 +215,11 @@ def test_export_finds_the_answer_through_the_audit_record(
     key = cache.cache_key(QUESTION, "1.0.0", "1.3.0", "claude-sonnet-5-5")
     answers.put(key, make_record("first-1"))
     log = audit.AuditLog(local.logs.dir)
-    assert log.write(audit_line("other-1"))
+    written = log.write(audit_line("other-1"))
+    assert written
     # A later request served from the cache has its own request ID.
-    assert log.write(audit_line("later-2"))
+    written = log.write(audit_line("later-2"))
+    assert written
     found = export.find_record(local, "later-2")
     assert found["request_id"] == "first-1"
     memo = export.build_memo(found, "later-2")
@@ -232,7 +234,8 @@ def test_export_finds_the_answer_through_the_audit_record(
     assert export.find_record(local, "later-2")["request_id"] == "first-1"
     assert export.find_record(local, "first-1")["request_id"] == "first-1"
     # A fallback answer never enters the cache.
-    assert log.write(audit_line("fallback-3", model="claude-haiku-5-5"))
+    written = log.write(audit_line("fallback-3", model="claude-haiku-5-5"))
+    assert written
     with pytest.raises(export.ExportError, match="no stored answer"):
         export.find_record(local, "fallback-3")
     with pytest.raises(export.ExportError, match="not a request ID"):
@@ -248,13 +251,16 @@ def test_export_never_borrows_another_answer(
     # A later answer replaced the entry that request old-1 filled.
     answers.put(key, make_record("newer-9"))
     log = audit.AuditLog(local.logs.dir)
-    assert log.write(audit_line("old-1", outcome="answered"))
+    written = log.write(audit_line("old-1", outcome="answered"))
+    assert written
     # A refused question with the same key never takes the cached answer.
-    assert log.write(audit_line("refused-2", outcome="out_of_scope"))
+    written = log.write(audit_line("refused-2", outcome="out_of_scope"))
+    assert written
     for request_id in ("old-1", "refused-2"):
         with pytest.raises(export.ExportError, match="no stored answer"):
             export.find_record(local, request_id)
-    assert log.write(audit_line("newer-9", outcome="answered"))
+    written = log.write(audit_line("newer-9", outcome="answered"))
+    assert written
     assert export.find_record(local, "newer-9")["request_id"] == "newer-9"
     # Without the scan, an ID with no audit line finds nothing.
     with pytest.raises(export.ExportError, match="no stored answer"):
