@@ -119,7 +119,7 @@ The zip goes through a safe extractor; the inventory compares the files with the
 | `parser`, `dictionaries`, `chunker` | the parser version and word lists, the companies, groups, synonyms, the chunk sizes |
 | `embedding`, `reranker` | the 2 pinned Hugging Face models with their revision hashes |
 | `retrieval` | the candidate counts, the fusion, the context budget, the calibration factor 1.91 |
-| `llm` | `claude-sonnet-5-5`, the fallback `claude-haiku-5-5`, the judge `claude-opus-5-5`, the prompt version 1.4.0, the output mode, the retries |
+| `llm` | `claude-sonnet-5-5`, the fallback `claude-haiku-5-5`, the judge `claude-opus-5-5`, the prompt version 1.5.1, the output mode, the retries |
 | `limits`, `auth`, `pilot` | the rate limits and the daily budget, the users file, the comp set and feedback store, the templates |
 | `edgar`, `demo`, `scheduler`, `deploy` | the SEC user agent and cache, the example questions and the 2 `keel add` tickers, the nightly refresh and backup, the host |
 
@@ -151,29 +151,29 @@ Also: `keel calibrate` (the token calibration factor, 1 count call), `keel facts
 
 `uv run keel eval` runs the 28 questions of `eval/golden.yaml` against the index and writes `eval/report.md` and `eval/report.json` with recall at 10, 25, and 48, MRR, nDCG, the ablations (lexical, dense, hybrid, with and without the reranker), and the 10 gates of chapter 18.8. `--answers` adds the live answers and the judge (`claude-opus-5-5`), about 4 USD a run; `--gate` exits non-zero on a failed gate. CI runs the `ci` subset with answers on the mini corpus.
 
-The last full run (`eval-20261022T123820Z`, index 1.2.0, prompt 1.4.0, judge prompt 1.2.0):
+The last full run (`eval-20261022T145423Z`, index 1.2.0, prompt 1.5.1, judge prompt 1.2.0):
 
 | Gate | Threshold | Value | Status |
 | --- | --- | --- | --- |
 | Recall at 25 | >= 0.85 | 0.86 | pass |
 | MRR | >= 0.60 | 0.96 | pass |
-| Faithfulness | >= 0.90 | 0.895 | fail |
-| Citation precision | >= 0.90 | 0.99 | pass |
+| Faithfulness | >= 0.90 | 0.926 | pass |
+| Citation precision | >= 0.90 | 1.00 (0.998) | pass |
 | Numeric accuracy | >= 0.90 | 1.00 (9 of 9) | pass |
 | Schema validity | 1.00 | 1.00 | pass |
 | Refusal correctness | 1.00 | 1.00 | pass |
-| Latency p95 | <= 40 s | 31.3 s (p50 23.5 s) | pass |
-| Mean cost per question | <= 0.25 USD | 0.0924 USD | pass |
+| Latency p95 | <= 40 s | 35.9 s (p50 22.8 s) | pass |
+| Mean cost per question | <= 0.25 USD | 0.0929 USD | pass |
 
-1 model request per answer (24 for 24). [`docs/PERFORMANCE_MEMO.md`](docs/PERFORMANCE_MEMO.md) explains each number. The 1 failing gate is known: faithfulness is 0.895, short by 0.005. Trend answers (0.82) say what changed but cite only the later filing; prompt 1.5.0 makes a change claim cite both filings.
+1 model request per answer (24 for 24). [`docs/PERFORMANCE_MEMO.md`](docs/PERFORMANCE_MEMO.md) explains each number. No gate fails: prompt 1.5.1 lifts faithfulness from 0.895 (prompt 1.4.0, `eval-20261022T123820Z`) to 0.926, and the G-27 and G-28 adversarial checks pass. The weakest types are adversarial (0.85: the judge scores the uncited note about a planted instruction as not supported) and trend (0.88: a quarterly table can still get end dates that no cited chunk states).
 
 ## Prompt log
 
-[`docs/PROMPT_LOG.md`](docs/PROMPT_LOG.md): every prompt version from 1.0.0 to 1.5.0 with 1 hypothesis each, the measured before and after on the 3 example questions, and the request IDs. The shipped version is 1.4.0 (structured output, the company facts rule); 1.5.0 is measured and not adopted.
+[`docs/PROMPT_LOG.md`](docs/PROMPT_LOG.md): every prompt version from 1.0.0 to 1.5.1 with 1 hypothesis each, the measured before and after on the 3 example questions, and the request IDs. The shipped version is 1.5.1 (structured output, the company facts rule, the claim support rules, and no finding that cites an instruction chunk); 1.5.0 is measured and not adopted.
 
 ## Offline demo mode
 
-`KEEL_OFFLINE=1` serves every question from the answer cache (`demo/answer_cache/`) with 0 model requests; a question outside the cache gets the degraded mode with the retrieved chunks. The cache key (D-29) holds the question, the index version, the prompt version, and the model, so a cached answer comes from the same pipeline on the same index. `keel warm-cache` fills the cache for the 28 golden questions (24 answers and 4 refusals, 2.17 USD on the first run, 0 requests on a second run) and pre-fetches the company facts of 56 tickers. The offline drill of stage 11 answered the 3 examples from the cache in 0.01 to 0.09 s with the provider unreachable.
+`KEEL_OFFLINE=1` serves every question from the answer cache (`demo/answer_cache/`) with 0 model requests; a question outside the cache gets the degraded mode with the retrieved chunks. The cache key (D-29) holds the question, the index version, the prompt version, and the model, so a cached answer comes from the same pipeline on the same index. `keel warm-cache` fills the cache for the 28 golden questions (24 answers and 4 refusals, 2.17 USD on the first run, 0 requests on a second run) and pre-fetches the company facts of 56 tickers. The offline drill of stage 11 answered the 3 examples from the cache in 0.01 to 0.09 s with the provider unreachable. The committed entries hold prompt 1.4.0 answers, so with the default prompt 1.5.1 they miss until `keel warm-cache` runs again.
 
 The fallbacks of chapter 16.12, step 4: `demo/static/` holds the 3 example answers as static HTML (no script, the CSS inlined, only `www.sec.gov` links; open `demo/static/index.html` with the network off). `npm run static-export --prefix web -- URL` writes them again from a running `KEEL_OFFLINE=1 keel serve` with `KEEL_API_TOKEN` set, and `-- URL --record demo/recording.webm` records a draft video of the 3 questions (gitignored; the engineer saves the final recording as `demo/recording.mp4`).
 

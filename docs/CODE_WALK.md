@@ -188,7 +188,7 @@ files, 245 indexed, 1 quarantined, 63,688 chunks).
 ## 9. Prompt
 
 - Files: `keel/prompt.py` (`PromptFiles.load`, `build_bundle`,
-  `guard_untrusted` in `context.py`), `prompts/answer_*_v1.4.0.*`.
+  `guard_untrusted` in `context.py`), `prompts/answer_*_v1.5.1.*`.
 - Corpus fact: the cached prefix is 2,792 tokens; the context is wrapped as
   untrusted data.
 - Q: How do you version prompts? A: 3 files per version with a sha256
