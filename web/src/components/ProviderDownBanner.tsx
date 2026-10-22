@@ -1,4 +1,7 @@
+import {motion, useReducedMotion} from 'motion/react';
 import type {JSX} from 'react';
+
+import {banner, pick} from '../motion/presets';
 
 /** Props of ProviderDownBanner. */
 export interface ProviderDownBannerProps {
@@ -20,8 +23,12 @@ export function ProviderDownBanner({
   onRetry,
   retryEnabled,
 }: ProviderDownBannerProps): JSX.Element {
+  const reduced = useReducedMotion();
   return (
-    <div
+    <motion.div
+      variants={pick(banner.slide, reduced)}
+      initial="hidden"
+      animate="visible"
       role="alert"
       className="flex flex-wrap items-center gap-3 rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-900"
       data-testid="banner-provider-down"
@@ -39,6 +46,6 @@ export function ProviderDownBanner({
           Retry
         </button>
       )}
-    </div>
+    </motion.div>
   );
 }

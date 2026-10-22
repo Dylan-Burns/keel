@@ -1,6 +1,8 @@
+import {motion, useReducedMotion} from 'motion/react';
 import type {JSX} from 'react';
 
 import type {Example} from '../lib/examples';
+import {pageLoad, pick} from '../motion/presets';
 
 /** Props of ExampleChips. */
 export interface ExampleChipsProps {
@@ -20,10 +22,17 @@ export function ExampleChips({
   disabled,
   onPick,
 }: ExampleChipsProps): JSX.Element {
+  const reduced = useReducedMotion();
   return (
-    <ul className="flex flex-wrap gap-2" aria-label="Example questions">
+    <motion.ul
+      className="flex flex-wrap gap-2"
+      aria-label="Example questions"
+      variants={pick(pageLoad.chips, reduced)}
+      initial="hidden"
+      animate="visible"
+    >
       {examples.map(example => (
-        <li key={example.label}>
+        <motion.li key={example.label} variants={pick(pageLoad.chip, reduced)}>
           <button
             type="button"
             className="rounded-full border border-slate-300 bg-white px-3 py-1 text-sm text-slate-700 hover:border-accent hover:text-accent disabled:opacity-50"
@@ -33,8 +42,8 @@ export function ExampleChips({
           >
             {example.label}
           </button>
-        </li>
+        </motion.li>
       ))}
-    </ul>
+    </motion.ul>
   );
 }

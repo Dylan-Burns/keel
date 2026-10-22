@@ -1,4 +1,7 @@
+import {motion, useReducedMotion} from 'motion/react';
 import type {JSX} from 'react';
+
+import {banner, pick} from '../motion/presets';
 
 /** Props of PartialCoverageBanner. */
 export interface PartialCoverageBannerProps {
@@ -23,17 +26,21 @@ export function PartialCoverageBanner({
   }
   if (unverifiedFindings > 0) {
     parts.push(
-      `${unverifiedFindings} finding${unverifiedFindings === 1 ? ' has' : 's have'} no valid citation and show unverified.`,
+      `${unverifiedFindings} finding${unverifiedFindings === 1 ? ' has' : 's have'} no valid citation, marked unverified.`,
     );
   }
+  const reduced = useReducedMotion();
   return (
-    <div
+    <motion.div
+      variants={pick(banner.slide, reduced)}
+      initial="hidden"
+      animate="visible"
       role="status"
       className="rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-2 text-sm text-yellow-900"
       data-testid="banner-partial-coverage"
     >
       <strong className="font-medium">Partial coverage.</strong>{' '}
       {parts.join(' ')}
-    </div>
+    </motion.div>
   );
 }

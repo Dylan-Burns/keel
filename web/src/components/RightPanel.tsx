@@ -1,8 +1,9 @@
+import {motion, useReducedMotion} from 'motion/react';
 import type {JSX} from 'react';
 
 import type {ChunkResponse} from '../api/types';
 import {findChunk, findCitation, findResolved} from '../lib/citations';
-import {isSecUrl} from '../lib/markdown';
+import {pick, retrieval as retrievalMotion} from '../motion/presets';
 import type {Run} from '../state';
 import {SecLink} from './SecLink';
 
@@ -36,6 +37,7 @@ export function RightPanel({
   open,
   onClose,
 }: RightPanelProps): JSX.Element {
+  const reduced = useReducedMotion();
   const cited = run?.final?.citations_resolved ?? [];
   const retrieval = run?.retrieval ?? null;
   const top = Math.max(0.0001, ...(retrieval?.chunks.map(c => c.score) ?? [0]));
@@ -126,10 +128,17 @@ export function RightPanel({
             {retrieval.collapsed_near_duplicates} near-duplicates collapsed,
             about {retrieval.token_estimate} tokens
           </p>
-          <ol className="space-y-1" data-testid="chunk-list">
+          <motion.ol
+            className="space-y-1"
+            data-testid="chunk-list"
+            variants={pick(retrievalMotion.list, reduced)}
+            initial="hidden"
+            animate="visible"
+          >
             {retrieval.chunks.map(chunk => (
-              <li
+              <motion.li
                 key={chunk.chunk_id}
+                variants={pick(retrievalMotion.item, reduced)}
                 className="text-xs"
                 data-testid="chunk-row"
               >
@@ -143,21 +152,19 @@ export function RightPanel({
                   </span>
                 </div>
                 <div className="h-1 rounded bg-slate-100">
-                  <div
-                    className="h-1 rounded bg-accent"
+                  <motion.div
+                    className="h-1 origin-left rounded bg-accent"
+                    variants={pick(retrievalMotion.bar, reduced)}
                     style={{width: `${Math.round((chunk.score / top) * 100)}%`}}
                   />
                 </div>
-                {isSecUrl(chunk.sec_url) ? (
-                  <SecLink url={chunk.sec_url} label={chunk.filing_name} />
-                ) : (
-                  <span className="text-slate-600" data-testid="untrusted-url">
-                    {chunk.filing_name}
-                  </span>
+                <SecLink url={chunk.sec_url} label={chunk.filing_name} />
+                {chunk.sec_url === null && (
+                  <span className="text-slate-600">{chunk.filing_name}</span>
                 )}
-              </li>
+              </motion.li>
             ))}
-          </ol>
+          </motion.ol>
         </section>
       )}
     </aside>

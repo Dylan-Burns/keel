@@ -1,4 +1,7 @@
+import {motion, useReducedMotion} from 'motion/react';
 import type {JSX} from 'react';
+
+import {complete, pick} from '../motion/presets';
 
 /** Props of CitationChip. */
 export interface CitationChipProps {
@@ -26,6 +29,7 @@ export function CitationChip({
   clickable,
   onSelect,
 }: CitationChipProps): JSX.Element {
+  const reduced = useReducedMotion();
   if (!valid) {
     return (
       <span
@@ -37,8 +41,9 @@ export function CitationChip({
     );
   }
   return (
-    <button
+    <motion.button
       type="button"
+      variants={pick(complete.chip, reduced)}
       className="rounded border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-xs text-accent hover:bg-accent/20 disabled:opacity-60"
       data-testid="citation-chip"
       data-chunk-id={chunkId}
@@ -46,6 +51,6 @@ export function CitationChip({
       onClick={() => onSelect(chunkId)}
     >
       {label}
-    </button>
+    </motion.button>
   );
 }
