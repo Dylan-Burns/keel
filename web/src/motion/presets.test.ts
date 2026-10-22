@@ -72,7 +72,11 @@ describe('motion presets (chapter 14.8)', () => {
     const visible = retrieval.list.full['visible'] as {
       transition: {staggerChildren: number};
     };
-    expect(48 * visible.transition.staggerChildren).toBeLessThan(1.5);
+    const last = Math.max(
+      ...durations(retrieval.item.full),
+      ...durations(retrieval.bar.full),
+    );
+    expect(47 * visible.transition.staggerChildren + last).toBeLessThan(1.5);
   });
 
   it('makes every reduced twin a still frame with no time', () => {

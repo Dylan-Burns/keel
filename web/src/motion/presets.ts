@@ -103,22 +103,26 @@ export const entitiesResolved = {
 } as const satisfies Record<string, MotionPreset>;
 
 /**
- * Retrieval: the chunks stagger in from the bottom 30 ms apart (48 chunks
- * end under 1.5 s), and the score bars grow to their width.
+ * Retrieval: the chunks stagger in from the bottom 30 ms apart, each in 80 ms,
+ * so 48 chunks end under 1.5 s (47 x 30 + 80 = 1490 ms), and the score bars grow to their width.
  */
 export const retrieval = {
   list: stagger(0.03),
   item: {
     full: {
       hidden: {opacity: 0, y: 10},
-      visible: {opacity: 1, y: 0, transition: {duration: 0.2, ease: 'easeOut'}},
+      visible: {
+        opacity: 1,
+        y: 0,
+        transition: {duration: 0.08, ease: 'easeOut'},
+      },
     },
     reduced: STILL,
   },
   bar: {
     full: {
       hidden: {scaleX: 0},
-      visible: {scaleX: 1, transition: {duration: 0.3, ease: 'easeOut'}},
+      visible: {scaleX: 1, transition: {duration: 0.08, ease: 'easeOut'}},
     },
     reduced: {
       hidden: {scaleX: 1},

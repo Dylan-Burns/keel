@@ -37,7 +37,8 @@ function download(name: string, text: string): void {
   link.href = url;
   link.download = name;
   link.click();
-  URL.revokeObjectURL(url);
+  // Revoke later: an immediate revoke can cancel the download in some browsers.
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /**
@@ -210,7 +211,7 @@ export function App(): JSX.Element {
                   message={base.message}
                   retryEnabled={askEnabled}
                   onRetry={
-                    base.run === null
+                    base.run === null || base.run.question === ''
                       ? null
                       : () => onAsk(base.run?.question ?? '')
                   }

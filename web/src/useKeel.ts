@@ -9,6 +9,7 @@ import {useCallback, useEffect, useReducer, useRef, useState} from 'react';
 
 import {
   ApiError,
+  PENDING_QUESTION_KEY,
   PENDING_REQUEST_KEY,
   askStream,
   fetchCoverage,
@@ -25,6 +26,9 @@ import type {Action, AppState} from './state';
 import {baseState, canAsk, initialState, reducer} from './state';
 
 /** The client route of a stored answer: `/a/{request_id}`. */
+/** The pauses between the polls of a stored result after a refresh. */
+const RESULT_POLL_MS: readonly number[] = [1000, 2000, 3000, 5000, 8000, 13000];
+
 const RESULT_ROUTE = /^\/a\/([A-Za-z0-9_-]{1,64})\/?$/;
 
 /** What the page needs from the controller. */
@@ -116,17 +120,39 @@ export function useKeel(): KeelController {
     if (requestId === null || requestId === undefined || getToken() === null) {
       return;
     }
+    const question = readSession(PENDING_QUESTION_KEY);
     let cancelled = false;
-    fetchResult(requestId)
-      .then(result => {
-        if (!cancelled) {
-          dispatch({type: 'result_loaded', result});
-        }
-      })
-      .catch(() => undefined)
-      .finally(() => writeSession(PENDING_REQUEST_KEY, null));
+    let timer: number | undefined;
+    const clear = (): void => {
+      writeSession(PENDING_REQUEST_KEY, null);
+      writeSession(PENDING_QUESTION_KEY, null);
+    };
+    // The server stores the answer when it completes, so a refresh mid-stream
+    // polls with a growing pause until the result exists (E-F-04).
+    const attempt = (n: number): void => {
+      fetchResult(requestId)
+        .then(result => {
+          if (!cancelled) {
+            dispatch({type: 'result_loaded', result, question});
+            clear();
+          }
+        })
+        .catch((error: unknown) => {
+          const pending = error instanceof ApiError && error.status === 404;
+          if (cancelled) {
+            return;
+          }
+          if (pending && n < RESULT_POLL_MS.length) {
+            timer = window.setTimeout(() => attempt(n + 1), RESULT_POLL_MS[n]);
+          } else {
+            clear();
+          }
+        });
+    };
+    attempt(0);
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
     };
   }, []);
 
@@ -170,7 +196,13 @@ export function useKeel(): KeelController {
     abortRef.current = controller;
     dispatch({type: 'ask', question, requestId});
     writeSession(PENDING_REQUEST_KEY, requestId);
+    writeSession(PENDING_QUESTION_KEY, question);
+    const finish = (): void => {
+      writeSession(PENDING_REQUEST_KEY, null);
+      writeSession(PENDING_QUESTION_KEY, null);
+    };
     const run = async (): Promise<void> => {
+      let ended = false;
       try {
         for await (const event of askStream(
           {question},
@@ -178,19 +210,25 @@ export function useKeel(): KeelController {
           controller.signal,
         )) {
           dispatch({type: 'sse', event});
-          if (event.event === 'final' || event.event === 'error') {
-            writeSession(PENDING_REQUEST_KEY, null);
-          }
           if (
             event.event === 'final' ||
             event.event === 'error' ||
             event.event === 'done'
           ) {
+            ended = true;
             break;
           }
         }
+        finish();
+        if (!ended && !controller.signal.aborted) {
+          // The body closed without final, error, or done.
+          dispatch({
+            type: 'stream_failed',
+            message: 'The stream ended before the answer was complete.',
+          });
+        }
       } catch (error: unknown) {
-        writeSession(PENDING_REQUEST_KEY, null);
+        finish();
         if (controller.signal.aborted) {
           return;
         }

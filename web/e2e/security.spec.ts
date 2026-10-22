@@ -28,6 +28,7 @@ test('test_ui_escapes_model_text: a script in the answer renders as text', async
   expect(dialogs).toEqual([]);
 
   // Every link on the page goes to https://www.sec.gov and opens a new tab.
+  await expect(page.locator('a[href]').first()).toBeAttached();
   for (const link of await page.locator('a[href]').all()) {
     const href = (await link.getAttribute('href')) ?? '';
     expect(href.startsWith('https://www.sec.gov/'), href).toBe(true);

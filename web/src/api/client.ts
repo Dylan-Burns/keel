@@ -22,6 +22,9 @@ export const TOKEN_KEY = 'keel.token';
 /** The session storage key of the request ID of an answer in flight. */
 export const PENDING_REQUEST_KEY = 'keel.pending_request_id';
 
+/** The session storage key of the question of the answer in flight. */
+export const PENDING_QUESTION_KEY = 'keel.pending_question';
+
 const EVENT_NAMES: ReadonlySet<string> = new Set<SseEventName>([
   'meta',
   'analysis',
