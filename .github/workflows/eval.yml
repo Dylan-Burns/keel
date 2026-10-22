@@ -57,7 +57,10 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           KEEL_INDEX__DIR: index/ci
         # --answers runs the live answer and judge gates as well (1 answer and
-        # 1 judge request per question, about 0.15 USD per run).
+        # 1 judge request per question, about 0.15 USD per run). The ci subset
+        # judges 1 answer, under the minimum sample of 5 (chapter 18.8), so
+        # faithfulness and citation precision report as pending here; the
+        # code-checked answer gates block.
         run: >
           uv run keel eval --set eval/golden.yaml --subset ci --gate --answers
           --report eval/report.md

@@ -109,6 +109,8 @@ The chunk size ablation needs a rebuild per variant, so it runs after the demo. 
 
 A release that fails a gate stays blocked until the prompt log records a fix or a documented exception signed by the tech lead.
 
+Minimum sample rule: faithfulness and citation precision are means over the judged answers, so they gate only when the run judged at least 5 answers. Below 5, the report prints the value with its status `pending (sample n=N)`, and the verdict line says why; the gate does not block. The CI subset on the mini corpus judges 1 answer, and the faithfulness of 1 answer moves across 0.90 from run to run. The full golden set judges 24 answers and gates both. The other gates block on any run, the CI subset included: schema validity, refusal correctness, numeric accuracy, coverage completeness, latency, and cost are checked in code, and recall and MRR come from the retrieval step.
+
 ### 18.9 How results feed the prompt log
 
 1. `keel eval` writes `eval/report.md`. The report holds a run ID, the index version, the prompt version, and the model snapshot. It also holds every metric and the per-question results.
