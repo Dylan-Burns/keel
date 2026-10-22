@@ -79,6 +79,7 @@ UNKNOWN_SECTION = "unknown"
 RESPONSE_SECTIONS = ("business", "mdna", "legal_proceedings")
 RESPONSE_SHARE = 3
 RESPONSE_LABEL = "response"
+LATEST_LABEL = "latest 10-K"
 _RESPONSE_WORDS = re.compile(
     r"(?i)\b(?:address(?:es|ed|ing)?|mitigat\w*|respond(?:s|ed|ing)?|"
     r"responses?|handl(?:e|es|ed|ing)|deal(?:s|ing)? with|"
@@ -210,15 +211,22 @@ class Filter:
     Attributes:
         tickers: The tickers, or empty for all.
         filing_ids: The filings, or empty for all.
-        sections: The weighted sections; `unknown` always joins them. Empty
-            means no section filter.
+        sections: The weighted sections; `unknown` joins them unless
+            `unknown` is False. Empty means no section filter.
         windows: (ticker, start, end) ISO period end windows.
+        superseded: Filings whose `STANDING_SECTIONS` the filter leaves
+            out: the filings before the latest 10-K of a company, for a
+            question with no time scope.
+        unknown: False leaves the `unknown` section out of a section
+            filter (the 10-Q cells of a risk trend).
     """
 
     tickers: tuple[str, ...] = ()
     filing_ids: tuple[str, ...] = ()
     sections: tuple[str, ...] = ()
     windows: tuple[tuple[str, str, str], ...] = ()
+    superseded: tuple[str, ...] = ()
+    unknown: bool = True
 
     def where(self) -> tuple[str, list[object]]:
         """Render the SQL `WHERE` clause over `chunks AS c`.
@@ -237,12 +245,22 @@ class Filter:
         if self.filing_ids:
             clauses.append("c.filing_id IN (SELECT value FROM json_each(?))")
             params.append(json.dumps(list(self.filing_ids)))
-        if self.sections:
+        if self.sections and not self.unknown:
+            clauses.append("c.section IN (SELECT value FROM json_each(?))")
+            params.append(json.dumps(list(self.sections)))
+        elif self.sections:
             clauses.append(
                 "(c.section IN (SELECT value FROM json_each(?)) "
                 "OR c.section = 'unknown')"
             )
             params.append(json.dumps(list(self.sections)))
+        if self.superseded:
+            clauses.append(
+                "NOT (c.filing_id IN (SELECT value FROM json_each(?)) "
+                "AND c.section IN (SELECT value FROM json_each(?)))"
+            )
+            params.append(json.dumps(list(self.superseded)))
+            params.append(json.dumps(list(STANDING_SECTIONS)))
         if self.windows:
             parts = []
             for ticker, start, end in self.windows:
@@ -482,6 +500,7 @@ class _PlanInput:
                 tickers=(ticker,),
                 sections=self.sections,
                 windows=((ticker, *window),) if window else (),
+                superseded=self.superseded(ticker),
             ),
         )
 
@@ -512,6 +531,71 @@ class _PlanInput:
             in_window=False,
         )
         return query, annual
+
+    @property
+    def latest_first(self) -> bool:
+        """True when the plan reads the latest 10-K first.
+
+        This holds for a company or comparison question with no time
+        scope. A sector plan keeps 1 sub-query per company, so its first
+        rerank round still scores every company of a large group.
+        """
+        return (
+            self.analysis.time_scope.kind == "none"
+            and self.analysis.primary_type != "sector"
+        )
+
+    def superseded(self, ticker: str) -> tuple[str, ...]:
+        """The filings whose standing sections a question with no scope skips.
+
+        The latest 10-K restates Item 1 and Item 1A in full, so without a
+        time scope the earlier `risk_factors` and `business` chunks only
+        take candidate rows from the latest ones (they weigh x0.54).
+        """
+        if not self.latest_first:
+            return ()
+        return tuple(
+            sorted(superseded_filings(self.catalog.for_ticker(ticker)))
+        )
+
+    def cell_sections(self, cell: understanding.FilingRef) -> tuple[str, ...]:
+        """The sections of 1 trend cell.
+
+        A 10-Q states only the changes to its risk factors (chapter 11.2),
+        so for a risk question a 10-Q cell reads its risk section alone,
+        without `unknown`, and the quota and the rerank pairs it cannot
+        use move to the 10-K cells instead of filling with MD&A or
+        unclassified chunks.
+        """
+        if cell.form == "10-Q" and is_risk_question(self.analysis):
+            return (RISK_SECTION,)
+        return self.sections
+
+    def latest_query(self, ticker: str, group: str) -> SubQuery | None:
+        """The sub-query over the latest 10-K of a question with no scope.
+
+        Without a time scope the company sub-query reads the top 100 rows
+        of every filing of the company, and the earlier filings, which the
+        weights rank down later, take most of them. This sub-query gives
+        the latest 10-K its own top 100 rows, under the same sections and
+        the same dense text, so the reranker sees its best chunks.
+        """
+        if not self.latest_first:
+            return None
+        annual = latest_10k(self.catalog.for_ticker(ticker), None)
+        if annual is None or annual.filing_id is None:
+            return None
+        return SubQuery(
+            group=group,
+            label=f"{ticker} {LATEST_LABEL}",
+            dense_text=self.dense_text(ticker),
+            terms=self.terms,
+            filter=Filter(
+                tickers=(ticker,),
+                filing_ids=(annual.filing_id,),
+                sections=self.sections,
+            ),
+        )
 
     def response_query(self, ticker: str, group: str) -> SubQuery:
         """The sub-query over the sections that state responses."""
@@ -545,6 +629,9 @@ def _company_groups(
     extra = data.supplement(ticker, ticker)
     if extra is not None:
         queries.append(extra[0])
+    latest = data.latest_query(ticker, ticker)
+    if latest is not None:
+        queries.append(latest)
     reserve = quota // RESPONSE_SHARE
     if not asks_for_response(data.analysis) or reserve < 1:
         group = context.QuotaGroup(ticker, ticker, ticker, quota, token_quota)
@@ -605,7 +692,8 @@ def _trend_plan(
                     terms=data.terms,
                     filter=Filter(
                         filing_ids=(str(cell.filing_id),),
-                        sections=data.sections,
+                        sections=data.cell_sections(cell),
+                        unknown=data.cell_sections(cell) == data.sections,
                     ),
                 )
             )
@@ -1353,12 +1441,17 @@ class Retriever:
         candidates: list[context.Candidate],
         clock: _Clock,
         limit: int,
+        *,
+        fill: bool = True,
     ) -> tuple[list[context.Candidate], int]:
         """Rerank the top weighted candidates of each sub-query.
 
         A candidate that an earlier round scored keeps its score; at most
-        `limit` new pairs are scored, split evenly over the sub-queries.
-        The call returns the count of new scores.
+        `limit` new pairs are scored, split evenly over the sub-queries,
+        and with `fill` the share a sub-query cannot use goes to the
+        others (the first round of the sector cap keeps equal shares, so
+        the summed scores compare). The call returns the count of new
+        scores.
         """
         chosen: list[context.Candidate] = []
         if self.reranker is not None and limit > 0:
@@ -1371,6 +1464,17 @@ class Retriever:
                 group.sort(key=lambda c: (-c.fused * c.weight, c.chunk_id))
                 chosen += group[:share]
             chosen = chosen[:limit]
+            # A sub-query with fewer candidates than its share leaves
+            # pairs unused; they go to the sub-queries with candidates
+            # left, in the same equal split, up to the limit.
+            rest = [g[share:] for g in by_query.values() if len(g) > share]
+            while fill and len(chosen) < limit and rest:
+                more = rerank_share(limit - len(chosen), len(rest))
+                for group in rest:
+                    chosen += group[:more]
+                    del group[:more]
+                chosen = chosen[:limit]
+                rest = [g for g in rest if g]
         started = time.perf_counter()
         scores = (
             self.reranker.score(
@@ -1495,7 +1599,7 @@ class Retriever:
             # not, so the 12-company cap sums the scores of a first round;
             # both rounds share the top N of the question.
             candidates, reranked = self._rerank(
-                plan.sub_queries, candidates, clock, top_n
+                plan.sub_queries, candidates, clock, top_n, fill=False
             )
         plan, candidates, cap_gaps = self._cap(
             plan, analysis, candidates, budget

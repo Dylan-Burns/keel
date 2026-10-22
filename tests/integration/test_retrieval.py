@@ -97,8 +97,10 @@ def test_sector_cap(tmp_path: pathlib.Path, settings: config.Settings) -> None:
     assert set(kept) <= set(tickers[-16:])
     assert len(result.context.chunks) == 48
     assert {f.taken for f in result.context.fills} == {4}
-    # 53 in the first round, the rest of the 80 for the 12 kept.
-    assert result.reranked == 77
+    # 53 in the first round (1 each, so the summed scores compare), the
+    # rest of the 80 for the 12 kept: 2 each, and the 3 left over go to
+    # the companies with candidates left.
+    assert result.reranked == 80
     assert {c.candidate.query for c in result.context.chunks} <= set(range(12))
 
 
@@ -362,8 +364,45 @@ def test_comparison_collapse_and_quotas(
     assert fills == {"AAPL": 16, "TSLA": 16, "JPM": 16}
     # The later 10-Q copy stays; the 10-K copy collapses into it.
     assert {c.candidate.form for c in result.context.chunks} == {"10-Q"}
-    assert result.reranked == 78  # 26 per company, at most 80
+    # 6 sub-queries (each company and its latest 10-K) get 13 pairs each,
+    # and the 2 left over go to the sub-queries with candidates left.
+    assert result.reranked == 80
     assert result.context.token_estimate <= 32000
+
+
+def test_risk_trend_10q_cells(
+    tmp_path: pathlib.Path, settings: config.Settings
+) -> None:
+    annual = FakeFiling("PFE", "10-K", "2024-12-31", "2025-02-14", 2024)
+    quarter = FakeFiling("PFE", "10-Q", "2025-03-30", "2025-05-01", 2025, "Q1")
+    chunks = [
+        conftest.make_chunk(
+            annual, "risk_factors", k, f"risk factor {k} pricing changes"
+        )
+        for k in range(30)
+    ]
+    chunks += [
+        conftest.make_chunk(
+            quarter, "risk_factors", 0, "no material changes to risks"
+        ),
+        conftest.make_chunk(quarter, "mdna", 0, "quarterly risks and revenue"),
+        conftest.make_chunk(quarter, "unknown", 0, "exhibit index risks"),
+    ]
+    step = open_retriever(
+        conftest.build_store(tmp_path, [annual, quarter], chunks), settings
+    )
+    analysis = analyze(
+        step, settings, "How have Pfizer's risk factors changed since 2024?"
+    )
+    result = step.retrieve(analysis)
+    quarter_chunks = [
+        c.candidate for c in result.context.chunks if c.candidate.form == "10-Q"
+    ]
+    # The 10-Q cell reads only its risk delta; its unused quota and
+    # rerank pairs go to the 10-K risk chunks.
+    assert [c.section for c in quarter_chunks] == ["risk_factors"]
+    assert len(result.context.chunks) == 31
+    assert result.reranked == 31
 
 
 def test_catalog_from_store(tmp_path: pathlib.Path) -> None:

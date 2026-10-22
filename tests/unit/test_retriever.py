@@ -261,7 +261,12 @@ def test_comparison_plan(understander: understanding.Understander) -> None:
     assert [g.key for g in result.groups] == ["AAPL", "TSLA", "JPM"]
     assert {g.quota for g in result.groups} == {16}
     assert {g.token_quota for g in result.groups} == {32000 // 3}
-    assert len(result.sub_queries) == 3
+    # With no time scope each company also reads its latest 10-K alone.
+    assert [q.label for q in result.sub_queries] == [
+        label
+        for t in ("AAPL", "TSLA", "JPM")
+        for label in (t, f"{t} latest 10-K")
+    ]
     query = result.sub_queries[0]
     assert query.filter.tickers == ("AAPL",)
     assert "risk factors" in query.terms
@@ -270,6 +275,66 @@ def test_comparison_plan(understander: understanding.Understander) -> None:
     clause, params = query.filter.where()
     assert "c.section = 'unknown'" in clause
     assert '"risk_factors"' in str(params[1])
+
+
+def test_latest_10k_query(understander: understanding.Understander) -> None:
+    result = plan(understander, "What are Apple's main risk factors?")
+    main, latest = result.sub_queries
+    assert latest.label == "AAPL latest 10-K"
+    assert latest.group == main.group == "AAPL"
+    assert latest.in_window
+    assert latest.dense_text == main.dense_text
+    assert latest.filter.tickers == ("AAPL",)
+    assert latest.filter.filing_ids == ("AAPL_10K_2025-09-27",)
+    assert latest.filter.sections == main.filter.sections
+    # The company query leaves out the risk and business sections of the
+    # filings before the latest 10-K.
+    assert main.filter.superseded == (
+        "AAPL_10K_2024-12-31",
+        "AAPL_10Q_2025-06-28",
+    )
+    # A time scope keeps the plan as it was.
+    scoped = plan(understander, "What risks did Apple report in fiscal 2025?")
+    assert [q.label for q in scoped.sub_queries] == ["AAPL"]
+    assert scoped.sub_queries[0].filter.superseded == ()
+
+
+def test_superseded_filter_clause() -> None:
+    query = retriever.Filter(
+        tickers=("AAPL",),
+        sections=("risk_factors", "mdna"),
+        superseded=("AAPL_10K_2024-12-31",),
+    )
+    clause, params = query.where()
+    assert "NOT (c.filing_id IN" in clause
+    assert params[-2:] == [
+        '["AAPL_10K_2024-12-31"]',
+        '["risk_factors", "business"]',
+    ]
+    assert "NOT" not in retriever.Filter(tickers=("AAPL",)).where()[0]
+    strict = retriever.Filter(sections=("risk_factors",), unknown=False)
+    assert "unknown" not in strict.where()[0]
+
+
+def test_risk_trend_10q_cells(
+    understander: understanding.Understander,
+) -> None:
+    result = plan(
+        understander, "How have Pfizer's risk factors changed since 2024?"
+    )
+    sections = {q.label: q.filter.sections for q in result.sub_queries}
+    assert sections["PFE Q1 FY2025 10-Q"] == ("risk_factors",)
+    assert sections["PFE Q2 FY2025 10-Q"] == ("risk_factors",)
+    unknown = {q.label: q.filter.unknown for q in result.sub_queries}
+    assert unknown == {
+        "PFE Q2 FY2025 10-Q": False,
+        "PFE Q1 FY2025 10-Q": False,
+        "PFE FY2024 10-K": True,
+    }
+    assert len(sections["PFE FY2024 10-K"]) > 1
+    # A trend that is not about risks keeps every weighted section.
+    revenue = plan(understander, "How has Pfizer's revenue changed since 2024?")
+    assert {len(q.filter.sections) for q in revenue.sub_queries} != {1}
 
 
 def test_trend_cells(understander: understanding.Understander) -> None:
@@ -368,6 +433,10 @@ def test_sector_plan(understander: understanding.Understander) -> None:
         ("business", "mdna", "legal_proceedings")
     }
     assert {q.filter.tickers for q in response} == {(t,) for t in tickers}
+    # A sector plan keeps 1 sub-query per company: no latest 10-K query
+    # and no superseded filter.
+    assert not any(q.label.endswith("latest 10-K") for q in result.sub_queries)
+    assert {q.filter.superseded for q in result.sub_queries} == {()}
     # Without a response word the company keeps 1 group of 9.
     risks = plan(
         understander,

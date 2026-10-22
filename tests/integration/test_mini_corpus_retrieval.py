@@ -126,7 +126,8 @@ def test_retrieve_command_summary(
         str(index_dir),
     )
     assert code == 0
-    assert "sub-queries: 2" in out
+    # AAPL has only a 10-Q here; JPM also reads its latest 10-K alone.
+    assert "sub-queries: 3" in out
     assert "quota fills" in out
     assert "  AAPL: " in out
     assert "time ms: lexical" in out
