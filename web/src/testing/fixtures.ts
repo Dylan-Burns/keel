@@ -137,7 +137,7 @@ export const RESPONSE_1: AskResponse = {
   retrieval: RETRIEVAL_1,
   answer: {
     direct_answer:
-      'Apple names supply chain and **foreign exchange** risk, while JPMorgan names credit and market risk. ' +
+      `Apple names supply chain and **foreign exchange** risk [${AAPL_CHUNK}], while JPMorgan names credit and market risk [${JPM_CHUNK}]. ` +
       'The corpus has no Tesla filing, so the comparison covers 2 of the 3 companies.',
     company_findings: [
       {
