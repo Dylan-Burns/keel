@@ -138,11 +138,21 @@ const ID =
   '(?:facts:[A-Z0-9][A-Z0-9.-]*:[A-Za-z][A-Za-z0-9_]*:(?:Q[1-4])?FY\\d{4}' +
   '|[A-Z0-9][A-Z0-9.-]*_10[KQ]_\\d{4}-\\d{2}-\\d{2}__[a-z_]+__\\d{4,})';
 
-/** A bracket of 1 or more IDs: `[A]` or `[A, B]`. */
-const INLINE_CITATION = new RegExp(`\\[(${ID}(?:\\s*[,;]\\s*${ID})*)\\]`, 'g');
+/**
+ * A bracket of 1 or more IDs: `[A]` or `[A, B]`. A bracket that opens a
+ * markdown link (`[A](url)`) stays as the model wrote it.
+ */
+const INLINE_CITATION = new RegExp(
+  `\\[(${ID}(?:\\s*[,;]\\s*${ID})*)\\](?!\\()`,
+  'g',
+);
 
-/** An ID bracket the stream has not closed yet, at the end of the text. */
-const PARTIAL_CITATION = /\[[A-Za-z0-9][^\]\n]{0,200}$/;
+/**
+ * An ID bracket the stream has not closed yet, at the end of the text: a
+ * ticker or `facts` prefix, so a link or a note in brackets still shows.
+ */
+const PARTIAL_CITATION =
+  /\[(?:f(?:a(?:c(?:t(?:s(?::[^\]\n]{0,200})?)?)?)?)?|[A-Z0-9][A-Z0-9.-]{0,20}(?:_[^\]\n]{0,200})?)$/;
 
 /**
  * Marks the IDs that the answer cites inline as code spans, 1 per ID, so
@@ -245,7 +255,7 @@ function collapseRepeats(root: DocumentFragment): void {
     previous.textContent = `${label} x${count}`;
     previous.setAttribute(
       'aria-label',
-      `${label}, ${count} passages: ${previous.title}`,
+      `${label}, ${count} passages, opens the first: ${previous.title}`,
     );
     for (const node of gap) {
       node.remove();
@@ -273,10 +283,10 @@ function chipElement(
     tag.className = 'tag tag-warn cite-chip';
     tag.setAttribute('data-testid', 'inline-citation-unverified');
     tag.setAttribute('title', `${view.source} (unverified)`);
-    tag.textContent = view.label;
+    tag.textContent = `${view.label} unverified`;
     const note = document.createElement('span');
     note.className = 'sr-only';
-    note.textContent = `, unverified: ${view.source}`;
+    note.textContent = `: ${view.source}`;
     tag.append(note);
     return tag;
   }
