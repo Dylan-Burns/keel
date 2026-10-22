@@ -1,6 +1,6 @@
 # Demo rehearsal
 
-The script for the rehearsal of the demo in chapter 21, with the changes of chapters 25.7 and 26.6. The demo half of the hour (minutes 0 to 30) must run in 25 minutes, with 5 minutes to spare (chapter 25.7). The engineer runs the rehearsal and fills the blank "measured" columns. The stage 16 build report entry records the measured totals.
+The script for the rehearsal of the demo in chapter 21, with the changes of chapters 25.7 and 26.6, and (section 8) the second rehearsal: the walk-through of the pilot features of chapter 27. The demo half of the hour (minutes 0 to 30) must run in 25 minutes, with 5 minutes to spare (chapter 25.7). The engineer runs the rehearsal and fills the blank "measured" columns. The stage 16 build report entry records the measured totals.
 
 ## 1. Before the rehearsal
 
@@ -119,3 +119,44 @@ The recording and the static export are the fallbacks of drills D-3 and D-4 (cha
 | --- | --- | --- | --- | --- | --- |
 | | 1 | | | | |
 | | 2 | | | | |
+
+## 8. Second rehearsal: the pilot walk-through
+
+The second rehearsal walks the pilot features of chapter 27 in the order a pilot user meets them in `docs/START_GUIDE.md`, then the week 0 steps of chapter 27.6. Run it on the pilot host after the deploy, or on the laptop against a scratch logs folder so the rehearsal leaves no record in the real audit log:
+
+```bash
+export KEEL_LOGS__DIR="$(mktemp -d)/logs"    # audit, pilot store, refresh log, watch list
+export KEEL_AUTH__USERS_FILE="$KEEL_LOGS__DIR/users.yaml"
+uv run keel serve                           # live provider; KEEL_LLM__PROVIDER=mock for a free run
+```
+
+On the laptop, run P-12 and P-13 with `--corpus` and `--out` on a scratch copy of `corpus/edgar` and of the index, as stage 14 did, and pass that copy's manifest to `pilot_metrics.py --manifest`: `keel add` writes corpus files, a new index build, and an entry in `config/companies.yaml` (revert that entry afterwards). Each step names the command or the page and the result that passes. A step that fails gets a fix and a note in the log of section 7 before the pilot starts.
+
+| # | Feature (27.2) | Step | Passes when | Measured | Pass |
+| --- | --- | --- | --- | --- | --- |
+| P-1 | Users and tokens | `keel users add ana --role analyst`, `keel users add pat --role partner`, `keel users add eng --role admin`; `keel users list` | Each add prints a token once; the users file holds 3 `sha256:` hashes and no token | | |
+| P-2 | Users and tokens | Sign in as ana in 1 browser and as pat in a private window; then a wrong token | Both see the question page; the wrong token shows **Token rejected** | | |
+| P-3 | Ask, audit | ana asks example question 1; pat asks example question 2 | Each answer streams with `model requests: 1` in the trace drawer; the audit lines carry `user_name` ana and pat | | |
+| P-4 | History | **History** as ana, then as pat; `scope=all` as eng (`GET /api/history?scope=all`) | Each user sees only their own question; the admin sees both | | |
+| P-5 | Share links | ana clicks **Copy link**; pat opens it | pat sees the answer read-only, without the asker's name; a made-up request ID shows "no longer stored" | | |
+| P-6 | Re-run | pat clicks **Re-run** on the history page | The question box is prefilled and nothing is sent until **Ask** | | |
+| P-7 | Comp sets | **Comp sets**: save `software` with MSFT ORCL CRM ADBE ZTS; ask "How do the risk factors of my software comps compare?" | The entities line names the comp set; ZTS shows in the gaps as "(comp set, not in the corpus)" until P-12 adds it | | |
+| P-8 | Comp sets | pat edits ana's set | 403: only the owner and the admins change a set | | |
+| P-9 | Templates | Pick **Risk benchmark**, fill AAPL MSFT and fiscal 2025, click **Fill** | The box holds the filled question; no request until **Ask** | | |
+| P-10 | Feedback | ana votes thumbs up on P-3; pat votes thumbs down with a note; `keel feedback --flagged` | 2 rows in the `feedback` table; the flagged list holds pat's vote with the question | | |
+| P-11 | Memo export | `keel export <request ID of P-3> --format docx` and `--format markdown`; `GET /api/export/<request ID>?format=docx` with ana's token | Both files open with numbered sources and `www.sec.gov` links; the route returns the DOCX | | |
+| P-12 | keel add | `keel add ZTS` (or the firm's ticker outside the corpus); ask a question about it; ask P-7 again | A new index version; the answer cites the added 10-K; the comp set question answers on ZTS too | | |
+| P-13 | Watch list and refresh | `keel watch add AAPL`, `keel refresh --dry-run`, then `keel refresh` | The dry run lists each watched and added ticker; `refresh.log` holds the run; a new filing, if any, is added | | |
+| P-14 | Pilot metrics | `uv run python scripts/pilot_metrics.py --exclude-user eng` | The weekly row shows 2 active users (ana, pat), their questions and cost, a thumbs-up rate of 50%, and the companies of P-12; memos read n/a (not logged) | | |
+| P-15 | Revoke | `keel users remove pat`; pat asks again | 401 on the next request, with no restart | | |
+| P-16 | Data use | Read section 7 of `docs/START_GUIDE.md` against the provider's current commercial terms | The terms still say API data is not used for training; the check date is written in the log of section 7 | | |
+
+Week 0 of chapter 27.6 on the pilot host, after the walk-through passes:
+
+- [ ] Deploy (stage 21) and run `keel doctor` and `scripts/demo_preflight.sh --skip-tests` on the host.
+- [ ] `keel users add` for the 5 users (2 associates, 2 analysts as `analyst`, 1 `partner`) and 1 `admin` for the engineer; hand each token over in person or through the password manager.
+- [ ] Load the firm's comp sets (`keel compsets add NAME TICKER...`) and the watch list (`keel watch add TICKER` for the portfolio and the 2 live deals).
+- [ ] `keel add TICKER` for every ticker of the comp sets and the watch list outside the corpus.
+- [ ] Run the golden set (`keel eval --answers`) and write the performance memo with the measured numbers (stage 15).
+- [ ] Send `docs/START_GUIDE.md` with the pilot address; write the pilot start date for `pilot_metrics.py --since`.
+- [ ] Each week: `keel feedback --flagged`, the golden questions from the flagged answers, `scripts/pilot_metrics.py --since <start> --exclude-user eng`, and the memo count by hand (exports are not logged).
