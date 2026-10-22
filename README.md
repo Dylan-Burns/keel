@@ -68,7 +68,7 @@ The stream sends `meta`, `analysis`, `retrieval`, `answer_delta`, `findings`, `f
 - 12 companies have full quarterly coverage for 2023 to 2025, not the 15 the manifest description claims (E-D-25). 17 companies have any 10-Q.
 - The latest NVDA 10-K is fiscal 2025 (filed 2025-02-26); the February 2026 10-K is absent (A-15).
 - 1 of 88 10-Ks (IBM 2025) lacks the core sections in the file: its MD&A and risk factors sit in an exhibit.
-- Retrieval recall at 25 is 0.75 against a gate of 0.85, and faithfulness 0.86 against 0.90 (see Evaluation).
+- Retrieval recall at 25 is 0.86 against a gate of 0.85, and faithfulness 0.895 against 0.90 (see Evaluation).
 - `keel add` extends the index with the latest 10-K and 10-Q of any company; ZTS and WDAY were added on a scratch copy of the index (stage 14), not on the published index.
 
 ## Architecture
@@ -151,21 +151,21 @@ Also: `keel calibrate` (the token calibration factor, 1 count call), `keel facts
 
 `uv run keel eval` runs the 28 questions of `eval/golden.yaml` against the index and writes `eval/report.md` and `eval/report.json` with recall at 10, 25, and 48, MRR, nDCG, the ablations (lexical, dense, hybrid, with and without the reranker), and the 10 gates of chapter 18.8. `--answers` adds the live answers and the judge (`claude-opus-5-5`), about 4 USD a run; `--gate` exits non-zero on a failed gate. CI runs the `ci` subset with answers on the mini corpus.
 
-The last full run (`eval-20261022T064805Z`, index 1.2.0, prompt 1.4.0, stage 15):
+The last full run (`eval-20261022T123820Z`, index 1.2.0, prompt 1.4.0, judge prompt 1.2.0):
 
 | Gate | Threshold | Value | Status |
 | --- | --- | --- | --- |
-| Recall at 25 | >= 0.85 | 0.74 | fail |
+| Recall at 25 | >= 0.85 | 0.86 | pass |
 | MRR | >= 0.60 | 0.96 | pass |
-| Faithfulness | >= 0.90 | 0.87 | fail |
+| Faithfulness | >= 0.90 | 0.895 | fail |
 | Citation precision | >= 0.90 | 0.99 | pass |
 | Numeric accuracy | >= 0.90 | 1.00 (9 of 9) | pass |
 | Schema validity | 1.00 | 1.00 | pass |
 | Refusal correctness | 1.00 | 1.00 | pass |
-| Latency p95 | <= 40 s | 34.1 s (p50 23.1 s) | pass |
-| Mean cost per question | <= 0.25 USD | 0.0935 USD | pass |
+| Latency p95 | <= 40 s | 31.3 s (p50 23.5 s) | pass |
+| Mean cost per question | <= 0.25 USD | 0.0924 USD | pass |
 
-1 model request per answer (24 for 24). [`docs/PERFORMANCE_MEMO.md`](docs/PERFORMANCE_MEMO.md) explains each number. The 2 failing gates are known: faithfulness is 0.86 on the full set (judge prompt 1.2.0, which reads each chunk as the answer model read it, scores 0.93 on a 13-question live run), and recall suffers where the labels grade risk factor chunks while the context holds response sections.
+1 model request per answer (24 for 24). [`docs/PERFORMANCE_MEMO.md`](docs/PERFORMANCE_MEMO.md) explains each number. The 1 failing gate is known: faithfulness is 0.895, short by 0.005. Trend answers (0.82) say what changed but cite only the later filing; prompt 1.5.0 makes a change claim cite both filings.
 
 ## Prompt log
 

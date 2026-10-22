@@ -19,7 +19,7 @@ corpus, a quarter after the corpus, a quarantined filing).
 | Right passages found (recall at 25), all questions | 0.86 (0.83 on the stage 10 labels) | 0.85 | met |
 | Comparisons / numeric / trend / sector / single company | 0.92 / 1.00 / 0.87 / 0.71 / 0.73 | | |
 | First right passage near the top (MRR) | 0.96 | 0.60 | met |
-| Claims supported by the cited text (faithfulness) | 0.86 (0.93 on a 13-question live run with judge prompt 1.2.0; the full set is not rerun) | 0.90 | miss on the full set |
+| Claims supported by the cited text (faithfulness) | 0.895 (full live run eval-20261022T123820Z, judge prompt 1.2.0; 0.86 with judge prompt 1.1.0) | 0.90 | miss by 0.005 |
 | Citations that support their claim | 0.99 | 0.90 | met |
 | Reported numbers within 0.5% of the filing | 9 of 9 (1.00) | 0.90 gate, 0.95 to ship | met |
 | Valid answer format / correct refusals | 1.00 / 4 of 4 | 1.00 | met |
@@ -80,6 +80,6 @@ behind a warning until a larger numeric test set holds 0.95.
 
 | Change | Measure that decides | Target date |
 | --- | --- | --- |
-| Done: judge prompt 1.2.0 reads each cited chunk as the answer model read it and leaves statements about Keel out of the score (13 questions: 0.85 to 0.93). Next: a full live eval, and a change claim cites the earlier and the later filing | Faithfulness 0.90 on the full set | 2026-11-05 |
+| Done: judge prompt 1.2.0 reads each cited chunk as the answer model read it and leaves statements about Keel out of the score (full set: 0.86 to 0.895). Next: prompt 1.5.0, where a change claim cites the earlier and the later filing | Faithfulness 0.90 on the full set | 2026-11-05 |
 | Judge thresholds and a summary-claim rule in the prompt; the human rubric of 2 raters | Faithfulness 0.90; judge agreement with the raters | 2026-11-12 |
 | Live EDGAR for coverage (`keel add`, nightly refresh) and a larger numeric set | Companies with 2 or more 10-Ks; 50 gold values at 0.95 | 2026-11-26 |
