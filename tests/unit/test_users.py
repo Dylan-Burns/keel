@@ -112,19 +112,52 @@ def test_directory_find(tmp_path: pathlib.Path) -> None:
     assert not users.UserDirectory(tmp_path / "absent.yaml", "").configured
 
 
-def test_directory_reloads_and_keeps_the_last_good_list(
-    tmp_path: pathlib.Path,
-) -> None:
+def test_directory_reloads_on_change(tmp_path: pathlib.Path) -> None:
     path = tmp_path / "users.yaml"
     alice = users.add_user(path, "alice", "analyst")
     directory = users.UserDirectory(path, None)
     assert directory.find(alice) is not None
     bob = users.add_user(path, "bob", "partner")
-    os.utime(path, (1, 1))  # a new modification time, whatever the clock
+    os.utime(path, ns=(1, 1))  # the same old time: the inode still changed
     assert directory.find(bob) == users.User("bob", "partner")
-    path.write_text("users: :")
-    os.utime(path, (2, 2))
-    assert directory.find(alice) is not None  # a bad edit locks no one out
+    users.remove_user(path, "bob")
+    assert directory.find(bob) is None
+    assert directory.find(alice) is not None
+    with pytest.raises(errors.ConfigError, match="no user bob"):
+        users.remove_user(path, "bob")
+
+
+def test_bad_edit_fails_closed_and_a_fix_restores(
+    tmp_path: pathlib.Path,
+) -> None:
+    path = tmp_path / "users.yaml"
+    alice = users.add_user(path, "alice", "analyst")
+    bob = users.add_user(path, "bob", "partner")
+    directory = users.UserDirectory(path, "legacy-token")
+    assert directory.find(bob) is not None
+    # The operator removes bob by hand and breaks the file in the same edit.
+    good = path.read_text()
+    kept = good.split("- name: bob")[0]
+    path.write_text(kept + "  broken: [\n")
+    assert directory.find(bob) is None  # revoked, not kept from the old list
+    assert directory.find(alice) is None  # fail closed
+    assert directory.find("legacy-token") == users.LEGACY
+    # The stamp was not stored: the same broken file is read again.
+    assert directory.find(alice) is None
+    path.write_text(kept)
+    assert directory.find(alice) == users.User("alice", "analyst")
+    assert directory.find(bob) is None
+    path.unlink()
+    assert directory.find(alice) is None
+    nobody = users.UserDirectory(path, None)
+    assert not nobody.configured
+
+
+def test_unreadable_file_fails_closed(tmp_path: pathlib.Path) -> None:
+    path = tmp_path / "users.yaml"
+    alice = users.add_user(path, "alice", "analyst")
+    directory = users.UserDirectory(path / "below-a-file", None)
+    assert directory.find(alice) is None
 
 
 def test_authenticate_users(
@@ -172,5 +205,9 @@ def test_users_command(
     assert "alice\tpartner" in listing
     assert token not in listing
     assert cli.main(["users", "add", "alice", "--role", "partner"]) == 2
+    assert cli.main(["users", "remove", "alice"]) == 0
+    assert "removed alice" in capsys.readouterr().out
+    assert users.UserDirectory(path, None).find(token) is None
+    assert cli.main(["users", "remove", "alice"]) == 2
     with pytest.raises(SystemExit):
         cli.main(["users", "add", "bob", "--role", "owner"])

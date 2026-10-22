@@ -217,7 +217,7 @@ def _eval_arguments() -> argparse.ArgumentParser:
 
 
 def _add_users_parser(users_parser: argparse.ArgumentParser) -> None:
-    """Add `keel users add NAME --role R` and `keel users list`."""
+    """Add `keel users add NAME --role R`, `remove NAME`, and `list`."""
     users_commands = users_parser.add_subparsers(
         dest="users_command", metavar="action", required=True
     )
@@ -228,6 +228,10 @@ def _add_users_parser(users_parser: argparse.ArgumentParser) -> None:
     add_user_parser.add_argument(
         "--role", required=True, choices=users.ROLES, help="the role"
     )
+    remove_user_parser = users_commands.add_parser(
+        "remove", help="remove a user, which revokes their token"
+    )
+    remove_user_parser.add_argument("name", help="the user name")
     users_commands.add_parser("list", help="list the users and their roles")
 
 
@@ -1455,7 +1459,7 @@ def run_doctor(settings: config.Settings, download: bool, as_json: bool) -> int:
 
 
 def run_users(settings: config.Settings, args: argparse.Namespace) -> int:
-    """Run `keel users add` or `keel users list`.
+    """Run `keel users add`, `keel users remove`, or `keel users list`.
 
     Args:
         settings: The loaded settings, with `auth.users_file`.
@@ -1465,7 +1469,8 @@ def run_users(settings: config.Settings, args: argparse.Namespace) -> int:
         0.
 
     Raises:
-        ConfigError: The users file is invalid, or the name exists.
+        ConfigError: The users file is invalid, the name to add exists,
+            or the name to remove does not.
     """
     path = settings.auth.users_file
     if args.users_command == "add":
@@ -1473,6 +1478,10 @@ def run_users(settings: config.Settings, args: argparse.Namespace) -> int:
         print(f"added {args.name} ({args.role}) to {path}")
         print("token (shown once; the file keeps only its sha256):")
         print(token)
+        return 0
+    if args.users_command == "remove":
+        users.remove_user(path, args.name)
+        print(f"removed {args.name} from {path}; the token no longer passes")
         return 0
     entries = users.load_file(path).users
     for entry in entries:
