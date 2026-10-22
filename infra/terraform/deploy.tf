@@ -49,6 +49,12 @@ data "aws_iam_policy_document" "deploy" {
   }
 
   statement {
+    sid       = "UploadTheBundle"
+    actions   = ["s3:PutObject"]
+    resources = ["${aws_s3_bucket.backups.arn}/keel/deploy/*"]
+  }
+
+  statement {
     sid       = "ReadTheResult"
     actions   = ["ssm:GetCommandInvocation", "ssm:ListCommandInvocations"]
     resources = ["*"]

@@ -5,23 +5,25 @@
 # by hand the same way. It is safe to run again: each step skips what is
 # already in place.
 #
-# Steps: fetch the compose file, the Caddyfile, the backup script, and the
-# systemd units of the release tag; pull the image; on the first run, fetch
-# the corpus (release corpus-v1), the models, and the index (release
-# index-v1, restored by `keel restore`); start the app and Caddy; wait for
-# the new version on /api/health; enable the nightly timers.
+# Steps: copy the compose file, the Caddyfile, the backup script, and the
+# systemd units from the release bundle; pull the image; on the first run,
+# fetch the corpus and the index archive from the S3 bucket (keel/bootstrap/)
+# and the models, and restore the index with `keel restore`; start the app
+# and Caddy; wait for the new version on /api/health; enable the nightly
+# timers.
 #
-# Usage: deploy_host.sh VERSION      (for example 0.2.1)
+# Usage: deploy_host.sh VERSION BUNDLE_DIR
+#   (for example 0.4.1 /tmp/keel_bundle)
 # Needs /opt/keel/.env with ANTHROPIC_API_KEY, KEEL_API_TOKEN, KEEL_HOSTNAME,
 # and KEEL_BACKUP_BUCKET (infra/README.md).
 
 set -euo pipefail
 
-readonly REPO="Dylan-Burns/keel"
 readonly IMAGE="ghcr.io/dylan-burns/keel"
 readonly ROOT="/opt/keel"
-readonly RAW="https://raw.githubusercontent.com/${REPO}"
-readonly RELEASES="https://github.com/${REPO}/releases/download"
+# The repository is private: deploy-aws.yml ships the deploy files as a
+# bundle, and the corpus and index archives sit in the S3 bucket.
+readonly AWS=/snap/bin/aws
 
 #######################################
 # Print a progress line.
@@ -33,18 +35,18 @@ log() {
 }
 
 #######################################
-# Download the deploy files of the release tag into ROOT.
+# Copy the deploy files of the release bundle into ROOT.
 # Arguments:
-#   version
+#   bundle directory
 #######################################
 fetch_files() {
-  local version="$1"
+  local bundle="$1"
   local file
   mkdir -p "${ROOT}/infra/systemd"
   for file in docker-compose.yml infra/Caddyfile infra/backup.sh \
     infra/systemd/keel-refresh.service infra/systemd/keel-refresh.timer \
     infra/systemd/keel-backup.service infra/systemd/keel-backup.timer; do
-    curl -fsSL "${RAW}/v${version}/${file}" -o "${ROOT}/${file}"
+    cp "${bundle}/${file}" "${ROOT}/${file}"
   done
   chmod 755 "${ROOT}/infra/backup.sh"
 }
@@ -81,9 +83,10 @@ ensure_corpus() {
   if [[ -f "${dest}/manifest.json" ]]; then
     return
   fi
-  log "fetching the corpus"
+  log "fetching the corpus from the bucket"
   mkdir -p "${dest}"
-  curl -fsSL "${RELEASES}/corpus-v1/edgar_corpus.zip" -o "${ROOT}/cache/corpus.zip"
+  "${AWS}" s3 cp --only-show-errors \
+    "s3://${BUCKET}/keel/bootstrap/edgar_corpus.zip" "${ROOT}/cache/corpus.zip"
   python3 - "${ROOT}/cache/corpus.zip" "${dest}" <<'PY'
 import pathlib, sys, zipfile
 archive, dest = sys.argv[1], pathlib.Path(sys.argv[2])
@@ -119,14 +122,15 @@ ensure_index() {
   if [[ -e "${ROOT}/index/current" ]]; then
     return
   fi
-  log "restoring the index from release index-v1"
+  log "restoring the index from the bucket (index-v1)"
   local name
-  name="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/tags/index-v1" |
-    python3 -c 'import json, sys
-names = [a["name"] for a in json.load(sys.stdin)["assets"]]
-print([n for n in names if n.endswith(".tar.gz")][0])')"
-  curl -fsSL "${RELEASES}/index-v1/${name}" -o "${ROOT}/cache/${name}"
-  curl -fsSL "${RELEASES}/index-v1/${name}.sha256" -o "${ROOT}/cache/${name}.sha256"
+  name="$("${AWS}" s3 ls "s3://${BUCKET}/keel/bootstrap/index-v1/" |
+    awk '$4 ~ /\.tar\.gz$/ {print $4}' | sort | tail -n 1)"
+  "${AWS}" s3 cp --only-show-errors \
+    "s3://${BUCKET}/keel/bootstrap/index-v1/${name}" "${ROOT}/cache/${name}"
+  "${AWS}" s3 cp --only-show-errors \
+    "s3://${BUCKET}/keel/bootstrap/index-v1/${name}.sha256" \
+    "${ROOT}/cache/${name}.sha256"
   chown -R "${APP_UID}:${APP_UID}" "${ROOT}/cache"
   keel_run app restore "/app/cache/${name}"
   rm -f "${ROOT}/cache/${name}" "${ROOT}/cache/${name}.sha256"
@@ -162,7 +166,8 @@ enable_timers() {
 }
 
 main() {
-  local version="${1:?usage: deploy_host.sh VERSION}"
+  local version="${1:?usage: deploy_host.sh VERSION BUNDLE_DIR}"
+  local bundle="${2:?usage: deploy_host.sh VERSION BUNDLE_DIR}"
   if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     echo "version must look like 1.2.3" >&2
     exit 1
@@ -172,8 +177,10 @@ main() {
     exit 1
   fi
   cd "${ROOT}"
+  BUCKET="$(sed -n 's/^KEEL_BACKUP_BUCKET=//p' .env)"
+  readonly BUCKET
   mkdir -p corpus index cache logs demo/answer_cache
-  fetch_files "${version}"
+  fetch_files "${bundle}"
   set_image "${version}"
   log "pulling ${IMAGE}:${version}"
   docker compose pull app

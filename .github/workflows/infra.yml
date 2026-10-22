@@ -44,7 +44,10 @@ jobs:
           # checkov reports and never fails the job (chapter 29.5).
           soft_fail: true
       - name: upload checkov results
-        if: always() && hashFiles('checkov-results/**') != ''
+        # Code scanning needs GitHub Advanced Security on a private repository.
+        if: >-
+          always() && hashFiles('checkov-results/**') != '' &&
+          !github.event.repository.private
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: checkov-results
