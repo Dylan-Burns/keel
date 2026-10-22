@@ -12,6 +12,44 @@ export const COMPSETS_PATH = '/compsets';
 /** The path of the data use page (chapter 27.2). */
 export const HELP_PATH = '/help';
 
+/** The path of the companies page: add, watch list, refresh, facts. */
+export const COMPANIES_PATH = '/companies';
+
+/** The path of the admin jobs page; `/jobs/{id}` opens 1 job. */
+export const JOBS_PATH = '/jobs';
+
+/** The path of the admin users page. */
+export const USERS_PATH = '/users';
+
+/** The path of the admin system page. */
+export const SYSTEM_PATH = '/system';
+
+/** The path of the debug page: understand and retrieve, no model call. */
+export const DEBUG_PATH = '/debug';
+
+/** The client route of 1 admin job: `/jobs/{id}` with a 16-hex ID. */
+export const JOB_ROUTE = /^\/jobs\/([0-9a-f]{16})\/?$/;
+
+/**
+ * The path of 1 admin job.
+ *
+ * @param id The job ID.
+ * @return `/jobs/{id}`.
+ */
+export function jobPath(id: string): string {
+  return `${JOBS_PATH}/${encodeURIComponent(id)}`;
+}
+
+/**
+ * The job ID of a `/jobs/{id}` path.
+ *
+ * @param pathname The location path.
+ * @return The ID, or null on another path.
+ */
+export function jobIdOf(pathname: string): string | null {
+  return JOB_ROUTE.exec(pathname)?.[1] ?? null;
+}
+
 /** The client route of a stored answer: `/a/{request_id}`. */
 export const SHARED_ROUTE = /^\/a\/([A-Za-z0-9._:%-]{1,384})\/?$/;
 
