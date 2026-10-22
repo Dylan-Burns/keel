@@ -52,7 +52,7 @@ describe('Footer', () => {
     expect(screen.getByTestId('share-link')).toBeDisabled();
   });
 
-  it('opens the history page', () => {
+  it('opens the history page and the data use page', () => {
     const assign = vi.fn();
     vi.stubGlobal('location', {...window.location, assign});
     render(
@@ -71,6 +71,8 @@ describe('Footer', () => {
     expect(assign).toHaveBeenCalledWith('/history');
     fireEvent.click(screen.getByTestId('compsets-link'));
     expect(assign).toHaveBeenCalledWith('/compsets');
+    fireEvent.click(screen.getByTestId('help-link'));
+    expect(assign).toHaveBeenCalledWith('/help');
     vi.unstubAllGlobals();
   });
 });

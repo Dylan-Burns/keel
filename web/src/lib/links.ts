@@ -9,6 +9,9 @@ export const HISTORY_PATH = '/history';
 /** The path of the comp sets page (chapter 27.2). */
 export const COMPSETS_PATH = '/compsets';
 
+/** The path of the data use page (chapter 27.2). */
+export const HELP_PATH = '/help';
+
 /** The client route of a stored answer: `/a/{request_id}`. */
 export const SHARED_ROUTE = /^\/a\/([A-Za-z0-9._:%-]{1,384})\/?$/;
 

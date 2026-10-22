@@ -1,6 +1,6 @@
 import type {JSX} from 'react';
 
-import {COMPSETS_PATH, HISTORY_PATH} from '../lib/links';
+import {COMPSETS_PATH, HELP_PATH, HISTORY_PATH} from '../lib/links';
 
 /** Props of Footer. */
 export interface FooterProps {
@@ -20,8 +20,8 @@ export interface FooterProps {
 /**
  * The footer (chapter 14.5): Copy as markdown, Export JSON, Copy link (the
  * shareable link of chapter 27.2), the links to the history page, the comp
- * sets page, and the eval page (W-02), the request ID, and the prompt
- * version.
+ * sets page, the eval page (W-02), and the data use page (27.2), the
+ * request ID, and the prompt version.
  *
  * @param props The props.
  * @return The footer.
@@ -87,6 +87,14 @@ export function Footer({
         onClick={() => window.location.assign('/eval')}
       >
         Eval report
+      </button>
+      <button
+        type="button"
+        className="underline"
+        data-testid="help-link"
+        onClick={() => window.location.assign(HELP_PATH)}
+      >
+        Data use
       </button>
       <span className="ml-auto font-mono" data-testid="request-id">
         {requestId === null ? '' : `request ${requestId}`}
