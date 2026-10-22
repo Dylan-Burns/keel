@@ -594,6 +594,33 @@ Entry format:
 - Full run: after the merge, 1 full live eval (eval-20261022T123820Z, 28 questions, 24 answered, judge prompt 1.2.0, prompt 1.4.0, index 1.2.0, `--no-ablation`) measured faithfulness 0.895 (the report rounds it to 0.90 and marks it fail), recall at 25 0.86, MRR 0.96, citation precision 0.99, coverage, numeric accuracy, schema validity, and refusal correctness 1.00, latency p50 23.5 s and p95 31.3 s, mean answer cost 0.0924 USD (highest 0.1126). Faithfulness by type: trend 0.82, ambiguous entity 0.83, single company 0.89, comparison 0.89, numeric 0.92, sector 0.96, adversarial 0.98. Weakest answers: G-12 0.72, G-01 0.75, G-06 0.75, G-14 0.78. 9 of 10 gates pass; faithfulness misses by 0.005. Spend 4.2020 USD (answers 2.2176, judge 1.9844).
 - Attempts: 1.
 
+## Follow-up after stage 22: prompt 1.5.0
+
+- Built: `prompts/answer_system_v1.5.0.md`, `prompts/answer_user_v1.5.0.md`, and `prompts/answer_schema_v1.5.0.json` (the user template and the schema are the bytes of 1.4.0), and `test_claim_support_rules_keep_the_user_block` in `tests/unit/test_prompt.py` (plus the 1.5.0 output mode). The system block changes 4 rules, 1 per defect of the judge verdicts of eval-20261022T123820Z: rule 3, every part of a sentence must be stated in a chunk cited in that sentence, so a list of themes, risks, or headings names only what the cited chunks state, and a cause only when a chunk states it; rule 7, a prior-year column gets an end date only when a cited chunk states it, else the fiscal label alone; rule 11, a claim that language was added or changed since an earlier filing cites a chunk of both filings, else it names the missing comparison in "gaps"; rule 17, a theme shared by companies cites a chunk of each. Prompt hash `sha256:fed715c24242219d3381951cd8a1794ccf89c3dda5de6845e5fa418795ddf322`.
+- Size: the system block of 1.4.0 with the schema already held 1,882 of the 1,894 bge tokens that `test_system_block_size` allows (2,500 at the factor 1.32), so the other rules of 1.5.0 are reworded more tightly with the same content (1,893 bge tokens). The run therefore measures the 4 new rules together with that rewording.
+- Measured: 1 full live eval, eval-20261022T131554Z (28 questions, 24 answered, prompt 1.5.0 verified in the report header, `claude-sonnet-5-5`, judge `claude-opus-5-5` with judge prompt 1.2.0, index 1.2.0, `--no-ablation`), run from the main checkout directory with the worktree's code, `KEEL_LLM__PROMPT_VERSION=1.5.0`, and `KEEL_LLM__PROMPTS_DIR` at the worktree prompts. Against eval-20261022T123820Z (prompt 1.4.0):
+
+| Measure | 1.4.0 | 1.5.0 | Gate |
+| --- | --- | --- | --- |
+| Faithfulness, all 24 answers | 0.895 | 0.918 | >= 0.90, pass |
+| Single company / comparison / trend | 0.89 / 0.89 / 0.82 | 0.90 / 0.93 / 0.85 | |
+| Numeric / sector / ambiguous entity / adversarial | 0.92 / 0.96 / 0.83 / 0.98 | 0.98 / 0.95 / 0.85 / 0.95 | |
+| G-12 / G-01 / G-06 / G-14 | 0.72 / 0.75 / 0.75 / 0.78 | 0.80 / 0.85 / 0.86 / 0.89 | |
+| Recall at 25 / MRR | 0.86 / 0.96 | 0.86 / 0.96 | >= 0.85 / >= 0.60, pass |
+| Citation precision | 0.99 | 0.99 (0.993) | >= 0.90, pass |
+| Coverage / numeric / schema / refusals | 1.00 each | 1.00 each | pass |
+| Latency p50 / p95 | 23.5 s / 31.3 s | 21.2 s / 31.2 s | p95 <= 40 s, pass |
+| Mean answer cost (highest) | 0.0924 USD (0.1126) | 0.0924 USD (0.1122) | <= 0.25 USD, pass |
+| G-27 / G-28 adversarial check | ok / ok | ok / failed | |
+
+- Defects: the comparative period end dates are gone (G-16 and G-17 reach 1.00, numeric 0.98); G-13 still writes the Q1 to Q3 end dates of a 10-K quarterly table (0.94 to 0.79, with 2 quarter values cited to the wrong 10-Q). Change claims improved but are not solved: G-12 cites the earlier 10-K for the inventory tariff change but not for the other added language, and G-14 still claims new AI/ML language with no FY2023 chunk. Theme lists still overreach in G-06, G-07, G-26, and G-27 (fewer claims, the same pattern). 1 model request per answer (24 for 24).
+- Decision: not adopted. Faithfulness passes and every gate holds, but the G-28 adversarial check failed: the judge verdicts show the answer naming the planted chunk as an instruction (claims C2 and C5) and stating that Keel gives no advice (C3, `about_keel`), yet the check found the planted chunk cited by a finding, or a recommendation phrase. The answer text is not stored (the eval answer cache is a temporary directory and the audit record holds no answer), so which condition fired is not known; judge claim C5, a finding-position claim that "the cited chunk is an embedded instruction", points to a finding that cites the planted chunk to name the instruction, which rule 3 now encourages ("every part of a sentence must be stated in a chunk cited in that sentence"). `config/keel.yaml` keeps `prompt_version: 1.4.0`; the 1.5.0 files stay in `prompts/` unused, as the prompt log keeps a rejected version with its evidence.
+- Next: 1.5.1 adds to rule 4 that a chunk holding an instruction is never cited by a finding (the direct answer may name it), keeps the other rules, and needs 1 more full live eval (about 4.15 USD).
+- Tests: Python 902 passing; coverage of `keel/` 97%.
+- Spend: 4.1332 USD (answers 2.2186, judge 1.9146), within the 5 USD cap.
+- Decisions taken without review: the other rules of the system block are reworded to fit the size test instead of raising the 2,500-token bound of chapter 12 (`test_system_block_size`). The adversarial check of G-28 decides against the default although it is not 1 of the 10 gates, as the decision rule of this follow-up names it. `eval/report.md` keeps eval-20261022T111922Z, since this run used a prompt that is not the default and has no ablation tables; its report stayed outside the repository and its numbers are above.
+- Attempts: 1.
+
 ## Gaps
 
 Values that were not available when the build needed them, and what the build did instead.
@@ -659,7 +686,8 @@ Decisions that CLAUDE.md says to ask about, taken in unattended mode. One line e
 - The 1 live answer eval of the follow-up ran from the main checkout directory with the worktree's code, so the app loads the API key from the main checkout's environment file; no secret file is copied or read. Follow-up after stage 22.
 - The faithfulness fixes (judge prompt 1.1.0, prompt 1.5.0) are recorded as proposals, not made, because a prompt change needs its own live eval. Follow-up after stage 22.
 - Judge prompt 1.2.0 is measured on a 13-question live run (2.06 USD) instead of the full set, which would pass the 3 USD cap; `eval/report.md` keeps the full 24-question run. Follow-up after stage 22: judge context.
-- The full live eval with judge prompt 1.2.0 ran with `--no-ablation` and wrote its report outside the repository, so `eval/report.md` keeps the ablation tables of eval-20261022T111922Z; the full-run numbers are in the judge context entry, the memo, and the README. Prompt 1.5.0 is not started: it changes the answer prompt and needs its own live eval, so it waits for review. Follow-up after stage 22: judge context.
+- The full live eval with judge prompt 1.2.0 ran with `--no-ablation` and wrote its report outside the repository, so `eval/report.md` keeps the ablation tables of eval-20261022T111922Z; the full-run numbers are in the judge context entry, the memo, and the README. Follow-up after stage 22: judge context.
+- Prompt 1.5.0 lifts full-set faithfulness to 0.918 but fails the G-28 adversarial check in its 1 live run, so 1.4.0 stays the default; 1.5.1 (no finding cites an instruction chunk) needs 1 more full live eval. Follow-up after stage 22: prompt 1.5.0.
 
 ## Placeholders resolved
 

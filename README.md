@@ -169,7 +169,7 @@ The last full run (`eval-20261022T123820Z`, index 1.2.0, prompt 1.4.0, judge pro
 
 ## Prompt log
 
-[`docs/PROMPT_LOG.md`](docs/PROMPT_LOG.md): every prompt version from 1.0.0 to 1.4.0 with 1 hypothesis each, the measured before and after on the 3 example questions, and the request IDs. The shipped version is 1.4.0 (structured output, the company facts rule).
+[`docs/PROMPT_LOG.md`](docs/PROMPT_LOG.md): every prompt version from 1.0.0 to 1.5.0 with 1 hypothesis each, the measured before and after on the 3 example questions, and the request IDs. The shipped version is 1.4.0 (structured output, the company facts rule); 1.5.0 is measured and not adopted.
 
 ## Offline demo mode
 
