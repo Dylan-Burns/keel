@@ -138,3 +138,20 @@ def test_cache_directory_is_private(tmp_path: pathlib.Path) -> None:
     assert mode == cache.DIRECTORY_MODE
     entry = stat.S_IMODE(store.path("k").stat().st_mode)
     assert entry & 0o077 == 0
+
+
+def test_redact_keeps_plain_words_and_masks_json() -> None:
+    value = "z" * 12
+    plain = "cache key: " + "0" * 16
+    text = plain + ' {"api_' + 'key": "' + value + '"}'
+    masked = security.redact(text)
+    assert plain in masked
+    assert value not in masked
+
+
+def test_short_service_token_masked(settings: config.Settings) -> None:
+    loaded = settings.model_copy(
+        update={"api_token": pydantic.SecretStr("abc12")}
+    )
+    found = security.secret_values({"X_TOKEN": "short"}, loaded)
+    assert found == ["abc12"]

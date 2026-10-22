@@ -7,6 +7,7 @@ tests/integration/test_answer.py.
 """
 
 import asyncio
+from collections.abc import AsyncIterator
 import datetime
 import json
 import pathlib
@@ -20,6 +21,7 @@ from keel import answer
 from keel import config
 from keel import errors
 from keel import indexer
+from keel import prompt
 from keel import reliability
 from keel import retriever
 from keel.api import app as api_app
@@ -460,7 +462,9 @@ class RefusingProvider:
         self.model = model
         self.requests = 0
 
-    async def answer(self, bundle):
+    async def answer(
+        self, bundle: prompt.PromptBundle
+    ) -> AsyncIterator[base.ProviderEvent]:
         del bundle
         self.requests += 1
         yield base.JsonDelta('{"direct_answer": "')
@@ -608,3 +612,72 @@ def test_breaker_state_in_ready(run_settings, index_dir) -> None:
     assert details["breaker"]["state"] == "open"
     assert details["breaker"]["failures"] == 3
     assert 0 < details["breaker"]["retry_in"] <= reliability.OPEN_SECONDS
+
+
+class Waits:
+    def __init__(self) -> None:
+        self.seconds: list[float] = []
+
+    async def __call__(self, seconds: float) -> None:
+        self.seconds.append(seconds)
+
+
+def test_failed_probe_goes_straight_to_the_fallback(
+    index_dir, run_settings
+) -> None:
+    """A failed probe reopens the breaker; no backoff wait follows it."""
+    primary_model, fallback_model = models(run_settings)
+    clock = Clock()
+    breaker = reliability.CircuitBreaker(clock=clock)
+    for _ in range(3):
+        breaker.record_failure()
+    clock.now += reliability.OPEN_SECONDS
+    primary = mock.MockProvider(primary_model, fault=DOWN)
+    fallback = mock.MockProvider(fallback_model)
+    answerer = make(index_dir, run_settings, primary, fallback, breaker)
+    waits = Waits()
+    answerer.sleep = waits
+    record = final(ask(answerer, question(run_settings)))
+    assert primary.requests == 1
+    assert waits.seconds == []
+    assert record["meta"]["model"] == fallback_model
+
+
+def test_no_fallback_with_max_retries_zero(index_dir, run_settings) -> None:
+    """D-04 reversal: `max_retries: 0` allows exactly 1 request."""
+    strict = run_settings.model_copy(
+        update={"llm": run_settings.llm.model_copy(update={"max_retries": 0})}
+    )
+    primary_model, fallback_model = models(strict)
+    primary = mock.MockProvider(primary_model, fault=DOWN)
+    fallback = mock.MockProvider(fallback_model)
+    record = final(
+        ask(make(index_dir, strict, primary, fallback), question(strict))
+    )
+    assert primary.requests == 1
+    assert fallback.requests == 0
+    assert record["meta"]["model_requests"] == 1
+    assert record["meta"]["degraded"] is True
+
+
+def test_probe_is_held_by_1_request() -> None:
+    clock = Clock()
+    breaker = reliability.CircuitBreaker(clock=clock)
+    assert breaker.allow() == reliability.CLOSED
+    assert breaker.closed
+    for _ in range(3):
+        breaker.record_failure()
+    assert breaker.allow() is None
+    assert not breaker.closed
+    clock.now += reliability.OPEN_SECONDS
+    assert breaker.allow() == reliability.HALF_OPEN
+    assert breaker.allow() is None
+
+
+def test_budget_logs_once(tmp_path, caplog) -> None:
+    path = tmp_path / "audit.jsonl"
+    path.write_text("{}\n")
+    guard = reliability.BudgetGuard(path, 0.0)
+    for _ in range(5):
+        assert guard.exhausted()
+    assert caplog.text.count("daily budget reached") == 1

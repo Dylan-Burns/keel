@@ -237,7 +237,8 @@ def require_answerer(services: state.Services) -> answer.Answerer:
         raise http_error(
             503,
             "index_corrupt",
-            "the index does not match its manifest; run keel index",
+            "the index failed its checks (a checksum, a row count, or a "
+            "missing file); run keel index",
         )
     return services.answerer
 

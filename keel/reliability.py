@@ -101,23 +101,30 @@ class CircuitBreaker:
             return HALF_OPEN
         return OPEN
 
-    def allow(self) -> bool:
+    def allow(self) -> str | None:
         """Ask whether 1 request may go to the primary model.
 
         Returns:
-            True while closed; once after the open period (the probe);
-            False while open or while the probe runs.
+            `closed` while closed; `half_open` once after the open period,
+            for the request that holds the probe; None while open or while
+            the probe runs.
         """
         with self._lock:
             now = self.clock()
             state = self._state(now)
             if state == CLOSED:
-                return True
+                return CLOSED
             if state == HALF_OPEN and not self._probing:
                 self._probing = True
                 logger.info("circuit breaker half open: 1 probe request")
-                return True
-            return False
+                return HALF_OPEN
+            return None
+
+    @property
+    def closed(self) -> bool:
+        """True while the breaker lets every request through."""
+        with self._lock:
+            return self._state(self.clock()) == CLOSED
 
     def record_success(self) -> None:
         """Close the breaker after a request that succeeded."""
@@ -131,7 +138,9 @@ class CircuitBreaker:
     def release(self) -> None:
         """End a probe that proved nothing (a rejected or cut request).
 
-        The breaker stays half open, so the next request is the probe.
+        Only the request that holds the probe (`allow` returned
+        `half_open`) calls it. The breaker stays half open, so the next
+        request is the probe.
         """
         with self._lock:
             self._probing = False
@@ -217,6 +226,7 @@ class BudgetGuard:
         self.today = today
         self._seen: tuple[str, int, int] | None = None
         self._spent = 0.0
+        self._stopped = False
         self._lock = threading.Lock()
 
     def spent(self) -> float:
@@ -244,12 +254,16 @@ class BudgetGuard:
             True when no model request may go out today.
         """
         spent = self.spent()
-        if spent >= self.limit_usd:
+        stopped = spent >= self.limit_usd
+        with self._lock:
+            changed = stopped != self._stopped
+            self._stopped = stopped
+        if changed and stopped:
+            # Once per change, so a polled route cannot flood the log.
             logger.warning(
                 "daily budget reached: $%.4f of $%.2f", spent, self.limit_usd
             )
-            return True
-        return False
+        return stopped
 
 
 def _sum_day(path: pathlib.Path, day: str) -> float:
