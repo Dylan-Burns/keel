@@ -57,23 +57,8 @@ export function findCitation(run: Run, chunkId: string): Citation | undefined {
  * @return The chip info.
  */
 export function chipFor(run: Run, chunkId: string): ChipInfo {
-  const chunk = findChunk(run, chunkId);
-  const resolved = findResolved(run, chunkId);
-  const label =
-    resolved !== undefined
-      ? resolved.fiscal_label
-      : chunk !== undefined
-        ? `${chunk.ticker} ${chunk.fiscal_label}`
-        : fallbackChip(chunkId).label;
-  const ticker = chunk?.ticker ?? resolved?.ticker ?? '';
-  const valid =
-    run.final === null ? chunk !== undefined : resolved?.valid === true;
-  return {
-    chunkId,
-    label:
-      resolved !== undefined && ticker !== '' ? `${ticker} ${label}` : label,
-    valid,
-  };
+  const {label, valid} = inlineChipFor(run, chunkId);
+  return {chunkId, label, valid};
 }
 
 /** A chunk ID (chapter 7.11), the same pattern as `keel/citations.py`. */
@@ -108,6 +93,9 @@ export interface InlineChip extends ChipInfo {
   readonly fact: boolean;
 }
 
+/** The chip of an ID read from the ID alone. */
+export type FallbackChip = Omit<InlineChip, 'chunkId' | 'valid'>;
+
 /**
  * True for a text that is a whole chunk ID or fact ID.
  *
@@ -125,11 +113,7 @@ export function isCitationId(text: string): boolean {
  * @param chunkId The cited chunk ID or fact ID.
  * @return The short label and the full source.
  */
-export function fallbackChip(chunkId: string): {
-  readonly label: string;
-  readonly source: string;
-  readonly fact: boolean;
-} {
+export function fallbackChip(chunkId: string): FallbackChip {
   const fact = FACT_ID.exec(chunkId);
   if (fact !== null) {
     const [, ticker = '', concept = '', period = ''] = fact;
