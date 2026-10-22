@@ -19,6 +19,7 @@ from keel import backup
 from keel import bootstrap
 from keel import cli
 from keel import config
+from keel import errors
 from keel import indexer
 from keel.providers import mock
 
@@ -264,6 +265,116 @@ def test_bootstrap_builds_when_the_release_fails(
 
     assert status.phase == bootstrap.Phase.READY, status.error
     assert status.index == "built"
+
+
+INDEX_URL = (
+    "https://github.com/Dylan-Burns/keel/releases/download/index-v1/{name}"
+)
+
+
+def url_settings(
+    settings: config.Settings, data: pathlib.Path, url: str
+) -> config.Settings:
+    """Settings with an extracted corpus and `index.url`, no release tag."""
+    zip_path = data.parent / "edgar_corpus.zip"
+    zip_path.write_bytes(mini_zip())
+    configured = configure(settings, data, zip_path=zip_path)
+    return configured.model_copy(
+        update={
+            "index": configured.index.model_copy(update={"url": url}),
+            "logs": config.LogsConfig(dir=data / "logs"),
+        }
+    )
+
+
+def release_transport(
+    archive: pathlib.Path, requests: list[str]
+) -> httpx.MockTransport:
+    """GitHub: a redirect from github.com to the release asset host."""
+    asset_host = "release-assets.githubusercontent.com"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(f"{request.url.host}{request.url.path}")
+        name = request.url.path.rsplit("/", 1)[-1]
+        if request.url.host == "github.com":
+            location = f"https://{asset_host}/assets/{name}?sig=secret123"
+            response = httpx.Response(302, headers={"location": location})
+        else:
+            body = (archive.parent / name).read_bytes()
+            response = httpx.Response(200, content=body)
+        return conftest.with_peer(response)
+
+    return httpx.MockTransport(handler)
+
+
+def test_bootstrap_restores_the_index_url(
+    settings: config.Settings, tmp_path: pathlib.Path
+) -> None:
+    """Option A without gh or a token: the archive comes over https."""
+    archive = release_archive(settings, tmp_path)
+    data = tmp_path / "data"
+    configured = url_settings(
+        settings, data, INDEX_URL.format(name=archive.name)
+    )
+    requests: list[str] = []
+
+    def refuse() -> conftest.FakeEmbedder:
+        raise AssertionError("the index was built, not restored")
+
+    deps = fake_deps(
+        transport=release_transport(archive, requests),
+        embedder_factory=refuse,
+    )
+
+    status = bootstrap.run_bootstrap(configured, deps=deps)
+
+    assert status.phase == bootstrap.Phase.READY, status.error
+    assert (status.corpus, status.index) == ("extracted", "restored")
+    assert [r.split("/", 1)[0] for r in requests] == [
+        "github.com",
+        "release-assets.githubusercontent.com",
+        "github.com",
+        "release-assets.githubusercontent.com",
+    ]
+    assert requests[-1].endswith(archive.name + ".sha256")
+    assert not list(data.glob(".url-index-*"))
+    current = indexer.current_build(configured.index.dir)
+    assert current is not None
+    assert indexer.verify(current).counts.indexed == 3
+    assert "secret123" not in status.detail
+
+
+def test_bootstrap_builds_when_the_index_url_checksum_fails(
+    settings: config.Settings,
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    archive = release_archive(settings, tmp_path)
+    archive.with_name(archive.name + ".sha256").write_text(
+        "0" * 64 + f"  {archive.name}\n"
+    )
+    data = tmp_path / "data"
+    configured = url_settings(
+        settings, data, INDEX_URL.format(name=archive.name)
+    )
+    deps = fake_deps(transport=release_transport(archive, []))
+
+    status = bootstrap.run_bootstrap(configured, deps=deps)
+
+    assert status.phase == bootstrap.Phase.READY, status.error
+    assert status.index == "built"
+    assert "BackupChecksumError" in caplog.text
+    assert not list(data.glob(".url-index-*"))
+
+
+def test_index_url_names_and_checksum_url() -> None:
+    url = "https://bucket.example.com/a/keel-x.tar.gz?sig=1"
+    assert bootstrap.archive_name(url) == "keel-x.tar.gz"
+    assert bootstrap.checksum_url(url) == (
+        "https://bucket.example.com/a/keel-x.tar.gz.sha256?sig=1"
+    )
+    with pytest.raises(errors.BackupError):
+        bootstrap.archive_name("https://bucket.example.com/index.zip")
 
 
 def test_bootstrap_command(
