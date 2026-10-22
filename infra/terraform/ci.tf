@@ -1,7 +1,8 @@
 # CI for the infrastructure (D-39): the Terraform state lives in S3 so that
 # infra.yml can run `terraform plan` on pull requests and a nightly drift
-# check on main. The plan role is read-only and is assumed through GitHub
-# OIDC; it cannot read the backup objects, which hold the audit log, nor
+# check on main. The plan role is read-only, assumed through GitHub OIDC
+# from main only; it reads no S3 object but the state (the backups hold the
+# audit log), nor
 # parameter, secret, or log contents. The provider lock file is committed, so
 # a pull request cannot swap the provider build its plan runs.
 
@@ -79,14 +80,12 @@ data "aws_iam_policy_document" "plan_assume" {
       values   = ["sts.amazonaws.com"]
     }
 
-    # Pull requests of this repository (a fork gets no OIDC token) and main.
+    # Only main (pushes, the nightly drift check, and runs on demand); a
+    # pull request runs no code with AWS credentials.
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values = [
-        "${var.github_subject_prefix}:pull_request",
-        "${var.github_subject_prefix}:ref:refs/heads/main",
-      ]
+      values   = ["${var.github_subject_prefix}:ref:refs/heads/main"]
     }
   }
 }
@@ -123,10 +122,17 @@ data "aws_iam_policy_document" "plan" {
   }
 
   statement {
-    sid       = "NoBackupContents"
+    sid           = "NoObjectReadsBeyondTheState"
+    effect        = "Deny"
+    actions       = ["s3:GetObject", "s3:GetObjectVersion"]
+    not_resources = ["${aws_s3_bucket.tfstate.arn}/pilot/*"]
+  }
+
+  statement {
+    sid       = "NoInstanceUserData"
     effect    = "Deny"
-    actions   = ["s3:GetObject", "s3:GetObjectVersion"]
-    resources = ["${aws_s3_bucket.backups.arn}/*"]
+    actions   = ["ec2:DescribeInstanceAttribute"]
+    resources = ["*"]
   }
 }
 

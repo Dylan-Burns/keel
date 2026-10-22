@@ -55,11 +55,6 @@ variable "route53_zone_id" {
   default     = ""
 }
 
-variable "github_repository" {
-  description = "owner/name of the repository whose deploy workflow may assume the deploy role."
-  type        = string
-  default     = "Dylan-Burns/keel"
-}
 
 variable "github_environment" {
   description = "GitHub environment whose jobs may assume the deploy role."

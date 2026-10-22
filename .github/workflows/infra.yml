@@ -44,18 +44,18 @@ jobs:
           # checkov reports and never fails the job (chapter 29.5).
           soft_fail: true
       - name: upload checkov results
-        if: always()
+        if: always() && hashFiles('checkov-results/**') != ''
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: checkov-results
 
   # terraform plan against the live AWS account (D-39), read-only through
-  # GitHub OIDC. On a pull request it shows what the change would do; on
-  # main and nightly it fails when the host drifted from the code. Forks get
-  # no OIDC token, so the job skips them.
+  # GitHub OIDC, on main only: after a merge, nightly, and on demand. A
+  # non-empty plan fails as drift. Pull requests get the static checks above
+  # and no AWS credentials, since this repository is public.
   plan:
     needs: terraform
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -98,7 +98,7 @@ jobs:
             cat plan.txt
             exit 1
           fi
-          if [[ "${code}" == "2" && "${GITHUB_EVENT_NAME}" != "pull_request" ]]; then
+          if [[ "${code}" == "2" ]]; then
             echo "::error::the AWS host drifted from the Terraform on main"
             grep -E '^(Plan:|  # )' plan.txt
             exit 1

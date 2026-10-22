@@ -125,7 +125,7 @@ tag> | bash -s <version>`, or SSH as `ubuntu` from the admin CIDR.
 | Workflow | When | What |
 | --- | --- | --- |
 | `infra.yml` job `terraform` | every pull request and push that touches `infra/` | `fmt`, `validate`, `tflint`, `checkov` (soft fail, SARIF to code scanning) |
-| `infra.yml` job `plan` | the same, plus nightly at 06:17 UTC and on demand | `terraform plan` against the live account through the read-only role `keel-pilot-plan` (GitHub OIDC); the step summary lists the changed resources; on main and nightly a non-empty plan fails the job as drift |
+| `infra.yml` job `plan` | pushes to main that touch `infra/`, nightly at 06:17 UTC, and on demand | `terraform plan` against the live account through the read-only role `keel-pilot-plan` (GitHub OIDC, trusted for main only); the step summary lists the changed resources; a non-empty plan fails the job as drift. Pull requests get no AWS credentials (the repository is public) |
 | `release.yml` | a `v*.*.*` tag from release-please | image to GHCR with SBOM, Trivy scan, provenance; then it starts `deploy-aws.yml` for the version |
 | `deploy-aws.yml` | started by the release, or by hand | waits for the reviewer of the `production` environment, assumes `keel-pilot-deploy` through OIDC, runs `infra/deploy_host.sh` of the tag's commit through SSM, smoke tests HTTPS |
 
@@ -135,9 +135,10 @@ The state sits in `s3://keel-pilot-tfstate-<account>/pilot/terraform.tfstate`
 variables `AWS_PLAN_ROLE_ARN`, `AWS_REGION`, `TF_SSH_KEY_NAME`, and
 `TF_BACKUP_BUCKET`, the secret `TF_ADMIN_CIDR`, and on the `production`
 environment `AWS_DEPLOY_ROLE_ARN`, `KEEL_INSTANCE_ID`, and `KEEL_HOSTNAME`.
-The plan role has `ReadOnlyAccess` with an explicit deny on the backup
-objects; it trusts pull requests of this repository and `main`, and a fork
-gets no OIDC token.
+The plan role has `ReadOnlyAccess` with explicit denies: no S3 object but
+the state, no parameter, secret, or log contents, no SSM command output, no
+instance user data or console output. It trusts only `main`, through
+GitHub's immutable OIDC subject (`repo:<owner>@<id>/<name>@<id>:...`).
 
 ## Restore (both hosts)
 
