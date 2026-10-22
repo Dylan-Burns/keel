@@ -51,7 +51,7 @@ jobs:
         run: |
           # Fetch the script by the commit the tag names now, so the host runs
           # exactly what this job resolved, even if the tag moves later.
-          sha="$(git ls-remote "https://github.com/${REPO}.git" "refs/tags/v${VERSION}^{}" "refs/tags/v${VERSION}" | awk 'NR==1 {print $1}')"
+          sha="$(git ls-remote "https://github.com/${REPO}.git" "refs/tags/v${VERSION}^{}" "refs/tags/v${VERSION}" | sort -r -k2 | awk 'NR==1 {print $1}')"
           if [[ ! "${sha}" =~ ^[0-9a-f]{40}$ ]]; then
             echo "::error::tag v${VERSION} not found"
             exit 1
