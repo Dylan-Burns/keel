@@ -215,6 +215,10 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         provider: The model provider.
         index_version: The index version of the manifest.
         sleep: The wait between retries (tests pass a no-op).
+
+    Raises:
+        ConfigError: The prompt version asks for another output mode than
+            `llm.output_mode`.
     """
 
     def __init__(
@@ -234,6 +238,12 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         self.files = prompt.PromptFiles.load(
             settings.llm.prompt_version, settings.llm.prompts_dir
         )
+        if self.files.output_mode != settings.llm.output_mode:
+            raise errors.ConfigError(
+                f"prompt version {self.files.version} asks for the "
+                f"{self.files.output_mode} output mode; llm.output_mode is "
+                f"{settings.llm.output_mode}"
+            )
         self.prices = config.load_prices(settings.llm.prices)
         self.understander = understanding.Understander.from_settings(
             settings, step.catalog
@@ -267,7 +277,8 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         Raises:
             IndexMissingError: No published index.
             ConfigError: The prompt version is outside the range the index
-                supports, or the provider is unknown.
+                supports or does not match `llm.output_mode`, or the
+                provider is unknown.
         """
         directory = index_dir or settings.index.dir
         build = indexer.current_build(directory)

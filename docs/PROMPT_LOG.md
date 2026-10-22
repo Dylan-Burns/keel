@@ -72,7 +72,10 @@ the answer except the `citations` list.
 | 1.3.0 | 3 | `07c9337c9f734ab9a1eadccc800cd4e6` | 15 of 15 | 0, 0, 0, 0 | `end_turn` | 32,810 + 2,673 + 0 | 4,454 | $0.1104 | 44.7 s (5.4 s) | 67.3 s | 823 |
 
 Every answer was schema-valid and stopped on its own (`tool_use` or
-`end_turn`, never `max_tokens`), under the 900-word rule of chapter 12.2.
+`end_turn`, never `max_tokens`) and under the 900 words of rule 18 in
+chapter 12.2. The shipped rule 18 asks for under 600 words since stage 7,
+and 9 of the 12 answers went over 600 (477 to 835 words); the stop reasons
+show no cut, so the length costs tokens, not answers. Recorded for the eval.
 
 ## 1.1.0
 
@@ -116,7 +119,7 @@ Every answer was schema-valid and stopped on its own (`tool_use` or
 
 | Change | Evidence | Result | Decision |
 | --- | --- | --- | --- |
-| Structured output | The 1.3.0 rows above against 1.2.0, and a probe request with an empty context | Schema validity: 3 of 3 (1.2.0: 3 of 3); structured output constrains the whole response, while `auto` lets the model answer without the tool (the E-C-04 `schema_violation` path). Streaming: the schema keeps `direct_answer` first, the probe's first text delta was `{"direct_`, and the 1.3.0 answers streamed their direct answer before the findings as in `tool` mode. Cache: the cached prefix (system block and the injected format) is 2,673 tokens, written by example 1 and read by examples 2 and 3; 2 builds send the same bytes (`test_structured_output_request`). Output tokens 13% lower on average (11,409 against 13,278), cost 4% lower ($0.3173 against $0.3359). First token after the request 2.2 to 5.4 s (1.2.0: 4.1 to 6.3 s). Citations 100% valid, 0 period mismatch, the done-when checks hold. No thinking tokens with `between_tools`. | Keep. Ship 1.3.0 with `json_schema` (D-13 note). |
+| Structured output | The 1.3.0 rows above against 1.2.0, and a probe request with an empty context | Schema validity: 3 of 3 (1.2.0: 3 of 3); structured output constrains the whole response, while `auto` lets the model answer without the tool (the E-C-04 `schema_violation` path). Streaming: the schema keeps `direct_answer` first, the probe's first text delta was `{"direct_`, and the 1.3.0 answers streamed their direct answer before the findings as in `tool` mode. Cache: the cached prefix (system block and the injected format) is 2,673 tokens, written by example 1 and read by examples 2 and 3; 2 builds send the same bytes (`test_structured_output_request`). Output tokens 14% lower (11,409 against 13,278), cost 5.5% lower ($0.3173 against $0.3359). First token after the request 2.2 to 5.4 s (1.2.0: 4.1 to 6.3 s). Citations 100% valid, 0 period mismatch, the done-when checks hold. No thinking tokens with `between_tools`. | Keep. Ship 1.3.0 with `json_schema` (D-13 note). |
 
 The card evidence ran with the shipped config (1.3.0, `json_schema`):
 `keel ask` on example 2 (request `40e556563f6d409db5c7b31e0bfb1030`: 10

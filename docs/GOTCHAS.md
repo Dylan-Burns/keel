@@ -56,6 +56,10 @@ parameter name from memory.
   The server-side validator still runs on the result. Do not switch to a
   structured-output mode or a schema in the system block; both change the
   prompt bytes and the cache behavior that chapter 12 specifies.
+  Stage 8 note: the 5.5 models reject the forced tool call, so prompt 1.3.0
+  ships with `llm.output_mode: json_schema` (`output_config.format`), the
+  first preference of D-13; its cached prefix stays byte-stable (2,673
+  tokens). The prompt version and the mode must match.
 - Prompt caching needs the `cache_control` marker on the system block, and
   the block must stay identical between requests: same prompt version, same
   tool definitions, same order. A single changed byte misses the cache.

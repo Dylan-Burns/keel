@@ -321,3 +321,10 @@ def test_question_analysis_block() -> None:
     assert "not_indexed: GE (registrant_mismatch)" in bundle.user
     assert "filings_available: AAPL 10-K FY2025" in bundle.user
     assert "question_type: single_company; secondary: none" in bundle.user
+
+
+def test_output_mode_of_each_version() -> None:
+    modes = {v: prompt.PromptFiles.load(v).output_mode for v in VERSIONS}
+    assert modes["1.0.0"] == "tool"
+    assert modes["1.2.0"] == "tool"
+    assert modes["1.3.0"] == "json_schema"

@@ -124,6 +124,21 @@ class PromptFiles:
             prompt_hash=f"sha256:{digest.hexdigest()}",
         )
 
+    @property
+    def output_mode(self) -> str:
+        """The output mode the system block asks for.
+
+        Rule 16 of versions 1.0.0 to 1.2.0 asks for 1 call of the `answer`
+        tool (`tool`); from 1.3.0 it asks for the structured output
+        (`json_schema`).
+
+        Returns:
+            `tool` or `json_schema`.
+        """
+        if f'"{ANSWER_TOOL}" tool' in self.system:
+            return "tool"
+        return "json_schema"
+
     def tool(self) -> dict[str, Any]:
         """Return the `answer` tool definition with the schema.
 

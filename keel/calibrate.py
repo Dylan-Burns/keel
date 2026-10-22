@@ -17,8 +17,13 @@ import sqlite3
 from typing import Any
 from typing import Protocol
 
+import anthropic
+import httpx2
+
 from keel import context
+from keel import errors
 from keel import retriever
+from keel.providers import anthropic as provider
 
 SAMPLE_SIZE = 200
 
@@ -66,8 +71,9 @@ def sample_chunks(
 ) -> list[context.Candidate]:
     """Pick a fixed, spread-out sample of chunks from the store.
 
-    The sample takes every k-th chunk by row ID, so 2 runs over 1 index
-    pick the same chunks, and every company and section has its share.
+    The sample takes every k-th chunk by row ID, with k the store size
+    over the sample size rounded up, so 2 runs over 1 index pick the same
+    chunks and the sample spans the whole store.
 
     Args:
         conn: The chunk store.
@@ -76,8 +82,8 @@ def sample_chunks(
     Returns:
         The sampled chunks, in row order.
     """
-    total = conn.execute("SELECT count(*) FROM chunks").fetchone()[0]
-    step = max(1, int(total) // max(1, size))
+    total = int(conn.execute("SELECT count(*) FROM chunks").fetchone()[0])
+    step = max(1, -(-total // max(1, size)))
     rows = conn.execute(
         f"SELECT {retriever.ROW_COLUMNS} FROM chunks AS c "  # noqa: S608
         "WHERE c.id % ? = 0 ORDER BY c.id LIMIT ?",
@@ -151,9 +157,12 @@ def measure(
         The measurement.
 
     Raises:
-        ValueError: The store holds no chunks.
+        IndexMissingError: The store holds no chunks, or the sample size
+            is below 1.
     """
-    chunks = sample_chunks(conn, size)
+    chunks = sample_chunks(conn, size) if size >= 1 else []
+    if not chunks:
+        raise errors.IndexMissingError("no chunks to sample for calibration")
     counts = [c.token_count for c in chunks]
     counted = counter(model, render_sample(chunks))
     return Measurement(
@@ -174,13 +183,16 @@ def anthropic_counter(client: Any) -> TokenCounter:  # noqa: ANN401
         client: An `anthropic.Anthropic` client.
 
     Returns:
-        The counter.
+        The counter; it raises a `ProviderError` when the call fails.
     """
 
     def count(model: str, text: str) -> int:
-        result = client.messages.count_tokens(
-            model=model, messages=[{"role": "user", "content": text}]
-        )
+        try:
+            result = client.messages.count_tokens(
+                model=model, messages=[{"role": "user", "content": text}]
+            )
+        except (anthropic.APIError, httpx2.TransportError) as error:
+            raise provider.classify(error) from error
         return int(result.input_tokens)
 
     return count

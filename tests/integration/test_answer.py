@@ -513,3 +513,22 @@ def test_no_retry_after_findings(index_dir, run_settings) -> None:
     assert provider.requests == 1
     assert names.index("findings") < names.index("error")
     assert final(events)["meta"]["latency_ms"]["first_token"] is not None
+
+
+def test_prompt_and_output_mode_must_match(index_dir, run_settings) -> None:
+    # Prompt 1.2.0 asks for the answer tool; json_schema sends no tool.
+    mismatched = run_settings.model_copy(
+        update={
+            "llm": run_settings.llm.model_copy(
+                update={"prompt_version": "1.2.0", "output_mode": "json_schema"}
+            )
+        }
+    )
+    with pytest.raises(errors.ConfigError, match="output mode"):
+        make(index_dir, mismatched)
+    matched = mismatched.model_copy(
+        update={
+            "llm": mismatched.llm.model_copy(update={"output_mode": "tool"})
+        }
+    )
+    assert make(index_dir, matched).files.output_mode == "tool"
