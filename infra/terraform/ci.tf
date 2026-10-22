@@ -1,7 +1,9 @@
 # CI for the infrastructure (D-39): the Terraform state lives in S3 so that
 # infra.yml can run `terraform plan` on pull requests and a nightly drift
 # check on main. The plan role is read-only and is assumed through GitHub
-# OIDC; it cannot read the backup objects, which hold the audit log.
+# OIDC; it cannot read the backup objects, which hold the audit log, nor
+# parameter, secret, or log contents. The provider lock file is committed, so
+# a pull request cannot swap the provider build its plan runs.
 
 data "aws_caller_identity" "current" {}
 
@@ -71,6 +73,21 @@ data "aws_iam_policy_document" "plan" {
     sid       = "ReadTheState"
     actions   = ["s3:GetObject", "s3:ListBucket"]
     resources = [aws_s3_bucket.tfstate.arn, "${aws_s3_bucket.tfstate.arn}/*"]
+  }
+
+  statement {
+    sid    = "NoSecretsOrLogContents"
+    effect = "Deny"
+    actions = [
+      "ssm:GetParameter",
+      "ssm:GetParameters",
+      "ssm:GetParametersByPath",
+      "secretsmanager:GetSecretValue",
+      "logs:GetLogEvents",
+      "logs:FilterLogEvents",
+      "logs:StartQuery",
+    ]
+    resources = ["*"]
   }
 
   statement {
