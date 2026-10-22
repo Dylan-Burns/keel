@@ -15,7 +15,7 @@ tflint, checkov).
 | `terraform/` | AWS pilot host (D-39): EC2 instance, Elastic IP, security group, S3 backup bucket, IAM instance profile with SSM, GitHub OIDC deploy role, optional Route 53 record |
 | `Caddyfile` | AWS pilot host: TLS termination, security headers, SSE pass-through |
 | `systemd/` | AWS pilot host: `keel-refresh` and `keel-backup` service and timer units |
-| `deploy_host.sh` | AWS pilot host: the deploy that `deploy-aws.yml` runs through SSM (files of the tag, image, first-run corpus, models, and index, health wait, timers) |
+| `deploy_host.sh` | AWS pilot host: the deploy that `deploy-aws.yml` runs through SSM (files of the release bundle, image, first-run corpus, models, and index from the S3 bucket, health wait, timers) |
 | `backup.sh` | Consistent snapshot of the index and the logs to an S3-compatible bucket; the in-app scheduler calls the same routine on Railway |
 
 ## Railway: first deploy
@@ -108,17 +108,23 @@ no AWS key.
 4. In GitHub, on the `production` environment (required reviewer): the
    variables `AWS_DEPLOY_ROLE_ARN`, `AWS_REGION`, `KEEL_INSTANCE_ID`, and
    `KEEL_HOSTNAME`. The deploy role trusts only jobs of this environment.
-5. Release through release-please, then run `deploy-aws.yml` with the
-   version. It runs `infra/deploy_host.sh` of the release tag on the host:
-   the compose file, the Caddyfile, the backup script, and the systemd units
-   of the tag; the image from GHCR; on the first run the corpus (release
-   `corpus-v1`), the models, and the index (release `index-v1` through
-   `keel restore`); then the app and Caddy, a wait for the version on
-   `/api/health`, and the nightly refresh and backup timers.
+5. Put the corpus zip and the index archive (with its `.sha256`) in the
+   bucket under `keel/bootstrap/` (`edgar_corpus.zip`,
+   `index-v1/keel-<stamp>.tar.gz`). The repository is private, so the host
+   fetches nothing from GitHub.
+6. Release through release-please, then run `deploy-aws.yml` with the
+   version. The job checks out the release, uploads a bundle of the compose
+   file, the Caddyfile, the backup script, the systemd units, and
+   `infra/deploy_host.sh` to `keel/deploy/<version>-<commit>.tgz`, and runs
+   the bundled script on the host through SSM: the image from GHCR (public);
+   on the first run the corpus, the models, and the index (through
+   `keel restore`) from the bucket; then the app and Caddy, a wait for the
+   version on `/api/health`, and the nightly refresh and backup timers.
 
-To run the same deploy by hand: `aws ssm send-command --document-name
-AWS-RunShellScript` with `curl -fsSL <raw URL of infra/deploy_host.sh at the
-tag> | bash -s <version>`, or SSH as `ubuntu` from the admin CIDR.
+To run the same deploy by hand: build the bundle from a checkout of the
+tag, copy it to the bucket, and run `bash infra/deploy_host.sh <version>
+<bundle dir>` on the host through `aws ssm send-command --document-name
+AWS-RunShellScript`, or over SSH as `ubuntu` from the admin CIDR.
 
 ## AWS: the public address
 
@@ -137,7 +143,7 @@ under its `sslip.io` name. A custom domain later needs an ACM certificate in
 | `infra.yml` job `terraform` | every pull request and push that touches `infra/` | `fmt`, `validate`, `tflint`, `checkov` (soft fail, SARIF to code scanning) |
 | `infra.yml` job `plan` | pushes to main that touch `infra/`, nightly at 06:17 UTC, and on demand | `terraform plan` against the live account through the read-only role `keel-pilot-plan` (GitHub OIDC, trusted for main only); the step summary lists the changed resources; a non-empty plan fails the job as drift. Pull requests get no AWS credentials (the repository is public) |
 | `release.yml` | a `v*.*.*` tag from release-please | image to GHCR with SBOM, Trivy scan, provenance; then it starts `deploy-aws.yml` for the version |
-| `deploy-aws.yml` | started by the release, or by hand | waits for the reviewer of the `production` environment, assumes `keel-pilot-deploy` through OIDC, runs `infra/deploy_host.sh` of the tag's commit through SSM, smoke tests HTTPS |
+| `deploy-aws.yml` | started by the release, or by hand | waits for the reviewer of the `production` environment, assumes `keel-pilot-deploy` through OIDC, uploads the release bundle to S3 and runs its `infra/deploy_host.sh` through SSM, smoke tests HTTPS |
 
 The state sits in `s3://keel-pilot-tfstate-<account>/pilot/terraform.tfstate`
 (versioned, encrypted, native lock file); run `terraform init

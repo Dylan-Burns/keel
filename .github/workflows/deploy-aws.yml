@@ -3,8 +3,9 @@ name: deploy-aws
 # Manual, approved deploy of a released image to the AWS pilot host (D-39).
 # The production environment in GitHub requires a reviewer before the job
 # runs. The job assumes the deploy role through GitHub OIDC (no stored AWS
-# key) and runs infra/deploy_host.sh of the release tag's commit on the
-# instance through SSM Run Command, so no SSH port is open to GitHub. The
+# key), bundles the deploy files of the release commit into the S3 bucket,
+# and runs infra/deploy_host.sh from that bundle on the instance through SSM
+# Run Command, so no SSH port is open and the host needs no GitHub access. The
 # role trusts only jobs of the production environment, which requires the
 # engineer's approval and runs only from protected branches.
 on:
@@ -39,6 +40,10 @@ jobs:
             echo "::error::version must look like 1.2.3"
             exit 1
           fi
+      - name: check out the release
+        uses: actions/checkout@v4
+        with:
+          ref: v${{ inputs.version }}
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
@@ -47,28 +52,22 @@ jobs:
         env:
           VERSION: ${{ inputs.version }}
           INSTANCE_ID: ${{ vars.KEEL_INSTANCE_ID }}
-          REPO: ${{ github.repository }}
+          BUCKET: ${{ vars.TF_BACKUP_BUCKET }}
         run: |
-          # Fetch the script by the commit the tag names now, so the host runs
-          # exactly what this job resolved, even if the tag moves later.
-          # Exact match on the tag namespace; prefer the peeled commit of an
-          # annotated tag, else the commit a lightweight tag names.
-          sha="$(git ls-remote --tags "https://github.com/${REPO}.git" |
-            awk -v tag="refs/tags/v${VERSION}" '
-              $2 == tag "^{}" { peeled = $1 }
-              $2 == tag { plain = $1 }
-              END { print (peeled != "" ? peeled : plain) }')"
-          if [[ ! "${sha}" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "::error::tag v${VERSION} not found"
-            exit 1
-          fi
+          # The repository is private, so the host fetches nothing from
+          # GitHub: the job bundles the deploy files of the release commit,
+          # puts them in the S3 bucket, and the host runs the bundled script.
+          sha="$(git rev-parse HEAD)"
           echo "v${VERSION} is ${sha}"
-          url="https://raw.githubusercontent.com/${REPO}/${sha}/infra/deploy_host.sh"
+          tar czf bundle.tgz docker-compose.yml infra/Caddyfile infra/backup.sh \
+            infra/deploy_host.sh infra/systemd
+          key="keel/deploy/${VERSION}-${sha}.tgz"
+          aws s3 cp --only-show-errors bundle.tgz "s3://${BUCKET}/${key}"
           # SSM runs the commands with /bin/sh, so the script itself runs under
-          # bash (it sets -euo pipefail) and 1 line chains the 2 steps.
-          params="$(jq -n --arg url "${url}" --arg version "${VERSION}" '{
+          # bash (it sets -euo pipefail) and 1 line chains the steps.
+          params="$(jq -n --arg src "s3://${BUCKET}/${key}" --arg version "${VERSION}" '{
             commands: [
-              "curl -fsSL \($url) -o /tmp/keel_deploy.sh && bash /tmp/keel_deploy.sh \($version)"
+              "mkdir -p /tmp/keel_bundle && cd /tmp/keel_bundle && /snap/bin/aws s3 cp --only-show-errors \($src) bundle.tgz && tar xzf bundle.tgz && bash infra/deploy_host.sh \($version) /tmp/keel_bundle"
             ],
             executionTimeout: ["3000"]
           }')"

@@ -765,6 +765,12 @@ Entry format:
 - Removed at the engineer's request (the repository is public): the demo runbook (chapter 21), the demo additions from the recruiter guidance (chapter 25), the questions for the panel (chapter 5), the 4-hour build plan (chapter 20), `docs/REHEARSAL.md`, `docs/PUSHBACK.md`, `docs/CODE_WALK.md`, `scripts/demo_preflight.sh`, and the static exports in `demo/static/` (now gitignored; `npm run static-export` still writes them). The README links to them are gone. Earlier mentions in this report and in `docs/STAGES.yaml` stay as the record of the build.
 - Kept: the code, the tests, the product and architecture chapters, `docs/START_GUIDE.md`, `docs/API_ADMIN.md`, the performance memo, the prompt log, and `demo/answer_cache/`, which the offline mode needs. The files stay in the git history of the public repository; the engineer chose to keep the repository public.
 
+## Follow-up after stage 22: private repository
+
+- Built: the repository is private. `deploy-aws.yml` checks out the release, uploads a bundle of the deploy files (the compose file, the Caddyfile, the backup script, the systemd units, `infra/deploy_host.sh`) to `s3://<bucket>/keel/deploy/<version>-<commit>.tgz`, and runs the bundled script through SSM; the deploy role may write only that prefix. `infra/deploy_host.sh` takes the bundle directory and fetches the corpus zip and the index archive from `keel/bootstrap/` in the bucket, so the host needs no GitHub access. The image on GHCR stays public. The CodeQL job and the SARIF uploads of Checkov and Trivy skip on a private repository, since code scanning there needs GitHub Advanced Security.
+- Decisions taken without review: branch protection on a private repository needs a paid GitHub plan, so the required checks and reviews may stop being enforced; the workflows still run on every pull request.
+- Attempts: 1.
+
 ## Gaps
 
 Values that were not available when the build needed them, and what the build did instead.
