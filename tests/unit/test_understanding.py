@@ -512,3 +512,18 @@ def test_invalid_dictionary() -> None:
         )
     with pytest.raises(errors.ConfigError):
         understanding.Dictionaries.from_mappings({"AAPL": "Apple"}, {}, {})
+
+
+def test_structure_topic_weights_business() -> None:
+    terms, weights = understanding.topics(
+        "How does Microsoft describe its business segments?"
+    )
+    assert "business segments" in terms
+    assert max(weights, key=lambda k: weights[k]) == "business"
+    # A segment figure stays a financial question.
+    _, weights = understanding.topics(
+        "What revenue did Microsoft's business segments report?"
+    )
+    assert max(weights, key=lambda k: weights[k]) == "mdna"
+    _, weights = understanding.topics("What were Apple's sales by segment?")
+    assert max(weights, key=lambda k: weights[k]) == "mdna"
