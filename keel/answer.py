@@ -7,6 +7,12 @@ the answer cache write, and 1 audit record. It yields the events of
 chapter 14.3 (`meta`, `analysis`, `retrieval`, `answer_delta`, `findings`,
 `final`, `error`, `done`), which `keel ask` prints and the API of stage 9
 streams. No other step calls a model (D-01, D-02, D-28).
+
+Chapter 16 wraps the call: the circuit breaker sends a question straight to
+the fallback model while the primary model is down, the fallback gets its
+own budget of 3 requests, a context overflow halves the context once, and
+the daily budget stops every model request. When no model answers, the
+question gets the degraded mode: the retrieved chunks with their SEC links.
 """
 
 from __future__ import annotations
@@ -38,6 +44,7 @@ from keel import errors
 from keel import indexer
 from keel import partial_json
 from keel import prompt
+from keel import reliability
 from keel import retriever
 from keel import understanding
 from keel.providers import anthropic as anthropic_provider
@@ -55,6 +62,15 @@ OFFLINE_MESSAGE = (
     "Offline mode: this question is not in the answer cache, so only the "
     "retrieved filing text is shown."
 )
+BUDGET_MESSAGE = (
+    "The daily model budget is spent: this question is not in the answer "
+    "cache, so only the retrieved filing text is shown."
+)
+REFUSED_MESSAGE = (
+    "The model declined to answer; the retrieved filing text is shown."
+)
+OVERFLOW_RAISE = 0.05  # chapter 16.6 step 4: the calibration factor +5%
+DEGRADED_OUTCOMES = frozenset({"provider_error", "offline", "budget_stop"})
 CONNECT_DELAYS = (1.0, 3.0)
 SERVER_DELAYS = (2.0, 6.0)
 MAX_RETRY_WAIT = 30.0  # a longer Retry-After would pass the 120 s total
@@ -115,6 +131,34 @@ def provider_from_settings(
     if settings.llm.provider == "anthropic":
         return anthropic_provider.AnthropicProvider.from_settings(settings)
     raise errors.ConfigError(f"unknown llm.provider {settings.llm.provider!r}")
+
+
+def fallback_from_settings(
+    settings: config.Settings,
+) -> base.LLMProvider | None:
+    """Build the fallback model provider of chapter 16.4.
+
+    The fallback sends the same prompt with the same output mode; the
+    adapter takes the thinking setting of the fallback model from
+    `llm.thinking`.
+
+    Args:
+        settings: The loaded settings.
+
+    Returns:
+        The provider of `llm.fallback_model`, or None when no key is set
+        or the fallback model is the primary model.
+    """
+    llm = settings.llm
+    if not llm.fallback_model or llm.fallback_model == llm.model:
+        return None
+    if llm.provider == "mock":
+        return mock.MockProvider(llm.fallback_model)
+    if llm.provider != "anthropic" or settings.anthropic_api_key is None:
+        return None
+    return anthropic_provider.AnthropicProvider.from_settings(
+        settings, model=llm.fallback_model
+    )
 
 
 def _version(text: str) -> tuple[int, ...]:
@@ -201,6 +245,9 @@ class _Run:  # pylint: disable=too-many-instance-attributes
     finished: base.Finished | None = None
     requests: int = 0
     content: bool = False
+    succeeded: bool = False
+    halved: bool = False
+    model: str = ""
     error: errors.ProviderError | None = None
     understanding_ms: float = 0.0
     retrieval_ms: float = 0.0
@@ -217,6 +264,9 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         provider: The model provider.
         index_version: The index version of the manifest.
         sleep: The wait between retries (tests pass a no-op).
+        fallback: The fallback model provider, or None for no fallback.
+        breaker: The circuit breaker of the primary model, or None for a
+            new one.
 
     Raises:
         ConfigError: The prompt version asks for another output mode than
@@ -231,10 +281,14 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         index_version: str,
         *,
         sleep: Sleep = asyncio.sleep,
+        fallback: base.LLMProvider | None = None,
+        breaker: reliability.CircuitBreaker | None = None,
     ) -> None:
         self.settings = settings
         self.retriever = step
         self.provider = provider
+        self.fallback = fallback
+        self.breaker = breaker or reliability.CircuitBreaker()
         self.index_version = index_version
         self.sleep = sleep
         self.files = prompt.PromptFiles.load(
@@ -252,6 +306,9 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         )
         self.cache = cache.AnswerCache(settings.cache.answers_dir)
         self.audit = audit.AuditLog(settings.logs.dir)
+        self.budget = reliability.BudgetGuard(
+            self.audit.path, settings.limits.daily_budget_usd
+        )
         self.calibration = context.Calibration(
             settings.retrieval.calibration_factor
         )
@@ -273,7 +330,8 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         Args:
             settings: The loaded settings.
             index_dir: The index directory, or None for `index.dir`.
-            provider: The provider, or None for the configured one.
+            provider: The provider, or None for the configured one. The
+                fallback model always comes from the config.
             load_models: False skips the embedding model and the reranker.
 
         Returns:
@@ -306,26 +364,36 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             step,
             provider or provider_from_settings(settings),
             manifest.index_version,
+            fallback=fallback_from_settings(settings),
         )
 
     def with_provider(
-        self, provider: base.LLMProvider, *, sleep: Sleep | None = None
+        self,
+        provider: base.LLMProvider,
+        *,
+        sleep: Sleep | None = None,
+        fallback: base.LLMProvider | None = None,
     ) -> Answerer:
         """A copy that sends its requests to another provider.
 
         The copy shares the index, the models, the caches, the audit log,
-        and the calibration, so the API can serve 1 request with a mock
-        fault (the `X-Keel-Mock` header) without reloading anything.
+        the budget, and the calibration, so the API can serve 1 request
+        with a mock fault (the `X-Keel-Mock` header) without reloading
+        anything. It gets its own circuit breaker, so a drill never opens
+        the breaker of the service.
 
         Args:
             provider: The provider of the copy.
             sleep: The wait between retries, or None to keep it.
+            fallback: The fallback provider of the copy, or None for none.
 
         Returns:
             The copy.
         """
         twin = copy.copy(self)
         twin.provider = provider
+        twin.fallback = fallback
+        twin.breaker = reliability.CircuitBreaker()
         if sleep is not None:
             twin.sleep = sleep
         return twin
@@ -366,7 +434,8 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             question: The question.
             request_id: The request ID, or None for a new one.
             use_cache: Serve a cached answer when there is one. Offline
-                mode always reads the cache and never calls the model.
+                mode and a spent daily budget always read the cache and
+                never call the model.
             max_context_tokens: A lower context budget for this request,
                 or None; never above `retrieval.max_context_tokens`.
             max_chunks: A lower chunk budget for this request, or None;
@@ -390,7 +459,8 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             },
         )
         offline = self.settings.offline
-        if offline or use_cache:
+        stopped = not offline and self.budget.exhausted()
+        if offline or use_cache or stopped:
             cached = self.cache.get(self.cache_key(question))
             if cached is not None:
                 async for event in self._from_cache(run, cached):
@@ -401,7 +471,9 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             max_chunks=self.settings.retrieval.max_chunks,
             calibration_factor=self.calibration.factor,
         ).lowered(max_context_tokens, max_chunks)
-        async for event in self._pipeline(run, budget, offline=offline):
+        async for event in self._pipeline(
+            run, budget, offline=offline, stopped=stopped
+        ):
             yield event
 
     async def _from_cache(
@@ -431,7 +503,12 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             return self.retriever.retrieve(analysis, budget)
 
     async def _pipeline(
-        self, run: _Run, budget: context.Budget, *, offline: bool
+        self,
+        run: _Run,
+        budget: context.Budget,
+        *,
+        offline: bool,
+        stopped: bool,
     ) -> AsyncIterator[Event]:
         try:
             run.analysis = self.understander.analyze(run.question)
@@ -463,10 +540,10 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             (time.perf_counter() - retrieval_started) * 1000, 1
         )
         yield Event("retrieval", self._retrieval(run.result))
-        if run.result.context.empty or offline:
-            run.outcome = (
-                "no_context" if run.result.context.empty else "offline"
-            )
+        if run.result.context.empty or offline or stopped:
+            run.outcome = "budget_stop" if stopped else "offline"
+            if run.result.context.empty:
+                run.outcome = "no_context"
             yield self._final(run, None)
             yield Event("done", {})
             return
@@ -476,44 +553,144 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             run.result.context,
             self.retriever.catalog.filings,
         )
-        async for event in self._call(run, run.bundle):
+        async for event in self._call(run):
             yield event
         async for event in self._finish(run):
             yield event
 
-    async def _call(
-        self, run: _Run, bundle: prompt.PromptBundle
+    async def _call(self, run: _Run) -> AsyncIterator[Event]:
+        """Ask the primary model, then the fallback (chapters 16.3, 16.4).
+
+        The primary model gets up to 3 requests while the breaker lets
+        them through; the fallback gets its own 3 when the primary model
+        failed for availability before any content, or the breaker is
+        open. No request follows content (D-04).
+        """
+        async for out in self._attempts(run, self.provider, primary=True):
+            yield out
+        primary_down = run.error is None or run.error.retryable
+        fallback = self.fallback
+        if (
+            fallback is not None
+            and not run.succeeded
+            and not run.content
+            and primary_down
+        ):
+            logger.warning("the fallback model %s answers", fallback.model)
+            async for out in self._attempts(run, fallback, primary=False):
+                yield out
+        if not run.succeeded and run.error is None:
+            run.error = errors.ProviderUnavailableError(
+                "the circuit breaker is open and no fallback model is set"
+            )
+
+    async def _attempts(
+        self, run: _Run, provider: base.LLMProvider, *, primary: bool
     ) -> AsyncIterator[Event]:
-        """Send the request; retry only before the first content (D-04)."""
+        """Send up to 3 requests to 1 model; retry only before content."""
         attempts = self.settings.llm.max_retries + 1
         for attempt in range(attempts):
+            if primary and not self.breaker.allow():
+                logger.warning("circuit breaker open: primary model skipped")
+                return
+            if run.bundle is None:  # pragma: no cover  # set by the caller
+                return
             run.requests += 1
+            run.model = provider.model
             run.stream = partial_json.AnswerStream()
             run.raw_text = ""
+            settled = False
             try:
-                async for event in self.provider.answer(bundle):
+                async for event in provider.answer(run.bundle):
                     for out in self._on_event(run, event):
                         yield out
-                run.error = None
-                return
             except errors.ProviderError as error:
-                run.error = error
+                settled = True
                 last = attempt == attempts - 1
-                if run.content or not error.retryable or last:
-                    logger.warning(
-                        "provider failed after %d request(s): %s",
-                        run.requests,
-                        error,
-                    )
+                if not await self._recover(
+                    run, provider, error, attempt, primary=primary, last=last
+                ):
                     return
-                delay = backoff(error, attempt)
-                logger.warning(
-                    "provider failed before content (%s); retry %d in %.1f s",
-                    error,
-                    attempt + 1,
-                    delay,
-                )
-                await self.sleep(delay)
+            else:
+                settled = True
+                if primary:
+                    self.breaker.record_success()
+                run.error = None
+                run.succeeded = True
+                return
+            finally:
+                if primary and not settled:
+                    # Cancelled mid-request: free the probe, if this was it.
+                    self.breaker.release()
+
+    async def _recover(  # pylint: disable=too-many-arguments
+        self,
+        run: _Run,
+        provider: base.LLMProvider,
+        error: errors.ProviderError,
+        attempt: int,
+        *,
+        primary: bool,
+        last: bool,
+    ) -> bool:
+        """Record a failed request and decide on the next one.
+
+        Returns:
+            True when another request to the same model may follow.
+        """
+        run.error = error
+        if primary and reliability.counts_as_failure(error):
+            self.breaker.record_failure()
+        elif primary:
+            self.breaker.release()
+        if run.content or last:
+            logger.warning(
+                "%s failed after %d request(s): %s",
+                provider.model,
+                run.requests,
+                error,
+            )
+            return False
+        if isinstance(error, errors.ContextOverflowError) and not run.halved:
+            self._halve(run, error)
+            return True
+        if not error.retryable:
+            logger.warning("%s rejected the request: %s", provider.model, error)
+            return False
+        delay = backoff(error, attempt)
+        logger.warning(
+            "provider failed before content (%s); retry %d in %.1f s",
+            error,
+            attempt + 1,
+            delay,
+        )
+        await self.sleep(delay)
+        return True
+
+    def _halve(self, run: _Run, error: errors.ProviderError) -> None:
+        """Halve the context and rebuild the prompt (chapter 16.6 step 3)."""
+        if run.result is None or run.analysis is None or run.bundle is None:
+            return  # pragma: no cover  # a request needs all 3
+        estimate = run.bundle.estimated_tokens
+        factor = self.calibration.raise_by(OVERFLOW_RAISE)
+        halved = reliability.halve_context(run.result.context)
+        logger.warning(
+            "context_overflow: estimate %d tokens, provider: %s; context "
+            "budget halved to %d tokens (%d chunks), calibration factor %.4f",
+            estimate,
+            error,
+            halved.budget.max_tokens,
+            len(halved.chunks),
+            factor,
+        )
+        run.halved = True
+        run.result = dataclasses.replace(run.result, context=halved)
+        run.bundle = prompt.build_bundle(
+            self.files,
+            run.analysis,
+            halved,
+            self.retriever.catalog.filings,
+        )
 
     def _on_event(self, run: _Run, event: base.ProviderEvent) -> list[Event]:
         if isinstance(event, base.JsonDelta):
@@ -562,9 +739,12 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         validated = self._validate(run)
         record = self._final(run, validated)
         yield record
-        # A mock answer never enters the cache of the real model's key.
+        # A mock answer never enters the cache of the real model's key,
+        # and neither does a fallback answer (the key names the model).
         real = self.provider.name != mock.MockProvider.name
-        if real and validated is not None and record.data["answer"]:
+        primary = run.model == self.model
+        answered = validated is not None and record.data["answer"]
+        if real and primary and answered:
             self.cache.put(self.cache_key(run.question), record.data)
         yield Event("done", {})
 
@@ -573,6 +753,10 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             return None
         text = run.stream.text
         finished = run.finished
+        if finished is not None and finished.stop_reason == "refusal":
+            run.outcome = "refused"
+            logger.warning("the model declined to answer")
+            return None
         try:
             if finished is not None and not finished.tool_called:
                 raise errors.SchemaViolationError("no answer in the response")
@@ -647,7 +831,8 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         self, run: _Run, validated: citations.ValidatedAnswer | None
     ) -> dict[str, Any]:
         usage = run.usage
-        prices = self.prices.models.get(self.model)
+        model = run.model or self.model
+        prices = self.prices.models.get(model)
         cost = base.cost_usd(usage, prices) if prices else 0.0
         if run.bundle is not None and usage.total_input:
             self.calibration.observe(
@@ -657,7 +842,8 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         timings = run.result.timings if run.result else None
         analysis = run.analysis
         return {
-            "model": self.model,
+            "model": model,
+            "fallback": model != self.model,
             "prompt_version": self.files.version,
             "index_version": self.index_version,
             "prompt_hash": self.files.prompt_hash,
@@ -679,7 +865,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             ),
             "cost_usd": cost,
             "model_requests": run.requests,
-            "degraded": run.outcome in {"provider_error", "offline"},
+            "degraded": run.outcome in DEGRADED_OUTCOMES,
             "from_cache": False,
             "flags": {
                 "citation_drift": report.citation_drift,
@@ -720,8 +906,9 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
                 "prompt_hash": self.files.prompt_hash,
                 "prompt_version": self.files.version,
                 "index_version": self.index_version,
-                "model": self.model,
+                "model": meta.get("model", run.model or self.model),
                 "model_requests": meta.get("model_requests", run.requests),
+                "degraded": meta.get("degraded", False),
                 "latency_ms": meta.get("latency_ms"),
                 "usage": meta.get("usage"),
                 "cost_usd": meta.get("cost_usd", 0.0),
@@ -744,21 +931,24 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         )
 
 
+_MESSAGES = {
+    "no_context": context.NO_CONTEXT_MESSAGE,
+    "offline": OFFLINE_MESSAGE,
+    "budget_stop": BUDGET_MESSAGE,
+    "refused": REFUSED_MESSAGE,
+    "schema_violation": SCHEMA_WARNING,
+}
+
+
 def _message(run: _Run) -> str | None:
     if run.outcome == "out_of_scope" and run.analysis is not None:
         return f"Out of scope: {run.analysis.out_of_scope_reason}."
-    if run.outcome == "no_context":
-        return context.NO_CONTEXT_MESSAGE
-    if run.outcome == "offline":
-        return OFFLINE_MESSAGE
-    if run.outcome == "schema_violation":
-        return SCHEMA_WARNING
     if run.outcome == "provider_error" and run.error is not None:
         return (
             f"The model is unavailable ({run.error.code}); the retrieved "
             "filing text is shown."
         )
-    return None
+    return _MESSAGES.get(run.outcome)
 
 
 def _analysis_summary(

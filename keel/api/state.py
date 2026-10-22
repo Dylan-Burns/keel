@@ -21,6 +21,7 @@ from keel import config
 from keel import errors
 from keel import indexer
 from keel import prompt
+from keel import reliability
 from keel.api import ratelimit
 from keel.providers import base
 
@@ -230,7 +231,7 @@ class Services:  # pylint: disable=too-many-instance-attributes
         if build is None:  # pragma: no cover  # removed after the open
             return
         try:
-            self.manifest = indexer.verify(build)
+            self.manifest = reliability.check_index(build)
             self.index_verified = True
         except (errors.IndexMissingError, errors.IndexCorruptError) as error:
             self.index_error = str(error)

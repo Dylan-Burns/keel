@@ -53,6 +53,8 @@ PROVIDER_FAULTS = {
     "script_injection": "script-injection",
 }
 API_FAULTS = frozenset({"rate_limited", "index_not_built", "stale_index"})
+# The primary model fails its 3 requests and the fallback model answers.
+FALLBACK_FAULT = "fallback_model"
 EMPTY_ANALYSIS: dict[str, Any] = {
     "tickers": [],
     "primary_type": "unknown",
@@ -201,7 +203,7 @@ def fault_of(request: fastapi.Request, services: Services) -> str | None:
     known = (
         value in PROVIDER_FAULTS
         or value in API_FAULTS
-        or value == "provider_unavailable"
+        or value in {"provider_unavailable", FALLBACK_FAULT}
         or value.partition(":")[0] in mock.FAULTS
     )
     if value and not known:
@@ -213,7 +215,7 @@ Fault = Annotated[str | None, fastapi.Depends(fault_of)]
 
 
 def require_answerer(services: state.Services) -> answer.Answerer:
-    """The pipeline, or HTTP 503 when no index is loaded (E-F-01).
+    """The pipeline, or HTTP 503 without a sound index (E-F-01, 16.7).
 
     Args:
         services: The shared services.
@@ -222,13 +224,20 @@ def require_answerer(services: state.Services) -> answer.Answerer:
         The pipeline.
 
     Raises:
-        HTTPException: 503 with the code `index_not_built`.
+        HTTPException: 503 with the code `index_not_built`, or with
+            `index_corrupt` when a checksum or a row count did not match.
     """
     if services.answerer is None:
         raise http_error(
             503,
             "index_not_built",
             "no index is loaded; run keel index, then restart keel serve",
+        )
+    if not services.index_verified:
+        raise http_error(
+            503,
+            "index_corrupt",
+            "the index does not match its manifest; run keel index",
         )
     return services.answerer
 
@@ -244,15 +253,19 @@ async def health() -> dict[str, str]:
 
 
 @router.get("/ready")
-async def ready(services: Services, fault: Fault) -> dict[str, Any]:
-    """Readiness: the index, the models, and the provider key.
+async def ready(services: Services, fault: Fault) -> fastapi.Response:
+    """Readiness: the index, the models, the provider key, the breaker.
 
     Args:
         services: The shared services.
         fault: The mock fault; `index_not_built` reports no index.
 
     Returns:
-        `ready`, the index version, and the checks.
+        `ready`, the index version, the checks, the breaker state, the
+        fallback model, the daily spend, and the answer cache. HTTP 503
+        with `index_corrupt` when the index failed its checks (16.7); the
+        other failed checks keep HTTP 200, so the front-end can show the
+        matching banner.
     """
     answerer = services.answerer
     loaded = answerer is not None and fault != "index_not_built"
@@ -269,13 +282,32 @@ async def ready(services: Services, fault: Fault) -> dict[str, Any]:
         "models_loaded": loaded and models,
         "provider_key": services.provider_key,
     }
-    return {
+    corrupt = loaded and not services.index_verified
+    body: dict[str, Any] = {
         "ready": all(checks.values()),
         "index_version": answerer.index_version
         if loaded and answerer
         else None,
         "checks": checks,
+        "index_corrupt": corrupt,
+        "offline": services.settings.offline,
     }
+    if answerer is not None:
+        limit = answerer.budget.limit_usd
+        spent = await asyncio.to_thread(answerer.budget.spent)
+        body.update(
+            breaker=answerer.breaker.snapshot().as_dict(),
+            fallback_model=answerer.fallback.model
+            if answerer.fallback
+            else None,
+            budget={
+                "daily_usd": limit,
+                "spent_usd": spent,
+                "stopped": spent >= limit,
+            },
+            answer_cache=answerer.cache.directory.is_dir(),
+        )
+    return responses.JSONResponse(body, status_code=503 if corrupt else 200)
 
 
 def _fiscal_label(year: int | None, period: str | None) -> str:
@@ -716,13 +748,19 @@ def answerer_for(
     shared = require_answerer(services)
     if fault is None or fault in API_FAULTS:
         return shared
-    if fault == "provider_unavailable":
-        attempts = services.settings.llm.max_retries + 1
-        name = f"500-before-content:{attempts}"
+    llm = services.settings.llm
+    down = f"500-before-content:{llm.max_retries + 1}"
+    if fault == FALLBACK_FAULT:
+        name, fallback_fault = down, "none"
+    elif fault == "provider_unavailable":
+        # Both models fail: the degraded mode (chapter 16.5).
+        name = fallback_fault = down
     else:
-        name = PROVIDER_FAULTS.get(fault, fault)
-    provider = mock.MockProvider(services.settings.llm.model, fault=name)
-    return shared.with_provider(provider, sleep=_no_wait)
+        # A raw fault before content hits the fallback model too.
+        name = fallback_fault = PROVIDER_FAULTS.get(fault, fault)
+    provider = mock.MockProvider(llm.model, fault=name)
+    fallback = mock.MockProvider(llm.fallback_model, fault=fallback_fault)
+    return shared.with_provider(provider, sleep=_no_wait, fallback=fallback)
 
 
 class _Outcome:
