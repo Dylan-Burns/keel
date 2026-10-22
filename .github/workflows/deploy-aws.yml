@@ -64,11 +64,11 @@ jobs:
           fi
           echo "v${VERSION} is ${sha}"
           url="https://raw.githubusercontent.com/${REPO}/${sha}/infra/deploy_host.sh"
+          # SSM runs the commands with /bin/sh, so the script itself runs under
+          # bash (it sets -euo pipefail) and 1 line chains the 2 steps.
           params="$(jq -n --arg url "${url}" --arg version "${VERSION}" '{
             commands: [
-              "set -euo pipefail",
-              "curl -fsSL \($url) -o /tmp/keel_deploy.sh",
-              "bash /tmp/keel_deploy.sh \($version)"
+              "curl -fsSL \($url) -o /tmp/keel_deploy.sh && bash /tmp/keel_deploy.sh \($version)"
             ],
             executionTimeout: ["3000"]
           }')"
