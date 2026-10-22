@@ -4,7 +4,8 @@ Stage 1 ships `keel inventory` and `keel doctor`; stage 2 adds `keel parse`;
 stage 3 adds `keel chunk` and `keel parse --sections-report`; stage 4 adds
 `keel index`; stage 5 adds `keel understand`; stage 6 adds `keel retrieve`;
 stage 7 adds `keel ask`; stage 8 adds `keel calibrate`; stage 9 adds
-`keel serve`. Later stages add the commands that CLAUDE.md lists (eval and
+`keel serve`; stage 10 adds `keel eval`. Later stages add the commands that
+CLAUDE.md lists (warm-cache and the rest).
 the rest).
 """
 
@@ -37,6 +38,9 @@ from keel import retriever
 from keel import sections
 from keel import understanding
 from keel.api import app as api_app
+from keel.evaluation import gates
+from keel.evaluation import report as eval_report
+from keel.evaluation import runner
 from keel.parsers import base as parser_base
 from keel.parsers import corpus as parser_corpus
 from keel.stores import chunk_store
@@ -70,6 +74,56 @@ def _positive(value: str) -> int:
     if number < 1:
         raise argparse.ArgumentTypeError(f"must be at least 1: {value}")
     return number
+
+
+def _eval_arguments() -> argparse.ArgumentParser:
+    """Build the arguments of `keel eval` as a parent parser.
+
+    Returns:
+        A parser without help that holds the `eval` arguments.
+    """
+    eval_parser = argparse.ArgumentParser(add_help=False)
+    eval_parser.add_argument(
+        "--set",
+        dest="golden",
+        type=pathlib.Path,
+        default=pathlib.Path("eval/golden.yaml"),
+        help="the golden set (default: eval/golden.yaml)",
+    )
+    eval_parser.add_argument(
+        "--subset",
+        default=None,
+        help="a subset tag (ci, demo, chunk) or a comma list of IDs",
+    )
+    eval_parser.add_argument(
+        "--gate",
+        action="store_true",
+        help="exit 1 when a regression gate fails",
+    )
+    eval_parser.add_argument(
+        "--report",
+        type=pathlib.Path,
+        default=pathlib.Path("eval/report.md"),
+        help="the report file; the JSON results go beside it",
+    )
+    eval_parser.add_argument(
+        "--labels",
+        type=pathlib.Path,
+        default=None,
+        help="the labels directory (default: labels/ beside the set)",
+    )
+    eval_parser.add_argument(
+        "--index",
+        type=pathlib.Path,
+        default=None,
+        help="the index directory with `current` (default: index.dir)",
+    )
+    eval_parser.add_argument(
+        "--no-ablation",
+        action="store_true",
+        help="run the hybrid pipeline only, without the ablation variants",
+    )
+    return eval_parser
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -265,6 +319,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=None,
         help="the port (default: server.port); a busy port moves up to +10",
+    )
+
+    commands.add_parser(
+        "eval",
+        parents=[_eval_arguments()],
+        help="run the golden set and write the eval report",
     )
 
     doctor_parser = commands.add_parser(
@@ -1071,6 +1131,43 @@ def run_calibrate(
     return 0
 
 
+def run_eval(settings: config.Settings, args: argparse.Namespace) -> int:
+    """Run `keel eval`: the golden set, the gates, and the report.
+
+    Args:
+        settings: The loaded settings.
+        args: The parsed `eval` arguments.
+
+    Returns:
+        0, or 1 with `--gate` when a regression gate fails.
+
+    Raises:
+        GoldenSetError: The golden set or a label file is not valid.
+        IndexMissingError: No published index.
+    """
+    variants = (runner.MAIN,) if args.no_ablation else runner.ABLATION
+    run, questions = runner.evaluate(
+        settings,
+        args.golden,
+        args.labels or args.golden.parent / "labels",
+        subset=args.subset,
+        index_dir=args.index,
+        variants=variants,
+        progress=print,
+    )
+    json_path = eval_report.write(run, questions, args.report)
+    print(f"run {run.info.run_id}: {len(questions)} questions, ", end="")
+    print(f"{run.seconds:.0f} s; report {args.report}, results {json_path}")
+    results = run.gates()
+    for result in results:
+        value = "n/a" if result.value is None else f"{result.value:.2f}"
+        print(f"  {result.gate.name}: {value} ({result.status})")
+    if args.gate and gates.blocked(results):
+        print("gate failed: the release stays blocked")
+        return 1
+    return 0
+
+
 def run_doctor(settings: config.Settings, download: bool, as_json: bool) -> int:
     """Run `keel doctor`.
 
@@ -1089,6 +1186,15 @@ def run_doctor(settings: config.Settings, download: bool, as_json: bool) -> int:
         for result in results:
             print(f"{result.status:<5} {result.name}: {result.detail}")
     return 1 if any(r.status == doctor.FAIL for r in results) else 0
+
+
+def _dispatch_measure(
+    settings: config.Settings, args: argparse.Namespace
+) -> int:
+    """Run `keel calibrate` or `keel eval` with its arguments."""
+    if args.command == "calibrate":
+        return run_calibrate(settings, args.sample, args.index)
+    return run_eval(settings, args)
 
 
 def _dispatch(settings: config.Settings, args: argparse.Namespace) -> int:
@@ -1120,8 +1226,9 @@ def _dispatch(settings: config.Settings, args: argparse.Namespace) -> int:
             out_dir=args.out,
             incremental=args.incremental,
         ),
-        "calibrate": lambda: run_calibrate(settings, args.sample, args.index),
     }
+    if args.command in ("calibrate", "eval"):
+        return _dispatch_measure(settings, args)
     handler = handlers.get(args.command)
     if handler is not None:
         return handler()
