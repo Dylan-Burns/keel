@@ -369,8 +369,8 @@ def judgments(
     """Resolve the judgments of 1 question against the open index.
 
     Graded chunk labels apply when the label file has them and at least 1
-    graded chunk exists in this index (the mini index of the CI eval has
-    other chunk IDs). Otherwise every chunk of the expected (filing,
+    chunk of grade 2 exists in this index (the mini index of the CI eval
+    has other chunk IDs). Otherwise every chunk of the expected (filing,
     section) pairs counts as relevant.
 
     Args:
@@ -388,13 +388,13 @@ def judgments(
     if labels is not None and labels.chunks:
         grades = labels.grades
         tickers = chunk_tickers(conn, list(grades))
-        if tickers:
+        if tickers and any(grades[c] >= RELEVANT for c in tickers):
             return Judgments(
                 grades={c: g for c, g in grades.items() if c in tickers},
                 level="chunk",
                 tickers=tickers,
             )
-        note = "no graded chunk in this index; section-level labels apply"
+        note = "no grade 2 chunk in this index; section-level labels apply"
     section = section_chunks(conn, pairs)
     return Judgments(
         grades=dict.fromkeys(section, RELEVANT),

@@ -21,7 +21,9 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Sequence
+import contextlib
 import pathlib
+import sqlite3
 import sys
 
 from keel import config
@@ -62,10 +64,9 @@ def _questions(
 def _sections(
     golden_set: golden.GoldenSet,
     labels_dir: pathlib.Path,
-    build: pathlib.Path,
+    stamp: labels.IndexStamp,
+    conn: sqlite3.Connection,
 ) -> None:
-    stamp = labels.IndexStamp.from_build(build)
-    conn = chunk_store.open_read_only(build / chunk_store.FILE_NAME)
     with_sources = [q for q in golden_set.questions if q.expected]
     existing = golden.load_labels(labels_dir, [q.id for q in with_sources])
     for question in with_sources:
@@ -77,7 +78,6 @@ def _sections(
             f"{s.filing_id} {s.section} {s.chunks}" for s in result.sections
         )
         print(f"{question.id}: {counts}")
-    conn.close()
 
 
 def _pool(
@@ -102,21 +102,23 @@ def _pool(
     understander = understanding.Understander.from_settings(
         settings, base.catalog
     )
-    for question in questions:
-        analysis = understander.analyze(question.question)
-        items = labels.pool_candidates(question, analysis, steps, base.conn)
-        path = labels_dir / f"{question.id}{labels.POOL_SUFFIX}"
-        path.write_text(labels.render_pool(question, items), encoding="utf-8")
-        print(f"{question.id}: {len(items)} candidates in {path}")
+    with contextlib.closing(base.conn):
+        for question in questions:
+            analysis = understander.analyze(question.question)
+            items = labels.pool_candidates(question, analysis, steps, base.conn)
+            path = labels_dir / f"{question.id}{labels.POOL_SUFFIX}"
+            path.write_text(
+                labels.render_pool(question, items), encoding="utf-8"
+            )
+            print(f"{question.id}: {len(items)} candidates in {path}")
 
 
 def _save(
     questions: Sequence[golden.GoldenQuestion],
     labels_dir: pathlib.Path,
-    build: pathlib.Path,
+    stamp: labels.IndexStamp,
+    conn: sqlite3.Connection,
 ) -> None:
-    conn = chunk_store.open_read_only(build / chunk_store.FILE_NAME)
-    stamp = labels.IndexStamp.from_build(build)
     existing = golden.load_labels(labels_dir, [q.id for q in questions])
     for question in questions:
         pool_file = labels_dir / f"{question.id}{labels.POOL_SUFFIX}"
@@ -134,7 +136,6 @@ def _save(
         print(
             f"{question.id}: grades 2/1/0 = {counts[0]}/{counts[1]}/{counts[2]}"
         )
-    conn.close()
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -154,9 +155,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         if build is None:
             raise errors.IndexMissingError(f"no index at {index_dir}/current")
         golden_set = golden.load_golden(args.golden)
-        if args.command == "sections":
-            _sections(golden_set, args.labels, build)
-        elif args.command == "pool":
+        stamp = labels.IndexStamp.from_build(build)
+        if args.command == "pool":
             _pool(
                 settings,
                 _questions(golden_set, args.ids),
@@ -164,7 +164,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                 index_dir,
             )
         else:
-            _save(_questions(golden_set, args.ids), args.labels, build)
+            with contextlib.closing(
+                chunk_store.open_read_only(build / chunk_store.FILE_NAME)
+            ) as conn:
+                if args.command == "sections":
+                    _sections(golden_set, args.labels, stamp, conn)
+                else:
+                    questions = _questions(golden_set, args.ids)
+                    _save(questions, args.labels, stamp, conn)
     except (errors.KeelError, OSError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1

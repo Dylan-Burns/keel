@@ -182,6 +182,20 @@ def test_judgments_fall_back_to_sections(tmp_path: pathlib.Path) -> None:
     assert len(judged.relevant) == 6
     assert "section-level labels apply" in judged.note
     assert golden.judgments(QUESTIONS[2], None, conn).grades == {}
+    # Graded chunks in this index without a grade 2 fall back as well.
+    weak = base.model_copy(
+        update={
+            "chunks": (
+                golden.ChunkLabel(
+                    chunk_id=f"{AAPL.filing_id}__risk_factors__0001",
+                    grade=1,
+                    filing_id=AAPL.filing_id,
+                    section="risk_factors",
+                ),
+            )
+        }
+    )
+    assert golden.judgments(QUESTIONS[0], weak, conn).level == "section"
 
 
 def test_section_labels_and_grades_round_trip(
@@ -220,6 +234,13 @@ def test_section_labels_and_grades_round_trip(
     # A fresh section pass keeps the graded chunks.
     again = labels.section_labels(QUESTIONS[1], conn, stamp(), loaded)
     assert again.chunks == merged.chunks
+    # A second save merges: a new grade wins, an earlier grade stays.
+    first = pooled[0]
+    regraded = labels.merge_grades(again, {first: (0, "")}, [first], conn)
+    by_id = {c.chunk_id: c.grade for c in regraded.chunks}
+    assert len(by_id) == len(pooled)
+    assert by_id[first] == 0
+    assert all(by_id[c] == 2 for c in pooled[1:])
 
 
 def test_retriever_modes(

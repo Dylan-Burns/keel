@@ -127,3 +127,11 @@ def test_input_error_scores_zero(
     assert {r.outcome for r in results} == {runner.INPUT_ERROR}
     assert results[0].metrics["mrr"] == 0.0
     assert "EmptyQuestionError" in results[0].detail
+    run = runner.EvalRun(
+        info=runner.RunInfo("e", "t", "1", "1", "b", "s", "1", "m"),
+        variants=runner.ABLATION,
+        results=tuple(results),
+    )
+    # The input error counts as a 0 in the gate means.
+    assert run.gate_values()["recall_at_25"] == 0.0
+    assert run.gate_values()["mrr"] == 0.0
