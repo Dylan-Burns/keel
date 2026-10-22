@@ -12,6 +12,7 @@ import datetime
 import os
 import pathlib
 from typing import Any
+from typing import Literal
 
 import pydantic
 import pydantic_settings
@@ -166,6 +167,7 @@ class LlmConfig(_Section):
     temperature: float | None = None
     thinking: dict[str, str] = pydantic.Field(default_factory=dict)
     max_output_tokens: int = 4000
+    output_mode: Literal["tool", "json_schema"] = "tool"
     prompt_version: str = "1.0.0"
     prompts_dir: pathlib.Path = pathlib.Path("prompts")
     cache_system_block: bool = True

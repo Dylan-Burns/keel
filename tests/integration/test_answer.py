@@ -420,7 +420,10 @@ def test_sec_urls(index_dir) -> None:
 def test_cache_key_names_the_model(index_dir, run_settings) -> None:
     answerer = make(index_dir, run_settings)
     expected = cache.cache_key(
-        question(run_settings), "1.0.0", "1.0.0", run_settings.llm.model
+        question(run_settings),
+        "1.0.0",
+        run_settings.llm.prompt_version,
+        run_settings.llm.model,
     )
     assert answerer.cache_key(question(run_settings)) == expected
 

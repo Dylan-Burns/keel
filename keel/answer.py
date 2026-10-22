@@ -523,7 +523,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         finished = run.finished
         try:
             if finished is not None and not finished.tool_called:
-                raise errors.SchemaViolationError("no answer tool call")
+                raise errors.SchemaViolationError("no answer in the response")
             answer = citations.parse_answer(text)
         except errors.SchemaViolationError as error:
             run.outcome = "schema_violation"
