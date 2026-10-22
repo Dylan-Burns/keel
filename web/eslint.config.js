@@ -7,6 +7,25 @@ import jsxA11y from 'eslint-plugin-jsx-a11y';
 import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
 
+// Google TypeScript Style Guide names: camelCase values, PascalCase types.
+const namingConvention = [
+  {selector: 'default', format: ['camelCase']},
+  {
+    selector: 'variable',
+    format: ['camelCase', 'PascalCase', 'UPPER_CASE'],
+  },
+  {selector: 'function', format: ['camelCase', 'PascalCase']},
+  {selector: 'typeLike', format: ['PascalCase']},
+  {selector: 'enumMember', format: ['UPPER_CASE']},
+  {selector: 'import', format: ['camelCase', 'PascalCase']},
+  {selector: 'objectLiteralProperty', format: null},
+  {
+    selector: 'parameter',
+    format: ['camelCase'],
+    leadingUnderscore: 'allow',
+  },
+];
+
 export default tseslint.config(
   {
     ignores: [
@@ -46,24 +65,7 @@ export default tseslint.config(
       '@typescript-eslint/consistent-type-definitions': ['error', 'interface'],
       '@typescript-eslint/array-type': ['error', {default: 'array'}],
       '@typescript-eslint/explicit-module-boundary-types': 'error',
-      '@typescript-eslint/naming-convention': [
-        'error',
-        {selector: 'default', format: ['camelCase']},
-        {
-          selector: 'variable',
-          format: ['camelCase', 'PascalCase', 'UPPER_CASE'],
-        },
-        {selector: 'function', format: ['camelCase', 'PascalCase']},
-        {selector: 'typeLike', format: ['PascalCase']},
-        {selector: 'enumMember', format: ['UPPER_CASE']},
-        {selector: 'import', format: ['camelCase', 'PascalCase']},
-        {selector: 'objectLiteralProperty', format: null},
-        {
-          selector: 'parameter',
-          format: ['camelCase'],
-          leadingUnderscore: 'allow',
-        },
-      ],
+      '@typescript-eslint/naming-convention': ['error', ...namingConvention],
       'no-restricted-syntax': [
         'error',
         {
@@ -107,6 +109,18 @@ export default tseslint.config(
           selector: 'TSModuleDeclaration',
           message: 'Google TS style: no namespaces; use modules.',
         },
+      ],
+    },
+  },
+  {
+    // The wire types mirror the JSON of the Python API (chapter 14.2), whose
+    // field names are snake_case. Only this file declares them.
+    files: ['src/api/types.ts'],
+    rules: {
+      '@typescript-eslint/naming-convention': [
+        'error',
+        ...namingConvention,
+        {selector: 'typeProperty', format: ['camelCase', 'snake_case']},
       ],
     },
   },
