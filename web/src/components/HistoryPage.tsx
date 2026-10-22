@@ -1,9 +1,16 @@
 import type {JSX} from 'react';
 import {useEffect, useState} from 'react';
 
-import {ApiError, fetchHistory, getToken, setToken} from '../api/client';
+import {
+  ApiError,
+  RERUN_QUESTION_KEY,
+  fetchHistory,
+  getToken,
+  setToken,
+  writeSession,
+} from '../api/client';
 import type {HistoryResponse, HistoryScope} from '../api/types';
-import {rerunPath, sharePath, shareUrl} from '../lib/links';
+import {sharePath, shareUrl} from '../lib/links';
 import {TokenField} from './TokenField';
 
 /** The load state of the page. */
@@ -27,8 +34,8 @@ function when(timestamp: string): string {
 /**
  * The history page at `/history` (chapter 27.2): the questions of the
  * signed-in user, newest first, from the audit log. Each row opens the
- * stored answer at its shareable link, copies the link, or asks the
- * question again. An admin can switch to every user's questions.
+ * stored answer at its shareable link, copies the link, or puts the
+ * question back in the question box (Re-run), where the user presses Ask. An admin can switch to every user's questions.
  *
  * @return The page.
  */
@@ -190,9 +197,10 @@ export function HistoryPage(): JSX.Element {
                         type="button"
                         className="rounded border border-slate-300 px-2 py-1"
                         data-testid="history-rerun"
-                        onClick={() =>
-                          window.location.assign(rerunPath(item.question))
-                        }
+                        onClick={() => {
+                          writeSession(RERUN_QUESTION_KEY, item.question);
+                          window.location.assign('/');
+                        }}
                       >
                         Re-run
                       </button>

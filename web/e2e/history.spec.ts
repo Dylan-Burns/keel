@@ -42,19 +42,23 @@ test('an answer appears in the history and opens read-only at its link', async (
   await expect(page.getByTestId('request-id')).toContainText(requestId);
 });
 
-test('re-run asks a question of the history again', async ({page}) => {
+test('re-run puts a question of the history back in the question box', async ({
+  page,
+}) => {
   await openKeel(page, {path: '/history'});
   const first = page.getByTestId('history-item').first();
   await expect(first).toBeVisible();
   const question = await first.locator('p').first().textContent();
   await first.getByTestId('history-rerun').click();
   await expect(page).toHaveURL(/\/$/);
+  // Re-run fills the question box; nothing is sent until the user asks.
+  const box = page.getByRole('textbox', {name: 'Question'});
+  await expect(box).toHaveValue(question ?? '');
+  await expect(stateRoot(page)).toHaveAttribute('data-state', 'empty');
+  await page.getByRole('button', {name: 'Ask', exact: true}).click();
   await expect(stateRoot(page)).toHaveAttribute(
     'data-state',
     /^(complete|partial_coverage)$/,
-  );
-  await expect(page.getByRole('textbox', {name: 'Question'})).toHaveValue(
-    question ?? '',
   );
 });
 
