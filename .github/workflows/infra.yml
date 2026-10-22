@@ -2,10 +2,14 @@ name: infra
 
 on:
   pull_request:
-    paths: ["infra/**"]
+    paths: ["infra/**", ".github/workflows/infra.yml"]
   push:
     branches: [main]
-    paths: ["infra/**"]
+    paths: ["infra/**", ".github/workflows/infra.yml"]
+  schedule:
+    # Nightly drift check: the AWS host against the Terraform on main.
+    - cron: "17 6 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -21,7 +25,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "1.9.8"
+          terraform_version: "1.17.0"
       - run: terraform fmt -check -recursive
       - run: terraform init -backend=false
       - run: terraform validate
@@ -44,3 +48,58 @@ jobs:
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: checkov-results
+
+  # terraform plan against the live AWS account (D-39), read-only through
+  # GitHub OIDC. On a pull request it shows what the change would do; on
+  # main and nightly it fails when the host drifted from the code. Forks get
+  # no OIDC token, so the job skips them.
+  plan:
+    needs: terraform
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra/terraform
+    env:
+      TF_IN_AUTOMATION: "1"
+      TF_VAR_region: ${{ vars.AWS_REGION }}
+      TF_VAR_instance_type: t3.large
+      TF_VAR_ssh_key_name: ${{ vars.TF_SSH_KEY_NAME }}
+      TF_VAR_backup_bucket_name: ${{ vars.TF_BACKUP_BUCKET }}
+      TF_VAR_admin_cidr: ${{ secrets.TF_ADMIN_CIDR }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.17.0"
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - run: terraform init -input=false -backend-config=backend.hcl
+      - name: terraform plan
+        run: |
+          set +e
+          terraform plan -input=false -lock=false -no-color -detailed-exitcode > plan.txt 2>&1
+          code=$?
+          set -e
+          {
+            echo "### terraform plan"
+            echo
+            echo '```'
+            grep -E '^(Plan:|No changes|Error|  # )' plan.txt || true
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+          if [[ "${code}" == "1" ]]; then
+            cat plan.txt
+            exit 1
+          fi
+          if [[ "${code}" == "2" && "${GITHUB_EVENT_NAME}" != "pull_request" ]]; then
+            echo "::error::the AWS host drifted from the Terraform on main"
+            grep -E '^(Plan:|  # )' plan.txt
+            exit 1
+          fi

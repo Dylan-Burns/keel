@@ -692,6 +692,13 @@ Entry format:
 - Tests: Vitest 182 (new: chip label from the resolved citation, the retrieved chunk, and the ID alone; a fact chip; no raw ID visible; the accessible name; a click opens the source; chip text stays text; the unverified tag; the fold of a repeat; the open bracket hidden while streaming; block identity kept while chips stream in and turn clickable). Playwright 48 in each mode, mocked and live against `keel serve` with the mock provider (new: the answer text shows chips, no raw ID, and a chip opens its source). Python 908 passing.
 - Attempts: 1. No provider spend.
 
+## Follow-up after stage 22: AWS CI and CD
+
+- Built: `infra/terraform/ci.tf` (the state bucket `keel-pilot-tfstate-<account>`, versioned, encrypted, public access blocked, `prevent_destroy`; the read-only role `keel-pilot-plan` for GitHub OIDC with `ReadOnlyAccess` and an explicit deny on the backup objects, trusted for pull requests of this repository and `main`); the S3 backend with a native lock file (`backend.hcl`, Terraform 1.10 or later; CI pins 1.17.0, the version that wrote the state); `admin_cidr` is sensitive, so a plan never prints it. `infra.yml` gains the `plan` job (pull requests, pushes to main, nightly at 06:17 UTC, on demand; a non-empty plan on main or nightly fails as drift; forks are skipped) and runs when the workflow itself changes. `release.yml` starts `deploy-aws.yml` for the tag's version after the image job, so every release waits at the approval of the `production` environment. `deploy.yml` (Railway) is marked as the alternative of chapter 29.9.
+- Measured: the local state moved into S3 with `terraform init -migrate-state`; `terraform plan -detailed-exitcode` afterwards exits 0 (no drift); 7 resources added for CI (bucket and its 3 settings, the role, its policy, the read-only attachment).
+- Decisions taken without review: the plan role reads the whole account (`ReadOnlyAccess`), acceptable because the account holds only Keel, with a deny on the backup objects, which hold the audit log. A same-repository pull request runs its own Terraform code under that role during `plan`, so only collaborators can use it; forks get no OIDC token.
+- Attempts: 1.
+
 ## Gaps
 
 Values that were not available when the build needed them, and what the build did instead.
