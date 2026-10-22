@@ -146,11 +146,20 @@ describe('tagCitations', () => {
   });
 });
 
+describe('tagCitations links', () => {
+  it('leaves a bracket that opens a markdown link', () => {
+    const text = '[AAPL_10K_2025-09-27__mdna__0001](https://www.sec.gov/x)';
+    expect(tagCitations(text)).toBe(text);
+  });
+});
+
 describe('trimPartialCitation', () => {
   it('drops an open bracket at the end and keeps closed ones', () => {
     expect(trimPartialCitation('Revenue grew [AAPL_10K_2025-09')).toBe(
       'Revenue grew ',
     );
+    expect(trimPartialCitation('See [fact')).toBe('See ');
+    expect(trimPartialCitation('See [the note')).toBe('See [the note');
     expect(trimPartialCitation('Done [AAPL_10K_2025-09-27__mdna__0001].')).toBe(
       'Done [AAPL_10K_2025-09-27__mdna__0001].',
     );
@@ -198,7 +207,7 @@ describe('chipCitations', () => {
     expect(chips[0]?.textContent).toBe('AAPL FY2025 x2');
     expect(chips[0]?.getAttribute('data-chunk-id')).toBe(id);
     expect(chips[0]?.getAttribute('aria-label')).toBe(
-      'AAPL FY2025, 2 passages: Apple Inc. 10-K FY2025, Risk Factors',
+      'AAPL FY2025, 2 passages, opens the first: Apple Inc. 10-K FY2025, Risk Factors',
     );
     expect(chips[1]?.textContent).toBe('AAPL FY2025');
   });
@@ -234,7 +243,7 @@ describe('chipCitations', () => {
     expect(host.querySelector('button')).toBeNull();
     const tag = host.querySelector('.tag-warn');
     expect(tag?.textContent).toBe(
-      'AAPL FY2025, unverified: Apple Inc. 10-K FY2025, Risk Factors',
+      'AAPL FY2025 unverified: Apple Inc. 10-K FY2025, Risk Factors',
     );
   });
 });
