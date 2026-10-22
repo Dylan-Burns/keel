@@ -355,8 +355,31 @@ def test_refresh_command(
 def test_refresh_command_error(
     cli_env: Workspace, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """A failed ticker sets the exit code to 1."""
     _, corpus, index = cli_env
     assert _keel("watch", "add", "ZZZZ") == 0
     where = ["--corpus", str(corpus), "--out", str(index)]
     assert _keel("refresh", "--dry-run", "--offline", *where) == 1
     assert "ZZZZ: error: UnknownTickerError" in capsys.readouterr().out
+
+
+def test_refresh_survives_a_failed_add(workspace: Workspace) -> None:
+    """An OS error in the add path is an error line; the run still ends."""
+    settings, corpus, index = workspace
+    state_store.add_watch(state_store.state_path(settings), "ZTS")
+
+    def broken(*args: object, **kwargs: object) -> add.AddReport:
+        raise OSError("disk full")
+
+    with _offline(settings) as client:
+        report = refresh.run_refresh(
+            settings,
+            client=client,
+            corpus_dir=corpus,
+            index_dir=index,
+            embedder_factory=conftest.FakeEmbedder,
+            adder=broken,
+        )
+    assert report.tickers[0].error == "OSError: disk full"
+    events = refresh.read_log(refresh.log_path(settings))
+    assert [e.event for e in events][-2:] == ["error", "done"]

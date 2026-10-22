@@ -506,7 +506,7 @@ def _add_refresh_commands(
     refresh_parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="list the new filings; write no file and no index",
+        help="list the new filings; write no corpus file and no index",
     )
     refresh_parser.add_argument(
         "--offline",
