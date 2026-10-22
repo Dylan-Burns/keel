@@ -9,6 +9,7 @@ import type {
   ChunkResponse,
   CoverageResponse,
   ErrorEvent,
+  EvalResponse,
   HealthResponse,
   IndexStatusResponse,
   ReadyResponse,
@@ -385,6 +386,13 @@ export const fetchChunk = (chunkId: string): Promise<ChunkResponse> =>
  */
 export const fetchResult = (requestId: string): Promise<AskResponse> =>
   getJson(`/api/results/${encodeURIComponent(requestId)}`);
+
+/**
+ * `GET /api/eval`: the eval report, the prompt log, and the gates (W-02).
+ *
+ * @return The eval page data.
+ */
+export const fetchEval = (): Promise<EvalResponse> => getJson('/api/eval');
 
 /**
  * `POST /api/ask` with streaming: yields the server-sent events.

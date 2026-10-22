@@ -31,6 +31,7 @@ from keel import citations
 from keel import errors
 from keel import understanding
 from keel.api import auth
+from keel.api import eval_page
 from keel.api import sse
 from keel.api import state
 from keel.providers import mock
@@ -549,6 +550,29 @@ async def index_status(
         "warnings": warnings,
         "manifest": manifest.model_dump(mode="json") if manifest else None,
     }
+
+
+@router.get("/eval")
+async def eval_report(services: Services, caller: Caller) -> dict[str, Any]:
+    """The eval page data (W-02): the report, the prompt log, the gates.
+
+    The markdown goes out as text and the front-end renders it through the
+    answer renderer and DOMPurify (chapter 15 allow list), read-only.
+
+    Args:
+        services: The shared services.
+        caller: The Principal.
+
+    Returns:
+        Both documents (`markdown` is None for a missing file) and the
+        regression gates read from the report.
+    """
+    del caller
+    server = services.settings.server
+    page = await asyncio.to_thread(
+        eval_page.load, server.eval_report, server.prompt_log
+    )
+    return page.model_dump()
 
 
 @router.post("/feedback")

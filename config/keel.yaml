@@ -11,6 +11,8 @@ server:
   host: 127.0.0.1              # KEEL_SERVER__HOST=0.0.0.0 in the container
   port: 8000                   # `keel serve` takes the next free port up to 8010 (E-F-08)
   web_dist: web/dist           # the front-end build that the service serves at /
+  eval_report: eval/report.md  # GET /api/eval renders it read-only (W-02); `keel eval` writes it
+  prompt_log: docs/PROMPT_LOG.md  # GET /api/eval renders it read-only next to the report (W-02)
 
 cache:
   answers_dir: demo/answer_cache   # the answer cache; committed for the offline drill, on the volume in the pilot
