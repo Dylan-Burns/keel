@@ -59,6 +59,18 @@ DEGRADED_RETRIEVAL = "degraded_retrieval"
 RERANKER_UNAVAILABLE = "reranker_unavailable"
 RISK_SECTION = "risk_factors"
 UNKNOWN_SECTION = "unknown"
+# A risk question that also asks how the companies respond reserves a third
+# of each company quota for the sections where filings state their
+# responses: Item 1 (the regulation subsection), MD&A, and legal
+# proceedings (stage 8; the risk factor weights alone leave them out).
+RESPONSE_SECTIONS = ("business", "mdna", "legal_proceedings")
+RESPONSE_SHARE = 3
+RESPONSE_LABEL = "response"
+_RESPONSE_WORDS = re.compile(
+    r"(?i)\b(?:address(?:es|ed|ing)?|mitigat\w*|respond(?:s|ed|ing)?|"
+    r"response|responses|handl(?:e|es|ed|ing)|deal(?:s|ing)? with|"
+    r"doing about|tackl(?:e|es|ing)|counter(?:s|ing)?)\b"
+)
 
 _FISCAL_YEAR = re.compile(r"(?i)\b(?:fiscal(?:\s+year)?|FY)\s*'?(20\d\d)\b")
 _MONTH_TEXT = "jan feb mar apr may jun jul aug sep oct nov dec"
@@ -76,7 +88,7 @@ _STOP_TEXT = (
 )
 _STOP_WORDS = frozenset(_STOP_TEXT.split())
 
-_ROW_COLUMNS = (
+ROW_COLUMNS = (
     "c.id, c.chunk_id, c.filing_id, c.ticker, c.company, c.form, "
     "c.fiscal_year, c.fiscal_period, c.period_end_date, c.filing_date, "
     "c.section, c.item_label, c.text, c.token_count, c.is_table, "
@@ -336,6 +348,21 @@ def is_risk_question(analysis: understanding.QuestionAnalysis) -> bool:
     return risk > 1.0 and risk >= max(weights.values())
 
 
+def asks_for_response(analysis: understanding.QuestionAnalysis) -> bool:
+    """Tell whether a risk question also asks how the companies respond.
+
+    Args:
+        analysis: The question analysis.
+
+    Returns:
+        True for a risk question with a response word, such as `how are
+        they addressing them`.
+    """
+    return is_risk_question(analysis) and bool(
+        _RESPONSE_WORDS.search(analysis.question)
+    )
+
+
 def _filings_in(
     filings: Sequence[understanding.FilingRef], window: tuple[str, str] | None
 ) -> list[understanding.FilingRef]:
@@ -473,6 +500,53 @@ class _PlanInput:
         )
         return query, annual
 
+    def response_query(self, ticker: str, group: str) -> SubQuery:
+        """The sub-query over the sections that state responses."""
+        window = _window(self.analysis, ticker)
+        return SubQuery(
+            group=group,
+            label=f"{ticker} {RESPONSE_LABEL}",
+            dense_text=self.dense_text(
+                ticker, "how the company responds and what it does"
+            ),
+            terms=self.terms,
+            filter=Filter(
+                tickers=(ticker,),
+                sections=RESPONSE_SECTIONS,
+                windows=((ticker, *window),) if window else (),
+            ),
+        )
+
+
+def _company_groups(
+    data: _PlanInput, ticker: str, quota: int, token_quota: int | None
+) -> tuple[list[SubQuery], list[context.QuotaGroup]]:
+    """The sub-queries and quota groups of 1 company (chapter 11.3).
+
+    A question that asks how the companies respond to their risks splits
+    the company quota: a third goes to a response group over
+    `RESPONSE_SECTIONS`, the rest stays with the risk group.
+    """
+    queries = [data.company_query(ticker, ticker)]
+    extra = data.supplement(ticker, ticker)
+    if extra is not None:
+        queries.append(extra[0])
+    reserve = quota // RESPONSE_SHARE
+    if not asks_for_response(data.analysis) or reserve < 1:
+        group = context.QuotaGroup(ticker, ticker, ticker, quota, token_quota)
+        return queries, [group]
+    key = f"{ticker} {RESPONSE_LABEL}"
+    reserved: int | None = None
+    rest: int | None = None
+    if token_quota is not None:
+        reserved = token_quota * reserve // quota
+        rest = token_quota - reserved
+    queries.append(data.response_query(ticker, key))
+    return queries, [
+        context.QuotaGroup(ticker, ticker, ticker, quota - reserve, rest),
+        context.QuotaGroup(key, ticker, key, reserve, reserved),
+    ]
+
 
 def _trend_plan(
     data: _PlanInput, tickers: Sequence[str], company_total: int
@@ -601,13 +675,9 @@ def build_plan(
             budget.max_tokens // len(tickers) if len(tickers) > 1 else None
         )
     for ticker in tickers:
-        groups.append(
-            context.QuotaGroup(ticker, ticker, ticker, quota, token_quota)
-        )
-        queries.append(data.company_query(ticker, ticker))
-        extra = data.supplement(ticker, ticker)
-        if extra is not None:
-            queries.append(extra[0])
+        more, owned = _company_groups(data, ticker, quota, token_quota)
+        queries += more
+        groups += owned
     return Plan(tuple(queries), tuple(groups), sector=kind == "sector")
 
 
@@ -887,9 +957,19 @@ class _Clock:
     rerank: float = 0.0
 
 
-def _candidate(
+def candidate_from_row(
     row: Sequence[Any], query: int, sub: SubQuery
 ) -> context.Candidate:
+    """Build a candidate from 1 row of `ROW_COLUMNS`.
+
+    Args:
+        row: The row.
+        query: The index of the sub-query that found the chunk.
+        sub: That sub-query.
+
+    Returns:
+        The candidate, unscored.
+    """
     return context.Candidate(
         chunk_id=row[1],
         filing_id=row[2],
@@ -1068,7 +1148,7 @@ class Retriever:
 
     def _rows(self, ids: Sequence[int]) -> dict[int, Sequence[Any]]:
         rows = self.conn.execute(
-            f"SELECT {_ROW_COLUMNS} FROM chunks AS c "  # noqa: S608
+            f"SELECT {ROW_COLUMNS} FROM chunks AS c "  # noqa: S608
             "WHERE c.id IN (SELECT value FROM json_each(?))",
             (json.dumps(list(ids)),),
         )
@@ -1088,7 +1168,7 @@ class Retriever:
             rows = self._rows(list(fused))
             for row_id, score in fused.items():
                 candidate = dataclasses.replace(
-                    _candidate(rows[row_id], index, sub), fused=score
+                    candidate_from_row(rows[row_id], index, sub), fused=score
                 )
                 known = found.get(candidate.chunk_id)
                 if known is None or known.fused < score:
@@ -1207,16 +1287,17 @@ class Retriever:
             return plan, [c for c in candidates if c.ticker in keep], gaps
         # The sub-queries of the dropped companies go; each candidate then
         # points at the index of its sub-query in the shorter tuple.
-        index = {
-            old: new
-            for new, old in enumerate(
-                i for i, s in enumerate(plan.sub_queries) if s.group in keep
-            )
-        }
+        owner = {g.key: g.ticker for g in plan.groups}
+        kept_queries = [
+            i
+            for i, s in enumerate(plan.sub_queries)
+            if owner.get(s.group, s.group) in keep
+        ]
+        index = {old: new for new, old in enumerate(kept_queries)}
         plan = dataclasses.replace(
             plan,
             groups=tuple(g for g in plan.groups if g.ticker in keep),
-            sub_queries=tuple(s for s in plan.sub_queries if s.group in keep),
+            sub_queries=tuple(plan.sub_queries[i] for i in kept_queries),
         )
         return (
             plan,
