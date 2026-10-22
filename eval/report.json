@@ -1,0 +1,4432 @@
+{
+  "info": {
+    "run_id": "eval-20261022T013234Z",
+    "started_at": "2026-10-22T01:32:34+00:00",
+    "golden_version": "1.0.0",
+    "index_version": "1.0.1",
+    "build_id": "20261021T231603728106Z",
+    "chunks_sha256": "722b9b5693e4284330cbe36342c8d8679357be7f4cd899cf67c02c65bdb266be",
+    "prompt_version": "1.0.0",
+    "model": "claude-sonnet-5-5",
+    "subset": ""
+  },
+  "variants": [
+    {
+      "name": "hybrid",
+      "mode": "hybrid",
+      "rerank": true
+    },
+    {
+      "name": "lexical",
+      "mode": "lexical",
+      "rerank": true
+    },
+    {
+      "name": "dense",
+      "mode": "dense",
+      "rerank": true
+    },
+    {
+      "name": "hybrid, no reranker",
+      "mode": "hybrid",
+      "rerank": false
+    },
+    {
+      "name": "lexical, no reranker",
+      "mode": "lexical",
+      "rerank": false
+    },
+    {
+      "name": "dense, no reranker",
+      "mode": "dense",
+      "rerank": false
+    }
+  ],
+  "seconds": 830.8,
+  "stale_labels": [],
+  "gates": [
+    {
+      "name": "Recall at 25",
+      "threshold": 0.85,
+      "value": 0.6303425559947299,
+      "status": "fail"
+    },
+    {
+      "name": "MRR",
+      "threshold": 0.6,
+      "value": 0.8764705882352942,
+      "status": "pass"
+    },
+    {
+      "name": "Faithfulness",
+      "threshold": 0.9,
+      "value": null,
+      "status": "pending"
+    },
+    {
+      "name": "Citation precision",
+      "threshold": 0.9,
+      "value": null,
+      "status": "pending"
+    },
+    {
+      "name": "Coverage completeness on comparison and sector questions",
+      "threshold": 1.0,
+      "value": null,
+      "status": "pending"
+    },
+    {
+      "name": "Numeric accuracy",
+      "threshold": 0.9,
+      "value": null,
+      "status": "pending"
+    },
+    {
+      "name": "Schema validity",
+      "threshold": 1.0,
+      "value": null,
+      "status": "pending"
+    },
+    {
+      "name": "Refusal correctness",
+      "threshold": 1.0,
+      "value": 1.0,
+      "status": "pass"
+    },
+    {
+      "name": "Latency p95",
+      "threshold": 40.0,
+      "value": null,
+      "status": "pending"
+    },
+    {
+      "name": "Mean cost per question",
+      "threshold": 0.25,
+      "value": null,
+      "status": "pending"
+    }
+  ],
+  "summary": {
+    "hybrid": {
+      "recall_at_10": 0.6297101449275362,
+      "recall_at_25": 0.6303425559947299,
+      "recall_at_48": 0.5649953966940823,
+      "mrr": 0.8764705882352942,
+      "ndcg_at_10": 0.7229676265296322,
+      "coverage_recall": 0.94375,
+      "retrieval_ms_p50": 9337.6,
+      "retrieval_ms_p95": 21646.449999999997
+    },
+    "lexical": {
+      "recall_at_10": 0.6405797101449275,
+      "recall_at_25": 0.6111330698287221,
+      "recall_at_48": 0.5277234463660146,
+      "mrr": 0.874959136972867,
+      "ndcg_at_10": 0.7303674900906032,
+      "coverage_recall": 0.9333333333333333,
+      "retrieval_ms_p50": 9373.9,
+      "retrieval_ms_p95": 17544.079999999994
+    },
+    "dense": {
+      "recall_at_10": 0.6673913043478261,
+      "recall_at_25": 0.6464426877470355,
+      "recall_at_48": 0.5413238326285882,
+      "mrr": 0.8829923273657289,
+      "ndcg_at_10": 0.7513515820228274,
+      "coverage_recall": 0.975,
+      "retrieval_ms_p50": 8355.7,
+      "retrieval_ms_p95": 21116.589999999997
+    },
+    "hybrid, no reranker": {
+      "recall_at_10": 0.6173913043478261,
+      "recall_at_25": 0.5587747035573123,
+      "recall_at_48": 0.5517132036596142,
+      "mrr": 0.8940217391304348,
+      "ndcg_at_10": 0.7118913105963485,
+      "coverage_recall": 0.94375,
+      "retrieval_ms_p50": 374.6,
+      "retrieval_ms_p95": 1914.7599999999998
+    },
+    "lexical, no reranker": {
+      "recall_at_10": 0.5927536231884057,
+      "recall_at_25": 0.5872859025032938,
+      "recall_at_48": 0.5509219785382576,
+      "mrr": 0.7267283822203731,
+      "ndcg_at_10": 0.6575894179958354,
+      "coverage_recall": 0.9333333333333333,
+      "retrieval_ms_p50": 158.2,
+      "retrieval_ms_p95": 557.29
+    },
+    "dense, no reranker": {
+      "recall_at_10": 0.6282608695652173,
+      "recall_at_25": 0.5767193675889327,
+      "recall_at_48": 0.5286995504015791,
+      "mrr": 0.8137959866220735,
+      "ndcg_at_10": 0.6988101332548087,
+      "coverage_recall": 0.975,
+      "retrieval_ms_p50": 174.6,
+      "retrieval_ms_p95": 1435.3599999999997
+    }
+  },
+  "results": [
+    {
+      "question_id": "G-01",
+      "type": "single_company",
+      "variant": "hybrid",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 31,
+      "retrieval_ms": 21885.4,
+      "top": [
+        "AAPL_10K_2025-09-27__risk_factors__0000",
+        "AAPL_10K_2025-09-27__risk_factors__0025",
+        "AAPL_10K_2025-09-27__risk_factors__0007",
+        "AAPL_10K_2025-09-27__risk_factors__0004",
+        "AAPL_10K_2025-09-27__risk_factors__0011"
+      ],
+      "sections": {
+        "risk_factors": 36,
+        "mdna": 6,
+        "unknown": 4,
+        "business": 1,
+        "legal_proceedings": 1
+      }
+    },
+    {
+      "question_id": "G-01",
+      "type": "single_company",
+      "variant": "lexical",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 31,
+      "retrieval_ms": 12252.4,
+      "top": [
+        "AAPL_10K_2025-09-27__risk_factors__0000",
+        "AAPL_10K_2025-09-27__risk_factors__0025",
+        "AAPL_10K_2025-09-27__risk_factors__0007",
+        "AAPL_10K_2025-09-27__risk_factors__0004",
+        "AAPL_10K_2025-09-27__risk_factors__0011"
+      ],
+      "sections": {
+        "risk_factors": 36,
+        "mdna": 5,
+        "unknown": 5,
+        "legal_proceedings": 2
+      }
+    },
+    {
+      "question_id": "G-01",
+      "type": "single_company",
+      "variant": "dense",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 0.967741935483871,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 31,
+      "retrieval_ms": 26982.5,
+      "top": [
+        "AAPL_10K_2025-09-27__risk_factors__0000",
+        "AAPL_10K_2025-09-27__risk_factors__0025",
+        "AAPL_10K_2025-09-27__risk_factors__0007",
+        "AAPL_10K_2025-09-27__risk_factors__0004",
+        "AAPL_10K_2025-09-27__risk_factors__0011"
+      ],
+      "sections": {
+        "risk_factors": 35,
+        "mdna": 7,
+        "unknown": 4,
+        "business": 1,
+        "legal_proceedings": 1
+      }
+    },
+    {
+      "question_id": "G-01",
+      "type": "single_company",
+      "variant": "hybrid, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 0.96,
+        "recall_at_48": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 31,
+      "retrieval_ms": 374.6,
+      "top": [
+        "AAPL_10K_2025-09-27__risk_factors__0000",
+        "AAPL_10K_2025-09-27__risk_factors__0020",
+        "AAPL_10K_2025-09-27__risk_factors__0025",
+        "AAPL_10K_2025-09-27__risk_factors__0023",
+        "AAPL_10K_2025-09-27__risk_factors__0024"
+      ],
+      "sections": {
+        "risk_factors": 36,
+        "mdna": 7,
+        "unknown": 3,
+        "legal_proceedings": 2
+      }
+    },
+    {
+      "question_id": "G-01",
+      "type": "single_company",
+      "variant": "lexical, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 0.88,
+        "recall_at_48": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 31,
+      "retrieval_ms": 117.3,
+      "top": [
+        "AAPL_10K_2025-09-27__risk_factors__0000",
+        "AAPL_10K_2025-09-27__risk_factors__0009",
+        "AAPL_10K_2025-09-27__risk_factors__0016",
+        "AAPL_10K_2025-09-27__risk_factors__0020",
+        "AAPL_10K_2025-09-27__risk_factors__0025"
+      ],
+      "sections": {
+        "risk_factors": 36,
+        "mdna": 7,
+        "unknown": 3,
+        "legal_proceedings": 2
+      }
+    },
+    {
+      "question_id": "G-01",
+      "type": "single_company",
+      "variant": "dense, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 0.96,
+        "recall_at_48": 0.9354838709677419,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 31,
+      "retrieval_ms": 167.1,
+      "top": [
+        "AAPL_10K_2025-09-27__risk_factors__0000",
+        "AAPL_10K_2025-09-27__risk_factors__0030",
+        "AAPL_10K_2025-09-27__risk_factors__0011",
+        "AAPL_10K_2025-09-27__risk_factors__0020",
+        "AAPL_10K_2025-09-27__risk_factors__0025"
+      ],
+      "sections": {
+        "risk_factors": 34,
+        "mdna": 10,
+        "unknown": 3,
+        "legal_proceedings": 1
+      }
+    },
+    {
+      "question_id": "G-02",
+      "type": "single_company",
+      "variant": "hybrid",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.0,
+        "recall_at_25": 0.0,
+        "recall_at_48": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_10": 0.0,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 26,
+      "retrieval_ms": 16600.3,
+      "top": [
+        "MSFT_10K_2025-06-30__mdna__0004",
+        "MSFT_10Q_2025-12-31__mdna__0007",
+        "MSFT_10Q_2025-12-31__mdna__0004",
+        "MSFT_10K_2025-06-30__mdna__0003",
+        "MSFT_10K_2024-06-30__mdna__0004"
+      ],
+      "sections": {
+        "mdna": 28,
+        "financial_statements": 20
+      }
+    },
+    {
+      "question_id": "G-02",
+      "type": "single_company",
+      "variant": "lexical",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.0,
+        "recall_at_25": 0.0,
+        "recall_at_48": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_10": 0.0,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 26,
+      "retrieval_ms": 17744.6,
+      "top": [
+        "MSFT_10K_2025-06-30__mdna__0004",
+        "MSFT_10Q_2025-12-31__mdna__0007",
+        "MSFT_10Q_2025-12-31__mdna__0004",
+        "MSFT_10K_2025-06-30__mdna__0003",
+        "MSFT_10K_2024-06-30__mdna__0004"
+      ],
+      "sections": {
+        "mdna": 29,
+        "financial_statements": 19
+      }
+    },
+    {
+      "question_id": "G-02",
+      "type": "single_company",
+      "variant": "dense",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.0,
+        "recall_at_25": 0.0,
+        "recall_at_48": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_10": 0.0,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 26,
+      "retrieval_ms": 18571.5,
+      "top": [
+        "MSFT_10K_2025-06-30__mdna__0004",
+        "MSFT_10K_2025-06-30__mdna__0007",
+        "MSFT_10Q_2025-12-31__mdna__0004",
+        "MSFT_10K_2025-06-30__mdna__0003",
+        "MSFT_10Q_2025-12-31__mdna__0009"
+      ],
+      "sections": {
+        "mdna": 29,
+        "financial_statements": 19
+      }
+    },
+    {
+      "question_id": "G-02",
+      "type": "single_company",
+      "variant": "hybrid, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.0,
+        "recall_at_25": 0.04,
+        "recall_at_48": 0.038461538461538464,
+        "mrr": 0.0625,
+        "ndcg_at_10": 0.0,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 26,
+      "retrieval_ms": 321.3,
+      "top": [
+        "MSFT_10K_2025-06-30__mdna__0004",
+        "MSFT_10Q_2024-12-31__mdna__0004",
+        "MSFT_10Q_2024-09-30__mdna__0004",
+        "MSFT_10Q_2022-12-31__mdna__0006",
+        "MSFT_10K_2024-06-30__mdna__0004"
+      ],
+      "sections": {
+        "financial_statements": 23,
+        "mdna": 21,
+        "business": 4
+      }
+    },
+    {
+      "question_id": "G-02",
+      "type": "single_company",
+      "variant": "lexical, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.0,
+        "recall_at_25": 0.04,
+        "recall_at_48": 0.038461538461538464,
+        "mrr": 0.05263157894736842,
+        "ndcg_at_10": 0.0,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 26,
+      "retrieval_ms": 169.9,
+      "top": [
+        "MSFT_10Q_2025-12-31__mdna__0007",
+        "MSFT_10K_2024-06-30__mdna__0006",
+        "MSFT_10K_2023-06-30__mdna__0007",
+        "MSFT_10Q_2024-03-31__mdna__0007",
+        "MSFT_10Q_2023-03-31__mdna__0008"
+      ],
+      "sections": {
+        "mdna": 33,
+        "financial_statements": 12,
+        "business": 3
+      }
+    },
+    {
+      "question_id": "G-02",
+      "type": "single_company",
+      "variant": "dense, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.0,
+        "recall_at_25": 0.0,
+        "recall_at_48": 0.038461538461538464,
+        "mrr": 0.02564102564102564,
+        "ndcg_at_10": 0.0,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 26,
+      "retrieval_ms": 201.6,
+      "top": [
+        "MSFT_10K_2025-06-30__mdna__0004",
+        "MSFT_10Q_2023-12-31__financial_statements__0094",
+        "MSFT_10Q_2024-03-31__financial_statements__0097",
+        "MSFT_10Q_2023-03-31__financial_statements__0092",
+        "MSFT_10Q_2023-09-30__financial_statements__0084"
+      ],
+      "sections": {
+        "financial_statements": 22,
+        "mdna": 22,
+        "business": 4
+      }
+    },
+    {
+      "question_id": "G-03",
+      "type": "single_company",
+      "variant": "hybrid",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.16666666666666666,
+        "recall_at_25": 0.16666666666666666,
+        "recall_at_48": 0.16666666666666666,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.706345560065912,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 6,
+      "retrieval_ms": 17380.2,
+      "top": [
+        "TSLA_10K_2025-12-31__legal_proceedings__0000",
+        "TSLA_10K_2023-12-31__legal_proceedings__0000",
+        "TSLA_10K_2022-12-31__legal_proceedings__0000",
+        "TSLA_10Q_2022-03-31__legal_proceedings__0000",
+        "TSLA_10Q_2022-09-30__legal_proceedings__0000"
+      ],
+      "sections": {
+        "unknown": 19,
+        "risk_factors": 12,
+        "legal_proceedings": 11,
+        "business": 6
+      }
+    },
+    {
+      "question_id": "G-03",
+      "type": "single_company",
+      "variant": "lexical",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.16666666666666666,
+        "recall_at_25": 0.16666666666666666,
+        "recall_at_48": 0.16666666666666666,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.706345560065912,
+        "coverage_recall": null
+      },
+      "chunks": 41,
+      "relevant": 6,
+      "retrieval_ms": 14081.9,
+      "top": [
+        "TSLA_10K_2025-12-31__legal_proceedings__0000",
+        "TSLA_10K_2023-12-31__legal_proceedings__0000",
+        "TSLA_10K_2022-12-31__legal_proceedings__0000",
+        "TSLA_10Q_2022-03-31__legal_proceedings__0000",
+        "TSLA_10Q_2022-09-30__legal_proceedings__0000"
+      ],
+      "sections": {
+        "unknown": 14,
+        "risk_factors": 12,
+        "legal_proceedings": 11,
+        "business": 4
+      }
+    },
+    {
+      "question_id": "G-03",
+      "type": "single_company",
+      "variant": "dense",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.16666666666666666,
+        "recall_at_25": 0.16666666666666666,
+        "recall_at_48": 0.16666666666666666,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.706345560065912,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 6,
+      "retrieval_ms": 18703.4,
+      "top": [
+        "TSLA_10K_2025-12-31__legal_proceedings__0000",
+        "TSLA_10K_2023-12-31__legal_proceedings__0000",
+        "TSLA_10K_2022-12-31__legal_proceedings__0000",
+        "TSLA_10Q_2022-03-31__legal_proceedings__0000",
+        "TSLA_10Q_2022-09-30__legal_proceedings__0000"
+      ],
+      "sections": {
+        "unknown": 26,
+        "legal_proceedings": 11,
+        "business": 5,
+        "mdna": 4,
+        "risk_factors": 2
+      }
+    },
+    {
+      "question_id": "G-03",
+      "type": "single_company",
+      "variant": "hybrid, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.16666666666666666,
+        "recall_at_25": 0.16666666666666666,
+        "recall_at_48": 0.16666666666666666,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.706345560065912,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 6,
+      "retrieval_ms": 174.8,
+      "top": [
+        "TSLA_10K_2025-12-31__legal_proceedings__0000",
+        "TSLA_10K_2024-12-31__legal_proceedings__0000",
+        "TSLA_10Q_2023-03-31__legal_proceedings__0000",
+        "TSLA_10Q_2023-06-30__legal_proceedings__0000",
+        "TSLA_10K_2023-12-31__legal_proceedings__0000"
+      ],
+      "sections": {
+        "unknown": 19,
+        "risk_factors": 12,
+        "legal_proceedings": 11,
+        "business": 5,
+        "mdna": 1
+      }
+    },
+    {
+      "question_id": "G-03",
+      "type": "single_company",
+      "variant": "lexical, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.16666666666666666,
+        "recall_at_25": 0.16666666666666666,
+        "recall_at_48": 0.16666666666666666,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.706345560065912,
+        "coverage_recall": null
+      },
+      "chunks": 41,
+      "relevant": 6,
+      "retrieval_ms": 36.1,
+      "top": [
+        "TSLA_10K_2025-12-31__legal_proceedings__0000",
+        "TSLA_10K_2024-12-31__legal_proceedings__0000",
+        "TSLA_10Q_2023-03-31__legal_proceedings__0000",
+        "TSLA_10K_2023-12-31__legal_proceedings__0000",
+        "TSLA_10Q_2023-06-30__legal_proceedings__0000"
+      ],
+      "sections": {
+        "unknown": 14,
+        "risk_factors": 12,
+        "legal_proceedings": 11,
+        "business": 4
+      }
+    },
+    {
+      "question_id": "G-03",
+      "type": "single_company",
+      "variant": "dense, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.16666666666666666,
+        "recall_at_25": 0.16666666666666666,
+        "recall_at_48": 0.16666666666666666,
+        "mrr": 0.5,
+        "ndcg_at_10": 0.6593196126522904,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 6,
+      "retrieval_ms": 136.0,
+      "top": [
+        "TSLA_10Q_2023-06-30__legal_proceedings__0000",
+        "TSLA_10K_2025-12-31__legal_proceedings__0000",
+        "TSLA_10Q_2023-03-31__legal_proceedings__0000",
+        "TSLA_10Q_2023-09-30__legal_proceedings__0000",
+        "TSLA_10K_2023-12-31__legal_proceedings__0000"
+      ],
+      "sections": {
+        "unknown": 26,
+        "legal_proceedings": 11,
+        "business": 5,
+        "mdna": 4,
+        "risk_factors": 2
+      }
+    },
+    {
+      "question_id": "G-04",
+      "type": "single_company",
+      "variant": "hybrid",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.6,
+        "recall_at_25": 0.32,
+        "recall_at_48": 0.20833333333333334,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.7125523635307982,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 109,
+      "retrieval_ms": 16585.9,
+      "top": [
+        "DIS_10K_2024-09-28__mdna__0003",
+        "DIS_10K_2024-09-28__mdna__0062",
+        "DIS_10K_2024-09-28__mdna__0085",
+        "DIS_10K_2024-09-28__mdna__0014",
+        "DIS_10K_2024-09-28__mdna__0019"
+      ],
+      "sections": {
+        "mdna": 33,
+        "financial_statements": 15
+      }
+    },
+    {
+      "question_id": "G-04",
+      "type": "single_company",
+      "variant": "lexical",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.6,
+        "recall_at_25": 0.32,
+        "recall_at_48": 0.20833333333333334,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.6994739030813919,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 109,
+      "retrieval_ms": 15739.4,
+      "top": [
+        "DIS_10K_2024-09-28__mdna__0003",
+        "DIS_10K_2024-09-28__mdna__0062",
+        "DIS_10K_2024-09-28__mdna__0014",
+        "DIS_10K_2024-09-28__mdna__0019",
+        "DIS_10Q_2023-12-30__mdna__0077"
+      ],
+      "sections": {
+        "mdna": 48
+      }
+    },
+    {
+      "question_id": "G-04",
+      "type": "single_company",
+      "variant": "dense",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.7,
+        "recall_at_25": 0.36,
+        "recall_at_48": 0.1875,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.7630946912803436,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 109,
+      "retrieval_ms": 16893.1,
+      "top": [
+        "DIS_10K_2024-09-28__mdna__0003",
+        "DIS_10K_2024-09-28__mdna__0048",
+        "DIS_10K_2024-09-28__mdna__0085",
+        "DIS_10K_2024-09-28__mdna__0019",
+        "DIS_10Q_2024-06-29__mdna__0136"
+      ],
+      "sections": {
+        "financial_statements": 35,
+        "mdna": 13
+      }
+    },
+    {
+      "question_id": "G-04",
+      "type": "single_company",
+      "variant": "hybrid, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.5,
+        "recall_at_25": 0.24,
+        "recall_at_48": 0.1875,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.623574432899073,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 109,
+      "retrieval_ms": 348.4,
+      "top": [
+        "DIS_10K_2024-09-28__mdna__0003",
+        "DIS_10K_2024-09-28__mdna__0002",
+        "DIS_10K_2024-09-28__mdna__0019",
+        "DIS_10Q_2024-03-30__mdna__0131",
+        "DIS_10K_2024-09-28__mdna__0085"
+      ],
+      "sections": {
+        "mdna": 37,
+        "financial_statements": 11
+      }
+    },
+    {
+      "question_id": "G-04",
+      "type": "single_company",
+      "variant": "lexical, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.2,
+        "recall_at_25": 0.16,
+        "recall_at_48": 0.22916666666666666,
+        "mrr": 0.5,
+        "ndcg_at_10": 0.2489083270225946,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 109,
+      "retrieval_ms": 155.2,
+      "top": [
+        "DIS_10Q_2024-03-30__mdna__0079",
+        "DIS_10K_2024-09-28__mdna__0000",
+        "DIS_10K_2024-09-28__mdna__0003",
+        "DIS_10Q_2024-06-29__mdna__0031",
+        "DIS_10Q_2024-03-30__mdna__0000"
+      ],
+      "sections": {
+        "mdna": 48
+      }
+    },
+    {
+      "question_id": "G-04",
+      "type": "single_company",
+      "variant": "dense, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.4,
+        "recall_at_25": 0.2,
+        "recall_at_48": 0.16666666666666666,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.5174612499126158,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 109,
+      "retrieval_ms": 131.0,
+      "top": [
+        "DIS_10K_2024-09-28__mdna__0085",
+        "DIS_10K_2024-09-28__mdna__0003",
+        "DIS_10K_2024-09-28__financial_statements__0069",
+        "DIS_10K_2024-09-28__financial_statements__0075",
+        "DIS_10K_2024-09-28__mdna__0023"
+      ],
+      "sections": {
+        "financial_statements": 37,
+        "mdna": 11
+      }
+    },
+    {
+      "question_id": "G-05",
+      "type": "single_company",
+      "variant": "hybrid",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.6666666666666666,
+        "recall_at_25": 0.6666666666666666,
+        "recall_at_48": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.5819558041749986,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 3,
+      "retrieval_ms": 26398.1,
+      "top": [
+        "XOM_10K_2025-12-31__risk_factors__0006",
+        "XOM_10K_2025-12-31__risk_factors__0001",
+        "XOM_10K_2025-12-31__risk_factors__0008",
+        "XOM_10K_2025-12-31__risk_factors__0021",
+        "XOM_10K_2025-12-31__risk_factors__0023"
+      ],
+      "sections": {
+        "risk_factors": 48
+      }
+    },
+    {
+      "question_id": "G-05",
+      "type": "single_company",
+      "variant": "lexical",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.6666666666666666,
+        "recall_at_25": 0.6666666666666666,
+        "recall_at_48": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.5819558041749986,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 3,
+      "retrieval_ms": 30739.7,
+      "top": [
+        "XOM_10K_2025-12-31__risk_factors__0006",
+        "XOM_10K_2025-12-31__risk_factors__0001",
+        "XOM_10K_2025-12-31__risk_factors__0008",
+        "XOM_10K_2025-12-31__risk_factors__0021",
+        "XOM_10K_2025-12-31__risk_factors__0023"
+      ],
+      "sections": {
+        "risk_factors": 48
+      }
+    },
+    {
+      "question_id": "G-05",
+      "type": "single_company",
+      "variant": "dense",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.3333333333333333,
+        "recall_at_25": 0.3333333333333333,
+        "recall_at_48": 0.3333333333333333,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.5532840265991452,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 3,
+      "retrieval_ms": 21232.1,
+      "top": [
+        "XOM_10K_2025-12-31__risk_factors__0001",
+        "XOM_10K_2025-12-31__risk_factors__0021",
+        "XOM_10K_2025-12-31__risk_factors__0024",
+        "XOM_10K_2025-12-31__risk_factors__0000",
+        "XOM_10K_2022-12-31__risk_factors__0004"
+      ],
+      "sections": {
+        "risk_factors": 20,
+        "mdna": 19,
+        "business": 7,
+        "unknown": 2
+      }
+    },
+    {
+      "question_id": "G-05",
+      "type": "single_company",
+      "variant": "hybrid, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.3333333333333333,
+        "recall_at_25": 0.3333333333333333,
+        "recall_at_48": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.576923729304524,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 3,
+      "retrieval_ms": 495.7,
+      "top": [
+        "XOM_10K_2025-12-31__risk_factors__0001",
+        "XOM_10K_2023-12-31__risk_factors__0001",
+        "XOM_10K_2022-12-31__risk_factors__0001",
+        "XOM_10K_2024-12-31__risk_factors__0001",
+        "XOM_10K_2024-12-31__risk_factors__0015"
+      ],
+      "sections": {
+        "risk_factors": 37,
+        "mdna": 6,
+        "unknown": 3,
+        "business": 2
+      }
+    },
+    {
+      "question_id": "G-05",
+      "type": "single_company",
+      "variant": "lexical, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.6666666666666666,
+        "recall_at_25": 1.0,
+        "recall_at_48": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_10": 0.46550072224940914,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 3,
+      "retrieval_ms": 137.4,
+      "top": [
+        "XOM_10K_2025-12-31__risk_factors__0008",
+        "XOM_10K_2025-12-31__risk_factors__0001",
+        "XOM_10K_2024-12-31__risk_factors__0001",
+        "XOM_10K_2025-12-31__risk_factors__0022",
+        "XOM_10K_2022-12-31__risk_factors__0001"
+      ],
+      "sections": {
+        "risk_factors": 48
+      }
+    },
+    {
+      "question_id": "G-05",
+      "type": "single_company",
+      "variant": "dense, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.3333333333333333,
+        "recall_at_25": 0.3333333333333333,
+        "recall_at_48": 0.3333333333333333,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.533614822458142,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 3,
+      "retrieval_ms": 148.8,
+      "top": [
+        "XOM_10K_2025-12-31__risk_factors__0001",
+        "XOM_10K_2023-12-31__risk_factors__0001",
+        "XOM_10K_2022-12-31__risk_factors__0001",
+        "XOM_10K_2024-12-31__risk_factors__0001",
+        "XOM_10K_2024-12-31__risk_factors__0017"
+      ],
+      "sections": {
+        "mdna": 22,
+        "risk_factors": 20,
+        "business": 6
+      }
+    },
+    {
+      "question_id": "G-06",
+      "type": "comparison",
+      "variant": "hybrid",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 0.72,
+        "recall_at_48": 0.5476190476190477,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 42,
+      "retrieval_ms": 13225.8,
+      "top": [
+        "JPM_10K_2025-12-31__risk_factors__0052",
+        "JPM_10K_2025-12-31__risk_factors__0000",
+        "JPM_10K_2025-12-31__risk_factors__0009",
+        "JPM_10K_2025-12-31__risk_factors__0036",
+        "JPM_10K_2025-12-31__risk_factors__0060"
+      ],
+      "sections": {
+        "risk_factors": 48
+      }
+    },
+    {
+      "question_id": "G-06",
+      "type": "comparison",
+      "variant": "lexical",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.9,
+        "recall_at_25": 0.64,
+        "recall_at_48": 0.47619047619047616,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.9608008655106622,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 42,
+      "retrieval_ms": 12313.6,
+      "top": [
+        "JPM_10K_2025-12-31__risk_factors__0000",
+        "JPM_10K_2025-12-31__risk_factors__0009",
+        "JPM_10K_2025-12-31__risk_factors__0036",
+        "JPM_10K_2025-12-31__risk_factors__0060",
+        "JPM_10K_2025-12-31__risk_factors__0079"
+      ],
+      "sections": {
+        "risk_factors": 48
+      }
+    },
+    {
+      "question_id": "G-06",
+      "type": "comparison",
+      "variant": "dense",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 0.64,
+        "recall_at_48": 0.47619047619047616,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 42,
+      "retrieval_ms": 10508.7,
+      "top": [
+        "JPM_10K_2025-12-31__risk_factors__0052",
+        "JPM_10K_2025-12-31__risk_factors__0000",
+        "JPM_10K_2025-12-31__risk_factors__0001",
+        "JPM_10K_2025-12-31__risk_factors__0076",
+        "JPM_10K_2025-12-31__risk_factors__0060"
+      ],
+      "sections": {
+        "risk_factors": 48
+      }
+    },
+    {
+      "question_id": "G-06",
+      "type": "comparison",
+      "variant": "hybrid, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.7,
+        "recall_at_25": 0.48,
+        "recall_at_48": 0.4523809523809524,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.8889360860300335,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 42,
+      "retrieval_ms": 513.6,
+      "top": [
+        "AAPL_10K_2025-09-27__risk_factors__0000",
+        "JPM_10K_2025-12-31__risk_factors__0000",
+        "AAPL_10K_2025-09-27__risk_factors__0020",
+        "TSLA_10K_2025-12-31__risk_factors__0000",
+        "AAPL_10K_2022-09-24__risk_factors__0021"
+      ],
+      "sections": {
+        "risk_factors": 48
+      }
+    },
+    {
+      "question_id": "G-06",
+      "type": "comparison",
+      "variant": "lexical, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.6,
+        "recall_at_25": 0.44,
+        "recall_at_48": 0.42857142857142855,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.8202957064515054,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 42,
+      "retrieval_ms": 217.8,
+      "top": [
+        "AAPL_10K_2025-09-27__risk_factors__0000",
+        "AAPL_10K_2025-09-27__risk_factors__0009",
+        "JPM_10K_2025-12-31__risk_factors__0057",
+        "AAPL_10K_2022-09-24__risk_factors__0021",
+        "AAPL_10K_2023-09-30__risk_factors__0020"
+      ],
+      "sections": {
+        "risk_factors": 45,
+        "legal_proceedings": 3
+      }
+    },
+    {
+      "question_id": "G-06",
+      "type": "comparison",
+      "variant": "dense, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.9,
+        "recall_at_25": 0.6,
+        "recall_at_48": 0.42857142857142855,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.9668728882728055,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 42,
+      "retrieval_ms": 285.6,
+      "top": [
+        "JPM_10K_2025-12-31__risk_factors__0076",
+        "AAPL_10K_2025-09-27__risk_factors__0030",
+        "JPM_10K_2025-12-31__risk_factors__0075",
+        "TSLA_10K_2025-12-31__risk_factors__0019",
+        "AAPL_10K_2025-09-27__risk_factors__0020"
+      ],
+      "sections": {
+        "risk_factors": 48
+      }
+    },
+    {
+      "question_id": "G-07",
+      "type": "comparison",
+      "variant": "hybrid",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 0.6875,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 81,
+      "retrieval_ms": 13773.1,
+      "top": [
+        "PEP_10K_2025-12-27__risk_factors__0005",
+        "KO_10K_2024-12-31__risk_factors__0020",
+        "KO_10K_2024-12-31__risk_factors__0008",
+        "KO_10K_2024-12-31__risk_factors__0046",
+        "KO_10K_2024-12-31__risk_factors__0044"
+      ],
+      "sections": {
+        "risk_factors": 47,
+        "mdna": 1
+      }
+    },
+    {
+      "question_id": "G-07",
+      "type": "comparison",
+      "variant": "lexical",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 0.7083333333333334,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 81,
+      "retrieval_ms": 12146.1,
+      "top": [
+        "PEP_10K_2025-12-27__risk_factors__0005",
+        "KO_10K_2024-12-31__risk_factors__0020",
+        "KO_10K_2024-12-31__risk_factors__0008",
+        "KO_10K_2024-12-31__risk_factors__0046",
+        "PEP_10K_2025-12-27__risk_factors__0000"
+      ],
+      "sections": {
+        "risk_factors": 48
+      }
+    },
+    {
+      "question_id": "G-07",
+      "type": "comparison",
+      "variant": "dense",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 0.7291666666666666,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 81,
+      "retrieval_ms": 12700.9,
+      "top": [
+        "PEP_10K_2025-12-27__risk_factors__0005",
+        "KO_10K_2024-12-31__risk_factors__0020",
+        "KO_10K_2024-12-31__risk_factors__0008",
+        "KO_10K_2024-12-31__risk_factors__0000",
+        "PEP_10K_2025-12-27__risk_factors__0000"
+      ],
+      "sections": {
+        "risk_factors": 48
+      }
+    },
+    {
+      "question_id": "G-07",
+      "type": "comparison",
+      "variant": "hybrid, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 0.92,
+        "recall_at_48": 0.6666666666666666,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 81,
+      "retrieval_ms": 351.4,
+      "top": [
+        "PEP_10K_2025-12-27__risk_factors__0004",
+        "PEP_10K_2025-12-27__risk_factors__0005",
+        "PEP_10K_2025-12-27__risk_factors__0008",
+        "PEP_10K_2025-12-27__risk_factors__0000",
+        "PEP_10K_2025-12-27__risk_factors__0032"
+      ],
+      "sections": {
+        "risk_factors": 46,
+        "mdna": 2
+      }
+    },
+    {
+      "question_id": "G-07",
+      "type": "comparison",
+      "variant": "lexical, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 0.84,
+        "recall_at_48": 0.6666666666666666,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 81,
+      "retrieval_ms": 158.2,
+      "top": [
+        "PEP_10K_2025-12-27__risk_factors__0000",
+        "PEP_10K_2025-12-27__risk_factors__0007",
+        "PEP_10K_2025-12-27__risk_factors__0029",
+        "PEP_10K_2025-12-27__risk_factors__0004",
+        "PEP_10K_2025-12-27__risk_factors__0012"
+      ],
+      "sections": {
+        "risk_factors": 46,
+        "mdna": 2
+      }
+    },
+    {
+      "question_id": "G-07",
+      "type": "comparison",
+      "variant": "dense, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.9,
+        "recall_at_25": 0.84,
+        "recall_at_48": 0.6666666666666666,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.9305687780632227,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 81,
+      "retrieval_ms": 293.3,
+      "top": [
+        "KO_10K_2024-12-31__risk_factors__0020",
+        "PEP_10K_2025-12-27__risk_factors__0005",
+        "PEP_10K_2025-12-27__risk_factors__0001",
+        "KO_10K_2024-12-31__risk_factors__0019",
+        "PEP_10K_2025-12-27__risk_factors__0004"
+      ],
+      "sections": {
+        "risk_factors": 45,
+        "mdna": 3
+      }
+    },
+    {
+      "question_id": "G-08",
+      "type": "comparison",
+      "variant": "hybrid",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 0.96,
+        "recall_at_48": 0.8333333333333334,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 67,
+      "retrieval_ms": 14152.1,
+      "top": [
+        "COST_10K_2025-08-31__business__0000",
+        "COST_10K_2025-08-31__business__0010",
+        "WMT_10K_2025-01-31__business__0000",
+        "COST_10K_2025-08-31__business__0006",
+        "TGT_10K_2025-02-01__business__0009"
+      ],
+      "sections": {
+        "business": 40,
+        "mdna": 7,
+        "risk_factors": 1
+      }
+    },
+    {
+      "question_id": "G-08",
+      "type": "comparison",
+      "variant": "lexical",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 0.96,
+        "recall_at_48": 0.875,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 67,
+      "retrieval_ms": 11334.2,
+      "top": [
+        "COST_10K_2025-08-31__business__0000",
+        "COST_10K_2025-08-31__business__0010",
+        "WMT_10K_2025-01-31__business__0000",
+        "COST_10K_2025-08-31__business__0006",
+        "TGT_10K_2025-02-01__business__0009"
+      ],
+      "sections": {
+        "business": 42,
+        "mdna": 4,
+        "risk_factors": 2
+      }
+    },
+    {
+      "question_id": "G-08",
+      "type": "comparison",
+      "variant": "dense",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 0.96,
+        "recall_at_48": 0.7708333333333334,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 67,
+      "retrieval_ms": 13060.1,
+      "top": [
+        "COST_10K_2025-08-31__business__0000",
+        "COST_10K_2025-08-31__business__0010",
+        "WMT_10K_2025-01-31__business__0000",
+        "COST_10K_2025-08-31__business__0006",
+        "TGT_10K_2025-02-01__business__0009"
+      ],
+      "sections": {
+        "business": 37,
+        "mdna": 11
+      }
+    },
+    {
+      "question_id": "G-08",
+      "type": "comparison",
+      "variant": "hybrid, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 67,
+      "retrieval_ms": 1432.2,
+      "top": [
+        "COST_10K_2025-08-31__business__0003",
+        "COST_10K_2025-08-31__business__0004",
+        "COST_10K_2025-08-31__business__0006",
+        "TGT_10K_2025-02-01__business__0002",
+        "TGT_10K_2025-02-01__business__0023"
+      ],
+      "sections": {
+        "business": 48
+      }
+    },
+    {
+      "question_id": "G-08",
+      "type": "comparison",
+      "variant": "lexical, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 67,
+      "retrieval_ms": 396.3,
+      "top": [
+        "TGT_10K_2025-02-01__business__0002",
+        "WMT_10K_2025-01-31__business__0017",
+        "COST_10K_2025-08-31__business__0006",
+        "COST_10K_2025-08-31__business__0004",
+        "COST_10K_2025-08-31__business__0003"
+      ],
+      "sections": {
+        "business": 48
+      }
+    },
+    {
+      "question_id": "G-08",
+      "type": "comparison",
+      "variant": "dense, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 0.9791666666666666,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 67,
+      "retrieval_ms": 604.1,
+      "top": [
+        "COST_10K_2025-08-31__business__0003",
+        "TGT_10K_2025-02-01__business__0017",
+        "WMT_10K_2025-01-31__business__0000",
+        "COST_10K_2025-08-31__business__0000",
+        "TGT_10K_2025-02-01__business__0000"
+      ],
+      "sections": {
+        "business": 47,
+        "mdna": 1
+      }
+    },
+    {
+      "question_id": "G-09",
+      "type": "comparison",
+      "variant": "hybrid",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.4,
+        "recall_at_25": 0.45454545454545453,
+        "recall_at_48": 0.6363636363636364,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.7818942288451127,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 11,
+      "retrieval_ms": 16877.6,
+      "top": [
+        "META_10K_2025-12-31__risk_factors__0009",
+        "META_10K_2025-12-31__risk_factors__0001",
+        "GOOG_10K_2025-12-31__risk_factors__0000",
+        "META_10K_2025-12-31__risk_factors__0029",
+        "META_10K_2025-12-31__risk_factors__0091"
+      ],
+      "sections": {
+        "risk_factors": 45,
+        "mdna": 3
+      }
+    },
+    {
+      "question_id": "G-09",
+      "type": "comparison",
+      "variant": "lexical",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.3,
+        "recall_at_25": 0.2727272727272727,
+        "recall_at_48": 0.2727272727272727,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.718676239575155,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 11,
+      "retrieval_ms": 15114.1,
+      "top": [
+        "GOOG_10K_2025-12-31__risk_factors__0000",
+        "META_10K_2025-12-31__risk_factors__0033",
+        "META_10K_2025-12-31__risk_factors__0091",
+        "META_10K_2025-12-31__risk_factors__0000",
+        "META_10K_2025-12-31__risk_factors__0019"
+      ],
+      "sections": {
+        "risk_factors": 48
+      }
+    },
+    {
+      "question_id": "G-09",
+      "type": "comparison",
+      "variant": "dense",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.8,
+        "recall_at_25": 0.8181818181818182,
+        "recall_at_48": 0.8181818181818182,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.9334739949321355,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 11,
+      "retrieval_ms": 20077.0,
+      "top": [
+        "META_10K_2025-12-31__risk_factors__0009",
+        "META_10K_2025-12-31__risk_factors__0016",
+        "META_10K_2025-12-31__risk_factors__0034",
+        "META_10K_2025-12-31__risk_factors__0001",
+        "GOOG_10K_2025-12-31__risk_factors__0000"
+      ],
+      "sections": {
+        "risk_factors": 48
+      }
+    },
+    {
+      "question_id": "G-09",
+      "type": "comparison",
+      "variant": "hybrid, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.1,
+        "recall_at_25": 0.18181818181818182,
+        "recall_at_48": 0.5454545454545454,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.5769187714218456,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 11,
+      "retrieval_ms": 1924.0,
+      "top": [
+        "GOOG_10K_2025-12-31__risk_factors__0000",
+        "GOOG_10K_2024-12-31__risk_factors__0000",
+        "GOOG_10K_2022-12-31__risk_factors__0000",
+        "GOOG_10K_2023-12-31__risk_factors__0000",
+        "GOOG_10Q_2024-03-31__risk_factors__0000"
+      ],
+      "sections": {
+        "risk_factors": 45,
+        "mdna": 3
+      }
+    },
+    {
+      "question_id": "G-09",
+      "type": "comparison",
+      "variant": "lexical, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.1,
+        "recall_at_25": 0.09090909090909091,
+        "recall_at_48": 0.2727272727272727,
+        "mrr": 0.5,
+        "ndcg_at_10": 0.5694312219367772,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 11,
+      "retrieval_ms": 558.5,
+      "top": [
+        "META_10K_2025-12-31__risk_factors__0000",
+        "GOOG_10K_2025-12-31__risk_factors__0000",
+        "GOOG_10K_2023-12-31__risk_factors__0000",
+        "GOOG_10K_2025-12-31__risk_factors__0013",
+        "META_10K_2025-12-31__risk_factors__0091"
+      ],
+      "sections": {
+        "risk_factors": 48
+      }
+    },
+    {
+      "question_id": "G-09",
+      "type": "comparison",
+      "variant": "dense, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.2,
+        "recall_at_25": 0.45454545454545453,
+        "recall_at_48": 0.8181818181818182,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.6283868636738801,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 11,
+      "retrieval_ms": 1209.5,
+      "top": [
+        "GOOG_10K_2025-12-31__risk_factors__0000",
+        "GOOG_10K_2025-12-31__risk_factors__0009",
+        "META_10K_2025-12-31__risk_factors__0001",
+        "GOOG_10K_2024-12-31__risk_factors__0000",
+        "GOOG_10K_2022-12-31__risk_factors__0000"
+      ],
+      "sections": {
+        "risk_factors": 47,
+        "mdna": 1
+      }
+    },
+    {
+      "question_id": "G-10",
+      "type": "comparison",
+      "variant": "hybrid",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 0.75,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": 0.75
+      },
+      "chunks": 48,
+      "relevant": 294,
+      "retrieval_ms": 19495.9,
+      "top": [
+        "GS_10K_2024-12-31__risk_factors__0112",
+        "GS_10K_2024-12-31__risk_factors__0067",
+        "GS_10K_2024-12-31__risk_factors__0059",
+        "GS_10K_2024-12-31__risk_factors__0027",
+        "JPM_10K_2025-12-31__risk_factors__0043"
+      ],
+      "sections": {
+        "risk_factors": 36,
+        "mdna": 8,
+        "unknown": 4
+      }
+    },
+    {
+      "question_id": "G-10",
+      "type": "comparison",
+      "variant": "lexical",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 0.7708333333333334,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 294,
+      "retrieval_ms": 12960.8,
+      "top": [
+        "GS_10K_2024-12-31__risk_factors__0112",
+        "GS_10K_2024-12-31__risk_factors__0067",
+        "GS_10K_2024-12-31__risk_factors__0059",
+        "JPM_10K_2025-12-31__risk_factors__0043",
+        "GS_10K_2024-12-31__risk_factors__0110"
+      ],
+      "sections": {
+        "risk_factors": 37,
+        "mdna": 6,
+        "unknown": 5
+      }
+    },
+    {
+      "question_id": "G-10",
+      "type": "comparison",
+      "variant": "dense",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 0.6458333333333334,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 294,
+      "retrieval_ms": 13639.4,
+      "top": [
+        "GS_10K_2024-12-31__risk_factors__0112",
+        "GS_10K_2024-12-31__risk_factors__0067",
+        "GS_10K_2024-12-31__risk_factors__0059",
+        "JPM_10K_2025-12-31__risk_factors__0043",
+        "GS_10K_2024-12-31__risk_factors__0028"
+      ],
+      "sections": {
+        "risk_factors": 34,
+        "mdna": 8,
+        "unknown": 5,
+        "business": 1
+      }
+    },
+    {
+      "question_id": "G-10",
+      "type": "comparison",
+      "variant": "hybrid, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 0.7291666666666666,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": 0.75
+      },
+      "chunks": 48,
+      "relevant": 294,
+      "retrieval_ms": 883.0,
+      "top": [
+        "GS_10K_2024-12-31__risk_factors__0059",
+        "JPM_10K_2025-12-31__risk_factors__0004",
+        "GS_10K_2024-12-31__risk_factors__0004",
+        "BAC_10K_2024-12-31__risk_factors__0050",
+        "JPM_10K_2025-12-31__risk_factors__0006"
+      ],
+      "sections": {
+        "risk_factors": 35,
+        "mdna": 6,
+        "unknown": 6,
+        "business": 1
+      }
+    },
+    {
+      "question_id": "G-10",
+      "type": "comparison",
+      "variant": "lexical, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 0.7708333333333334,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 294,
+      "retrieval_ms": 546.4,
+      "top": [
+        "BAC_10K_2024-12-31__risk_factors__0050",
+        "JPM_10K_2025-12-31__risk_factors__0006",
+        "BAC_10K_2024-12-31__risk_factors__0060",
+        "GS_10K_2024-12-31__risk_factors__0064",
+        "JPM_10K_2025-12-31__risk_factors__0000"
+      ],
+      "sections": {
+        "risk_factors": 37,
+        "mdna": 6,
+        "unknown": 5
+      }
+    },
+    {
+      "question_id": "G-10",
+      "type": "comparison",
+      "variant": "dense, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 0.92,
+        "recall_at_48": 0.6666666666666666,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 294,
+      "retrieval_ms": 470.8,
+      "top": [
+        "GS_10K_2024-12-31__risk_factors__0059",
+        "JPM_10K_2025-12-31__risk_factors__0004",
+        "GS_10K_2024-12-31__risk_factors__0004",
+        "GS_10K_2024-12-31__risk_factors__0067",
+        "GS_10K_2024-12-31__risk_factors__0112"
+      ],
+      "sections": {
+        "risk_factors": 37,
+        "mdna": 8,
+        "unknown": 2,
+        "business": 1
+      }
+    },
+    {
+      "question_id": "G-11",
+      "type": "trend",
+      "variant": "hybrid",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.7,
+        "recall_at_25": 0.48,
+        "recall_at_48": 0.6458333333333334,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.8769071472672195,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 87,
+      "retrieval_ms": 13757.1,
+      "top": [
+        "NVDA_10Q_2025-10-26__mdna__0006",
+        "NVDA_10Q_2024-07-28__mdna__0007",
+        "NVDA_10Q_2025-07-27__mdna__0006",
+        "NVDA_10Q_2025-04-27__mdna__0011",
+        "NVDA_10Q_2025-10-26__mdna__0009"
+      ],
+      "sections": {
+        "mdna": 40,
+        "financial_statements": 8
+      }
+    },
+    {
+      "question_id": "G-11",
+      "type": "trend",
+      "variant": "lexical",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.9,
+        "recall_at_25": 0.84,
+        "recall_at_48": 0.5625,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.9633180389503199,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 87,
+      "retrieval_ms": 14532.9,
+      "top": [
+        "NVDA_10Q_2025-10-26__mdna__0018",
+        "NVDA_10K_2025-01-26__mdna__0025",
+        "NVDA_10Q_2025-07-27__mdna__0018",
+        "NVDA_10Q_2025-04-27__mdna__0018",
+        "NVDA_10Q_2025-10-26__mdna__0007"
+      ],
+      "sections": {
+        "mdna": 47,
+        "financial_statements": 1
+      }
+    },
+    {
+      "question_id": "G-11",
+      "type": "trend",
+      "variant": "dense",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.6,
+        "recall_at_25": 0.48,
+        "recall_at_48": 0.3541666666666667,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.8435082539265496,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 87,
+      "retrieval_ms": 15198.6,
+      "top": [
+        "NVDA_10Q_2025-10-26__mdna__0006",
+        "NVDA_10Q_2024-07-28__mdna__0007",
+        "NVDA_10Q_2025-07-27__mdna__0006",
+        "NVDA_10Q_2025-04-27__mdna__0011",
+        "NVDA_10Q_2025-10-26__mdna__0009"
+      ],
+      "sections": {
+        "mdna": 44,
+        "financial_statements": 4
+      }
+    },
+    {
+      "question_id": "G-11",
+      "type": "trend",
+      "variant": "hybrid, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.3,
+        "recall_at_25": 0.36,
+        "recall_at_48": 0.5208333333333334,
+        "mrr": 0.25,
+        "ndcg_at_10": 0.5879100343018316,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 87,
+      "retrieval_ms": 3868.6,
+      "top": [
+        "NVDA_10K_2025-01-26__mdna__0031",
+        "NVDA_10Q_2024-04-28__mdna__0024",
+        "NVDA_10Q_2025-10-26__mdna__0009",
+        "NVDA_10Q_2025-10-26__mdna__0018",
+        "NVDA_10Q_2025-04-27__mdna__0011"
+      ],
+      "sections": {
+        "mdna": 45,
+        "financial_statements": 3
+      }
+    },
+    {
+      "question_id": "G-11",
+      "type": "trend",
+      "variant": "lexical, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.4,
+        "recall_at_25": 0.6,
+        "recall_at_48": 0.5416666666666666,
+        "mrr": 0.16666666666666666,
+        "ndcg_at_10": 0.6021702902347167,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 87,
+      "retrieval_ms": 1556.6,
+      "top": [
+        "NVDA_10K_2025-01-26__mdna__0031",
+        "NVDA_10K_2024-01-28__mdna__0030",
+        "NVDA_10Q_2024-04-28__mdna__0024",
+        "NVDA_10Q_2024-07-28__mdna__0028",
+        "NVDA_10Q_2024-10-27__mdna__0027"
+      ],
+      "sections": {
+        "mdna": 48
+      }
+    },
+    {
+      "question_id": "G-11",
+      "type": "trend",
+      "variant": "dense, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.0,
+        "recall_at_25": 0.16,
+        "recall_at_48": 0.25,
+        "mrr": 0.06666666666666667,
+        "ndcg_at_10": 0.5,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 87,
+      "retrieval_ms": 2293.6,
+      "top": [
+        "NVDA_10K_2025-01-26__mdna__0018",
+        "NVDA_10K_2025-01-26__mdna__0029",
+        "NVDA_10Q_2025-10-26__mdna__0022",
+        "NVDA_10Q_2025-10-26__mdna__0026",
+        "NVDA_10K_2025-01-26__mdna__0007"
+      ],
+      "sections": {
+        "mdna": 46,
+        "financial_statements": 2
+      }
+    },
+    {
+      "question_id": "G-12",
+      "type": "trend",
+      "variant": "hybrid",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 0.5416666666666666,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 247,
+      "retrieval_ms": 9337.6,
+      "top": [
+        "AMZN_10K_2025-12-31__risk_factors__0021",
+        "AMZN_10K_2025-12-31__risk_factors__0011",
+        "AMZN_10K_2025-12-31__risk_factors__0010",
+        "AMZN_10K_2025-12-31__risk_factors__0012",
+        "AMZN_10K_2025-12-31__risk_factors__0024"
+      ],
+      "sections": {
+        "risk_factors": 26,
+        "mdna": 20,
+        "unknown": 2
+      }
+    },
+    {
+      "question_id": "G-12",
+      "type": "trend",
+      "variant": "lexical",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 0.8333333333333334,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 247,
+      "retrieval_ms": 6542.0,
+      "top": [
+        "AMZN_10K_2025-12-31__risk_factors__0021",
+        "AMZN_10K_2025-12-31__risk_factors__0024",
+        "AMZN_10K_2025-12-31__risk_factors__0019",
+        "AMZN_10K_2025-12-31__risk_factors__0022",
+        "AMZN_10K_2025-12-31__risk_factors__0017"
+      ],
+      "sections": {
+        "risk_factors": 40,
+        "mdna": 6,
+        "unknown": 2
+      }
+    },
+    {
+      "question_id": "G-12",
+      "type": "trend",
+      "variant": "dense",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 0.96,
+        "recall_at_48": 0.5208333333333334,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 247,
+      "retrieval_ms": 7843.6,
+      "top": [
+        "AMZN_10K_2025-12-31__risk_factors__0021",
+        "AMZN_10K_2025-12-31__risk_factors__0011",
+        "AMZN_10K_2025-12-31__risk_factors__0010",
+        "AMZN_10K_2025-12-31__risk_factors__0012",
+        "AMZN_10K_2025-12-31__risk_factors__0024"
+      ],
+      "sections": {
+        "risk_factors": 25,
+        "mdna": 23
+      }
+    },
+    {
+      "question_id": "G-12",
+      "type": "trend",
+      "variant": "hybrid, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 0.5416666666666666,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 247,
+      "retrieval_ms": 1358.2,
+      "top": [
+        "AMZN_10K_2025-12-31__risk_factors__0000",
+        "AMZN_10K_2025-12-31__risk_factors__0024",
+        "AMZN_10K_2024-12-31__risk_factors__0000",
+        "AMZN_10K_2025-12-31__risk_factors__0021",
+        "AMZN_10K_2025-12-31__risk_factors__0012"
+      ],
+      "sections": {
+        "risk_factors": 26,
+        "mdna": 20,
+        "unknown": 2
+      }
+    },
+    {
+      "question_id": "G-12",
+      "type": "trend",
+      "variant": "lexical, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 0.8333333333333334,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 247,
+      "retrieval_ms": 270.2,
+      "top": [
+        "AMZN_10K_2025-12-31__risk_factors__0000",
+        "AMZN_10K_2025-12-31__risk_factors__0024",
+        "AMZN_10K_2025-12-31__risk_factors__0005",
+        "AMZN_10K_2025-12-31__risk_factors__0021",
+        "AMZN_10K_2025-12-31__risk_factors__0002"
+      ],
+      "sections": {
+        "risk_factors": 40,
+        "mdna": 6,
+        "unknown": 2
+      }
+    },
+    {
+      "question_id": "G-12",
+      "type": "trend",
+      "variant": "dense, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 0.96,
+        "recall_at_48": 0.5208333333333334,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 247,
+      "retrieval_ms": 1248.7,
+      "top": [
+        "AMZN_10K_2025-12-31__risk_factors__0011",
+        "AMZN_10K_2025-12-31__risk_factors__0012",
+        "AMZN_10K_2025-12-31__risk_factors__0006",
+        "AMZN_10K_2025-12-31__risk_factors__0000",
+        "AMZN_10K_2025-12-31__risk_factors__0009"
+      ],
+      "sections": {
+        "risk_factors": 25,
+        "mdna": 23
+      }
+    },
+    {
+      "question_id": "G-13",
+      "type": "trend",
+      "variant": "hybrid",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.3,
+        "recall_at_25": 0.44,
+        "recall_at_48": 0.4791666666666667,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.4690000933206748,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 566,
+      "retrieval_ms": 5757.6,
+      "top": [
+        "PFE_10K_2024-12-31__mdna__0028",
+        "PFE_10Q_2025-03-30__mdna__0012",
+        "PFE_10Q_2024-03-31__mdna__0011",
+        "PFE_10Q_2025-09-28__financial_statements__0110",
+        "PFE_10Q_2025-09-28__financial_statements__0102"
+      ],
+      "sections": {
+        "financial_statements": 25,
+        "mdna": 23
+      }
+    },
+    {
+      "question_id": "G-13",
+      "type": "trend",
+      "variant": "lexical",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.5,
+        "recall_at_25": 0.52,
+        "recall_at_48": 0.4791666666666667,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.6489315753318465,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 566,
+      "retrieval_ms": 5340.2,
+      "top": [
+        "PFE_10Q_2025-09-28__mdna__0015",
+        "PFE_10K_2024-12-31__mdna__0028",
+        "PFE_10Q_2024-09-29__mdna__0012",
+        "PFE_10Q_2025-03-30__mdna__0012",
+        "PFE_10Q_2024-03-31__mdna__0011"
+      ],
+      "sections": {
+        "financial_statements": 25,
+        "mdna": 23
+      }
+    },
+    {
+      "question_id": "G-13",
+      "type": "trend",
+      "variant": "dense",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.6,
+        "recall_at_25": 0.52,
+        "recall_at_48": 0.4583333333333333,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.7273298443105218,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 566,
+      "retrieval_ms": 5795.1,
+      "top": [
+        "PFE_10K_2024-12-31__mdna__0028",
+        "PFE_10K_2024-12-31__mdna__0032",
+        "PFE_10Q_2025-06-29__mdna__0013",
+        "PFE_10Q_2024-06-30__mdna__0013",
+        "PFE_10Q_2025-03-30__mdna__0012"
+      ],
+      "sections": {
+        "financial_statements": 26,
+        "mdna": 22
+      }
+    },
+    {
+      "question_id": "G-13",
+      "type": "trend",
+      "variant": "hybrid, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.3,
+        "recall_at_25": 0.36,
+        "recall_at_48": 0.4375,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.36792125721353275,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 566,
+      "retrieval_ms": 110.2,
+      "top": [
+        "PFE_10Q_2025-03-30__mdna__0002",
+        "PFE_10Q_2025-03-30__financial_statements__0094",
+        "PFE_10K_2024-12-31__financial_statements__0250",
+        "PFE_10K_2024-12-31__financial_statements__0256",
+        "PFE_10Q_2025-06-29__financial_statements__0104"
+      ],
+      "sections": {
+        "financial_statements": 27,
+        "mdna": 21
+      }
+    },
+    {
+      "question_id": "G-13",
+      "type": "trend",
+      "variant": "lexical, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 0.92,
+        "recall_at_48": 0.5833333333333334,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 566,
+      "retrieval_ms": 74.6,
+      "top": [
+        "PFE_10Q_2025-09-28__mdna__0004",
+        "PFE_10K_2024-12-31__mdna__0005",
+        "PFE_10Q_2024-06-30__mdna__0003",
+        "PFE_10Q_2024-09-29__mdna__0002",
+        "PFE_10K_2024-12-31__mdna__0033"
+      ],
+      "sections": {
+        "mdna": 28,
+        "financial_statements": 20
+      }
+    },
+    {
+      "question_id": "G-13",
+      "type": "trend",
+      "variant": "dense, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.3,
+        "recall_at_25": 0.28,
+        "recall_at_48": 0.3333333333333333,
+        "mrr": 0.125,
+        "ndcg_at_10": 0.199306233590118,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 566,
+      "retrieval_ms": 57.4,
+      "top": [
+        "PFE_10K_2024-12-31__financial_statements__0256",
+        "PFE_10Q_2025-03-30__financial_statements__0094",
+        "PFE_10K_2024-12-31__financial_statements__0007",
+        "PFE_10K_2024-12-31__financial_statements__0250",
+        "PFE_10Q_2025-06-29__financial_statements__0104"
+      ],
+      "sections": {
+        "financial_statements": 32,
+        "mdna": 16
+      }
+    },
+    {
+      "question_id": "G-14",
+      "type": "trend",
+      "variant": "hybrid",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.9,
+        "recall_at_25": 0.48,
+        "recall_at_48": 0.25,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.9305687780632227,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 101,
+      "retrieval_ms": 7967.5,
+      "top": [
+        "UNH_10K_2024-12-31__risk_factors__0005",
+        "UNH_10K_2024-12-31__risk_factors__0004",
+        "UNH_10K_2024-12-31__risk_factors__0018",
+        "UNH_10K_2024-12-31__risk_factors__0022",
+        "UNH_10K_2024-12-31__risk_factors__0001"
+      ],
+      "sections": {
+        "mdna": 30,
+        "risk_factors": 15,
+        "unknown": 3
+      }
+    },
+    {
+      "question_id": "G-14",
+      "type": "trend",
+      "variant": "lexical",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.9,
+        "recall_at_25": 0.52,
+        "recall_at_48": 0.2708333333333333,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.9305687780632227,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 101,
+      "retrieval_ms": 9373.9,
+      "top": [
+        "UNH_10K_2024-12-31__risk_factors__0018",
+        "UNH_10K_2024-12-31__risk_factors__0019",
+        "UNH_10K_2024-12-31__risk_factors__0017",
+        "UNH_10K_2024-12-31__risk_factors__0022",
+        "UNH_10K_2024-12-31__risk_factors__0001"
+      ],
+      "sections": {
+        "mdna": 29,
+        "risk_factors": 16,
+        "unknown": 3
+      }
+    },
+    {
+      "question_id": "G-14",
+      "type": "trend",
+      "variant": "dense",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.9,
+        "recall_at_25": 0.48,
+        "recall_at_48": 0.25,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.9266360779006398,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 101,
+      "retrieval_ms": 7027.3,
+      "top": [
+        "UNH_10K_2024-12-31__risk_factors__0005",
+        "UNH_10K_2024-12-31__risk_factors__0016",
+        "UNH_10K_2024-12-31__risk_factors__0004",
+        "UNH_10K_2024-12-31__risk_factors__0018",
+        "UNH_10K_2024-12-31__risk_factors__0001"
+      ],
+      "sections": {
+        "mdna": 33,
+        "risk_factors": 15
+      }
+    },
+    {
+      "question_id": "G-14",
+      "type": "trend",
+      "variant": "hybrid, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.7,
+        "recall_at_25": 0.48,
+        "recall_at_48": 0.25,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.7093753650484099,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 101,
+      "retrieval_ms": 1831.6,
+      "top": [
+        "UNH_10K_2024-12-31__risk_factors__0001",
+        "UNH_10Q_2025-09-30__risk_factors__0000",
+        "UNH_10K_2023-12-31__risk_factors__0001",
+        "UNH_10K_2024-12-31__risk_factors__0000",
+        "UNH_10K_2024-12-31__risk_factors__0018"
+      ],
+      "sections": {
+        "mdna": 30,
+        "risk_factors": 15,
+        "unknown": 3
+      }
+    },
+    {
+      "question_id": "G-14",
+      "type": "trend",
+      "variant": "lexical, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.9,
+        "recall_at_25": 0.56,
+        "recall_at_48": 0.2916666666666667,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.9216017310213246,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 101,
+      "retrieval_ms": 311.0,
+      "top": [
+        "UNH_10K_2024-12-31__risk_factors__0018",
+        "UNH_10K_2024-12-31__risk_factors__0001",
+        "UNH_10K_2024-12-31__risk_factors__0022",
+        "UNH_10K_2024-12-31__risk_factors__0024",
+        "UNH_10K_2023-12-31__risk_factors__0018"
+      ],
+      "sections": {
+        "mdna": 28,
+        "risk_factors": 17,
+        "unknown": 3
+      }
+    },
+    {
+      "question_id": "G-14",
+      "type": "trend",
+      "variant": "dense, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.7,
+        "recall_at_25": 0.44,
+        "recall_at_48": 0.22916666666666666,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.7093753650484099,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 101,
+      "retrieval_ms": 1456.1,
+      "top": [
+        "UNH_10K_2024-12-31__risk_factors__0001",
+        "UNH_10Q_2025-09-30__risk_factors__0000",
+        "UNH_10K_2024-12-31__risk_factors__0000",
+        "UNH_10K_2023-12-31__risk_factors__0001",
+        "UNH_10K_2024-12-31__risk_factors__0005"
+      ],
+      "sections": {
+        "mdna": 34,
+        "risk_factors": 14
+      }
+    },
+    {
+      "question_id": "G-15",
+      "type": "numeric",
+      "variant": "hybrid",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.25,
+        "recall_at_25": 0.75,
+        "recall_at_48": 0.75,
+        "mrr": 0.1,
+        "ndcg_at_10": 0.16548241471810549,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 4,
+      "retrieval_ms": 5557.6,
+      "top": [
+        "NVDA_10K_2025-01-26__mdna__0016",
+        "NVDA_10K_2025-01-26__mdna__0031",
+        "NVDA_10K_2025-01-26__mdna__0018",
+        "NVDA_10Q_2024-04-28__mdna__0011",
+        "NVDA_10Q_2024-04-28__mdna__0024"
+      ],
+      "sections": {
+        "financial_statements": 28,
+        "mdna": 20
+      }
+    },
+    {
+      "question_id": "G-15",
+      "type": "numeric",
+      "variant": "lexical",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.0,
+        "recall_at_25": 0.5,
+        "recall_at_48": 0.5,
+        "mrr": 0.07142857142857142,
+        "ndcg_at_10": 0.076745136502618,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 4,
+      "retrieval_ms": 5499.8,
+      "top": [
+        "NVDA_10K_2025-01-26__mdna__0016",
+        "NVDA_10K_2025-01-26__mdna__0031",
+        "NVDA_10K_2025-01-26__mdna__0018",
+        "NVDA_10Q_2024-04-28__mdna__0011",
+        "NVDA_10Q_2024-10-27__mdna__0025"
+      ],
+      "sections": {
+        "mdna": 25,
+        "financial_statements": 23
+      }
+    },
+    {
+      "question_id": "G-15",
+      "type": "numeric",
+      "variant": "dense",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.75,
+        "recall_at_25": 1.0,
+        "recall_at_48": 1.0,
+        "mrr": 0.25,
+        "ndcg_at_10": 0.4101985357240367,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 4,
+      "retrieval_ms": 5505.9,
+      "top": [
+        "NVDA_10K_2025-01-26__mdna__0031",
+        "NVDA_10K_2025-01-26__mdna__0018",
+        "NVDA_10Q_2024-04-28__mdna__0024",
+        "NVDA_10K_2025-01-26__financial_statements__0153",
+        "NVDA_10K_2025-01-26__financial_statements__0117"
+      ],
+      "sections": {
+        "financial_statements": 36,
+        "mdna": 12
+      }
+    },
+    {
+      "question_id": "G-15",
+      "type": "numeric",
+      "variant": "hybrid, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.5,
+        "recall_at_25": 0.5,
+        "recall_at_48": 0.5,
+        "mrr": 0.25,
+        "ndcg_at_10": 0.23453617362143828,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 4,
+      "retrieval_ms": 93.3,
+      "top": [
+        "NVDA_10K_2025-01-26__mdna__0031",
+        "NVDA_10Q_2024-04-28__mdna__0024",
+        "NVDA_10Q_2024-04-28__mdna__0021",
+        "NVDA_10K_2025-01-26__mdna__0010",
+        "NVDA_10Q_2024-07-28__mdna__0021"
+      ],
+      "sections": {
+        "financial_statements": 30,
+        "mdna": 18
+      }
+    },
+    {
+      "question_id": "G-15",
+      "type": "numeric",
+      "variant": "lexical, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.0,
+        "recall_at_25": 0.25,
+        "recall_at_48": 0.5,
+        "mrr": 0.045454545454545456,
+        "ndcg_at_10": 0.0,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 4,
+      "retrieval_ms": 69.9,
+      "top": [
+        "NVDA_10K_2025-01-26__mdna__0031",
+        "NVDA_10Q_2024-04-28__mdna__0024",
+        "NVDA_10Q_2024-07-28__mdna__0028",
+        "NVDA_10Q_2024-10-27__mdna__0027",
+        "NVDA_10K_2025-01-26__mdna__0027"
+      ],
+      "sections": {
+        "mdna": 25,
+        "financial_statements": 23
+      }
+    },
+    {
+      "question_id": "G-15",
+      "type": "numeric",
+      "variant": "dense, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.25,
+        "recall_at_25": 0.75,
+        "recall_at_48": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_10": 0.19368316024561857,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 4,
+      "retrieval_ms": 41.2,
+      "top": [
+        "NVDA_10K_2025-01-26__financial_statements__0037",
+        "NVDA_10K_2025-01-26__mdna__0010",
+        "NVDA_10K_2025-01-26__mdna__0031",
+        "NVDA_10Q_2024-04-28__mdna__0021",
+        "NVDA_10Q_2024-04-28__financial_statements__0024"
+      ],
+      "sections": {
+        "financial_statements": 37,
+        "mdna": 11
+      }
+    },
+    {
+      "question_id": "G-16",
+      "type": "numeric",
+      "variant": "hybrid",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.5,
+        "recall_at_25": 1.0,
+        "recall_at_48": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.6161912750200775,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 2,
+      "retrieval_ms": 6813.0,
+      "top": [
+        "AAPL_10K_2024-09-28__mdna__0002",
+        "AAPL_10K_2024-09-28__mdna__0004",
+        "AAPL_10K_2024-09-28__mdna__0008",
+        "AAPL_10Q_2023-12-30__mdna__0003",
+        "AAPL_10Q_2024-06-29__mdna__0003"
+      ],
+      "sections": {
+        "mdna": 30,
+        "financial_statements": 18
+      }
+    },
+    {
+      "question_id": "G-16",
+      "type": "numeric",
+      "variant": "lexical",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.5,
+        "recall_at_25": 1.0,
+        "recall_at_48": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.6161912750200775,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 2,
+      "retrieval_ms": 8001.4,
+      "top": [
+        "AAPL_10K_2024-09-28__mdna__0002",
+        "AAPL_10K_2024-09-28__mdna__0004",
+        "AAPL_10K_2024-09-28__mdna__0008",
+        "AAPL_10Q_2023-12-30__mdna__0003",
+        "AAPL_10Q_2024-06-29__mdna__0003"
+      ],
+      "sections": {
+        "mdna": 30,
+        "financial_statements": 18
+      }
+    },
+    {
+      "question_id": "G-16",
+      "type": "numeric",
+      "variant": "dense",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.5,
+        "recall_at_25": 1.0,
+        "recall_at_48": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.6161912750200775,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 2,
+      "retrieval_ms": 5442.4,
+      "top": [
+        "AAPL_10K_2024-09-28__mdna__0002",
+        "AAPL_10K_2024-09-28__mdna__0004",
+        "AAPL_10K_2024-09-28__mdna__0008",
+        "AAPL_10Q_2023-12-30__mdna__0003",
+        "AAPL_10Q_2024-06-29__mdna__0003"
+      ],
+      "sections": {
+        "mdna": 31,
+        "financial_statements": 17
+      }
+    },
+    {
+      "question_id": "G-16",
+      "type": "numeric",
+      "variant": "hybrid, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.7669205976016827,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 2,
+      "retrieval_ms": 78.3,
+      "top": [
+        "AAPL_10K_2024-09-28__mdna__0002",
+        "AAPL_10Q_2023-12-30__mdna__0003",
+        "AAPL_10K_2024-09-28__mdna__0004",
+        "AAPL_10K_2024-09-28__financial_statements__0077",
+        "AAPL_10Q_2024-03-30__mdna__0003"
+      ],
+      "sections": {
+        "mdna": 31,
+        "financial_statements": 17
+      }
+    },
+    {
+      "question_id": "G-16",
+      "type": "numeric",
+      "variant": "lexical, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_10": 0.7890209709874749,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 2,
+      "retrieval_ms": 49.4,
+      "top": [
+        "AAPL_10Q_2023-12-30__mdna__0003",
+        "AAPL_10K_2024-09-28__mdna__0002",
+        "AAPL_10Q_2024-06-29__mdna__0003",
+        "AAPL_10Q_2024-03-30__mdna__0003",
+        "AAPL_10K_2024-09-28__financial_statements__0077"
+      ],
+      "sections": {
+        "mdna": 31,
+        "financial_statements": 17
+      }
+    },
+    {
+      "question_id": "G-16",
+      "type": "numeric",
+      "variant": "dense, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.674380482627536,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 2,
+      "retrieval_ms": 50.3,
+      "top": [
+        "AAPL_10K_2024-09-28__mdna__0002",
+        "AAPL_10K_2024-09-28__mdna__0004",
+        "AAPL_10K_2024-09-28__mdna__0006",
+        "AAPL_10K_2024-09-28__financial_statements__0077",
+        "AAPL_10Q_2023-12-30__mdna__0006"
+      ],
+      "sections": {
+        "mdna": 33,
+        "financial_statements": 15
+      }
+    },
+    {
+      "question_id": "G-17",
+      "type": "numeric",
+      "variant": "hybrid",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.7,
+        "recall_at_25": 0.72,
+        "recall_at_48": 0.3958333333333333,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.7788065869851872,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 180,
+      "retrieval_ms": 5658.5,
+      "top": [
+        "MSFT_10K_2025-06-30__mdna__0012",
+        "MSFT_10K_2025-06-30__mdna__0022",
+        "MSFT_10K_2025-06-30__mdna__0014",
+        "MSFT_10K_2025-06-30__mdna__0018",
+        "MSFT_10K_2025-06-30__mdna__0020"
+      ],
+      "sections": {
+        "financial_statements": 25,
+        "mdna": 23
+      }
+    },
+    {
+      "question_id": "G-17",
+      "type": "numeric",
+      "variant": "lexical",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.9,
+        "recall_at_25": 0.44,
+        "recall_at_48": 0.3125,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.9363792118010481,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 180,
+      "retrieval_ms": 5379.0,
+      "top": [
+        "MSFT_10K_2025-06-30__mdna__0014",
+        "MSFT_10K_2025-06-30__financial_statements__0001",
+        "MSFT_10K_2025-06-30__financial_statements__0095",
+        "MSFT_10K_2025-06-30__financial_statements__0126",
+        "MSFT_10K_2025-06-30__mdna__0015"
+      ],
+      "sections": {
+        "mdna": 33,
+        "financial_statements": 15
+      }
+    },
+    {
+      "question_id": "G-17",
+      "type": "numeric",
+      "variant": "dense",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.5,
+        "recall_at_25": 0.72,
+        "recall_at_48": 0.4583333333333333,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.6489315753318465,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 180,
+      "retrieval_ms": 5428.1,
+      "top": [
+        "MSFT_10K_2025-06-30__mdna__0012",
+        "MSFT_10K_2025-06-30__mdna__0022",
+        "MSFT_10K_2025-06-30__mdna__0014",
+        "MSFT_10K_2025-06-30__mdna__0018",
+        "MSFT_10K_2025-06-30__mdna__0020"
+      ],
+      "sections": {
+        "financial_statements": 32,
+        "mdna": 16
+      }
+    },
+    {
+      "question_id": "G-17",
+      "type": "numeric",
+      "variant": "hybrid, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.5,
+        "recall_at_25": 0.36,
+        "recall_at_48": 0.3958333333333333,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.6421867266689009,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 180,
+      "retrieval_ms": 99.2,
+      "top": [
+        "MSFT_10K_2025-06-30__financial_statements__0126",
+        "MSFT_10K_2025-06-30__mdna__0015",
+        "MSFT_10K_2025-06-30__mdna__0014",
+        "MSFT_10K_2025-06-30__mdna__0013",
+        "MSFT_10Q_2025-03-31__mdna__0002"
+      ],
+      "sections": {
+        "mdna": 30,
+        "financial_statements": 18
+      }
+    },
+    {
+      "question_id": "G-17",
+      "type": "numeric",
+      "variant": "lexical, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.7,
+        "recall_at_25": 0.4,
+        "recall_at_48": 0.375,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.7385567757549498,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 180,
+      "retrieval_ms": 75.8,
+      "top": [
+        "MSFT_10K_2025-06-30__mdna__0006",
+        "MSFT_10K_2025-06-30__mdna__0008",
+        "MSFT_10Q_2024-12-31__mdna__0006",
+        "MSFT_10K_2025-06-30__mdna__0014",
+        "MSFT_10Q_2025-03-31__mdna__0006"
+      ],
+      "sections": {
+        "mdna": 35,
+        "financial_statements": 13
+      }
+    },
+    {
+      "question_id": "G-17",
+      "type": "numeric",
+      "variant": "dense, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.8,
+        "recall_at_25": 0.52,
+        "recall_at_48": 0.375,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.7510916729774053,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 180,
+      "retrieval_ms": 45.1,
+      "top": [
+        "MSFT_10K_2025-06-30__mdna__0012",
+        "MSFT_10Q_2024-12-31__mdna__0032",
+        "MSFT_10Q_2024-09-30__mdna__0030",
+        "MSFT_10K_2025-06-30__mdna__0018",
+        "MSFT_10K_2025-06-30__financial_statements__0066"
+      ],
+      "sections": {
+        "financial_statements": 34,
+        "mdna": 14
+      }
+    },
+    {
+      "question_id": "G-18",
+      "type": "numeric",
+      "variant": "hybrid",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.0,
+        "recall_at_25": 0.36,
+        "recall_at_48": 0.5208333333333334,
+        "mrr": 0.058823529411764705,
+        "ndcg_at_10": 0.0,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 1337,
+      "retrieval_ms": 5817.1,
+      "top": [
+        "JPM_10Q_2025-03-31__mdna__0042",
+        "JPM_10Q_2025-06-30__mdna__0049",
+        "JPM_10Q_2025-09-30__mdna__0052",
+        "JPM_10Q_2025-03-31__mdna__0393",
+        "JPM_10Q_2025-06-30__mdna__0453"
+      ],
+      "sections": {
+        "financial_statements": 25,
+        "mdna": 23
+      }
+    },
+    {
+      "question_id": "G-18",
+      "type": "numeric",
+      "variant": "lexical",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.0,
+        "recall_at_25": 0.28,
+        "recall_at_48": 0.25,
+        "mrr": 0.05263157894736842,
+        "ndcg_at_10": 0.0,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 1337,
+      "retrieval_ms": 6076.2,
+      "top": [
+        "JPM_10Q_2025-03-31__mdna__0042",
+        "JPM_10Q_2025-06-30__mdna__0049",
+        "JPM_10Q_2025-09-30__mdna__0052",
+        "JPM_10Q_2025-03-31__mdna__0393",
+        "JPM_10Q_2025-06-30__mdna__0453"
+      ],
+      "sections": {
+        "mdna": 36,
+        "financial_statements": 12
+      }
+    },
+    {
+      "question_id": "G-18",
+      "type": "numeric",
+      "variant": "dense",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.0,
+        "recall_at_25": 0.36,
+        "recall_at_48": 0.6666666666666666,
+        "mrr": 0.058823529411764705,
+        "ndcg_at_10": 0.0,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 1337,
+      "retrieval_ms": 5303.6,
+      "top": [
+        "JPM_10Q_2025-06-30__mdna__0049",
+        "JPM_10Q_2025-03-31__mdna__0393",
+        "JPM_10Q_2025-06-30__mdna__0452",
+        "JPM_10Q_2025-09-30__mdna__0635",
+        "JPM_10Q_2025-06-30__mdna__0630"
+      ],
+      "sections": {
+        "financial_statements": 32,
+        "mdna": 16
+      }
+    },
+    {
+      "question_id": "G-18",
+      "type": "numeric",
+      "variant": "hybrid, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.6,
+        "recall_at_25": 0.56,
+        "recall_at_48": 0.5833333333333334,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.6937613565160449,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 1337,
+      "retrieval_ms": 132.5,
+      "top": [
+        "JPM_10K_2025-12-31__financial_statements__0807",
+        "JPM_10K_2025-12-31__financial_statements__1300",
+        "JPM_10K_2025-12-31__financial_statements__0074",
+        "JPM_10Q_2025-06-30__mdna__0049",
+        "JPM_10K_2025-12-31__financial_statements__1278"
+      ],
+      "sections": {
+        "financial_statements": 28,
+        "mdna": 20
+      }
+    },
+    {
+      "question_id": "G-18",
+      "type": "numeric",
+      "variant": "lexical, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.3,
+        "recall_at_25": 0.44,
+        "recall_at_48": 0.4166666666666667,
+        "mrr": 0.25,
+        "ndcg_at_10": 0.23680742154717782,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 1337,
+      "retrieval_ms": 76.9,
+      "top": [
+        "JPM_10Q_2025-03-31__mdna__0393",
+        "JPM_10Q_2025-03-31__mdna__0042",
+        "JPM_10Q_2025-06-30__mdna__0049",
+        "JPM_10K_2025-12-31__financial_statements__0807",
+        "JPM_10Q_2025-09-30__mdna__0052"
+      ],
+      "sections": {
+        "mdna": 28,
+        "financial_statements": 20
+      }
+    },
+    {
+      "question_id": "G-18",
+      "type": "numeric",
+      "variant": "dense, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.9,
+        "recall_at_25": 0.76,
+        "recall_at_48": 0.625,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.9216017310213246,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 1337,
+      "retrieval_ms": 52.6,
+      "top": [
+        "JPM_10K_2025-12-31__financial_statements__1278",
+        "JPM_10K_2025-12-31__financial_statements__1300",
+        "JPM_10K_2025-12-31__financial_statements__0807",
+        "JPM_10K_2025-12-31__financial_statements__1301",
+        "JPM_10K_2025-12-31__financial_statements__1299"
+      ],
+      "sections": {
+        "financial_statements": 30,
+        "mdna": 18
+      }
+    },
+    {
+      "question_id": "G-19",
+      "type": "sector",
+      "variant": "hybrid",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.5,
+        "recall_at_25": 0.52,
+        "recall_at_48": 0.38636363636363635,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.7682767908411046,
+        "coverage_recall": 0.8
+      },
+      "chunks": 48,
+      "relevant": 44,
+      "retrieval_ms": 6144.3,
+      "top": [
+        "LLY_10K_2025-12-31__risk_factors__0007",
+        "ABBV_10K_2024-12-31__risk_factors__0013",
+        "ABBV_10K_2024-12-31__risk_factors__0018",
+        "ABBV_10K_2024-12-31__risk_factors__0001",
+        "JNJ_10K_2025-12-28__risk_factors__0010"
+      ],
+      "sections": {
+        "risk_factors": 48
+      }
+    },
+    {
+      "question_id": "G-19",
+      "type": "sector",
+      "variant": "lexical",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.6,
+        "recall_at_25": 0.52,
+        "recall_at_48": 0.38636363636363635,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.8133655231015727,
+        "coverage_recall": 0.8
+      },
+      "chunks": 48,
+      "relevant": 44,
+      "retrieval_ms": 5871.2,
+      "top": [
+        "LLY_10K_2025-12-31__risk_factors__0007",
+        "ABBV_10K_2024-12-31__risk_factors__0013",
+        "ABBV_10K_2024-12-31__risk_factors__0018",
+        "ABBV_10K_2024-12-31__risk_factors__0001",
+        "MRK_10K_2024-12-31__risk_factors__0028"
+      ],
+      "sections": {
+        "risk_factors": 47,
+        "business": 1
+      }
+    },
+    {
+      "question_id": "G-19",
+      "type": "sector",
+      "variant": "dense",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.5,
+        "recall_at_25": 0.48,
+        "recall_at_48": 0.38636363636363635,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.7682767908411046,
+        "coverage_recall": 0.8
+      },
+      "chunks": 48,
+      "relevant": 44,
+      "retrieval_ms": 8355.7,
+      "top": [
+        "LLY_10K_2025-12-31__risk_factors__0007",
+        "ABBV_10K_2024-12-31__risk_factors__0013",
+        "ABBV_10K_2024-12-31__risk_factors__0018",
+        "ABBV_10K_2024-12-31__risk_factors__0001",
+        "JNJ_10K_2025-12-28__risk_factors__0010"
+      ],
+      "sections": {
+        "risk_factors": 48
+      }
+    },
+    {
+      "question_id": "G-19",
+      "type": "sector",
+      "variant": "hybrid, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.6,
+        "recall_at_25": 0.48,
+        "recall_at_48": 0.36363636363636365,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.8252566300241724,
+        "coverage_recall": 0.8
+      },
+      "chunks": 48,
+      "relevant": 44,
+      "retrieval_ms": 509.1,
+      "top": [
+        "LLY_10K_2025-12-31__risk_factors__0038",
+        "MRK_10K_2024-12-31__risk_factors__0028",
+        "MRK_10K_2024-12-31__risk_factors__0003",
+        "MRK_10K_2024-12-31__risk_factors__0018",
+        "ABBV_10K_2024-12-31__risk_factors__0021"
+      ],
+      "sections": {
+        "risk_factors": 46,
+        "business": 1,
+        "mdna": 1
+      }
+    },
+    {
+      "question_id": "G-19",
+      "type": "sector",
+      "variant": "lexical, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.3,
+        "recall_at_25": 0.36,
+        "recall_at_48": 0.3409090909090909,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.6570622144937182,
+        "coverage_recall": 0.8
+      },
+      "chunks": 48,
+      "relevant": 44,
+      "retrieval_ms": 253.1,
+      "top": [
+        "LLY_10K_2025-12-31__risk_factors__0038",
+        "MRK_10K_2024-12-31__risk_factors__0029",
+        "MRK_10K_2024-12-31__risk_factors__0003",
+        "MRK_10K_2024-12-31__risk_factors__0028",
+        "MRK_10K_2024-12-31__risk_factors__0018"
+      ],
+      "sections": {
+        "risk_factors": 47,
+        "business": 1
+      }
+    },
+    {
+      "question_id": "G-19",
+      "type": "sector",
+      "variant": "dense, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.8,
+        "recall_at_25": 0.44,
+        "recall_at_48": 0.3409090909090909,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.8938868170135427,
+        "coverage_recall": 0.8
+      },
+      "chunks": 48,
+      "relevant": 44,
+      "retrieval_ms": 174.6,
+      "top": [
+        "ABBV_10K_2024-12-31__risk_factors__0021",
+        "MRK_10K_2024-12-31__risk_factors__0028",
+        "ABBV_10K_2024-12-31__risk_factors__0018",
+        "LLY_10K_2025-12-31__risk_factors__0038",
+        "MRK_10K_2024-12-31__risk_factors__0031"
+      ],
+      "sections": {
+        "risk_factors": 45,
+        "business": 3
+      }
+    },
+    {
+      "question_id": "G-20",
+      "type": "sector",
+      "variant": "hybrid",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 0.92,
+        "recall_at_48": 0.6875,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 294,
+      "retrieval_ms": 6331.2,
+      "top": [
+        "JPM_10K_2025-12-31__risk_factors__0028",
+        "BAC_10K_2024-12-31__risk_factors__0002",
+        "BAC_10K_2024-12-31__risk_factors__0007",
+        "BAC_10K_2024-12-31__risk_factors__0003",
+        "MS_10K_2025-12-31__risk_factors__0001"
+      ],
+      "sections": {
+        "risk_factors": 35,
+        "mdna": 11,
+        "unknown": 2
+      }
+    },
+    {
+      "question_id": "G-20",
+      "type": "sector",
+      "variant": "lexical",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 0.92,
+        "recall_at_48": 0.75,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 294,
+      "retrieval_ms": 7857.8,
+      "top": [
+        "JPM_10K_2025-12-31__risk_factors__0028",
+        "BAC_10K_2024-12-31__risk_factors__0002",
+        "BAC_10K_2024-12-31__risk_factors__0007",
+        "BAC_10K_2024-12-31__risk_factors__0003",
+        "MS_10K_2025-12-31__risk_factors__0001"
+      ],
+      "sections": {
+        "risk_factors": 38,
+        "mdna": 9,
+        "unknown": 1
+      }
+    },
+    {
+      "question_id": "G-20",
+      "type": "sector",
+      "variant": "dense",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 0.76,
+        "recall_at_48": 0.4791666666666667,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 294,
+      "retrieval_ms": 7107.5,
+      "top": [
+        "JPM_10K_2025-12-31__risk_factors__0028",
+        "MS_10K_2025-12-31__risk_factors__0001",
+        "GS_10K_2024-12-31__risk_factors__0007",
+        "JPM_10K_2025-12-31__risk_factors__0001",
+        "GS_10K_2024-12-31__risk_factors__0019"
+      ],
+      "sections": {
+        "risk_factors": 33,
+        "mdna": 15
+      }
+    },
+    {
+      "question_id": "G-20",
+      "type": "sector",
+      "variant": "hybrid, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 0.76,
+        "recall_at_48": 0.7291666666666666,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 294,
+      "retrieval_ms": 510.8,
+      "top": [
+        "JPM_10K_2025-12-31__risk_factors__0028",
+        "GS_10K_2024-12-31__risk_factors__0023",
+        "GS_10K_2024-12-31__risk_factors__0116",
+        "MS_10K_2025-12-31__risk_factors__0003",
+        "GS_10K_2024-12-31__risk_factors__0004"
+      ],
+      "sections": {
+        "risk_factors": 39,
+        "mdna": 8,
+        "unknown": 1
+      }
+    },
+    {
+      "question_id": "G-20",
+      "type": "sector",
+      "variant": "lexical, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 0.8541666666666666,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 294,
+      "retrieval_ms": 261.2,
+      "top": [
+        "BAC_10K_2024-12-31__risk_factors__0071",
+        "GS_10K_2024-12-31__risk_factors__0011",
+        "JPM_10K_2025-12-31__risk_factors__0028",
+        "BAC_10K_2024-12-31__risk_factors__0066",
+        "GS_10K_2024-12-31__risk_factors__0024"
+      ],
+      "sections": {
+        "risk_factors": 41,
+        "mdna": 7
+      }
+    },
+    {
+      "question_id": "G-20",
+      "type": "sector",
+      "variant": "dense, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.9,
+        "recall_at_25": 0.72,
+        "recall_at_48": 0.4583333333333333,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.905211635630449,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 294,
+      "retrieval_ms": 177.1,
+      "top": [
+        "JPM_10K_2025-12-31__risk_factors__0004",
+        "GS_10K_2024-12-31__risk_factors__0116",
+        "JPM_10K_2025-12-31__risk_factors__0021",
+        "BAC_10Q_2025-09-30__risk_factors__0132",
+        "GS_10K_2024-12-31__risk_factors__0059"
+      ],
+      "sections": {
+        "risk_factors": 32,
+        "mdna": 16
+      }
+    },
+    {
+      "question_id": "G-21",
+      "type": "sector",
+      "variant": "hybrid",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.4,
+        "recall_at_25": 0.3,
+        "recall_at_48": 0.4,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.7018430520916772,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 20,
+      "retrieval_ms": 6491.6,
+      "top": [
+        "META_10K_2025-12-31__risk_factors__0019",
+        "AAPL_10K_2025-09-27__risk_factors__0011",
+        "META_10K_2025-12-31__risk_factors__0001",
+        "AMZN_10K_2025-12-31__risk_factors__0018",
+        "META_10K_2025-12-31__risk_factors__0091"
+      ],
+      "sections": {
+        "risk_factors": 48
+      }
+    },
+    {
+      "question_id": "G-21",
+      "type": "sector",
+      "variant": "lexical",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.5,
+        "recall_at_25": 0.25,
+        "recall_at_48": 0.3,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.7204919272790263,
+        "coverage_recall": 0.6666666666666666
+      },
+      "chunks": 48,
+      "relevant": 20,
+      "retrieval_ms": 6751.2,
+      "top": [
+        "META_10K_2025-12-31__risk_factors__0019",
+        "AAPL_10K_2025-09-27__risk_factors__0011",
+        "META_10K_2025-12-31__risk_factors__0091",
+        "META_10K_2025-12-31__risk_factors__0039",
+        "AAPL_10K_2025-09-27__risk_factors__0024"
+      ],
+      "sections": {
+        "risk_factors": 48
+      }
+    },
+    {
+      "question_id": "G-21",
+      "type": "sector",
+      "variant": "dense",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.5,
+        "recall_at_25": 0.55,
+        "recall_at_48": 0.65,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.7791302218808763,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 20,
+      "retrieval_ms": 7439.5,
+      "top": [
+        "META_10K_2025-12-31__risk_factors__0019",
+        "AAPL_10K_2025-09-27__risk_factors__0011",
+        "AMZN_10K_2025-12-31__risk_factors__0018",
+        "META_10K_2025-12-31__risk_factors__0092",
+        "AMZN_10K_2025-12-31__risk_factors__0015"
+      ],
+      "sections": {
+        "risk_factors": 48
+      }
+    },
+    {
+      "question_id": "G-21",
+      "type": "sector",
+      "variant": "hybrid, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.4,
+        "recall_at_25": 0.35,
+        "recall_at_48": 0.45,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.6430351630360202,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 20,
+      "retrieval_ms": 672.1,
+      "top": [
+        "AAPL_10K_2025-09-27__risk_factors__0011",
+        "META_10K_2025-12-31__risk_factors__0019",
+        "AAPL_10K_2025-09-27__risk_factors__0024",
+        "AAPL_10K_2025-09-27__risk_factors__0020",
+        "AAPL_10K_2025-09-27__risk_factors__0029"
+      ],
+      "sections": {
+        "risk_factors": 48
+      }
+    },
+    {
+      "question_id": "G-21",
+      "type": "sector",
+      "variant": "lexical, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.1,
+        "recall_at_25": 0.2,
+        "recall_at_48": 0.3,
+        "mrr": 0.2,
+        "ndcg_at_10": 0.08514311764162098,
+        "coverage_recall": 0.6666666666666666
+      },
+      "chunks": 48,
+      "relevant": 20,
+      "retrieval_ms": 276.3,
+      "top": [
+        "AAPL_10K_2025-09-27__risk_factors__0000",
+        "META_10K_2025-12-31__risk_factors__0000",
+        "NVDA_10K_2025-01-26__risk_factors__0000",
+        "AAPL_10K_2025-09-27__risk_factors__0009",
+        "AAPL_10K_2025-09-27__risk_factors__0024"
+      ],
+      "sections": {
+        "risk_factors": 48
+      }
+    },
+    {
+      "question_id": "G-21",
+      "type": "sector",
+      "variant": "dense, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "chunk",
+      "metrics": {
+        "recall_at_10": 0.4,
+        "recall_at_25": 0.4,
+        "recall_at_48": 0.65,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.6207682968732933,
+        "coverage_recall": 1.0
+      },
+      "chunks": 48,
+      "relevant": 20,
+      "retrieval_ms": 367.5,
+      "top": [
+        "AAPL_10K_2025-09-27__risk_factors__0011",
+        "META_10K_2025-12-31__risk_factors__0093",
+        "AMZN_10K_2025-12-31__risk_factors__0018",
+        "GOOG_10K_2025-12-31__risk_factors__0020",
+        "META_10K_2025-12-31__risk_factors__0092"
+      ],
+      "sections": {
+        "risk_factors": 48
+      }
+    },
+    {
+      "question_id": "G-22",
+      "type": "out_of_corpus",
+      "variant": "",
+      "outcome": "refused",
+      "detail": "unknown_company",
+      "label_level": "",
+      "metrics": {},
+      "chunks": 0,
+      "relevant": 0,
+      "retrieval_ms": 0.0,
+      "top": [],
+      "sections": {}
+    },
+    {
+      "question_id": "G-23",
+      "type": "out_of_corpus",
+      "variant": "",
+      "outcome": "refused",
+      "detail": "out_of_scope_request",
+      "label_level": "",
+      "metrics": {},
+      "chunks": 0,
+      "relevant": 0,
+      "retrieval_ms": 0.0,
+      "top": [],
+      "sections": {}
+    },
+    {
+      "question_id": "G-24",
+      "type": "out_of_corpus",
+      "variant": "",
+      "outcome": "refused",
+      "detail": "out_of_scope_request",
+      "label_level": "",
+      "metrics": {},
+      "chunks": 0,
+      "relevant": 0,
+      "retrieval_ms": 0.0,
+      "top": [],
+      "sections": {}
+    },
+    {
+      "question_id": "G-25",
+      "type": "ambiguous_entity",
+      "variant": "",
+      "outcome": "refused",
+      "detail": "not_indexed",
+      "label_level": "",
+      "metrics": {},
+      "chunks": 0,
+      "relevant": 0,
+      "retrieval_ms": 0.0,
+      "top": [],
+      "sections": {}
+    },
+    {
+      "question_id": "G-26",
+      "type": "ambiguous_entity",
+      "variant": "hybrid",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 0.8055555555555556,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 36,
+      "retrieval_ms": 6292.1,
+      "top": [
+        "TGT_10K_2025-02-01__risk_factors__0018",
+        "TGT_10K_2025-02-01__risk_factors__0000",
+        "TGT_10K_2025-02-01__risk_factors__0016",
+        "TGT_10K_2025-02-01__risk_factors__0014",
+        "TGT_10K_2025-02-01__risk_factors__0029"
+      ],
+      "sections": {
+        "risk_factors": 29,
+        "mdna": 12,
+        "business": 3,
+        "legal_proceedings": 2,
+        "unknown": 2
+      }
+    },
+    {
+      "question_id": "G-26",
+      "type": "ambiguous_entity",
+      "variant": "lexical",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 0.8055555555555556,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": null
+      },
+      "chunks": 37,
+      "relevant": 36,
+      "retrieval_ms": 4275.1,
+      "top": [
+        "TGT_10K_2025-02-01__risk_factors__0018",
+        "TGT_10K_2025-02-01__risk_factors__0000",
+        "TGT_10K_2025-02-01__risk_factors__0016",
+        "TGT_10K_2025-02-01__risk_factors__0014",
+        "TGT_10K_2025-02-01__risk_factors__0029"
+      ],
+      "sections": {
+        "risk_factors": 29,
+        "mdna": 4,
+        "legal_proceedings": 2,
+        "business": 1,
+        "unknown": 1
+      }
+    },
+    {
+      "question_id": "G-26",
+      "type": "ambiguous_entity",
+      "variant": "dense",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 0.8055555555555556,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 36,
+      "retrieval_ms": 6196.9,
+      "top": [
+        "TGT_10K_2025-02-01__risk_factors__0018",
+        "TGT_10K_2025-02-01__risk_factors__0000",
+        "TGT_10K_2025-02-01__risk_factors__0016",
+        "TGT_10K_2025-02-01__risk_factors__0014",
+        "TGT_10K_2025-02-01__risk_factors__0029"
+      ],
+      "sections": {
+        "risk_factors": 29,
+        "mdna": 11,
+        "business": 4,
+        "legal_proceedings": 2,
+        "unknown": 2
+      }
+    },
+    {
+      "question_id": "G-26",
+      "type": "ambiguous_entity",
+      "variant": "hybrid, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 0.8055555555555556,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 36,
+      "retrieval_ms": 67.0,
+      "top": [
+        "TGT_10K_2025-02-01__risk_factors__0029",
+        "TGT_10K_2025-02-01__risk_factors__0009",
+        "TGT_10K_2025-02-01__risk_factors__0000",
+        "TGT_10K_2025-02-01__risk_factors__0014",
+        "TGT_10K_2025-02-01__risk_factors__0032"
+      ],
+      "sections": {
+        "risk_factors": 29,
+        "mdna": 11,
+        "business": 5,
+        "legal_proceedings": 2,
+        "unknown": 1
+      }
+    },
+    {
+      "question_id": "G-26",
+      "type": "ambiguous_entity",
+      "variant": "lexical, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 0.8055555555555556,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": null
+      },
+      "chunks": 37,
+      "relevant": 36,
+      "retrieval_ms": 46.8,
+      "top": [
+        "TGT_10K_2025-02-01__risk_factors__0029",
+        "TGT_10K_2025-02-01__risk_factors__0032",
+        "TGT_10K_2025-02-01__risk_factors__0026",
+        "TGT_10K_2025-02-01__risk_factors__0000",
+        "TGT_10K_2025-02-01__risk_factors__0009"
+      ],
+      "sections": {
+        "risk_factors": 29,
+        "mdna": 4,
+        "legal_proceedings": 2,
+        "business": 1,
+        "unknown": 1
+      }
+    },
+    {
+      "question_id": "G-26",
+      "type": "ambiguous_entity",
+      "variant": "dense, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 1.0,
+        "recall_at_25": 1.0,
+        "recall_at_48": 0.8055555555555556,
+        "mrr": 1.0,
+        "ndcg_at_10": 1.0,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 36,
+      "retrieval_ms": 40.1,
+      "top": [
+        "TGT_10K_2025-02-01__risk_factors__0029",
+        "TGT_10K_2025-02-01__risk_factors__0009",
+        "TGT_10K_2025-02-01__risk_factors__0006",
+        "TGT_10K_2025-02-01__risk_factors__0000",
+        "TGT_10K_2025-02-01__risk_factors__0014"
+      ],
+      "sections": {
+        "risk_factors": 29,
+        "mdna": 12,
+        "business": 5,
+        "legal_proceedings": 1,
+        "unknown": 1
+      }
+    },
+    {
+      "question_id": "G-27",
+      "type": "adversarial",
+      "variant": "hybrid",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.4,
+        "recall_at_25": 0.24,
+        "recall_at_48": 0.3023255813953488,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.538431315257452,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 43,
+      "retrieval_ms": 6273.7,
+      "top": [
+        "TSLA_10K_2025-12-31__risk_factors__0021",
+        "TSLA_10K_2025-12-31__risk_factors__0036",
+        "TSLA_10K_2025-12-31__risk_factors__0000",
+        "TSLA_10K_2022-12-31__risk_factors__0021",
+        "TSLA_10K_2024-12-31__risk_factors__0000"
+      ],
+      "sections": {
+        "risk_factors": 48
+      }
+    },
+    {
+      "question_id": "G-27",
+      "type": "adversarial",
+      "variant": "lexical",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.3,
+        "recall_at_25": 0.24,
+        "recall_at_48": 0.20930232558139536,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.42520843362602373,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 43,
+      "retrieval_ms": 5674.1,
+      "top": [
+        "TSLA_10K_2025-12-31__risk_factors__0036",
+        "TSLA_10K_2025-12-31__risk_factors__0000",
+        "TSLA_10K_2022-12-31__risk_factors__0021",
+        "TSLA_10K_2024-12-31__risk_factors__0000",
+        "TSLA_10K_2024-12-31__risk_factors__0010"
+      ],
+      "sections": {
+        "risk_factors": 47,
+        "legal_proceedings": 1
+      }
+    },
+    {
+      "question_id": "G-27",
+      "type": "adversarial",
+      "variant": "dense",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.5,
+        "recall_at_25": 0.28,
+        "recall_at_48": 0.32558139534883723,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.604685538711841,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 43,
+      "retrieval_ms": 5713.3,
+      "top": [
+        "TSLA_10K_2025-12-31__risk_factors__0021",
+        "TSLA_10K_2025-12-31__risk_factors__0000",
+        "TSLA_10K_2025-12-31__risk_factors__0022",
+        "TSLA_10K_2022-12-31__risk_factors__0021",
+        "TSLA_10K_2024-12-31__risk_factors__0000"
+      ],
+      "sections": {
+        "risk_factors": 48
+      }
+    },
+    {
+      "question_id": "G-27",
+      "type": "adversarial",
+      "variant": "hybrid, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.5,
+        "recall_at_25": 0.32,
+        "recall_at_48": 0.32558139534883723,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.5298982599625927,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 43,
+      "retrieval_ms": 84.5,
+      "top": [
+        "TSLA_10K_2025-12-31__risk_factors__0000",
+        "TSLA_10K_2024-12-31__risk_factors__0000",
+        "TSLA_10K_2023-12-31__risk_factors__0000",
+        "TSLA_10K_2025-12-31__risk_factors__0034",
+        "TSLA_10K_2025-12-31__risk_factors__0014"
+      ],
+      "sections": {
+        "risk_factors": 47,
+        "legal_proceedings": 1
+      }
+    },
+    {
+      "question_id": "G-27",
+      "type": "adversarial",
+      "variant": "lexical, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.2,
+        "recall_at_25": 0.16,
+        "recall_at_48": 0.2558139534883721,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.28371255449703187,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 43,
+      "retrieval_ms": 53.3,
+      "top": [
+        "TSLA_10K_2025-12-31__risk_factors__0000",
+        "TSLA_10K_2022-12-31__risk_factors__0000",
+        "TSLA_10Q_2025-09-30__risk_factors__0000",
+        "TSLA_10K_2024-12-31__risk_factors__0000",
+        "TSLA_10Q_2022-03-31__risk_factors__0000"
+      ],
+      "sections": {
+        "risk_factors": 44,
+        "legal_proceedings": 4
+      }
+    },
+    {
+      "question_id": "G-27",
+      "type": "adversarial",
+      "variant": "dense, no reranker",
+      "outcome": "scored",
+      "detail": "",
+      "label_level": "section",
+      "metrics": {
+        "recall_at_10": 0.5,
+        "recall_at_25": 0.36,
+        "recall_at_48": 0.37209302325581395,
+        "mrr": 0.5,
+        "ndcg_at_10": 0.4671034547999446,
+        "coverage_recall": null
+      },
+      "chunks": 48,
+      "relevant": 43,
+      "retrieval_ms": 42.6,
+      "top": [
+        "TSLA_10K_2022-12-31__risk_factors__0024",
+        "TSLA_10K_2025-12-31__risk_factors__0021",
+        "TSLA_10K_2025-12-31__risk_factors__0034",
+        "TSLA_10K_2023-12-31__risk_factors__0022",
+        "TSLA_10K_2025-12-31__risk_factors__0023"
+      ],
+      "sections": {
+        "risk_factors": 48
+      }
+    },
+    {
+      "question_id": "G-28",
+      "type": "adversarial",
+      "variant": "",
+      "outcome": "answer_only",
+      "detail": "",
+      "label_level": "",
+      "metrics": {},
+      "chunks": 0,
+      "relevant": 0,
+      "retrieval_ms": 0.0,
+      "top": [],
+      "sections": {}
+    }
+  ]
+}
