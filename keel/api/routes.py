@@ -16,7 +16,6 @@ import logging
 import pathlib
 import re
 import sqlite3
-from typing import TYPE_CHECKING
 from typing import Annotated
 from typing import Any
 import uuid
@@ -26,22 +25,19 @@ from fastapi import responses
 import pydantic
 import yaml
 
-import keel
+from keel import __version__ as keel_version
 from keel import answer
 from keel import citations
 from keel import errors
-from keel import indexer
 from keel import understanding
 from keel.api import auth
 from keel.api import sse
+from keel.api import state
 from keel.providers import mock
-
-if TYPE_CHECKING:
-    from keel.api import app as app_module
 
 logger = logging.getLogger(__name__)
 
-VERSION = keel.__version__
+VERSION = keel_version
 MAX_BODY_BYTES = 16 * 1024  # control S-04
 MOCK_PACE_SECONDS = 0.05  # the pause between events of the mock provider
 FAULT_HEADER = "x-keel-mock"
@@ -150,7 +146,7 @@ def http_error(
     )
 
 
-def get_services(request: fastapi.Request) -> app_module.Services:
+def get_services(request: fastapi.Request) -> state.Services:
     """The services of the app.
 
     Args:
@@ -159,11 +155,11 @@ def get_services(request: fastapi.Request) -> app_module.Services:
     Returns:
         The shared services.
     """
-    services: app_module.Services = request.app.state.services
+    services: state.Services = request.app.state.services
     return services
 
 
-Services = Annotated["app_module.Services", fastapi.Depends(get_services)]
+Services = Annotated["state.Services", fastapi.Depends(get_services)]
 
 
 def require_principal(
@@ -216,7 +212,7 @@ def fault_of(request: fastapi.Request, services: Services) -> str | None:
 Fault = Annotated[str | None, fastapi.Depends(fault_of)]
 
 
-def require_answerer(services: app_module.Services) -> answer.Answerer:
+def require_answerer(services: state.Services) -> answer.Answerer:
     """The pipeline, or HTTP 503 when no index is loaded (E-F-01).
 
     Args:
@@ -444,28 +440,7 @@ def golden_questions(path: pathlib.Path) -> list[dict[str, Any]]:
     ]
 
 
-def corpus_check(
-    corpus_dir: pathlib.Path,
-    manifest: indexer.Manifest | None,
-) -> tuple[bool | None, str | None]:
-    """Compare the corpus on disk with the corpus of the index (E-F-02).
-
-    Args:
-        corpus_dir: The corpus directory (`corpus.dir`).
-        manifest: The manifest of the current build, or None.
-
-    Returns:
-        (match, note): match is None without a manifest; True with a note
-        when the corpus directory is absent, because nothing changed that
-        the service can see.
-    """
-    if manifest is None:
-        return None, "the index has no valid manifest"
-    files = sorted(corpus_dir.glob("*.txt")) if corpus_dir.is_dir() else []
-    if not files:
-        return True, f"no corpus at {corpus_dir}; the checksum was not compared"
-    digest = indexer.corpus_sha256([indexer.file_sha256(f) for f in files])
-    return digest == manifest.corpus_sha256, None
+corpus_check = state.corpus_check
 
 
 def _build_warnings(conn: sqlite3.Connection) -> list[str]:
@@ -671,7 +646,7 @@ async def read_body(request: fastapi.Request) -> AskRequest:
         ) from error
 
 
-def check_question(services: app_module.Services, question: str) -> None:
+def check_question(services: state.Services, question: str) -> None:
     """Run the length and language checks of chapter 10.7 (E-Q-10, E-Q-11).
 
     Args:
@@ -724,7 +699,7 @@ async def _no_wait(seconds: float) -> None:
 
 
 def answerer_for(
-    services: app_module.Services, fault: str | None
+    services: state.Services, fault: str | None
 ) -> answer.Answerer:
     """The pipeline of 1 request, with the mock fault when there is one.
 
@@ -759,7 +734,7 @@ class _Outcome:
 
 
 async def run_answer(  # pylint: disable=too-many-arguments
-    services: app_module.Services,
+    services: state.Services,
     answerer: answer.Answerer,
     body: AskRequest,
     request_id: str,

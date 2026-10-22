@@ -103,8 +103,8 @@ def api_settings(
 
 
 class NoSleep:
-    async def __call__(self, seconds: float) -> None:
-        del seconds
+    async def __call__(self, _seconds: float) -> None:
+        return None
 
 
 def make_answerer(
