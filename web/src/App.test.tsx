@@ -100,6 +100,7 @@ describe('App', () => {
     expect(asks).toHaveLength(1);
     expect(JSON.parse(String(asks[0]?.[1]?.body))).toEqual({
       question: 'Q again?',
+      options: {use_cache: false},
     });
     fireEvent.click(share);
     await waitFor(() =>
