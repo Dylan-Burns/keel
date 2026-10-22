@@ -127,29 +127,29 @@ Prices live in `config/prices.yaml`, keyed by model id and checked on 2026-10-21
 
 ## Commands
 
-| Command | Does |
-| --- | --- |
-| `keel inventory` | extract the zip when needed, count it, check the manifest |
-| `keel parse --all --summary` | parse every filing: header, XBRL cut, cover page, checks, quarantine |
-| `keel chunk --all --summary` | detect the sections and cut the chunks |
-| `keel index` | build the chunk store, FTS5, vectors, and manifest; `--incremental` reuses unchanged filings |
-| `keel understand "question"` | resolve a question without a model call |
-| `keel retrieve --question 1 --summary` | retrieve the context of a question, no model call |
-| `keel ask "question"` | answer with 1 model request; `--json` for the record |
-| `keel eval` | run the golden set and write `eval/report.md` |
-| `keel serve` | the API and the front-end on port 8000 |
-| `keel warm-cache` | fill the answer cache for the demo questions and pre-fetch the company facts |
-| `keel doctor` | check FTS5, the models, the keys, the clock, the port; `--download-models` |
-| `keel add TICKER` | add the latest 10-K and 10-Q of 1 company from EDGAR |
-| `keel refresh` | add the new filings of the watched and added tickers; `--dry-run` |
-| `keel export REQUEST_ID` | write a stored answer as a memo and 1 line of `<logs.dir>/exports.jsonl`; `--format markdown\|docx` |
-| `keel bootstrap` | download the corpus and restore or build the index when absent; `keel backup` and `keel restore` |
-| `keel history` | the questions of the History page, newest first; `--user NAME`, `--limit N`, `--json` |
-| `keel share REQUEST_ID` | the shareable link `/a/<ID>` of an answer; `--base-url URL` for the full address |
-| `keel coverage` | the companies, forms, and fiscal periods of the current index; `--json` |
-| `keel jobs [ID]` | the admin jobs of the web UI, or 1 job with its log tail |
+| Command | Does | Web UI |
+| --- | --- | --- |
+| `keel inventory` | extract the zip when needed, count it, check the manifest | System (counts) |
+| `keel parse --all --summary` | parse every filing: header, XBRL cut, cover page, checks, quarantine | CLI only |
+| `keel chunk --all --summary` | detect the sections and cut the chunks | CLI only |
+| `keel index` | build the chunk store, FTS5, vectors, and manifest; `--incremental` reuses unchanged filings | System: Rebuild index (admin) |
+| `keel understand "question"` | resolve a question without a model call | Debug |
+| `keel retrieve --question 1 --summary` | retrieve the context of a question, no model call | Debug |
+| `keel ask "question"` | answer with 1 model request; `--json` for the record | Question page |
+| `keel eval` | run the golden set and write `eval/report.md` | System: Run eval (admin); Eval report reads it |
+| `keel serve` | the API and the front-end on port 8000 | CLI only (serves the page) |
+| `keel warm-cache` | fill the answer cache for the demo questions and pre-fetch the company facts | System: Warm cache (admin) |
+| `keel doctor` | check FTS5, the models, the keys, the clock, the port; `--download-models` | System (admin) |
+| `keel add TICKER` | add the latest 10-K and 10-Q of 1 company from EDGAR | Companies: Add company (admin) |
+| `keel refresh` | add the new filings of the watched and added tickers; `--dry-run` | Companies: Dry run, Run refresh (admin) |
+| `keel export REQUEST_ID` | write a stored answer as a memo and 1 line of `<logs.dir>/exports.jsonl`; `--format markdown\|docx` | Footer: Memo .md, Memo .docx |
+| `keel bootstrap` | download the corpus and restore or build the index when absent; `keel backup` and `keel restore` | CLI only; Back up now and Restore on System (admin) |
+| `keel history` | the questions of the History page, newest first; `--user NAME`, `--limit N`, `--json` | History |
+| `keel share REQUEST_ID` | the shareable link `/a/<ID>` of an answer; `--base-url URL` for the full address | Footer: Copy link |
+| `keel coverage` | the companies, forms, and fiscal periods of the current index; `--json` | Question page coverage summary |
+| `keel jobs [ID]` | the admin jobs of the web UI, or 1 job with its log tail | Jobs (admin) |
 
-Also: `keel calibrate` (the token calibration factor, 1 count call), `keel facts TICKER` (the company facts lines), `keel users`, `keel compsets`, `keel feedback`, `keel template`, `keel watch` (the pilot features of chapter 27), `make test`, and `npm run check --prefix web`.
+Also: `keel calibrate` (the token calibration factor, 1 count call; CLI only), `keel facts TICKER` (the company facts lines; Companies page), `keel users` (Users page), `keel compsets` (Comp sets page), `keel feedback` (the thumbs under an answer; the review stays in the CLI), `keel template` (the template picker), `keel watch` (Companies page) (the pilot features of chapter 27), `make test`, and `npm run check --prefix web`. The admin pages show only to an admin token; [`docs/START_GUIDE.md`](docs/START_GUIDE.md) section 10 maps each page to its command.
 
 ## Evaluation
 

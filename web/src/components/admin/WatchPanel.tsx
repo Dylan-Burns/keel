@@ -20,7 +20,7 @@ type Load =
  * @return The ticker and the user.
  */
 function rowKey(item: WatchItem): string {
-  return `${item.ticker}:${item.user ?? ''}`;
+  return `${item.ticker}:${item.user ?? ''}:${item.added_date}:${String(item.mine)}`;
 }
 
 /** Props of WatchPanel. */
@@ -44,6 +44,7 @@ export function WatchPanel({isAdmin, version}: WatchPanelProps): JSX.Element {
   const [tickers, setTickers] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
   useEffect(() => {
     let cancelled = false;
     fetchWatch()
@@ -67,6 +68,7 @@ export function WatchPanel({isAdmin, version}: WatchPanelProps): JSX.Element {
       setNotice('Give 1 to 25 tickers.');
       return;
     }
+    setSending(true);
     addWatch(list)
       .then(added => {
         const parts = [
@@ -85,7 +87,8 @@ export function WatchPanel({isAdmin, version}: WatchPanelProps): JSX.Element {
             ? error.message
             : 'The tickers could not be added.',
         ),
-      );
+      )
+      .finally(() => setSending(false));
   };
   const onRemove = (item: WatchItem): void => {
     removeWatch(item.ticker, item.user)
@@ -127,7 +130,12 @@ export function WatchPanel({isAdmin, version}: WatchPanelProps): JSX.Element {
                 onChange={event => setTickers(event.target.value)}
               />
             </label>
-            <button type="submit" className="btn" data-testid="watch-add">
+            <button
+              type="submit"
+              className="btn"
+              disabled={sending}
+              data-testid="watch-add"
+            >
               Watch
             </button>
           </form>

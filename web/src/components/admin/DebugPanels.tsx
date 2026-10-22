@@ -76,8 +76,8 @@ export function DebugPanels(): JSX.Element {
           <p className="text-[12.5px] text-ink-2">
             Shows how the pipeline reads a question and which chunks it would
             send, without asking the model: understanding and retrieval run on
-            the loaded index, and no answer is written. Each run counts against
-            your question rate limit.
+            the loaded index, and no answer is written. Each run uses 2
+            questions of your rate limit.
           </p>
           <form
             className="flex flex-col gap-2 sm:flex-row sm:items-end"

@@ -67,7 +67,8 @@ export function SystemPanels(): JSX.Element {
             <a className="link font-mono" href={jobPath(data.active_job.id)}>
               {data.active_job.id.slice(0, 8)}
             </a>{' '}
-            is {data.active_job.status}: another heavy job waits.
+            is {data.active_job.status}: another heavy job is refused until it
+            ends.
           </p>
         )}
         <button type="button" className="btn ml-auto" onClick={reload}>

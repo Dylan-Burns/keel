@@ -47,7 +47,10 @@ export function MiniTable({
           {rows.map((row, index) => (
             <tr key={index}>
               {columns.map(column => (
-                <td key={column} className="font-mono text-[11.5px]">
+                <td
+                  key={column}
+                  className="whitespace-nowrap font-mono text-[11.5px]"
+                >
                   {scalar(row[column])}
                 </td>
               ))}

@@ -1,5 +1,5 @@
 import type {JSX} from 'react';
-import {useEffect, useId, useState} from 'react';
+import {useEffect, useId, useRef, useState} from 'react';
 
 import {fetchCostPreview} from '../../api/admin';
 import type {CostEstimate, CostQuery} from '../../api/types';
@@ -47,7 +47,18 @@ export function CostConfirm({
   const [preview, setPreview] = useState<Preview>({kind: 'loading'});
   const [accepted, setAccepted] = useState(false);
   const checkId = useId();
+  const panel = useRef<HTMLElement>(null);
   const key = JSON.stringify(query);
+  const [pricedKey, setPricedKey] = useState(key);
+  if (pricedKey !== key) {
+    // Other parameters: drop the old price and the old tick.
+    setPricedKey(key);
+    setPreview({kind: 'loading'});
+    setAccepted(false);
+  }
+  useEffect(() => {
+    panel.current?.focus();
+  }, []);
   useEffect(() => {
     let cancelled = false;
     fetchCostPreview(JSON.parse(key) as CostQuery)
@@ -76,6 +87,8 @@ export function CostConfirm({
   const ready = estimate !== null && (!needsCost || accepted);
   return (
     <section
+      ref={panel}
+      tabIndex={-1}
       className="notice notice-warn space-y-2 text-[13px]"
       aria-label={title}
       data-testid={testId}

@@ -38,8 +38,8 @@ function present<T>(value: T | null): T {
 }
 
 /**
- * `GET /api/admin/jobs?limit=1` as a role probe: HTTP 200 (or 503 when the
- * job store is down) means an admin token, 403 a token of another role.
+ * `GET /api/admin/jobs?limit=1` as a role probe: HTTP 200 (or the 503 of a
+ * job store that is down) means an admin token, 403 a token of another role.
  *
  * @return True for an admin.
  * @throws ApiError On 401 and on any other failure.
@@ -52,7 +52,12 @@ export async function probeAdmin(): Promise<boolean> {
     if (error instanceof ApiError && error.status === 403) {
       return false;
     }
-    if (error instanceof ApiError && error.status === 503) {
+    // Only the job store's own 503 proves the route let an admin in.
+    if (
+      error instanceof ApiError &&
+      error.status === 503 &&
+      (error.code === 'jobs_unavailable' || error.code === 'store_unavailable')
+    ) {
       return true;
     }
     throw error;
@@ -253,7 +258,7 @@ export interface FetchedFile {
  * @return The name, without any path.
  */
 export function fileNameOf(header: string | null, fallback: string): string {
-  const match = /filename="?([^";]+)"?/i.exec(header ?? '');
+  const match = /(?:^|;)\s*filename="?([^";]+)"?/i.exec(header ?? '');
   const name = match?.[1]?.split(/[\\/]/).pop()?.trim() ?? '';
   return name === '' ? fallback : name;
 }

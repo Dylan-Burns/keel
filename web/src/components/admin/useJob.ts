@@ -63,7 +63,12 @@ export function useJob(
           if (cancelled) {
             return;
           }
-          setJob(next);
+          // A poll that left before a cancel must not undo it.
+          setJob(current =>
+            current !== null && isFinal(current) && !isFinal(next)
+              ? current
+              : next,
+          );
           setError(null);
           if (isFinal(next)) {
             if (!announced.current) {

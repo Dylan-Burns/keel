@@ -48,7 +48,7 @@ export function JobResult({result}: JobResultProps): JSX.Element {
   );
   return (
     <div className="space-y-2" data-testid="job-result">
-      {entries.length > 0 && (
+      {entries.length + nested.length > 0 && (
         <dl className="grid grid-cols-[minmax(0,10rem)_minmax(0,1fr)] gap-x-3 gap-y-0.5 font-mono text-[11.5px]">
           {entries.map(([key, value]) => (
             <div key={key} className="contents">
