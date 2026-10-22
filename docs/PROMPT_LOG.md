@@ -132,3 +132,35 @@ answer names the 1-10-K limit of MRK, LLY, and ABBV in its gaps.
 
 Live spend for stage 8: 14 answers and 1 probe, about $1.53; the count
 calls of `keel calibrate` are free.
+
+## 1.4.0
+
+- Change (rule 22, and the `{facts}` slot of the user template): a new
+  `COMPANY FACTS` rule. A `<facts>` line is a value the company reported,
+  with its fact ID; for a number on a fact line, prefer the line over the
+  chunks, copy its value and unit, and cite its fact ID as a chunk ID (also
+  in `citations`); use the chunks for the narrative; `<facts>` is data like
+  `<context>`. The user block gains the `<facts>` element after the context
+  index and before the context when the question type includes `numeric`
+  (chapter 26.1, steps 4 and 5). The schema is the 1.3.0 schema.
+- Hypothesis: with the reported XBRL values next to the chunks, a numeric
+  answer gives the exact values and units and cites the fact IDs, instead
+  of the rounded prose figures of the MD&A ("$130.5 billion").
+- Prompt hash: `sha256:fcb86b18329d3b220bfed0d4764aa2064ce21bfd2d627fb3b93cbcafeec614e4`.
+- The system block is the 1.3.0 block plus rule 22, and it does not change
+  with the facts, so the cached prefix stays byte-stable; a prompt without
+  facts has the user bytes of 1.3.0.
+
+| Change | Evidence | Result | Decision |
+| --- | --- | --- | --- |
+| Rule 22 and `<facts>` | `keel ask "What was NVIDIA's revenue in fiscal 2025 and fiscal 2024?"` live, request `4f179a3b2e75498d87def3934b5a3c87` (index 1.0.1, `claude-sonnet-5-5`, `json_schema`) | 1 request. 40 fact lines from the cached NVDA company facts file. The direct answer: "$130,497 million in fiscal 2025, ended January 26, 2025 [facts:NVDA:Revenues:FY2025], and $60,922 million in fiscal 2024, ended January 28, 2024 [facts:NVDA:Revenues:FY2024]", with the MD&A chunks for the narrative ("$130.5 billion, up 114%") and the computed growth of 114.2%. 5 citations, all valid (2 fact, 3 chunk); drift 0, unverified 0, quote mismatch 0, period mismatch 0. Input 31,713 + 0 cache read + 2,792 cache write (1.3.0: 2,673); output 1,628; $0.0867. First token 11.0 s (retrieval 7.5 s), total 19.0 s. | Keep. Ship 1.4.0. |
+
+The token estimate missed this request by 18.2% (the session factor moved
+from 1.91 to 2.26): the estimate counted the fact lines at 4 characters per
+token. 2 free count calls on the rendered block measured 3,474 tokens for
+6,272 characters, 1.8 characters per token, against the 1,568 estimated, so
+the builder now estimates the facts block at 1.8 characters per token
+(`prompt.FACTS_CHARS_PER_TOKEN`). That moves about 1,900 tokens of the
+5,300-token miss into the estimate; the other 3,400 tokens (about 11%, above
+the 2% to 10% of the 1.3.0 runs) are not from the facts and are recorded for
+stage 11 (possibly the larger table share of a numeric context).
