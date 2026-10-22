@@ -16,6 +16,7 @@ import threading
 import time
 from typing import TYPE_CHECKING
 from typing import Any
+from typing import Protocol
 
 from keel import answer
 from keel import bootstrap
@@ -27,10 +28,10 @@ from keel import reliability
 from keel.api import auth
 from keel.api import ratelimit
 from keel.providers import base
+from keel.stores import admin_store
 
 if TYPE_CHECKING:
     from keel import scheduler
-    from keel.api import jobs
 
 logger = logging.getLogger(__name__)
 
@@ -209,6 +210,13 @@ class MissingKeyProvider:
         raise errors.ProviderRequestError("ANTHROPIC_API_KEY is not set")
 
 
+class JobSlot(Protocol):  # pylint: disable=too-few-public-methods
+    """The part of the admin job runner (`keel.api.jobs`) others read."""
+
+    def holder(self) -> admin_store.JobRecord | None:
+        """The heavy job that is queued or running, if any."""
+
+
 class Services:  # pylint: disable=too-many-instance-attributes
     """What the routes share: the pipeline, the stores, and the checks.
 
@@ -254,7 +262,7 @@ class Services:  # pylint: disable=too-many-instance-attributes
         # Held by a heavy admin job and by the nightly refresh and backup,
         # so only 1 of them writes the index or the backups at a time.
         self.maintenance = threading.Lock()
-        self.jobs: jobs.JobRunner | None = None
+        self.jobs: JobSlot | None = None
         self.scheduler: scheduler.Scheduler | None = None
 
     @property
