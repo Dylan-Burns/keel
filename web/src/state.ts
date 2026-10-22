@@ -167,7 +167,12 @@ export type Action =
       readonly requestId: string;
     }
   | {readonly type: 'sse'; readonly event: SseEvent}
-  | {readonly type: 'result_loaded'; readonly result: AskResponse}
+  | {
+      readonly type: 'result_loaded';
+      readonly result: AskResponse;
+      /** The question stored with the request ID, when known. */
+      readonly question?: string | null;
+    }
   | {
       readonly type: 'http_error';
       readonly status: number;
@@ -349,7 +354,11 @@ function lightStep(run: Run, step: PipelineStep): Run {
 function settle(run: Run, result: AskResponse): UiState {
   const done: Run = {
     ...run,
-    stepsLit: PIPELINE_STEPS,
+    // Keep the arrival order; add only the steps whose events never came.
+    stepsLit: [
+      ...run.stepsLit,
+      ...PIPELINE_STEPS.filter(step => !run.stepsLit.includes(step)),
+    ],
     analysis: result.analysis,
     retrieval: result.retrieval,
     findings: result.answer.company_findings,
@@ -491,10 +500,8 @@ function reduceBase(ui: UiState, action: Action): UiState {
       const run =
         previous !== null && previous.requestId === action.result.request_id
           ? previous
-          : newRun(
-              action.result.analysis.tickers.join(', '),
-              action.result.request_id,
-            );
+          : // An empty question (the /a/ route) turns Retry off.
+            newRun(action.question ?? '', action.result.request_id);
       return settle(run, action.result);
     }
     case 'http_error': {

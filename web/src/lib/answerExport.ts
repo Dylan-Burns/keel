@@ -13,7 +13,7 @@ import {answerText} from '../state';
  * @return The line.
  */
 export function partialHeader(requestId: string): string {
-  return `> Partial answer, still streaming (request ${requestId})`;
+  return `> Partial answer (request ${requestId})`;
 }
 
 /**
@@ -28,7 +28,8 @@ export function answerToMarkdown(run: Run): string {
   if (run.final === null) {
     lines.push(partialHeader(requestId), '');
   }
-  lines.push(`# ${run.question}`, '', answerText(run), '');
+  const title = run.question === '' ? `Answer ${requestId}` : run.question;
+  lines.push(`# ${title}`, '', answerText(run), '');
   for (const company of run.findings) {
     lines.push(`## ${company.company} (${company.ticker})`, '');
     for (const finding of company.findings) {

@@ -106,6 +106,10 @@ export default tseslint.config(
           message: 'Google TS style: use named exports.',
         },
         {
+          selector: 'TSEnumDeclaration[const=true]',
+          message: 'Google TS style: no const enums.',
+        },
+        {
           selector: 'TSModuleDeclaration',
           message: 'Google TS style: no namespaces; use modules.',
         },

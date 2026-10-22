@@ -260,6 +260,33 @@ describe('reducer edge cases', () => {
     );
   });
 
+  it('keeps the arrival order of the steps through final', () => {
+    const events = eventsFor(RESPONSE_2);
+    const [meta, analysis, retrieval] = events;
+    if (
+      meta === undefined ||
+      analysis === undefined ||
+      retrieval === undefined
+    ) {
+      throw new Error('fixture');
+    }
+    const state = run([ask(), ...sse([meta, retrieval, ...events.slice(3)])]);
+    expect(currentRun(state.ui)?.stepsLit).toEqual([
+      'understanding',
+      'model',
+      'retrieval',
+    ]);
+  });
+
+  it('settles a stored result with its stored question', () => {
+    const state = reducer(initialState, {
+      type: 'result_loaded',
+      result: RESPONSE_2,
+      question: 'Q2?',
+    });
+    expect(currentRun(state.ui)?.question).toBe('Q2?');
+  });
+
   it('settles a stored result after a refresh (E-F-04)', () => {
     const state = reducer(initialState, {
       type: 'result_loaded',
