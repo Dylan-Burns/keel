@@ -75,13 +75,31 @@ def test_redact_url() -> None:
     )
 
 
-def test_quiet_http_logs_restores_levels() -> None:
+def test_nat64_and_mapped_addresses_use_the_ipv4_part() -> None:
+    assert not net.is_public_address("64:ff9b::a00:1")
+    assert not net.is_public_address("::ffff:10.0.0.1")
+    assert net.is_public_address("64:ff9b::5db8:d822")
+
+
+def test_redact_text() -> None:
+    text = 'HTTP Request: GET https://b.example.com/c.zip?X-Sig=abc "200"'
+    assert net.redact_text(text) == (
+        'HTTP Request: GET https://b.example.com/c.zip "200"'
+    )
+    assert net.redact_text("no url here") == "no url here"
+
+
+def test_install_log_redaction(caplog: pytest.LogCaptureFixture) -> None:
+    net.install_log_redaction()
+    net.install_log_redaction()
     httpx_logger = logging.getLogger("httpx")
-    httpx_logger.setLevel(logging.DEBUG)
-    try:
-        with net.quiet_http_logs():
-            assert httpx_logger.level == logging.WARNING
-            assert logging.getLogger("httpcore").level == logging.WARNING
-        assert httpx_logger.level == logging.DEBUG
-    finally:
-        httpx_logger.setLevel(logging.NOTSET)
+    filters = [
+        f for f in httpx_logger.filters if isinstance(f, net.RedactQueryFilter)
+    ]
+    assert len(filters) == 1
+    with caplog.at_level(logging.INFO):
+        httpx_logger.info("GET %s", "https://b.example.com/c?sig=secret9")
+        httpx_logger.info("plain %s", "line")
+    assert "secret9" not in caplog.text
+    assert "https://b.example.com/c" in caplog.text
+    assert "plain line" in caplog.text

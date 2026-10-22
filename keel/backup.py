@@ -58,13 +58,15 @@ ARCHIVE_SUFFIX = ".tar.gz"
 CHECKSUM_SUFFIX = ".sha256"
 AUDIT_LOG = "audit.jsonl"
 RESTORE_DIR = "restore"
-PREVIOUS = "previous"
+PREVIOUS = indexer.PREVIOUS
 INDEX_FILES = (chunk_store.FILE_NAME, numpy_dense.FILE_NAME)
 REQUIRED_MEMBERS = (indexer.MANIFEST, *INDEX_FILES)
 _MEMBER_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$")
 _ARCHIVE_NAME = re.compile(r"^keel-\d{4}-\d{2}-\d{2}T\d{6}Z\.tar\.gz$")
 # The largest member accepted on restore; the full index is about 270 MB.
 MAX_MEMBER_BYTES = 4 * 1024**3
+MAX_MEMBERS = 16
+MAX_TOTAL_BYTES = 5 * 1024**3
 
 
 @dataclasses.dataclass(frozen=True)
@@ -198,8 +200,12 @@ def _stage(
         shutil.copyfile(audit, work / AUDIT_LOG)
         members.append(AUDIT_LOG)
     if logs_dir.is_dir():
+        reserved = {*REQUIRED_MEMBERS, AUDIT_LOG}
         for database in sorted(logs_dir.glob("*.sqlite")):
-            if _MEMBER_NAME.match(database.name):
+            if (
+                _MEMBER_NAME.match(database.name)
+                and database.name not in reserved
+            ):
                 snapshot_sqlite(database, work / database.name)
                 members.append(database.name)
     return members
@@ -250,9 +256,9 @@ def create_backup(
             shutil.rmtree(work, ignore_errors=True)
             part.unlink(missing_ok=True)
         digest = indexer.file_sha256(archive)
-        checksum_file.write_text(
-            f"{digest}  {archive.name}\n", encoding="utf-8"
-        )
+        sha_part = checksum_file.with_name(checksum_file.name + ".part")
+        sha_part.write_text(f"{digest}  {archive.name}\n", encoding="utf-8")
+        os.replace(sha_part, checksum_file)
     except OSError as error:
         raise errors.BackupError(f"cannot write {archive}: {error}") from error
     logger.info(
@@ -314,6 +320,13 @@ def _extract(archive: pathlib.Path, target: pathlib.Path) -> list[str]:
     try:
         with tarfile.open(archive, "r:gz") as tar:
             members = tar.getmembers()
+            if len(members) > MAX_MEMBERS:
+                raise errors.BackupError(
+                    f"{len(members)} archive members, the limit is "
+                    f"{MAX_MEMBERS}"
+                )
+            if sum(member.size for member in members) > MAX_TOTAL_BYTES:
+                raise errors.BackupError("the archive expands past 5 GB")
             for member in members:
                 if not member.isfile() or not _MEMBER_NAME.match(member.name):
                     raise errors.BackupError(
@@ -424,6 +437,10 @@ def restore_backup(
     stamp = archive.name.removeprefix(ARCHIVE_PREFIX).removesuffix(
         ARCHIVE_SUFFIX
     )
+    for name in (indexer.CURRENT, PREVIOUS):
+        pointer = index_dir / name
+        if pointer.exists() and not pointer.is_symlink():
+            raise errors.IndexWriteError(f"{pointer} is not a symlink")
     index_dir.mkdir(parents=True, exist_ok=True)
     staging = index_dir / RESTORE_DIR
     shutil.rmtree(staging, ignore_errors=True)
@@ -447,7 +464,11 @@ def restore_backup(
         if old is not None:
             _swap_link(index_dir, PREVIOUS, old.name)
         _swap_link(index_dir, indexer.CURRENT, final.name)
-    except OSError as error:
+    except (OSError, errors.IndexWriteError) as error:
+        if indexer.current_build(index_dir) != final.resolve():
+            shutil.rmtree(final, ignore_errors=True)
+        if isinstance(error, errors.IndexWriteError):
+            raise
         raise errors.IndexWriteError(
             f"cannot point current at {final}: {error}"
         ) from error
@@ -473,6 +494,9 @@ def prune_backups(out_dir: pathlib.Path, keep: int) -> list[pathlib.Path]:
 
     Returns:
         The archives removed.
+
+    Raises:
+        OSError: An old archive cannot be removed.
     """
     archives = sorted(
         (

@@ -106,6 +106,7 @@ class Scheduler:
         self._due = {job.name: next_run(job.at, now) for job in self._jobs}
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        self._control = threading.Lock()
 
     @property
     def jobs(self) -> tuple[Job, ...]:
@@ -120,6 +121,9 @@ class Scheduler:
 
         Returns:
             The next run time in UTC.
+
+        Raises:
+            KeyError: No job has that name.
         """
         return self._due[name]
 
@@ -160,13 +164,15 @@ class Scheduler:
             self.run_due()
 
     def start(self) -> None:
-        """Start the background thread once."""
-        if self._thread is not None:
-            return
-        self._thread = threading.Thread(
-            target=self._loop, name="keel-scheduler", daemon=True
-        )
-        self._thread.start()
+        """Start the background thread, unless 1 is alive."""
+        with self._control:
+            if self._thread is not None and self._thread.is_alive():
+                return
+            self._stop.clear()
+            self._thread = threading.Thread(
+                target=self._loop, name="keel-scheduler", daemon=True
+            )
+            self._thread.start()
         logger.info(
             "scheduler: %s",
             ", ".join(f"{j.name} at {self._due[j.name]}" for j in self._jobs),
@@ -178,10 +184,15 @@ class Scheduler:
         Args:
             timeout: The seconds to wait for the thread.
         """
-        self._stop.set()
-        if self._thread is not None:
+        with self._control:
+            self._stop.set()
+            if self._thread is None:
+                return
             self._thread.join(timeout)
-            self._thread = None
+            # A thread still in a job stays referenced, so start() cannot
+            # run a second copy of the job beside it.
+            if not self._thread.is_alive():
+                self._thread = None
 
 
 def build_scheduler(

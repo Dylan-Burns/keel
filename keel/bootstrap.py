@@ -12,8 +12,10 @@ earlier run, `gh release download` of the `corpus.release_tag` asset when
 list (the host of `corpus.url` and the GitHub release asset hosts), every
 resolved address public, the address of the opened socket public too (DNS
 rebinding), and each redirect target checked again. The URL can carry a
-signature in its query, so logs and errors never hold the query string, and
-the httpx and httpcore loggers stay at WARNING during the download.
+signature in its query, so logs and errors never hold the query string: a
+filter on the httpx and httpcore loggers redacts the URLs they print. The
+client ignores proxy variables and `.netrc` (`trust_env=False`). When `gh`
+fails and `corpus.url` is set, the GET runs next.
 
 The routine reports its phase and progress through a `BootstrapState`, so
 the server can run it in a background thread and `/api/ready` can read the
@@ -99,7 +101,7 @@ class BootstrapStatus(pydantic.BaseModel):
         finished_at: The UTC end time, or None while it runs.
     """
 
-    model_config = pydantic.ConfigDict(frozen=True)
+    model_config = pydantic.ConfigDict(frozen=True, extra="forbid")
 
     phase: Phase = Phase.PENDING
     detail: str = ""
@@ -131,6 +133,7 @@ class BootstrapState:
         """Start in the `pending` phase."""
         self._lock = threading.Lock()
         self._status = BootstrapStatus()
+        self._active = False
 
     def snapshot(self) -> BootstrapStatus:
         """Return the current status.
@@ -148,21 +151,46 @@ class BootstrapState:
             False when a run is already active, else True.
         """
         with self._lock:
-            if self._status.running:
+            if self._active:
                 return False
+            self._active = True
             self._status = BootstrapStatus(
                 phase=Phase.PENDING, detail="starting", started_at=_now()
             )
             return True
+
+    @property
+    def active(self) -> bool:
+        """True between `begin()` and `finish()`."""
+        with self._lock:
+            return self._active
+
+    def finish(self, phase: Phase, detail: str, error: str | None) -> None:
+        """End the run in `ready` or `failed` and release the claim.
+
+        Args:
+            phase: `Phase.READY` or `Phase.FAILED`.
+            detail: The closing line.
+            error: The error after a failure, else None.
+        """
+        self.update(phase=phase, detail=detail, error=error, finished_at=_now())
+        with self._lock:
+            self._active = False
 
     def update(self, **changes: object) -> None:
         """Change fields of the status.
 
         Args:
             **changes: The fields of `BootstrapStatus` to set.
+
+        Raises:
+            pydantic.ValidationError: A field is unknown or has a bad value.
         """
         with self._lock:
-            self._status = self._status.model_copy(update=changes)
+            # Validate the merged fields, so a misspelled field fails.
+            self._status = BootstrapStatus.model_validate(
+                {**self._status.model_dump(), **changes}
+            )
 
     def enter(
         self, phase: Phase, detail: str, total: int | None = None
@@ -241,8 +269,12 @@ def check_url(url: str, allowed: frozenset[str], resolver: Resolver) -> str:
             allow list, carries credentials or a port other than 443, or
             resolves to a private, loopback, link-local, or reserved address.
     """
-    parts = parse.urlsplit(url)
-    host = (parts.hostname or "").lower()
+    try:
+        parts = parse.urlsplit(url)
+        host = (parts.hostname or "").lower()
+        port = parts.port
+    except ValueError as error:
+        raise errors.HostNotAllowedError("a malformed URL") from error
     if parts.scheme != "https":
         scheme = parts.scheme or "no scheme"
         raise errors.HostNotAllowedError(
@@ -251,7 +283,7 @@ def check_url(url: str, allowed: frozenset[str], resolver: Resolver) -> str:
     if host not in allowed:
         shown = host or "no host"
         raise errors.HostNotAllowedError(f"{shown} is not allowed")
-    if parts.username or parts.password or parts.port not in (None, 443):
+    if parts.username or parts.password or port not in (None, 443):
         raise errors.HostNotAllowedError(
             f"credentials or a port in the URL of {host}"
         )
@@ -296,12 +328,15 @@ def download(
     timeout = httpx.Timeout(60.0, connect=10.0)
     try:
         destination.parent.mkdir(parents=True, exist_ok=True)
-        with (
-            net.quiet_http_logs(),
-            httpx.Client(
-                transport=transport, follow_redirects=False, timeout=timeout
-            ) as client,
-        ):
+        net.install_log_redaction()
+        # trust_env=False: no proxy from the environment (a proxy would
+        # resolve the name and hide the peer) and no .netrc credentials.
+        with httpx.Client(
+            transport=transport,
+            follow_redirects=False,
+            timeout=timeout,
+            trust_env=False,
+        ) as client:
             for _ in range(MAX_REDIRECTS + 1):
                 host = check_url(url, allowed, resolver)
                 logger.info("bootstrap: GET %s", net.redact_url(url))
@@ -310,6 +345,8 @@ def download(
                     net.check_peer(response, host)
                     if response.is_redirect:
                         location = response.headers.get("location", "")
+                        # httpx has parsed the location by now: a malformed
+                        # one raised RemoteProtocolError.
                         url = parse.urljoin(url, location)
                         continue
                     if response.status_code != httpx.codes.OK:
@@ -501,16 +538,21 @@ def _fetch_zip(
     environ = os.environ if deps.environ is None else deps.environ
     repo = settings.corpus.release_repo
     gh = deps.which("gh")
+    url = settings.corpus.url
     if environ.get("GH_TOKEN") and repo and gh:
         state.enter(
             Phase.DOWNLOADING,
             f"gh release download {settings.corpus.release_tag} from {repo}",
         )
-        gh_download(
-            gh, repo, settings.corpus.release_tag, target, deps.run_command
-        )
-        return target, "downloaded"
-    url = settings.corpus.url
+        try:
+            gh_download(
+                gh, repo, settings.corpus.release_tag, target, deps.run_command
+            )
+            return target, "downloaded"
+        except errors.CorpusDownloadError as error:
+            if not url:
+                raise
+            logger.warning("gh failed (%s); trying corpus.url", error)
     if not url:
         raise errors.CorpusMissingError(
             f"no filings in {settings.corpus.dir}, no zip at "
@@ -596,26 +638,14 @@ def run_bootstrap(
         state.update(index=_ensure_index(settings, state, deps))
     except errors.KeelError as error:
         logger.error("bootstrap failed: %s: %s", type(error).__name__, error)
-        state.update(
-            phase=Phase.FAILED,
-            detail="bootstrap failed",
-            error=f"{type(error).__name__}: {error}",
-            finished_at=_now(),
+        state.finish(
+            Phase.FAILED, "bootstrap failed", f"{type(error).__name__}: {error}"
         )
         return state.snapshot()
     except BaseException as error:
-        state.update(
-            phase=Phase.FAILED,
-            detail="bootstrap failed",
-            error=type(error).__name__,
-            finished_at=_now(),
-        )
+        state.finish(Phase.FAILED, "bootstrap failed", type(error).__name__)
         raise
-    state.update(
-        phase=Phase.READY,
-        detail="corpus and index ready",
-        finished_at=_now(),
-    )
+    state.finish(Phase.READY, "corpus and index ready", None)
     return state.snapshot()
 
 

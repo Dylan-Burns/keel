@@ -9,6 +9,7 @@ import logging
 import pathlib
 
 import httpx
+import pydantic
 import pytest
 
 import conftest
@@ -20,7 +21,7 @@ from keel.stores import numpy_dense
 
 pytestmark = pytest.mark.unit
 
-PUBLIC_IP = "93.184.216.34"
+PUBLIC_IP = conftest.PUBLIC_IP
 URL = "https://bucket.example.com/edgar_corpus.zip?X-Signature=secret123"
 
 
@@ -453,5 +454,106 @@ def test_download_never_logs_the_query(
     assert "secret123" not in text
     assert "two456" not in text
     assert "X-Signature" not in text
-    # The levels come back after the download.
-    assert logging.getLogger("httpx").level == logging.NOTSET
+
+
+def test_state_claim_holds_before_the_first_phase() -> None:
+    state = bootstrap.BootstrapState()
+    assert state.begin()
+    assert state.active
+    assert not state.begin()
+    state.finish(bootstrap.Phase.READY, "done", None)
+    assert not state.active
+    assert state.begin()
+
+
+def test_state_update_rejects_an_unknown_field() -> None:
+    state = bootstrap.BootstrapState()
+    with pytest.raises(pydantic.ValidationError):
+        state.update(phse="ready")
+
+
+@pytest.mark.parametrize(
+    "location", ["https://bucket.example.com:abc/x", "https://[::1"]
+)
+def test_download_rejects_a_malformed_redirect(
+    tmp_path: pathlib.Path, location: str
+) -> None:
+    transport = serve(
+        {
+            "bucket.example.com/edgar_corpus.zip": httpx.Response(
+                302, headers={"location": location}
+            )
+        }
+    )
+    # httpx rejects the location itself; either way a Keel error, so the
+    # bootstrap thread records the failure instead of dying.
+    with pytest.raises(errors.KeelError):
+        bootstrap.download(
+            URL,
+            tmp_path / "c.zip",
+            allowed=bootstrap.allowed_hosts(URL),
+            resolver=public,
+            transport=transport,
+        )
+
+
+@pytest.mark.parametrize(
+    "url", ["https://bucket.example.com:abc/x", "https://[::1/x"]
+)
+def test_check_url_rejects_a_malformed_url(url: str) -> None:
+    with pytest.raises(errors.HostNotAllowedError, match="malformed"):
+        bootstrap.check_url(url, bootstrap.allowed_hosts(URL), public)
+
+
+def test_download_ignores_proxy_settings(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: dict[str, object] = {}
+    real_client = httpx.Client
+
+    def recording_client(**kwargs: object) -> httpx.Client:
+        seen.update(kwargs)
+        return real_client(**kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setenv("HTTPS_PROXY", "http://10.0.0.1:3128")
+    monkeypatch.setattr(bootstrap.httpx, "Client", recording_client)
+    bootstrap.download(
+        URL,
+        tmp_path / "c.zip",
+        allowed=bootstrap.allowed_hosts(URL),
+        resolver=public,
+        transport=serve(
+            {"bucket.example.com/edgar_corpus.zip": httpx.Response(200)}
+        ),
+    )
+    assert seen["trust_env"] is False
+
+
+def test_gh_failure_falls_back_to_the_url(
+    settings: config.Settings, tmp_path: pathlib.Path
+) -> None:
+    def failing_gh(command: Sequence[str]) -> None:
+        raise errors.CorpusDownloadError("gh exited with 1")
+
+    configured = configure(settings, tmp_path, url=URL)
+    deps = bootstrap.Dependencies(
+        embedder_factory=lambda: (_ for _ in ()).throw(RuntimeError("stop")),
+        transport=serve(
+            {
+                "bucket.example.com/edgar_corpus.zip": httpx.Response(
+                    200, content=b"not a zip"
+                )
+            }
+        ),
+        resolver=public,
+        run_command=failing_gh,
+        environ={"GH_TOKEN": "token"},
+        which=lambda name: "/usr/bin/gh",
+    )
+
+    status = bootstrap.run_bootstrap(configured, deps=deps)
+
+    # The URL download ran; the fake body then fails the zip check.
+    assert bootstrap.download_path(configured).read_bytes() == b"not a zip"
+    assert status.error is not None
+    assert status.error.startswith("BadZipError")

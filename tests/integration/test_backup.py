@@ -327,3 +327,70 @@ def test_backup_and_restore_commands(
     printed = capsys.readouterr().out
     assert "index version: 1.0.0" in printed
     assert "restored logs:" in printed
+
+
+def test_backup_skips_log_files_with_index_names(
+    index_dir: pathlib.Path, logs_dir: pathlib.Path, tmp_path: pathlib.Path
+) -> None:
+    sqlite3.connect(logs_dir / "chunks.sqlite").close()
+    result = backup.create_backup(index_dir, logs_dir, tmp_path / "b")
+    assert result.members.count("chunks.sqlite") == 1
+    assert not list((tmp_path / "b").glob("*.part"))
+    restored = backup.restore_backup(result.archive, index_dir, logs_dir)
+    assert indexer.verify(restored.build_dir).counts.indexed == 3
+
+
+def test_restore_rejects_too_many_members(tmp_path: pathlib.Path) -> None:
+    members = {f"f{n}.sqlite": b"x" for n in range(backup.MAX_MEMBERS + 1)}
+    archive = write_archive(
+        tmp_path / "keel-2026-10-22T023000Z.tar.gz", members
+    )
+    with pytest.raises(errors.BackupError, match="limit"):
+        backup.restore_backup(archive, tmp_path / "i", tmp_path / "l")
+
+
+def test_previous_survives_the_next_build(
+    settings: config.Settings,
+    index_dir: pathlib.Path,
+    logs_dir: pathlib.Path,
+    tmp_path: pathlib.Path,
+) -> None:
+    archive = backup.create_backup(index_dir, logs_dir, tmp_path / "b").archive
+    backup.restore_backup(archive, index_dir, logs_dir)
+    previous = (index_dir / backup.PREVIOUS).resolve()
+    embedder = conftest.FakeEmbedder()
+    for _ in range(2):
+        indexer.build_index(
+            settings, conftest.MINI_CORPUS, index_dir, lambda: embedder
+        )
+    assert (index_dir / backup.PREVIOUS).resolve() == previous
+    assert previous.is_dir()
+
+
+def test_failed_pointer_swap_removes_the_restored_build(
+    index_dir: pathlib.Path,
+    logs_dir: pathlib.Path,
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    archive = backup.create_backup(index_dir, logs_dir, tmp_path / "b").archive
+    before = sorted(p.name for p in index_dir.iterdir())
+
+    def fail(index: pathlib.Path, name: str, target: str) -> None:
+        raise OSError("disk full")
+
+    monkeypatch.setattr(backup, "_swap_link", fail)
+    with pytest.raises(errors.IndexWriteError, match="disk full"):
+        backup.restore_backup(archive, index_dir, logs_dir)
+    assert sorted(p.name for p in index_dir.iterdir()) == before
+
+
+def test_restore_refuses_a_directory_named_current(
+    index_dir: pathlib.Path, logs_dir: pathlib.Path, tmp_path: pathlib.Path
+) -> None:
+    archive = backup.create_backup(index_dir, logs_dir, tmp_path / "b").archive
+    plain = tmp_path / "plain-index"
+    (plain / indexer.CURRENT).mkdir(parents=True)
+    with pytest.raises(errors.IndexWriteError, match="not a symlink"):
+        backup.restore_backup(archive, plain, logs_dir)
+    assert sorted(p.name for p in plain.iterdir()) == [indexer.CURRENT]
