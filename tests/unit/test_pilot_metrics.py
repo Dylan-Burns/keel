@@ -1,13 +1,24 @@
-"""Tests of the pilot metrics script (chapter 27.6) on a synthetic audit log."""
+"""Tests of the pilot metrics script (chapter 27.6) on synthetic logs.
 
+The fixtures write each source in the format the merged code writes: the
+audit record of `keel/answer.py` with `user_name`, the `feedback` table of
+`keel/stores/pilot.py`, the `added` entries of `keel/add.py`, and the
+`refresh.log` lines of `keel/refresh.py`.
+"""
+
+import datetime
 import importlib.util
 import json
+import os
 import pathlib
 import sqlite3
 import sys
 import types
 
 import pytest
+
+from keel import refresh
+from keel.stores import pilot
 
 pytestmark = pytest.mark.unit
 
@@ -39,12 +50,11 @@ def _question(
         "request_id": request_id,
         "timestamp": timestamp,
         "question": "What are Apple's risk factors?",
+        "user_name": user,
         "outcome": outcome,
         "cost_usd": cost,
         "model_requests": 1,
     }
-    if user is not None:
-        record["user"] = user
     return record
 
 
@@ -74,63 +84,100 @@ def _logs(tmp_path: pathlib.Path) -> pathlib.Path:
                 outcome="out_of_scope",
                 user="ana",
             ),
+            _question("r5", "2026-10-21T08:00:00+00:00", 0.5, user="eng"),
             "not json",
+            [1, 2],
             {"request_id": "r0", "timestamp": "never", "cost_usd": 1.0},
             {"request_id": "r9", "timestamp": 1e300, "cost_usd": 1.0},
         ],
     )
     _write(
         logs / "audit.jsonl",
-        [
-            _question("r4", "2026-10-27T09:00:00+00:00", 0.08, user="cy"),
-            {
-                "event": "export",
-                "request_id": "r4",
-                "timestamp": "2026-10-27T09:05:00+00:00",
-                "format": "docx",
-                "user": "cy",
-            },
-        ],
+        [_question("r4", "2026-10-27T09:00:00+00:00", 0.08, user="cy")],
     )
     return logs
 
 
 def _feedback_db(path: pathlib.Path) -> pathlib.Path:
+    store = pilot.PilotStore(path)
+    store.record_vote(request_id="r1", user_name="ana", vote="up")
+    store.record_vote(
+        request_id="r2", user_name="ben", vote="down", note="wrong year"
+    )
+    store.record_vote(request_id="r4", user_name="cy", vote="up")
     with sqlite3.connect(path) as conn:
-        conn.execute(
-            "CREATE TABLE feedback (request_id TEXT, vote INTEGER, "
-            "note TEXT, created_at TEXT)"
-        )
-        conn.executemany(
-            "INSERT INTO feedback VALUES (?, ?, ?, ?)",
-            [
-                ("r1", 1, "", "2026-10-19T10:01:00+00:00"),
-                ("r2", -1, "wrong year", "2026-10-20T11:01:00+00:00"),
-                ("r4", 1, "", "2026-10-27T09:01:00+00:00"),
-            ],
-        )
+        for request_id, created in (
+            ("r1", "2026-10-19T10:01:00+00:00"),
+            ("r2", "2026-10-20T11:01:00+00:00"),
+            ("r4", "2026-10-27T09:01:00+00:00"),
+        ):
+            conn.execute(
+                "UPDATE feedback SET created_at = ? WHERE request_id = ?",
+                (created, request_id),
+            )
     return path
 
 
-def _manifest(path: pathlib.Path) -> pathlib.Path:
+def _stamp(path: pathlib.Path, when: str) -> None:
+    path.write_text("Ticker: X\n", encoding="utf-8")
+    moment = datetime.datetime.fromisoformat(when).timestamp()
+    os.utime(path, (moment, moment))
+
+
+def _corpus(directory: pathlib.Path) -> pathlib.Path:
+    """A manifest with 1 zip file, 2 added companies, 1 refreshed filing."""
+    directory.mkdir()
+    added = {
+        "ZTS_10K_2026-02-12_full.txt": ("ZTS", "2026-10-28T02:00:00+00:00"),
+        "ZTS_10Q_2026Q3_2026-08-06_full.txt": (
+            "ZTS",
+            "2026-10-29T02:00:00+00:00",
+        ),
+        "WDAY_10K_2026-03-06_full.txt": ("WDAY", None),
+        "AAPL_10Q_2026Q3_2026-08-01_full.txt": (
+            "AAPL",
+            "2026-10-27T02:00:00+00:00",
+        ),
+    }
+    for name, (_, when) in added.items():
+        if when is not None:
+            _stamp(directory / name, when)
+    path = directory / "manifest.json"
     path.write_text(
         json.dumps(
             {
-                "files": [
-                    "AAPL_10K_2025-10-31_full.txt",
-                    {
-                        "file": "ZTS_10K_2026-02-12_full.txt",
-                        "source": "edgar",
-                        "added_at": "2026-10-28T02:00:00Z",
-                    },
-                    {
-                        "file": "ZTS_10Q_2025Q3_2025-11-04_full.txt",
-                        "source": "edgar",
-                    },
-                    {"ticker": "wday", "source": "edgar"},
-                ]
+                "files": sorted(["AAPL_10K_2025-10-31_full.txt", *added]),
+                "added": {
+                    name: {"source": "edgar", "ticker": ticker, "form": "10-K"}
+                    for name, (ticker, _) in added.items()
+                },
             }
         ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def _refresh_log(path: pathlib.Path) -> pathlib.Path:
+    lines = [
+        refresh.LogEntry(
+            time=datetime.datetime(2026, 10, 27, 2, tzinfo=datetime.UTC),
+            event="added",
+            ticker="AAPL",
+        ),
+        refresh.LogEntry(
+            time=datetime.datetime(2026, 10, 28, 2, tzinfo=datetime.UTC),
+            event="added",
+            dry_run=True,
+            ticker="ZTS",
+        ),
+        refresh.LogEntry(
+            time=datetime.datetime(2026, 10, 28, 2, tzinfo=datetime.UTC),
+            event="done",
+        ),
+    ]
+    path.write_text(
+        "".join(line.model_dump_json() + "\n" for line in lines),
         encoding="utf-8",
     )
     return path
@@ -140,13 +187,20 @@ def test_pilot_metrics(logs: pathlib.Path, tmp_path: pathlib.Path) -> None:
     files = pilot_metrics.audit_files([logs / "audit.jsonl"])
     assert [f.name for f in files] == ["audit-2026-10-20.jsonl", "audit.jsonl"]
     records, skipped = pilot_metrics.read_records(files)
-    assert skipped == 1
+    assert skipped == 2
+    additions = pilot_metrics.read_additions(_corpus(tmp_path / "corpus"))
+    assert additions == [
+        pilot_metrics.Addition("WDAY", None),
+        pilot_metrics.Addition("ZTS", "2026-W44"),
+    ]
     metrics = pilot_metrics.compute(
         records,
-        votes=pilot_metrics.read_votes(_feedback_db(tmp_path / "fb.sqlite")),
-        additions=pilot_metrics.read_additions(
-            _manifest(tmp_path / "manifest.json")
+        votes=pilot_metrics.read_votes(_feedback_db(tmp_path / "p.sqlite")),
+        additions=additions,
+        refreshed=pilot_metrics.read_refreshed(
+            _refresh_log(tmp_path / "refresh.log")
         ),
+        exclude_users=["eng"],
         skipped_lines=skipped,
     )
     first, second = metrics.weeks
@@ -154,29 +208,67 @@ def test_pilot_metrics(logs: pathlib.Path, tmp_path: pathlib.Path) -> None:
     assert (first.active_users, first.questions) == (2, 3)
     assert first.cost_usd == pytest.approx(0.20)
     assert first.cost_per_question == pytest.approx(0.20 / 3, rel=1e-4)
-    assert first.thumbs_up_rate == pytest.approx(0.5)
-    assert (first.memos_exported, first.companies_added) == (0, 0)
+    assert (first.thumbs_up_rate, first.votes) == (0.5, 2)
+    assert first.memos_exported is None
+    assert (first.companies_added, first.filings_refreshed) == (0, 0)
     assert (second.active_users, second.questions) == (1, 1)
-    assert (second.memos_exported, second.companies_added) == (1, 1)
+    assert (second.companies_added, second.filings_refreshed) == (1, 1)
     assert metrics.users == 3
     assert metrics.questions == 4
     assert metrics.undated_records == 2
     assert metrics.outcomes == {"answered": 3, "out_of_scope": 1}
     assert metrics.thumbs_up_rate == pytest.approx(2 / 3)
+    # WDAY has no corpus file, so no week; it still counts in the total.
     assert metrics.companies_added == 2
-    assert metrics.memos_exported == 1
-    assert all(metrics.sources.values())
+    assert metrics.filings_refreshed == 1
+    assert metrics.memos_exported is None
+    assert metrics.sources == {
+        "user_name": True,
+        "feedback_table": True,
+        "export_log": False,
+        "manifest": True,
+        "refresh_log": True,
+    }
     held = {r["metric"]: r["holds"] for r in pilot_metrics.targets(metrics)}
     assert held == {
-        "active users in the best week": False,
-        "questions in the best week": False,
+        "active users each week": False,
+        "questions each week": None,
         "thumbs-up rate": False,
-        "memos exported": False,
+        "memos exported": None,
     }
+    assert pilot_metrics.decision(pilot_metrics.targets(metrics)).startswith(
+        "0 of 4 metrics hold, 2 open: fix the top 3 feedback reasons"
+    )
+
+
+def test_pilot_metrics_since_and_gaps(
+    logs: pathlib.Path, tmp_path: pathlib.Path
+) -> None:
+    """`--since` makes its week week 1, and an empty week is a 0 row."""
+    _write(
+        logs / "audit.jsonl",
+        [_question("r6", "2026-11-10T09:00:00+00:00", 0.1, user="cy")],
+    )
+    records, _ = pilot_metrics.read_records(pilot_metrics.audit_files([logs]))
+    metrics = pilot_metrics.compute(
+        records,
+        votes=pilot_metrics.read_votes(tmp_path / "absent.sqlite"),
+        since="2026-W44",
+    )
+    assert [w.week for w in metrics.weeks] == [
+        "2026-W44",
+        "2026-W45",
+        "2026-W46",
+    ]
+    assert [w.questions for w in metrics.weeks] == [0, 0, 1]
+    assert metrics.questions == 1
+    rows = {r["metric"]: r for r in pilot_metrics.targets(metrics)}
+    assert rows["questions each week"]["value"] == 1
+    assert rows["active users each week"]["holds"] is False
 
 
 def test_pilot_metrics_legacy_log(tmp_path: pathlib.Path) -> None:
-    """A stage 12 log: no user, no feedback, no exports, no manifest."""
+    """A stage 12 log: no user, no feedback, no manifest, no refresh."""
     path = tmp_path / "audit.jsonl"
     _write(
         path,
@@ -186,63 +278,86 @@ def test_pilot_metrics_legacy_log(tmp_path: pathlib.Path) -> None:
         ],
     )
     records, _ = pilot_metrics.read_records(pilot_metrics.audit_files([path]))
+    broken = tmp_path / "broken.json"
+    broken.write_text("{", encoding="utf-8")
     metrics = pilot_metrics.compute(
         records,
         votes=pilot_metrics.read_votes(tmp_path / "absent.sqlite"),
-        additions=pilot_metrics.read_additions(tmp_path / "absent.json"),
+        additions=pilot_metrics.read_additions(broken),
+        refreshed=pilot_metrics.read_refreshed(tmp_path / "absent.log"),
     )
     (week,) = metrics.weeks
     assert (week.active_users, week.questions) == (1, 2)
     assert week.thumbs_up_rate is None
-    assert week.memos_exported is None
     assert week.companies_added is None
-    assert metrics.sources == {
-        "user_field": False,
-        "feedback_table": False,
-        "export_events": False,
-        "manifest": False,
-    }
+    assert week.filings_refreshed is None
+    assert not any(metrics.sources.values())
     text = pilot_metrics.to_markdown(metrics)
-    assert "| 2026-W43 | 1 | 2 | 0.16 | 0.0800 | n/a | n/a | n/a |" in text
+    assert (
+        "| 2026-W43 | 1 | 2 | 0.16 | 0.0800 | n/a | 0 | n/a | n/a | n/a |"
+        in text
+    )
     assert "the legacy token counts as 1 user" in text
+    assert "Memo exports leave no log line" in text
+    assert "0 of 4 metrics hold, 4 open: too early to decide" in text
+    assert (
+        "Sources absent (n/a): feedback_table, manifest, refresh_log." in text
+    )
 
 
 def test_pilot_metrics_main(
     logs: pathlib.Path,
     tmp_path: pathlib.Path,
     capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    db = _feedback_db(tmp_path / "fb.sqlite")
+    """The defaults come from the config: `KEEL_LOGS__DIR` moves them."""
+    monkeypatch.setenv("KEEL_LOGS__DIR", str(logs))
+    monkeypatch.delenv("KEEL_PILOT__DB", raising=False)
+    _feedback_db(logs / pilot.FILE_NAME)
+    _refresh_log(logs / refresh.LOG_NAME)
+    manifest = _corpus(tmp_path / "corpus")
+    code = pilot_metrics.main(["--json", "--manifest", str(manifest)])
+    assert code == 0
+    body = json.loads(capsys.readouterr().out)
+    assert body["questions"] == 5
+    assert body["votes"] == 3
+    assert body["filings_refreshed"] == 1
+    assert body["sources"]["feedback_table"] is True
+    assert len(body["targets"]) == 4
+    assert "decision" in body
+    assert "What are Apple" not in json.dumps(body)
     code = pilot_metrics.main(
         [
             str(logs),
-            "--json",
-            "--feedback-db",
-            str(db),
+            "--since",
+            "2026-10-26",
+            "--exclude-user",
+            "eng",
             "--manifest",
-            str(tmp_path / "none.json"),
+            str(manifest),
         ]
     )
     assert code == 0
-    body = json.loads(capsys.readouterr().out)
-    assert body["questions"] == 4
-    assert body["sources"]["manifest"] is False
-    assert len(body["targets"]) == 4
-    assert "What are Apple" not in json.dumps(body)
-    assert (
-        pilot_metrics.main(
-            [str(logs), "--manifest", str(tmp_path / "none.json")]
-        )
-        == 0
-    )
     out = capsys.readouterr().out
     assert out.startswith("## Pilot metrics")
+    assert "| 2026-W44 | 1 | 1 |" in out
+    assert "2026-W43" not in out
     assert pilot_metrics.main([str(tmp_path / "missing" / "audit.jsonl")]) == 1
+    assert pilot_metrics.main(["--config", str(tmp_path / "none.yaml")]) == 1
 
 
 def test_iso_week() -> None:
     assert pilot_metrics.iso_week("2026-10-25T23:30:00-07:00") == "2026-W44"
     assert pilot_metrics.iso_week("2026-10-21") == "2026-W43"
+    assert pilot_metrics.iso_week("2026-10-21T10:00:00Z") == "2026-W43"
+    assert pilot_metrics.iso_week(datetime.date(2026, 10, 21)) == "2026-W43"
     assert pilot_metrics.iso_week(0) == "1970-W01"
+    assert pilot_metrics.iso_week(True) is None
     assert pilot_metrics.iso_week("yesterday") is None
     assert pilot_metrics.iso_week(None) is None
+    assert pilot_metrics.week_range("2026-W52", "2027-W01") == [
+        "2026-W52",
+        "2026-W53",
+        "2027-W01",
+    ]
