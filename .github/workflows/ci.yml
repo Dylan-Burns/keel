@@ -149,6 +149,9 @@ jobs:
           KEEL_LLM__PROVIDER: mock
           KEEL_API_TOKEN: ci-token
           KEEL_INDEX__DIR: index/ci
+          # The specs ask about 30 questions from 1 address within minutes.
+          KEEL_LIMITS__RATE_PER_MINUTE: "1000"
+          KEEL_LIMITS__RATE_PER_HOUR: "10000"
           HF_HUB_OFFLINE: "0"
         run: |
           uv sync --frozen
