@@ -1257,7 +1257,8 @@ def run_facts(
     print(block.text())
     print(
         f"facts: {len(block.lines)} lines ({block.dropped} over the limit) "
-        f"from 1 cached file fetched {document.fetched_at:%Y-%m-%d %H:%M} UTC"
+        f"from 1 file fetched {document.fetched_at:%Y-%m-%d %H:%M} UTC "
+        f"({client.requests} requests this run)"
     )
     return 0
 

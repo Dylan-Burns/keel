@@ -145,11 +145,21 @@ def test_no_network_offline_cache_miss(tmp_path: pathlib.Path) -> None:
     assert not handler.requests
 
 
-def test_no_network_guard_blocks_sockets() -> None:
-    with pytest.raises(NetworkBlockedError):
-        socket.create_connection(("data.sec.gov", 443))
-    with pytest.raises(errors.OutboundBlockedError, match="cannot resolve"):
-        edgar.check_url(edgar.TICKER_MAP_URL)
+def test_no_network_real_transport_cannot_connect(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A client without a mock transport fails before any byte leaves."""
+    with (
+        edgar.EdgarClient(USER_AGENT, tmp_path) as c,
+        pytest.raises(errors.OutboundBlockedError, match="resolve"),
+    ):
+        c.ticker_map()
+    with (
+        edgar.EdgarClient(USER_AGENT, tmp_path, resolver=public_resolver) as c,
+        pytest.raises(errors.EdgarFetchError),
+    ):
+        c.ticker_map()
+    assert not c.ticker_map_path().exists()
 
 
 # --- test_ticker_to_cik -------------------------------------------------------
@@ -528,6 +538,27 @@ def test_redirect_target_is_checked(
     assert len(handler.requests) == 1
 
 
+def test_redirect_target_address_is_checked_again(
+    tmp_path: pathlib.Path,
+) -> None:
+    """An allowed host that resolves to a private address on the redirect."""
+
+    def resolver(host: str) -> list[str]:
+        return ["10.0.0.5"] if host == "data.sec.gov" else [PUBLIC_IP]
+
+    handler = Recorder(
+        lambda request: httpx.Response(
+            302, headers={"location": "https://data.sec.gov/x.json"}
+        )
+    )
+    with (
+        make_client(tmp_path, handler, resolver=resolver) as c,
+        pytest.raises(errors.OutboundBlockedError, match=r"10\.0\.0\.5"),
+    ):
+        c.fetch(edgar.TICKER_MAP_URL)
+    assert [r.url.host for r in handler.requests] == ["www.sec.gov"]
+
+
 @pytest.mark.parametrize(
     ("respond", "message"),
     [
@@ -604,6 +635,8 @@ def test_check_url_rejects(url: str) -> None:
         "169.254.169.254",
         "::1",
         "fe80::1%en0",
+        "100.64.0.1",
+        "::ffff:127.0.0.1",
         "0.0.0.0",  # noqa: S104
         "not an ip",
     ],
