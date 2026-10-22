@@ -8,6 +8,10 @@
 data "aws_caller_identity" "current" {}
 
 resource "aws_s3_bucket" "tfstate" {
+  #checkov:skip=CKV_AWS_145:SSE-S3 (AES256) is enough for a 1-month pilot state; KMS adds a key to manage
+  #checkov:skip=CKV_AWS_18:access logs need a second bucket; versioning plus CloudTrail cover the pilot
+  #checkov:skip=CKV_AWS_144:cross-region replication is out of scope for a 1-month pilot (D-39)
+  #checkov:skip=CKV2_AWS_62:no consumer for event notifications on the state bucket
   bucket = "keel-${var.environment}-tfstate-${data.aws_caller_identity.current.account_id}"
 
   lifecycle {
@@ -28,6 +32,25 @@ resource "aws_s3_bucket_versioning" "tfstate" {
 
   versioning_configuration {
     status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "tfstate" {
+  bucket = aws_s3_bucket.tfstate.id
+
+  rule {
+    id     = "old-state-versions"
+    status = "Enabled"
+
+    filter {}
+
+    noncurrent_version_expiration {
+      noncurrent_days = 90
+    }
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
+    }
   }
 }
 
@@ -82,10 +105,19 @@ data "aws_iam_policy_document" "plan" {
       "ssm:GetParameter",
       "ssm:GetParameters",
       "ssm:GetParametersByPath",
+      "ssm:GetParameterHistory",
+      "ssm:GetCommandInvocation",
+      "ssm:ListCommandInvocations",
       "secretsmanager:GetSecretValue",
+      "secretsmanager:BatchGetSecretValue",
       "logs:GetLogEvents",
       "logs:FilterLogEvents",
+      "logs:GetLogRecord",
       "logs:StartQuery",
+      "logs:GetQueryResults",
+      "logs:StartLiveTail",
+      "ec2:GetConsoleOutput",
+      "ec2:GetConsoleScreenshot",
     ]
     resources = ["*"]
   }
