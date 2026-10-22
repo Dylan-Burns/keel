@@ -16,6 +16,7 @@ from collections.abc import AsyncIterator
 from collections.abc import Awaitable
 from collections.abc import Callable
 from collections.abc import Sequence
+import copy
 import dataclasses
 import datetime
 import logging
@@ -23,6 +24,7 @@ import operator
 import pathlib
 import random
 import sqlite3
+import threading
 import time
 from typing import Any
 import uuid
@@ -253,6 +255,9 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         self.calibration = context.Calibration(
             settings.retrieval.calibration_factor
         )
+        # 1 retrieval at a time: the reranker and the store connection are
+        # shared by the concurrent requests of the API (E-F-03).
+        self.retrieval_lock = threading.Lock()
 
     @classmethod
     def open(
@@ -303,6 +308,28 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             manifest.index_version,
         )
 
+    def with_provider(
+        self, provider: base.LLMProvider, *, sleep: Sleep | None = None
+    ) -> Answerer:
+        """A copy that sends its requests to another provider.
+
+        The copy shares the index, the models, the caches, the audit log,
+        and the calibration, so the API can serve 1 request with a mock
+        fault (the `X-Keel-Mock` header) without reloading anything.
+
+        Args:
+            provider: The provider of the copy.
+            sleep: The wait between retries, or None to keep it.
+
+        Returns:
+            The copy.
+        """
+        twin = copy.copy(self)
+        twin.provider = provider
+        if sleep is not None:
+            twin.sleep = sleep
+        return twin
+
     @property
     def model(self) -> str:
         """The model of the provider."""
@@ -330,6 +357,8 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         *,
         request_id: str | None = None,
         use_cache: bool = False,
+        max_context_tokens: int | None = None,
+        max_chunks: int | None = None,
     ) -> AsyncIterator[Event]:
         """Answer 1 question and yield the events of chapter 14.3.
 
@@ -338,6 +367,10 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             request_id: The request ID, or None for a new one.
             use_cache: Serve a cached answer when there is one. Offline
                 mode always reads the cache and never calls the model.
+            max_context_tokens: A lower context budget for this request,
+                or None; never above `retrieval.max_context_tokens`.
+            max_chunks: A lower chunk budget for this request, or None;
+                never above `retrieval.max_chunks`.
 
         Yields:
             The events, ending with `done`.
@@ -363,7 +396,12 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
                 async for event in self._from_cache(run, cached):
                     yield event
                 return
-        async for event in self._pipeline(run, offline=offline):
+        budget = context.Budget(
+            max_tokens=self.settings.retrieval.max_context_tokens,
+            max_chunks=self.settings.retrieval.max_chunks,
+            calibration_factor=self.calibration.factor,
+        ).lowered(max_context_tokens, max_chunks)
+        async for event in self._pipeline(run, budget, offline=offline):
             yield event
 
     async def _from_cache(
@@ -384,8 +422,16 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         self._audit(run, record)
         yield Event("done", {})
 
+    def _retrieve(
+        self,
+        analysis: understanding.QuestionAnalysis,
+        budget: context.Budget,
+    ) -> retriever.RetrievalResult:
+        with self.retrieval_lock:
+            return self.retriever.retrieve(analysis, budget)
+
     async def _pipeline(
-        self, run: _Run, *, offline: bool
+        self, run: _Run, budget: context.Budget, *, offline: bool
     ) -> AsyncIterator[Event]:
         try:
             run.analysis = self.understander.analyze(run.question)
@@ -409,14 +455,9 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             yield self._final(run, None)
             yield Event("done", {})
             return
-        budget = context.Budget(
-            max_tokens=self.settings.retrieval.max_context_tokens,
-            max_chunks=self.settings.retrieval.max_chunks,
-            calibration_factor=self.calibration.factor,
-        )
         retrieval_started = time.perf_counter()
         run.result = await asyncio.to_thread(
-            self.retriever.retrieve, run.analysis, budget
+            self._retrieve, run.analysis, budget
         )
         run.retrieval_ms = round(
             (time.perf_counter() - retrieval_started) * 1000, 1

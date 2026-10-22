@@ -31,6 +31,9 @@ FAULTS = (
     "malformed-json",
     "no-tool-call",
     "slow-stream",
+    "partial-coverage",
+    "refusal",
+    "script-injection",
 )
 # Faults before content hit the first request only, so the retry succeeds.
 _FIRST_ONLY = frozenset(
@@ -40,6 +43,14 @@ _FIRST_ONLY = frozenset(
         "500-before-content",
         "context-overflow",
     }
+)
+# Faults that change the answer content; the request itself succeeds.
+CONTENT_FAULTS = frozenset({"partial-coverage", "refusal", "script-injection"})
+MISSING_TICKER = "TSLA"
+INJECTED_SCRIPT = "<script>window.keelPwned = true</script>"
+REFUSAL_REASON = (
+    "The question asks for something the filings do not hold, such as a "
+    "price forecast."
 )
 _CHUNK = re.compile(r'<chunk id="([^"]+)"[^>]*>\n(.*?)\n</chunk>', re.DOTALL)
 QUOTE_WORDS = 12
@@ -111,6 +122,61 @@ def sample_answer(bundle: prompt.PromptBundle) -> dict[str, Any]:
     }
 
 
+def faulted_answer(answer: dict[str, Any], fault: str) -> dict[str, Any]:
+    """Change a sample answer the way a content fault asks.
+
+    `partial-coverage` lists TSLA as a missing company (and drops its
+    findings), `refusal` turns the answer into a refusal, and
+    `script-injection` puts a script tag into the direct answer, so the
+    front-end tests can check that the page renders it as text.
+
+    Args:
+        answer: An answer object from `sample_answer`.
+        fault: 1 of `CONTENT_FAULTS`.
+
+    Returns:
+        A new answer object that still matches the schema.
+    """
+    changed: dict[str, Any] = json.loads(json.dumps(answer))
+    if fault == "partial-coverage":
+        changed["company_findings"] = [
+            f
+            for f in changed["company_findings"]
+            if f["ticker"] != MISSING_TICKER
+        ]
+        changed["citations"] = [
+            c
+            for c in changed["citations"]
+            if not c["chunk_id"].startswith(f"{MISSING_TICKER}_")
+        ]
+        coverage = changed["coverage"]
+        coverage["companies_used"] = [
+            c
+            for c in coverage["companies_used"]
+            if c["ticker"] != MISSING_TICKER
+        ]
+        coverage["companies_missing"] = [MISSING_TICKER]
+        changed["gaps"] = [f"The index holds no filing of {MISSING_TICKER}."]
+    elif fault == "refusal":
+        changed.update(
+            direct_answer=REFUSAL_REASON,
+            company_findings=[],
+            comparison_table=None,
+            citations=[],
+            gaps=[],
+            confidence="low",
+            confidence_reason="The question is out of scope.",
+            next_questions=[],
+            refusal={"reason": REFUSAL_REASON},
+        )
+        changed["coverage"]["companies_used"] = []
+    elif fault == "script-injection":
+        changed["direct_answer"] = (
+            f"Revenue grew. {INJECTED_SCRIPT} " + changed["direct_answer"]
+        )
+    return changed
+
+
 class MockProvider:  # pylint: disable=too-many-instance-attributes
     """A provider that streams canned answers and counts requests.
 
@@ -157,10 +223,13 @@ class MockProvider:  # pylint: disable=too-many-instance-attributes
             return self.fault not in _FIRST_ONLY or self.requests == 1
         return self.requests <= self.fault_count
 
-    def _text(self, bundle: prompt.PromptBundle) -> str:
+    def _text(self, bundle: prompt.PromptBundle, hit: bool) -> str:
         if self.answers:
             return self.answers[min(self.requests, len(self.answers)) - 1]
-        return json.dumps(sample_answer(bundle))
+        answer = sample_answer(bundle)
+        if hit and self.fault in CONTENT_FAULTS:
+            answer = faulted_answer(answer, self.fault)
+        return json.dumps(answer)
 
     async def answer(
         self, bundle: prompt.PromptBundle
@@ -181,7 +250,7 @@ class MockProvider:  # pylint: disable=too-many-instance-attributes
         hit = self._hits()
         if hit:
             self._raise_before_content()
-        text = self._text(bundle)
+        text = self._text(bundle, hit)
         if hit and self.fault == "no-tool-call":
             yield base.TextDelta("I cannot call the tool. " + text[:200])
             yield self._usage(bundle, text)
