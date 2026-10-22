@@ -11,9 +11,9 @@ variable "environment" {
 }
 
 variable "instance_type" {
-  description = "Instance type. 4 GB of memory is the minimum for the embedding and reranker models."
+  description = "Instance type. 8 GB (t3.large, D-39) serves the models and can build the index on the host."
   type        = string
-  default     = "t3.medium"
+  default     = "t3.large"
 }
 
 variable "root_volume_gb" {
@@ -52,4 +52,16 @@ variable "route53_zone_id" {
   description = "Hosted zone ID that owns the hostname. Leave empty to skip the Route 53 record."
   type        = string
   default     = ""
+}
+
+variable "github_repository" {
+  description = "owner/name of the repository whose deploy workflow may assume the deploy role."
+  type        = string
+  default     = "Dylan-Burns/keel"
+}
+
+variable "github_environment" {
+  description = "GitHub environment whose jobs may assume the deploy role."
+  type        = string
+  default     = "production"
 }

@@ -12,9 +12,10 @@ tflint, checkov).
 | Path | Purpose |
 | --- | --- |
 | `../railway.toml` | Railway build and start settings |
-| `terraform/` | AWS alternative: EC2 instance, Elastic IP, security group, S3 backup bucket, IAM instance profile, optional Route 53 record |
-| `Caddyfile` | AWS alternative: TLS termination, security headers, SSE pass-through |
-| `systemd/` | AWS alternative: `keel-refresh` and `keel-backup` service and timer units |
+| `terraform/` | AWS pilot host (D-39): EC2 instance, Elastic IP, security group, S3 backup bucket, IAM instance profile with SSM, GitHub OIDC deploy role, optional Route 53 record |
+| `Caddyfile` | AWS pilot host: TLS termination, security headers, SSE pass-through |
+| `systemd/` | AWS pilot host: `keel-refresh` and `keel-backup` service and timer units |
+| `deploy_host.sh` | AWS pilot host: the deploy that `deploy-aws.yml` runs through SSM (files of the tag, image, first-run corpus, models, and index, health wait, timers) |
 | `backup.sh` | Consistent snapshot of the index and the logs to an S3-compatible bucket; the in-app scheduler calls the same routine on Railway |
 
 ## Railway: first deploy
@@ -84,23 +85,39 @@ the app's volume. The backup writes the same checksummed archive as
 The upload to the S3-compatible bucket is not implemented yet
 (`BackupUploadError`, see the gaps in `docs/BUILD_REPORT.md`).
 
-## AWS alternative: first deploy
+## AWS: first deploy (the pilot host, D-39)
 
-1. `cd infra/terraform && terraform init && terraform apply` with a
-   `terraform.tfvars` that sets `admin_cidr`, `ssh_key_name`, and
-   `backup_bucket_name`. The output prints the public IP and the bucket.
-2. Point a DNS name at the IP, set `route53_zone_id` and `hostname` in the
-   tfvars to let Terraform create the record, or use the free
-   `<public-ip>.sslip.io` name as `KEEL_HOSTNAME`; Caddy obtains a Let's
-   Encrypt certificate for any of them.
-3. On the host: `sudo mkdir -p /opt/keel && sudo chown ubuntu /opt/keel`,
-   copy `docker-compose.yml`, `infra/`, `.env` (with `KEEL_HOSTNAME`,
-   `KEEL_IMAGE`, `KEEL_BACKUP_BUCKET`), and the `corpus/` directory.
-4. `docker compose --profile production up -d`, then install the timers:
-   `sudo cp infra/systemd/* /etc/systemd/system/ && sudo systemctl enable --now keel-refresh.timer keel-backup.timer`.
-5. In GitHub: the `production` environment, the secrets `DEPLOY_HOST`,
-   `DEPLOY_USER`, `DEPLOY_SSH_KEY`, and the variable `KEEL_HOSTNAME`.
-   Releases deploy through `deploy-aws.yml`.
+The pilot runs on 1 EC2 `t3.large` (8 GB) in `us-east-2`. Deploys go through
+SSM Run Command, so port 22 stays limited to the admin CIDR and GitHub holds
+no AWS key.
+
+1. An AWS profile for a deploy user with the permissions of the Terraform
+   resources (EC2 in the region, the `keel-pilot-*` bucket, `keel-*` roles and
+   instance profiles, the GitHub OIDC provider, SSM). Keep the Terraform state
+   outside the repository (`.gitignore` excludes state, plans, and tfvars).
+2. `terraform init && terraform apply` with a `terraform.tfvars` that sets
+   `region`, `admin_cidr`, `ssh_key_name`, and `backup_bucket_name`. The
+   outputs give `public_ip`, `instance_id`, `deploy_role_arn`, `backup_bucket`,
+   and `hostname` (`<ip with dashes>.sslip.io` when no DNS zone is set; Caddy
+   obtains a Let's Encrypt certificate for it).
+3. Write `/opt/keel/.env` on the host, mode 0600: `ANTHROPIC_API_KEY`,
+   `KEEL_API_TOKEN`, `KEEL_HOSTNAME` (the `hostname` output), and
+   `KEEL_BACKUP_BUCKET` (the `backup_bucket` output). The deploy script adds
+   `KEEL_IMAGE`.
+4. In GitHub, on the `production` environment (required reviewer): the
+   variables `AWS_DEPLOY_ROLE_ARN`, `AWS_REGION`, `KEEL_INSTANCE_ID`, and
+   `KEEL_HOSTNAME`. The deploy role trusts only jobs of this environment.
+5. Release through release-please, then run `deploy-aws.yml` with the
+   version. It runs `infra/deploy_host.sh` of the release tag on the host:
+   the compose file, the Caddyfile, the backup script, and the systemd units
+   of the tag; the image from GHCR; on the first run the corpus (release
+   `corpus-v1`), the models, and the index (release `index-v1` through
+   `keel restore`); then the app and Caddy, a wait for the version on
+   `/api/health`, and the nightly refresh and backup timers.
+
+To run the same deploy by hand: `aws ssm send-command --document-name
+AWS-RunShellScript` with `curl -fsSL <raw URL of infra/deploy_host.sh at the
+tag> | bash -s <version>`, or SSH as `ubuntu` from the admin CIDR.
 
 ## Restore (both hosts)
 
