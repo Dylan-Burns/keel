@@ -431,6 +431,20 @@ Entry format:
 - Cut or deferred: none. A front-end button for the memo route is not built (chapter 27.2 names only `keel/export.py`).
 - Attempts: 1. 1 live answer for the evidence, about 0.12 USD.
 
+## Stage 20: Watch list and refresh
+
+- Built: the watch list of chapter 26.3 in an app-state SQLite file, `<logs.dir>/state.sqlite` (`keel/stores/state_store.py`), outside the index so a rebuild keeps it, and `keel watch add|remove|list`; `keel refresh [--dry-run] [--offline] [--corpus] [--out]` (`keel/refresh.py`): for each watched or added ticker it compares the latest 10-K and 10-Q accession numbers of the submissions with the manifest and the `filings` table, and runs the `keel add` path of stage 14 for each new form; 1 JSON line per ticker and a done line go to `<logs.dir>/refresh.log`. OS and SQLite errors are caught per ticker, so 1 failed add does not stop the run; a broken `filings` table maps to `IndexCorruptError`; naive log times read as UTC. The hooks for later stages: `refresh.run_refresh(settings, *, dry_run=False, client=None, corpus_dir=None, index_dir=None, embedder_factory=None) -> RefreshReport` for the in-app scheduler, and `refresh.added_since(refresh.log_path(settings), since) -> list[LogEntry]` for the banner.
+- Tests: Python 673 passing with `make test` after the rebase onto the new stage 14, 13 deselected, coverage of `keel/` 96.9% (new: `test_refresh_new_filing` (recorded responses, a tiny index: a newer accession in the submissions triggers exactly 1 add), `test_refresh_dry_run`, `test_refresh_log_and_errors`, `test_refresh_command`, `test_refresh_command_error`, `test_refresh_survives_a_failed_add`, `test_watch_list_add_remove_list`, `test_state_store_errors`, `test_accession_of`, `test_new_filings`, `test_added_since_reads_naive_time`, `test_refresh_log_errors`, `test_log_entry_naive_time_is_utc`; every test blocks the network).
+- Measured (card evidence, `keel refresh --dry-run` on the scratch copy of the full index with ZTS and WDAY added at stage 14, empty watch list): `WDAY: up to date`, `ZTS: up to date`, "dry run: 2 tickers, 0 new, 0 added, 0 errors, 2 EDGAR requests" (the 2 submissions files), 5.4 s wall. No newer filing exists for either company on 2026-10-21, so the done-when (a new filing for a watched ticker appears after the next refresh) is shown by `test_refresh_new_filing` on recorded responses, not live.
+- Deviations from the specification:
+    - The watch list lives in `<logs.dir>/state.sqlite`, not in the index, so a rebuild or a restore of the index keeps it (decision taken without review).
+    - A dry run still refreshes the EDGAR cache of the submissions (it makes the requests and writes the cache, but writes no corpus file and builds nothing).
+    - The card's 3 commits include `feat(api): in-app scheduler and banner`; it is not in this stage. The scheduler lands with stage 21 (`feat/stage-21-deploy` has `build_scheduler()` with a `refresh=` hook for 02:00 that calls `run_refresh`), and the banner lands with a later web change that reads `added_since`. The server must reload the index after a scheduled refresh build; that wiring belongs to the same change.
+    - `test_scheduler_disabled_by_default` lives on the stage 21 branch with the scheduler.
+    - Commits: 4 (feat(edgar), test(edgar), a `fix(edgar)` commit with the review findings, and this report). The branch was rebased onto the rebased stage 14; the `keel/cli.py` conflict kept every command (`watch` and `refresh` dispatch through `_dispatch_refresh` before the handler table).
+- Cut or deferred: the scheduler and the banner (above), to stage 21 and a later web change.
+- Attempts: 1.
+
 ## Gaps
 
 Values that were not available when the build needed them, and what the build did instead.
@@ -467,6 +481,7 @@ Decisions that CLAUDE.md says to ask about, taken in unattended mode. One line e
 - The users file stores the sha256 of a 256-bit random token, not a slow key derivation: the tokens are machine-drawn, so a fast hash leaves no guessable space, and no dependency is added. Stage 17.
 - A link to a stored answer opens for any token holder (chapter 27.2) through its own route, while the refresh route stays with the asker and the admins; the viewer does not see who asked. Stage 17.
 - `make sync` runs `uv sync --all-extras`, so the DOCX tests find python-docx (the `export` extra already in `pyproject.toml`); no dependency changes. Stage 19.
+- The watch list of `keel watch` lives in `<logs.dir>/state.sqlite`, outside the index, so a rebuild or a restore keeps it. Stage 20.
 
 ## Placeholders resolved
 
