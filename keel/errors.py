@@ -190,3 +190,7 @@ class EdgarCacheMissError(EdgarError):
 
 class UnknownTickerError(EdgarError):
     """The SEC ticker map has no entry for a ticker (chapter 26.2)."""
+
+
+class StateStoreError(KeelError):
+    """The app-state database (the watch list) fails (chapter 26.3)."""

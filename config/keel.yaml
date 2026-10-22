@@ -28,7 +28,7 @@ index:
   dir: index                   # the build writes index/<build_id> and moves the `current` pointer
 
 logs:
-  dir: logs                    # audit.jsonl, refresh.log
+  dir: logs                    # audit.jsonl, refresh.log, state.sqlite (the watch list, 26.3)
 
 parser:
   version: 1.0.0
