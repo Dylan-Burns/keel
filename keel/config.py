@@ -214,6 +214,7 @@ class EdgarConfig(_Section):
     user_agent: str
     cache_dir: pathlib.Path = pathlib.Path("cache/edgar")
     min_request_interval_seconds: float = 0.2
+    facts: pathlib.Path = pathlib.Path("config/facts.yaml")
 
 
 class DemoConfig(_Section):

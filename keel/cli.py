@@ -4,15 +4,15 @@ Stage 1 ships `keel inventory` and `keel doctor`; stage 2 adds `keel parse`;
 stage 3 adds `keel chunk` and `keel parse --sections-report`; stage 4 adds
 `keel index`; stage 5 adds `keel understand`; stage 6 adds `keel retrieve`;
 stage 7 adds `keel ask`; stage 8 adds `keel calibrate`; stage 9 adds
-`keel serve`; stage 10 adds `keel eval`. Later stages add the commands that
-CLAUDE.md lists (warm-cache and the rest).
-the rest).
+`keel serve`; stage 10 adds `keel eval`; stage 13 adds `keel facts`. Later
+stages add the commands that CLAUDE.md lists (warm-cache and the rest).
 """
 
 import argparse
 import asyncio
 from collections.abc import Callable
 from collections.abc import Sequence
+import datetime
 import json
 import logging
 import pathlib
@@ -30,6 +30,7 @@ from keel import chunker
 from keel import config
 from keel import context
 from keel import doctor
+from keel import edgar
 from keel import errors
 from keel import extractor
 from keel import indexer
@@ -75,6 +76,34 @@ def _positive(value: str) -> int:
     if number < 1:
         raise argparse.ArgumentTypeError(f"must be at least 1: {value}")
     return number
+
+
+def _facts_arguments() -> argparse.ArgumentParser:
+    """Build the arguments of `keel facts` as a parent parser.
+
+    Returns:
+        A parser without help that holds the `facts` arguments.
+    """
+    facts_parser = argparse.ArgumentParser(add_help=False)
+    facts_parser.add_argument("ticker", help="the ticker, such as NVDA")
+    facts_parser.add_argument(
+        "--start",
+        type=datetime.date.fromisoformat,
+        default=None,
+        help="the first period end date to keep (YYYY-MM-DD)",
+    )
+    facts_parser.add_argument(
+        "--end",
+        type=datetime.date.fromisoformat,
+        default=None,
+        help="the last period end date to keep (YYYY-MM-DD)",
+    )
+    facts_parser.add_argument(
+        "--offline",
+        action="store_true",
+        help="read only the EDGAR cache, make no request",
+    )
+    return facts_parser
 
 
 def _eval_arguments() -> argparse.ArgumentParser:
@@ -336,6 +365,12 @@ def build_parser() -> argparse.ArgumentParser:
         "eval",
         parents=[_eval_arguments()],
         help="run the golden set and write the eval report",
+    )
+
+    commands.add_parser(
+        "facts",
+        parents=[_facts_arguments()],
+        help="print the company facts lines of 1 ticker (debug)",
     )
 
     doctor_parser = commands.add_parser(
@@ -1189,6 +1224,44 @@ def run_eval(settings: config.Settings, args: argparse.Namespace) -> int:
     return 0
 
 
+def run_facts(
+    settings: config.Settings,
+    ticker: str,
+    window: tuple[datetime.date | None, datetime.date | None],
+    offline: bool,
+) -> int:
+    """Run `keel facts`: print the facts lines of 1 ticker.
+
+    Args:
+        settings: The loaded settings.
+        ticker: The ticker.
+        window: The first and last period end dates, None for no bound.
+        offline: Read only the EDGAR cache.
+
+    Returns:
+        0.
+
+    Raises:
+        EdgarError: The ticker is unknown or a fetch fails.
+        ConfigError: `config/facts.yaml` is invalid.
+    """
+    facts_config = edgar.load_facts_config(settings.edgar.facts)
+    with edgar.EdgarClient.from_settings(
+        settings, offline=offline or None
+    ) as client:
+        cik = client.cik(ticker)
+        document = client.company_facts(cik)
+    block = edgar.facts_lines(
+        document.data, ticker, facts_config, start=window[0], end=window[1]
+    )
+    print(block.text())
+    print(
+        f"facts: {len(block.lines)} lines ({block.dropped} over the limit) "
+        f"from 1 cached file fetched {document.fetched_at:%Y-%m-%d %H:%M} UTC"
+    )
+    return 0
+
+
 def run_doctor(settings: config.Settings, download: bool, as_json: bool) -> int:
     """Run `keel doctor`.
 
@@ -1216,6 +1289,35 @@ def _dispatch_measure(
     if args.command == "calibrate":
         return run_calibrate(settings, args.sample, args.index)
     return run_eval(settings, args)
+
+
+def _dispatch_questions(
+    settings: config.Settings, args: argparse.Namespace
+) -> int | None:
+    """Run a question or facts command; None for the other commands."""
+    if args.command == "understand":
+        return run_understand(settings, args.question, args.corpus)
+    if args.command == "ask":
+        return run_ask(
+            settings,
+            args.question,
+            as_json=args.json,
+            cached=args.cached,
+            index_dir=args.index,
+        )
+    if args.command == "retrieve":
+        return run_retrieve(
+            settings,
+            args.text,
+            args.question,
+            summary=args.summary,
+            index_dir=args.index,
+        )
+    if args.command == "facts":
+        return run_facts(
+            settings, args.ticker, (args.start, args.end), args.offline
+        )
+    return None
 
 
 def _dispatch(settings: config.Settings, args: argparse.Namespace) -> int:
@@ -1276,25 +1378,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         settings = config.load_settings(args.config)
         security.install(settings)
-        if args.command == "understand":
-            return run_understand(settings, args.question, args.corpus)
-        if args.command == "ask":
-            return run_ask(
-                settings,
-                args.question,
-                as_json=args.json,
-                cached=args.cached,
-                index_dir=args.index,
-            )
-        if args.command == "retrieve":
-            return run_retrieve(
-                settings,
-                args.text,
-                args.question,
-                summary=args.summary,
-                index_dir=args.index,
-            )
-        return _dispatch(settings, args)
+        code = _dispatch_questions(settings, args)
+        return _dispatch(settings, args) if code is None else code
     except errors.KeelError as error:
         logger.error("%s: %s", type(error).__name__, error)
         return 2
