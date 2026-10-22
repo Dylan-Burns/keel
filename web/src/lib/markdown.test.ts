@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 
-import {isSecUrl, renderMarkdown} from './markdown';
+import {isSecUrl, renderMarkdown, sanitizeHtml} from './markdown';
 
 function dom(html: string): HTMLElement {
   const div = document.createElement('div');
@@ -33,14 +33,24 @@ describe('renderMarkdown', () => {
     }
   });
 
-  it('removes script, images, event handlers, and other tags', () => {
-    const html = renderMarkdown(
-      'Hi <script>window.pwned = 1</script><img src=x onerror="alert(1)"><iframe src="x"></iframe>' +
+  it('shows raw HTML of the model as text, never as elements', () => {
+    const root = dom(
+      renderMarkdown(
+        'Hi <script>window.pwned = 1</script><img src=x onerror="alert(1)"><iframe src="x"></iframe>',
+      ),
+    );
+    expect(root.querySelector('script, img, iframe')).toBeNull();
+    expect(root.textContent).toContain('<script>window.pwned = 1</script>');
+    expect(root.textContent).toContain('<img src=x onerror="alert(1)">');
+  });
+
+  it('sanitizes HTML with the allow list (the second layer)', () => {
+    const html = sanitizeHtml(
+      '<p>ok</p><script>window.pwned = 1</script><img src=x onerror="alert(1)">' +
         '<h1>title</h1><span style="color:red" onclick="x()">s</span>',
     );
-    expect(html).not.toMatch(
-      /<script|<img|<iframe|<h1|<span|onerror|onclick|style=/i,
-    );
+    expect(html).not.toMatch(/<script|<img|<h1|<span|onerror|onclick|style=/i);
+    expect(html).toContain('<p>ok</p>');
     expect(html).toContain('title');
   });
 
@@ -74,7 +84,7 @@ describe('renderMarkdown', () => {
   });
 
   it('drops attributes outside the allow list', () => {
-    const html = renderMarkdown(
+    const html = sanitizeHtml(
       '<a href="https://www.sec.gov/" title="t" class="c" data-x="1">s</a>',
     );
     expect(html).not.toMatch(/title=|class=|data-x=/);

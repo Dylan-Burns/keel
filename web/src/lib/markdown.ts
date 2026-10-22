@@ -5,7 +5,7 @@
  * the page renders through `dangerouslySetInnerHTML` (in AnswerMarkdown).
  */
 import DOMPurify from 'dompurify';
-import {marked} from 'marked';
+import {Marked} from 'marked';
 
 /** The tags of the chapter 15 allow list. */
 export const ALLOWED_TAGS: readonly string[] = [
@@ -76,17 +76,57 @@ function installHook(): void {
 }
 
 /**
- * Renders answer markdown to sanitized HTML.
+ * Escapes the HTML special characters of a text.
  *
- * @param markdown The model text.
- * @return HTML with only the allowed tags and SEC links.
+ * @param text The text.
+ * @return The escaped text.
  */
-export function renderMarkdown(markdown: string): string {
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * A private marked instance: raw HTML in the model text renders as escaped
+ * text, so a `<script>` shows as text instead of being parsed (E-F-06).
+ */
+const markdownParser = new Marked({
+  async: false,
+  gfm: true,
+  renderer: {
+    html({text}): string {
+      return escapeHtml(text);
+    },
+  },
+});
+
+/**
+ * Sanitizes HTML with the chapter 15 allow list: only the allowed tags, the
+ * `href` attribute, and links to https://www.sec.gov.
+ *
+ * @param html Untrusted HTML.
+ * @return The sanitized HTML.
+ */
+export function sanitizeHtml(html: string): string {
   installHook();
-  const html = marked.parse(markdown, {async: false, gfm: true});
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS: [...ALLOWED_TAGS],
     ALLOWED_ATTR: [...ALLOWED_ATTR],
     ALLOW_DATA_ATTR: false,
   });
+}
+
+/**
+ * Renders answer markdown to sanitized HTML. Raw HTML in the markdown shows
+ * as text; DOMPurify then runs on the whole result as a second layer.
+ *
+ * @param markdown The model text.
+ * @return HTML with only the allowed tags and SEC links.
+ */
+export function renderMarkdown(markdown: string): string {
+  return sanitizeHtml(markdownParser.parse(markdown, {async: false}));
 }
