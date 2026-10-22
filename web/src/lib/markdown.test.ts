@@ -1,0 +1,91 @@
+import {describe, expect, it} from 'vitest';
+
+import {isSecUrl, renderMarkdown} from './markdown';
+
+function dom(html: string): HTMLElement {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  return div;
+}
+
+describe('renderMarkdown', () => {
+  it('keeps the allowed tags', () => {
+    const html = renderMarkdown(
+      '**bold** and *em* and `code`\n\n- a\n- b\n\n1. one\n\n| h |\n| - |\n| c |\n',
+    );
+    const root = dom(html);
+    for (const tag of [
+      'p',
+      'strong',
+      'em',
+      'code',
+      'ul',
+      'ol',
+      'li',
+      'table',
+      'thead',
+      'tbody',
+      'tr',
+      'th',
+      'td',
+    ]) {
+      expect(root.querySelector(tag), tag).not.toBeNull();
+    }
+  });
+
+  it('removes script, images, event handlers, and other tags', () => {
+    const html = renderMarkdown(
+      'Hi <script>window.pwned = 1</script><img src=x onerror="alert(1)"><iframe src="x"></iframe>' +
+        '<h1>title</h1><span style="color:red" onclick="x()">s</span>',
+    );
+    expect(html).not.toMatch(
+      /<script|<img|<iframe|<h1|<span|onerror|onclick|style=/i,
+    );
+    expect(html).toContain('title');
+  });
+
+  it('keeps an https://www.sec.gov link with target and rel', () => {
+    const root = dom(
+      renderMarkdown('[filing](https://www.sec.gov/Archives/x.htm)'),
+    );
+    const link = root.querySelector('a');
+    expect(link?.getAttribute('href')).toBe(
+      'https://www.sec.gov/Archives/x.htm',
+    );
+    expect(link?.getAttribute('target')).toBe('_blank');
+    expect(link?.getAttribute('rel')).toBe('noopener noreferrer');
+  });
+
+  it('strips every other link', () => {
+    for (const url of [
+      'https://evil.example/x',
+      'http://www.sec.gov/x',
+      'javascript:alert(1)',
+      'https://www.sec.gov.evil.example/x',
+      'https://user@www.sec.gov/x',
+      'https://www.sec.gov:8443/x',
+      '/relative',
+    ]) {
+      const root = dom(renderMarkdown(`[link](${url})`));
+      const link = root.querySelector('a');
+      expect(link?.hasAttribute('href') ?? false, url).toBe(false);
+      expect(root.textContent).toContain('link');
+    }
+  });
+
+  it('drops attributes outside the allow list', () => {
+    const html = renderMarkdown(
+      '<a href="https://www.sec.gov/" title="t" class="c" data-x="1">s</a>',
+    );
+    expect(html).not.toMatch(/title=|class=|data-x=/);
+  });
+});
+
+describe('isSecUrl', () => {
+  it('accepts https on www.sec.gov only', () => {
+    expect(isSecUrl('https://www.sec.gov/cgi-bin/browse-edgar')).toBe(true);
+    expect(isSecUrl('https://data.sec.gov/x')).toBe(false);
+    expect(isSecUrl('not a url')).toBe(false);
+    expect(isSecUrl(null)).toBe(false);
+  });
+});
