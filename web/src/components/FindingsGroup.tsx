@@ -30,12 +30,23 @@ export function FindingsGroup({
   const clickable = run.final !== null;
   return (
     <details
-      className="rounded-lg border border-slate-200 bg-white"
+      className="group border border-line bg-panel"
       data-testid="findings-group"
       open
     >
-      <summary className="cursor-pointer px-3 py-2 font-medium">
-        {company.company} ({company.ticker})
+      <summary className="flex cursor-pointer list-none items-center gap-2 bg-head px-2.5 py-1.5 [&::-webkit-details-marker]:hidden">
+        <span
+          className="inline-block w-2 font-mono text-[10px] text-muted group-open:rotate-90"
+          aria-hidden="true"
+        >
+          &gt;
+        </span>
+        <span className="tag tag-accent font-semibold">{company.ticker}</span>
+        <span className="truncate font-medium text-ink">{company.company}</span>
+        <span className="num ml-auto text-[10.5px] text-muted">
+          {company.findings.length}{' '}
+          {company.findings.length === 1 ? 'finding' : 'findings'}
+        </span>
       </summary>
       <motion.div
         className="overflow-hidden"
@@ -44,13 +55,16 @@ export function FindingsGroup({
         animate="visible"
       >
         <motion.ul
-          className="space-y-2 px-4 pb-3"
+          className="divide-y divide-line"
           variants={pick(complete.chips, reduced)}
           initial="hidden"
           animate={clickable ? 'visible' : 'hidden'}
         >
           {company.findings.map((finding, index) => (
-            <li key={index} className="text-sm leading-relaxed">
+            <li
+              key={index}
+              className="px-3 py-2 text-[13px] leading-relaxed text-ink-2"
+            >
               <span>{finding.point}</span>{' '}
               {finding.unverified === true ? (
                 <CitationChip

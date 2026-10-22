@@ -5,6 +5,7 @@ import {
   markdownBlocks,
   renderMarkdown,
   sanitizeHtml,
+  tagChunkIds,
 } from './markdown';
 
 function dom(html: string): HTMLElement {
@@ -122,5 +123,13 @@ describe('markdownBlocks', () => {
 
   it('returns no block for blank text', () => {
     expect(markdownBlocks('  \n\n ')).toEqual([]);
+  });
+});
+
+describe('tagChunkIds', () => {
+  it('marks an inline chunk ID as code and leaves other brackets', () => {
+    expect(
+      tagChunkIds('Risk [AAPL_10K_2025-09-27__risk_factors__0002] and [note]'),
+    ).toBe('Risk `AAPL_10K_2025-09-27__risk_factors__0002` and [note]');
   });
 });

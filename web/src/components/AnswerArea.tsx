@@ -19,9 +19,9 @@ export interface AnswerAreaProps {
 }
 
 const CONFIDENCE: Readonly<Record<string, string>> = {
-  high: 'border-emerald-300 bg-emerald-50 text-emerald-900',
-  medium: 'border-amber-300 bg-amber-50 text-amber-900',
-  low: 'border-red-300 bg-red-50 text-red-900',
+  high: 'tag-up',
+  medium: 'tag-warn',
+  low: 'tag-down',
 };
 
 /**
@@ -45,71 +45,84 @@ export function AnswerArea({
       ? answer.coverage
       : null;
   return (
-    <section
-      className="space-y-4"
-      aria-label="Answer"
-      data-testid="answer-area"
-    >
-      <ProgressSteps run={run} streaming={streaming} />
-      {(answer !== null || run.deltas.length > 0) && (
-        <AnswerMarkdown
-          markdown={answerText(run)}
-          streaming={answer === null}
-        />
-      )}
-      {answer !== null && (
-        <div className="flex flex-wrap items-center gap-2 text-xs">
+    <section className="panel" aria-label="Answer" data-testid="answer-area">
+      <div className="panel-head">
+        <h2 className="panel-title">Answer</h2>
+        {answer !== null && (
           <span
-            className={`rounded border px-2 py-0.5 ${CONFIDENCE[answer.confidence] ?? ''}`}
+            className={`tag ${CONFIDENCE[answer.confidence] ?? ''}`}
             data-testid="confidence-chip"
             title={answer.confidence_reason}
           >
             confidence {answer.confidence}
           </span>
-          {coverage !== null && <CoverageIndicator coverage={coverage} />}
+        )}
+        <div className="ml-auto">
+          <ProgressSteps run={run} streaming={streaming} />
         </div>
-      )}
-      {run.findings.length > 0 && (
-        <div className="space-y-2">
-          {run.findings.map(company => (
-            <FindingsGroup
-              key={company.ticker}
-              run={run}
-              company={company}
-              onSelectCitation={onSelectCitation}
-            />
-          ))}
-        </div>
-      )}
-      {answer?.comparison_table && (
-        <ComparisonTable table={answer.comparison_table} />
-      )}
-      {answer !== null && answer.gaps.length > 0 && (
-        <div data-testid="gaps">
-          <h2 className="text-sm font-medium">Gaps</h2>
-          <ul className="list-disc pl-5 text-sm text-slate-700">
-            {answer.gaps.map(gap => (
-              <li key={gap}>{gap}</li>
+      </div>
+      <div className="panel-body space-y-4">
+        {(answer !== null || run.deltas.length > 0) && (
+          <AnswerMarkdown
+            markdown={answerText(run)}
+            streaming={answer === null}
+          />
+        )}
+        {answer === null && run.deltas.length === 0 && (
+          <p className="font-mono text-xs text-muted" role="status">
+            Reading the filings.
+          </p>
+        )}
+        {coverage !== null && <CoverageIndicator coverage={coverage} />}
+        {run.findings.length > 0 && (
+          <div className="space-y-1.5">
+            <h3 className="section-title">Findings by company</h3>
+            {run.findings.map(company => (
+              <FindingsGroup
+                key={company.ticker}
+                run={run}
+                company={company}
+                onSelectCitation={onSelectCitation}
+              />
             ))}
-          </ul>
-        </div>
-      )}
-      {answer !== null && answer.next_questions.length > 0 && (
-        <ul className="flex flex-wrap gap-2" aria-label="Next questions">
-          {answer.next_questions.map(next => (
-            <li key={next}>
-              <button
-                type="button"
-                className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 hover:border-accent disabled:opacity-50"
-                disabled={!askEnabled}
-                onClick={() => onAsk(next)}
-              >
-                {next}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+          </div>
+        )}
+        {answer?.comparison_table && (
+          <div className="space-y-1.5">
+            <h3 className="section-title">Comparison</h3>
+            <ComparisonTable table={answer.comparison_table} />
+          </div>
+        )}
+        {answer !== null && answer.gaps.length > 0 && (
+          <div className="space-y-1.5" data-testid="gaps">
+            <h3 className="section-title">Gaps</h3>
+            <ul className="space-y-1 border-l-2 border-warn pl-3 text-[13px] text-ink-2">
+              {answer.gaps.map(gap => (
+                <li key={gap}>{gap}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {answer !== null && answer.next_questions.length > 0 && (
+          <div className="space-y-1.5">
+            <h3 className="section-title">Next questions</h3>
+            <ul className="flex flex-wrap gap-1.5" aria-label="Next questions">
+              {answer.next_questions.map(next => (
+                <li key={next}>
+                  <button
+                    type="button"
+                    className="chip"
+                    disabled={!askEnabled}
+                    onClick={() => onAsk(next)}
+                  >
+                    {next}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
     </section>
   );
 }

@@ -25,7 +25,7 @@ export function ExampleChips({
   const reduced = useReducedMotion();
   return (
     <motion.ul
-      className="flex flex-wrap gap-2"
+      className="flex flex-wrap gap-1.5"
       aria-label="Example questions"
       variants={pick(pageLoad.chips, reduced)}
       initial="hidden"
@@ -35,7 +35,7 @@ export function ExampleChips({
         <motion.li key={example.label} variants={pick(pageLoad.chip, reduced)}>
           <button
             type="button"
-            className="rounded-full border border-slate-300 bg-white px-3 py-1 text-sm text-slate-700 hover:border-accent hover:text-accent disabled:opacity-50"
+            className="chip"
             data-testid="example-chip"
             disabled={disabled}
             onClick={() => onPick(example)}

@@ -43,38 +43,51 @@ export function RightPanel({
   const top = Math.max(0.0001, ...(retrieval?.chunks.map(c => c.score) ?? [0]));
   return (
     <aside
-      className={`${open ? 'fixed' : 'hidden'} inset-x-0 bottom-0 z-20 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-slate-200 bg-white p-4 shadow-2xl lg:static lg:block lg:max-h-none lg:rounded-none lg:border-l lg:border-t-0 lg:shadow-none`}
+      className={`${open ? 'fixed' : 'hidden'} panel inset-x-0 bottom-0 z-40 max-h-[80vh] overflow-y-auto shadow-2xl lg:sticky lg:top-12 lg:z-auto lg:block lg:max-h-[calc(100dvh-4.25rem)] lg:self-start lg:shadow-none`}
       aria-label="Sources"
       data-testid="right-panel"
       data-open={open}
     >
-      <div className="mb-2 flex items-center lg:hidden">
-        <h2 className="font-medium">Sources</h2>
+      <div className="panel-head sticky top-0 z-10">
+        <h2 className="panel-title">Sources</h2>
+        {retrieval !== null && (
+          <span className="num text-[10.5px] text-muted">
+            {cited.length} cited / {retrieval.chunks.length} retrieved
+          </span>
+        )}
         <button
           type="button"
-          className="ml-auto text-sm text-slate-600 underline"
+          className="btn ml-auto lg:hidden"
           onClick={onClose}
         >
           Close
         </button>
       </div>
+      {run === null && (
+        <p className="panel-body text-xs text-muted">
+          No question yet. The cited passages and the retrieved context of an
+          answer appear here.
+        </p>
+      )}
       {selected !== null && run !== null && (
         <section
-          className="mb-4 rounded-lg border border-accent/40 bg-accent/5 p-3"
+          className="m-2 border border-line border-l-[3px] border-l-accent bg-raised p-2.5"
           data-testid="selected-chunk"
         >
-          <h3 className="text-sm font-medium">
+          <h3 className="section-title text-accent">Opened passage</h3>
+          <p className="mt-1 text-[13px] font-semibold text-ink">
             {selected.detail?.filing_name ??
               findChunk(run, selected.chunkId)?.filing_name ??
               selected.chunkId}
-          </h3>
-          <p className="text-xs text-slate-600">
+          </p>
+          <p className="num text-[11px] text-muted">
             {selected.detail?.section_title ??
               findResolved(run, selected.chunkId)?.section_title ??
               ''}{' '}
             {selected.detail?.fiscal_label ?? ''}
           </p>
           <SecLink
+            className="text-xs"
             url={
               selected.detail?.sec_url ??
               findResolved(run, selected.chunkId)?.sec_url ??
@@ -82,33 +95,35 @@ export function RightPanel({
             }
           />
           {selected.error !== null && (
-            <p className="text-xs text-red-700">{selected.error}</p>
+            <p className="text-xs text-down">{selected.error}</p>
           )}
           {selected.detail !== null && (
-            <p className="mt-2 max-h-64 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-slate-800">
+            <p className="mt-2 max-h-64 overflow-y-auto whitespace-pre-wrap border-t border-line pt-2 text-xs leading-relaxed text-ink-2">
               {selected.detail.text}
             </p>
           )}
         </section>
       )}
       {cited.length > 0 && run !== null && (
-        <section className="mb-4">
-          <h2 className="mb-2 text-sm font-medium">Citations</h2>
-          <ol className="space-y-2" data-testid="citation-list">
+        <section className="border-b border-line">
+          <h3 className="section-title px-2.5 pb-1 pt-2.5">
+            Citations <span className="num">({cited.length})</span>
+          </h3>
+          <ol className="divide-y divide-line" data-testid="citation-list">
             {cited.map(c => (
               <li
                 key={c.chunk_id}
-                className="rounded border border-slate-200 p-2 text-xs"
+                className="px-2.5 py-2 text-xs"
                 data-valid={c.valid}
               >
-                <div className="font-medium">{c.filing_name}</div>
-                <div className="text-slate-600">
+                <div className="font-semibold text-ink">{c.filing_name}</div>
+                <div className="num text-[11px] text-muted">
                   {c.section_title}, {c.fiscal_label}
                   {c.valid ? '' : ', unverified'}
                 </div>
-                <SecLink url={c.sec_url} />
+                <SecLink url={c.sec_url} className="text-[11px]" />
                 {findCitation(run, c.chunk_id) !== undefined && (
-                  <blockquote className="mt-1 border-l-2 border-slate-300 pl-2 italic text-slate-700">
+                  <blockquote className="mt-1 border-l-2 border-accent/50 pl-2 italic text-ink-2">
                     {findCitation(run, c.chunk_id)?.quote}
                   </blockquote>
                 )}
@@ -119,9 +134,9 @@ export function RightPanel({
       )}
       {retrieval !== null && (
         <section>
-          <h2 className="mb-1 text-sm font-medium">Retrieved chunks</h2>
+          <h3 className="section-title px-2.5 pt-2.5">Retrieved chunks</h3>
           <p
-            className="mb-2 text-xs text-slate-500"
+            className="num px-2.5 pb-1.5 text-[10.5px] text-muted"
             data-testid="collapse-count"
           >
             {retrieval.chunks.length} chunks,{' '}
@@ -129,7 +144,7 @@ export function RightPanel({
             about {retrieval.token_estimate} tokens
           </p>
           <motion.ol
-            className="space-y-1"
+            className="divide-y divide-line border-t border-line"
             data-testid="chunk-list"
             variants={pick(retrievalMotion.list, reduced)}
             initial="hidden"
@@ -139,28 +154,40 @@ export function RightPanel({
               <motion.li
                 key={chunk.chunk_id}
                 variants={pick(retrievalMotion.item, reduced)}
-                className="text-xs"
+                className="px-2.5 py-1.5 text-xs hover:bg-raised"
                 data-testid="chunk-row"
               >
-                <div className="flex items-baseline gap-2">
-                  <span className="font-mono">{chunk.ticker}</span>
-                  <span>{chunk.form}</span>
-                  <span>{chunk.fiscal_label}</span>
-                  <span className="text-slate-500">{chunk.section}</span>
-                  <span className="ml-auto tabular-nums">
+                <div className="flex items-baseline gap-2 font-mono text-[11px]">
+                  <span className="w-11 shrink-0 font-semibold text-accent">
+                    {chunk.ticker}
+                  </span>
+                  <span className="shrink-0 text-ink">{chunk.form}</span>
+                  <span className="shrink-0 text-ink-2">
+                    {chunk.fiscal_label}
+                  </span>
+                  <span className="min-w-0 truncate text-muted">
+                    {chunk.section}
+                  </span>
+                  <span className="num ml-auto text-ink">
                     {chunk.score.toFixed(2)}
                   </span>
                 </div>
-                <div className="h-1 rounded bg-slate-100">
+                <div className="meter my-1">
                   <motion.div
-                    className="h-1 origin-left rounded bg-accent"
+                    className="origin-left bg-accent"
                     variants={pick(retrievalMotion.bar, reduced)}
                     style={{width: `${Math.round((chunk.score / top) * 100)}%`}}
                   />
                 </div>
-                <SecLink url={chunk.sec_url} label={chunk.filing_name} />
+                <SecLink
+                  url={chunk.sec_url}
+                  label={chunk.filing_name}
+                  className="truncate text-[11px]"
+                />
                 {chunk.sec_url === null && (
-                  <span className="text-slate-600">{chunk.filing_name}</span>
+                  <span className="block truncate text-[11px] text-muted">
+                    {chunk.filing_name}
+                  </span>
                 )}
               </motion.li>
             ))}

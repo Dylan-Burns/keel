@@ -25,14 +25,16 @@ export function StaleIndexBanner({
       initial="hidden"
       animate="visible"
       role="status"
-      className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900"
+      className="notice notice-warn rounded-none border-x-0 border-t-0 text-[13px]"
       data-testid="banner-stale-index"
     >
-      <strong className="font-medium">Stale index.</strong> The corpus changed
-      after the index build. Rebuild with{' '}
+      <strong className="font-mono text-[11px] font-semibold uppercase tracking-[0.1em] text-warn">
+        Stale index.
+      </strong>{' '}
+      The corpus changed after the index build. Rebuild with{' '}
       <code className="font-mono">uv run keel index --incremental</code>.
       {warnings.length > 0 && (
-        <span className="ml-1 text-amber-800">{warnings.join(' ')}</span>
+        <span className="ml-1 text-ink-2">{warnings.join(' ')}</span>
       )}
     </motion.div>
   );

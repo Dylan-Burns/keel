@@ -147,7 +147,7 @@ export function App(): JSX.Element {
   if (base.kind === 'index_not_built') {
     return (
       <div
-        className="min-h-screen bg-paper font-sans text-ink"
+        className="min-h-screen bg-canvas font-sans text-ink"
         data-state={base.kind}
       >
         <TopBar
@@ -168,10 +168,11 @@ export function App(): JSX.Element {
   return (
     <MotionConfig reducedMotion="user">
       <div
-        className="flex min-h-screen flex-col bg-paper font-sans text-ink"
+        className="flex min-h-screen flex-col bg-canvas font-sans text-ink"
         data-state={base.kind}
       >
         <motion.div
+          className="relative z-30 md:sticky md:top-0"
           variants={pick(pageLoad.region, reduced)}
           initial="hidden"
           animate="visible"
@@ -180,6 +181,7 @@ export function App(): JSX.Element {
             indexVersion={indexVersion}
             health={health(state)}
             lastMeta={meta}
+            modelRequests={run?.final?.audit?.model_requests ?? null}
           >
             <TokenField
               hasToken={hasToken}
@@ -194,27 +196,37 @@ export function App(): JSX.Element {
             warnings={state.service.indexStatus?.warnings ?? []}
           />
         )}
-        <div className="mx-auto grid w-full max-w-7xl flex-1 grid-cols-1 gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
-          <main className="min-w-0 space-y-4">
-            <motion.div
+        <div className="grid w-full flex-1 grid-cols-1 items-start gap-2 p-2 lg:grid-cols-[minmax(0,1fr)_25rem] xl:grid-cols-[minmax(0,1fr)_28rem]">
+          <main className="min-w-0 space-y-2">
+            <motion.section
+              className="panel"
+              aria-label="Query"
               variants={pick(pageLoad.region, reduced)}
               initial="hidden"
               animate="visible"
             >
-              <QuestionArea
-                question={question}
-                onQuestionChange={setQuestion}
-                onAsk={onAsk}
-                askEnabled={askEnabled}
-                examples={EXAMPLES}
-                analysis={run?.analysis ?? null}
-              />
-              <TemplatePicker enabled={hasToken} onFill={setQuestion} />
-            </motion.div>
+              <div className="panel-head">
+                <h2 className="panel-title">Query</h2>
+                <span className="ml-auto hidden font-mono text-[10.5px] text-muted sm:inline">
+                  10-K and 10-Q filings, 1 model request per answer
+                </span>
+              </div>
+              <div className="panel-body">
+                <QuestionArea
+                  question={question}
+                  onQuestionChange={setQuestion}
+                  onAsk={onAsk}
+                  askEnabled={askEnabled}
+                  examples={EXAMPLES}
+                  analysis={run?.analysis ?? null}
+                />
+                <TemplatePicker enabled={hasToken} onFill={setQuestion} />
+              </div>
+            </motion.section>
             <motion.div
               layout="position"
               transition={pickTransition(stateChange, reduced)}
-              className="space-y-4"
+              className="space-y-2"
               data-testid="answer-container"
             >
               {sharedId !== null &&
@@ -277,7 +289,7 @@ export function App(): JSX.Element {
               {run?.retrieval !== undefined && run?.retrieval !== null && (
                 <button
                   type="button"
-                  className="rounded border border-slate-300 bg-white px-3 py-1 text-sm lg:hidden"
+                  className="btn w-full lg:hidden"
                   data-testid="open-sources"
                   onClick={() => setPanelOpen(true)}
                 >

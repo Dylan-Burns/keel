@@ -33,7 +33,7 @@ export function ProgressSteps({
   const last = run.stepsLit[run.stepsLit.length - 1];
   return (
     <ol
-      className="flex gap-2 text-xs"
+      className="flex items-center gap-1"
       aria-label="Pipeline progress"
       data-testid="progress-steps"
       data-order={run.stepsLit.join(',')}
@@ -47,7 +47,7 @@ export function ProgressSteps({
             variants={pick(questionSent.step, reduced)}
             initial="off"
             animate={active ? 'pulse' : lit ? 'lit' : 'off'}
-            className={`rounded-full px-3 py-1 ${lit ? 'bg-accent text-white' : 'bg-slate-200 text-slate-500'}`}
+            className={`border px-1.5 py-px font-mono text-[10px] uppercase tracking-[0.1em] ${lit ? 'border-accent bg-accent text-on-accent' : 'border-line-strong text-muted'}`}
             data-step={step}
             data-lit={lit}
             data-active={active}

@@ -26,18 +26,18 @@ export function EntitiesLine({
   const fuzzy = (analysis.entities ?? []).filter(e => e.fuzzy === true);
   return (
     <motion.div
-      className="flex flex-wrap items-center gap-2 text-sm"
+      className="flex flex-wrap items-center gap-1.5 text-xs"
       data-testid="entities-line"
       variants={pick(entitiesResolved.chips, reduced)}
       initial="hidden"
       animate="visible"
     >
-      <span className="text-slate-500">Companies:</span>
+      <span className="section-title mr-1">Companies</span>
       {analysis.tickers.map(ticker => (
         <motion.span
           key={ticker}
           variants={pick(entitiesResolved.chip, reduced)}
-          className="rounded bg-slate-800 px-2 py-0.5 font-mono text-xs text-white"
+          className="tag tag-accent font-semibold"
           data-testid="entity-chip"
         >
           {ticker}
@@ -46,7 +46,7 @@ export function EntitiesLine({
       {(analysis.comp_sets ?? []).map(set => (
         <span
           key={set.name}
-          className="text-xs text-slate-500"
+          className="text-xs text-muted"
           data-testid="comp-set-note"
         >
           {`"${set.text}" is the comp set ${set.name}`}
@@ -55,7 +55,7 @@ export function EntitiesLine({
         </span>
       ))}
       {fuzzy.map(e => (
-        <span key={e.text} className="text-xs text-slate-500">
+        <span key={e.text} className="text-xs text-muted">
           Did you mean {e.company}? (read &quot;{e.text}&quot; as {e.ticker})
         </span>
       ))}

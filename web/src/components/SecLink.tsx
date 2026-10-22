@@ -7,6 +7,8 @@ export interface SecLinkProps {
   readonly url: string | null;
   /** The link text; the URL itself when absent. */
   readonly label?: string;
+  /** Extra classes, such as `truncate` for a 1-line list row. */
+  readonly className?: string;
 }
 
 /**
@@ -16,14 +18,18 @@ export interface SecLinkProps {
  * @param props The props.
  * @return The link, the URL as text, or nothing.
  */
-export function SecLink({url, label}: SecLinkProps): JSX.Element | null {
+export function SecLink({
+  url,
+  label,
+  className = '',
+}: SecLinkProps): JSX.Element | null {
   if (url === null || url === '') {
     return null;
   }
   if (!isSecUrl(url)) {
     return (
       <span
-        className="block break-all text-slate-500"
+        className={`block break-all text-muted ${className}`}
         data-testid="untrusted-url"
       >
         {url}
@@ -35,7 +41,7 @@ export function SecLink({url, label}: SecLinkProps): JSX.Element | null {
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="block break-all text-accent underline"
+      className={`link block break-all ${className}`}
       data-testid="sec-link"
     >
       {label ?? 'Open on sec.gov'}

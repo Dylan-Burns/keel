@@ -10,6 +10,7 @@ import {
   setToken,
 } from '../api/client';
 import type {CompSetItem} from '../api/types';
+import {PageBar} from './PageBar';
 import {TokenField} from './TokenField';
 
 /** The load state of the page. */
@@ -128,45 +129,35 @@ export function CompSetsPage(): JSX.Element {
   };
   return (
     <div
-      className="min-h-screen bg-paper font-sans text-ink"
+      className="min-h-screen bg-canvas font-sans text-ink"
       data-testid="compsets-page"
       data-load={load.kind}
     >
-      <header className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-4 py-3">
-        <h1 className="text-lg font-semibold">Comp sets</h1>
-        <button
-          type="button"
-          className="text-sm text-accent underline"
-          onClick={() => window.location.assign('/')}
-        >
-          Back to questions
-        </button>
-        <div className="ml-auto">
-          <TokenField
-            hasToken={load.kind !== 'no_token'}
-            rejected={load.kind === 'no_token' && getToken() !== null}
-            onSave={onSave}
-          />
-        </div>
-      </header>
-      <main className="mx-auto w-full max-w-5xl space-y-4 px-4 py-6">
+      <PageBar title="Comp sets">
+        <TokenField
+          hasToken={load.kind !== 'no_token'}
+          rejected={load.kind === 'no_token' && getToken() !== null}
+          onSave={onSave}
+        />
+      </PageBar>
+      <main className="mx-auto w-full max-w-5xl space-y-3 px-3 py-3">
         {load.kind === 'no_token' && (
-          <p className="text-sm text-slate-600">
+          <p className="text-[13px] text-muted">
             Enter your access token to read the comp sets.
           </p>
         )}
         {load.kind === 'loading' && (
-          <p className="text-sm text-slate-600">Loading the comp sets.</p>
+          <p className="text-[13px] text-muted">Loading the comp sets.</p>
         )}
         {load.kind === 'error' && (
-          <p className="text-sm text-red-700" role="alert">
+          <p className="notice notice-down text-[13px]" role="alert">
             {load.message}
           </p>
         )}
         {load.kind === 'ready' && (
           <>
             <form
-              className="flex flex-wrap items-end gap-2 rounded border border-slate-200 bg-white p-3 text-sm"
+              className="panel flex flex-wrap items-end gap-2 p-3"
               data-testid="compset-form"
               onSubmit={event => {
                 event.preventDefault();
@@ -174,9 +165,9 @@ export function CompSetsPage(): JSX.Element {
               }}
             >
               <label className="flex flex-col gap-1">
-                <span className="text-xs text-slate-500">Name</span>
+                <span className="section-title">Name</span>
                 <input
-                  className="w-48 rounded border border-slate-300 px-2 py-1"
+                  className="input w-48 max-w-full"
                   value={name}
                   placeholder="software"
                   maxLength={40}
@@ -185,9 +176,9 @@ export function CompSetsPage(): JSX.Element {
                 />
               </label>
               <label className="flex flex-1 flex-col gap-1">
-                <span className="text-xs text-slate-500">Tickers</span>
+                <span className="section-title">Tickers</span>
                 <input
-                  className="min-w-0 rounded border border-slate-300 px-2 py-1"
+                  className="input min-w-0 font-mono"
                   value={tickers}
                   placeholder="MSFT, ORCL, CRM, ADBE"
                   data-testid="compset-tickers"
@@ -196,7 +187,7 @@ export function CompSetsPage(): JSX.Element {
               </label>
               <button
                 type="submit"
-                className="rounded bg-accent px-3 py-1 text-white"
+                className="btn btn-primary"
                 data-testid="compset-save"
               >
                 Save
@@ -204,7 +195,7 @@ export function CompSetsPage(): JSX.Element {
             </form>
             {notice !== null && (
               <p
-                className="text-sm text-slate-700"
+                className="font-mono text-[12px] text-up"
                 role="status"
                 data-testid="compset-notice"
               >
@@ -212,39 +203,41 @@ export function CompSetsPage(): JSX.Element {
               </p>
             )}
             {load.items.length === 0 ? (
-              <p className="text-sm text-slate-600" data-testid="compset-empty">
+              <p className="text-[13px] text-muted" data-testid="compset-empty">
                 No comp sets yet. Save one, then ask about &quot;my NAME
                 comps&quot;.
               </p>
             ) : (
-              <ul className="space-y-3" aria-label="Comp sets">
+              <ul className="panel divide-y divide-line" aria-label="Comp sets">
                 {load.items.map(item => (
                   <li
                     key={item.name}
-                    className="flex flex-wrap items-center gap-3 rounded border border-slate-200 bg-white p-3 text-sm"
+                    className="flex flex-wrap items-center gap-3 px-3 py-2.5 text-[13px] hover:bg-raised"
                     data-testid="compset-item"
                     data-name={item.name}
                   >
-                    <span className="font-medium">my {item.name} comps</span>
-                    <span className="font-mono text-xs">
+                    <span className="font-medium text-ink">
+                      my {item.name} comps
+                    </span>
+                    <span className="tag tag-accent">
                       {item.tickers.join(' ')}
                     </span>
                     {item.missing.length > 0 && (
                       <span
-                        className="text-xs text-amber-700"
+                        className="text-xs text-warn"
                         data-testid="compset-missing"
                       >
                         not in the index: {item.missing.join(', ')}
                       </span>
                     )}
-                    <span className="text-xs text-slate-500">
+                    <span className="num text-[11px] text-muted">
                       {item.owner ?? 'admin'}
                     </span>
                     {item.editable && (
                       <span className="ml-auto flex gap-2">
                         <button
                           type="button"
-                          className="rounded border border-slate-300 px-2 py-1"
+                          className="btn"
                           data-testid="compset-edit"
                           onClick={() => {
                             setName(item.name);
@@ -255,7 +248,7 @@ export function CompSetsPage(): JSX.Element {
                         </button>
                         <button
                           type="button"
-                          className="rounded border border-slate-300 px-2 py-1"
+                          className="btn"
                           data-testid="compset-delete"
                           onClick={() => onDelete(item)}
                         >

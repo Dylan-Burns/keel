@@ -18,13 +18,13 @@ export function RateLimitedCard({
   return (
     <section
       role="status"
-      className="rounded-lg border border-slate-300 bg-white p-4 text-sm"
+      className="notice notice-warn space-y-1 text-[13px]"
       data-testid="card-rate-limited"
     >
-      <h2 className="font-medium">Too many questions</h2>
+      <h2 className="panel-title">Too many questions</h2>
       <p>
         Ask again in{' '}
-        <span className="tabular-nums" data-testid="countdown">
+        <span className="num font-semibold text-warn" data-testid="countdown">
           {secondsLeft}
         </span>{' '}
         s.

@@ -35,13 +35,13 @@ export function OutOfScopeCard({
       variants={pick(outOfScope.card, reduced)}
       initial="hidden"
       animate="visible"
-      className="space-y-3 rounded-lg border border-slate-300 bg-slate-100 p-4 text-sm text-slate-800"
+      className="notice space-y-3 text-[13px]"
       data-testid="card-out-of-scope"
     >
-      <h2 className="font-medium">Outside what the filings answer</h2>
+      <h2 className="panel-title">Outside what the filings answer</h2>
       <p>{reason}</p>
       {coverage !== null && coverage.companies.length > 0 && (
-        <p className="text-xs text-slate-600">
+        <p className="text-xs text-muted">
           Covered companies: {coverage.companies.map(c => c.ticker).join(', ')}
         </p>
       )}

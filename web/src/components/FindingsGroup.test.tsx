@@ -20,7 +20,11 @@ describe('FindingsGroup', () => {
         onSelectCitation={onSelect}
       />,
     );
-    expect(screen.getByText('JPMorgan Chase & Co. (JPM)')).toBeInTheDocument();
+    const summary = screen
+      .getByTestId('findings-group')
+      .querySelector('summary');
+    expect(summary).toHaveTextContent('JPM');
+    expect(summary).toHaveTextContent('JPMorgan Chase & Co.');
     expect(screen.getByTestId('citation-unverified')).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('citation-chip'));
     expect(onSelect).toHaveBeenCalledWith(JPM.findings[0]?.citations[0]);

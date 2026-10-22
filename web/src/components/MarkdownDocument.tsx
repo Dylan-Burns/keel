@@ -69,22 +69,24 @@ export function MarkdownDocument({
   testId,
 }: MarkdownDocumentProps): JSX.Element {
   return (
-    <section className="space-y-3" aria-label={title} data-testid={testId}>
-      <h2 className="text-lg font-semibold">
-        {title}{' '}
-        <span className="font-mono text-xs font-normal text-slate-500">
-          {document.source}
-        </span>
-      </h2>
+    <section className="panel" aria-label={title} data-testid={testId}>
+      <div className="panel-head">
+        <h2 className="panel-title">
+          {title}{' '}
+          <span className="ml-2 font-mono text-[10.5px] font-normal normal-case tracking-normal text-muted">
+            {document.source}
+          </span>
+        </h2>
+      </div>
       {document.markdown === null ? (
         <p
-          className="rounded border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-600"
+          className="panel-body text-[13px] text-muted"
           data-testid="eval-empty"
         >
           {empty}
         </p>
       ) : (
-        <div className="space-y-4 overflow-x-auto">
+        <div className="panel-body space-y-4 overflow-x-auto">
           {splitSections(document.markdown).map((section, index) => (
             <div
               key={`${section.heading ?? ''}-${index}`}
@@ -92,9 +94,13 @@ export function MarkdownDocument({
             >
               {section.heading !== null &&
                 (section.level <= 2 ? (
-                  <h3 className="text-base font-semibold">{section.heading}</h3>
+                  <h3 className="border-b border-line pb-1 font-mono text-[12px] font-semibold uppercase tracking-[0.1em] text-ink">
+                    {section.heading}
+                  </h3>
                 ) : (
-                  <h4 className="text-sm font-semibold">{section.heading}</h4>
+                  <h4 className="text-[13px] font-semibold text-ink">
+                    {section.heading}
+                  </h4>
                 ))}
               {section.body !== '' && (
                 <AnswerMarkdown markdown={section.body} />
@@ -102,7 +108,7 @@ export function MarkdownDocument({
             </div>
           ))}
           {document.truncated && (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted">
               The file is longer than the page shows.
             </p>
           )}
