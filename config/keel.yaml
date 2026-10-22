@@ -100,7 +100,7 @@ auth:
   users_file: config/users.yaml  # chapter 27.2: name, role, token hash; `keel users add`; /data/users.yaml in the pilot
 
 pilot:
-  db: logs/pilot.sqlite        # comp sets and feedback (chapter 27.2); /data/pilot.sqlite in the pilot
+  db: null                     # comp sets and feedback (chapter 27.2); null is pilot.sqlite in logs.dir
   templates: config/templates.yaml  # the 5 question templates of the web picker
 
 edgar:

@@ -238,16 +238,24 @@ def _eval_arguments() -> argparse.ArgumentParser:
     return eval_parser
 
 
-def _add_users_parser(
-    users_parser: argparse.ArgumentParser,
+def _add_pilot_commands(
     add_command: Callable[..., argparse.ArgumentParser],
 ) -> None:
-    """Add `keel users add NAME --role R`, `remove NAME`, and `list`.
+    """Add the pilot commands of chapter 27.2.
 
-    The pilot commands of `keel.pilot_cli` (comp sets, feedback, and
-    templates) join the commands through `add_command` here too.
+    These are `keel users`, and the comp sets, feedback, and template
+    commands of `keel.pilot_cli`.
     """
+    _add_users_parser(
+        add_command(
+            "users", help="the pilot users and their tokens (chapter 27.2)"
+        )
+    )
     pilot_cli.add_parsers(add_command)
+
+
+def _add_users_parser(users_parser: argparse.ArgumentParser) -> None:
+    """Add `keel users add NAME --role R`, `remove NAME`, and `list`."""
     users_commands = users_parser.add_subparsers(
         dest="users_command", metavar="action", required=True
     )
@@ -471,12 +479,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="add the latest 10-K and 10-Q of 1 company from EDGAR",
     )
 
-    _add_users_parser(
-        commands.add_parser(
-            "users", help="the pilot users and their tokens (chapter 27.2)"
-        ),
-        commands.add_parser,
-    )
+    _add_pilot_commands(commands.add_parser)
 
     _add_refresh_commands(commands)
 

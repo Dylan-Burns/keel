@@ -1165,7 +1165,8 @@ class Resolver:
             The entities in question order without duplicates, and the
             text with the claimed spans for the later steps.
         """
-        work = work or _Text(text)
+        if work is None:
+            work = _Text(text)
         hits: list[_Hit] = []
         hits += self._aliases(work)
         hits += self._explicit_tickers(work)
@@ -1728,7 +1729,7 @@ class Understander:
             catalog,
             settings.limits.question_min_chars,
             settings.limits.question_max_chars,
-            comp_sets=store_comp_sets(settings.pilot.db),
+            comp_sets=store_comp_sets(pilot.db_path(settings)),
         )
 
     def _read_comp_sets(self) -> list[tuple[str, tuple[str, ...]]]:

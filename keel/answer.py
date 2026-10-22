@@ -522,7 +522,9 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         stopped = not offline and (
             await asyncio.to_thread(self.budget.exhausted)
         )
-        if (offline or use_cache or stopped) and self._cacheable(question):
+        if (offline or use_cache or stopped) and (
+            await asyncio.to_thread(self._cacheable, question)
+        ):
             cached = self.cache.get(self.cache_key(question))
             if cached is not None:
                 async for event in self._from_cache(run, cached):
@@ -823,7 +825,9 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             )
             cached = None
             # Chapter 16.12 step 3: the cache after a failure.
-            if not run.content and self._cacheable(run.question):
+            if not run.content and (
+                await asyncio.to_thread(self._cacheable, run.question)
+            ):
                 cached = self.cache.get(self.cache_key(run.question))
             if cached is not None:
                 async for event in self._from_cache(run, cached):

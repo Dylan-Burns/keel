@@ -1,6 +1,7 @@
 """Comp sets in question understanding and the pilot store (27.2)."""
 
 import datetime
+import sqlite3
 
 import pytest
 
@@ -123,7 +124,9 @@ def test_comp_set_from_store(tmp_path, step) -> None:
     path = tmp_path / "pilot.sqlite"
     source = understanding.store_comp_sets(path)
     assert source() == {}
-    pilot.PilotStore(path).save_comp_set("Banks", ["jpm", "bac"], "alice")
+    pilot.PilotStore(path).save_comp_set(
+        "Banks", ["jpm", "bac"], editor="alice", admin=False
+    )
     assert source() == {"banks": ("JPM", "BAC")}
     live = understanding.Understander(
         step.dictionaries, step.catalog, comp_sets=source
@@ -147,7 +150,20 @@ def test_normalize_name(typed: str, name: str) -> None:
     assert pilot.normalize_name(typed) == name
 
 
-@pytest.mark.parametrize("typed", ["", "comps", "x" * 41, "semi/conductors"])
+@pytest.mark.parametrize(
+    "typed",
+    [
+        "",
+        "comps",
+        "x" * 41,
+        "semi/conductors",
+        "my my software comps",  # strips twice
+        "the software comps comps",
+        "\uff53oftware",  # a fullwidth letter
+        "\u212aite",  # the Kelvin sign lowers to k
+        "caf\u00e9",
+    ],
+)
 def test_normalize_name_rejects(typed: str) -> None:
     with pytest.raises(errors.InvalidCompSetError):
         pilot.normalize_name(typed)
@@ -168,19 +184,85 @@ def test_store_round_trip(tmp_path) -> None:
     store = pilot.PilotStore(tmp_path / "sub" / "pilot.sqlite")
     assert store.comp_sets() == {}
     assert store.feedback() == []
-    assert store.delete_comp_set("none") is False
-    store.save_comp_set("energy", ["XOM"])
-    store.save_comp_set("energy", ["XOM", "CVX"], "bob")
+    missing = store.delete_comp_set("none", editor=None, admin=True)
+    assert missing is False
+    store.save_comp_set("energy", ["XOM"], editor=None, admin=True)
+    store.save_comp_set("energy", ["XOM", "CVX"], editor="bob", admin=True)
     entry = store.comp_sets()["energy"]
-    assert (entry.tickers, entry.owner) == (("XOM", "CVX"), "bob")
-    assert store.delete_comp_set("Energy comps") is True
+    assert (entry.tickers, entry.owner) == (("XOM", "CVX"), None)
+    with pytest.raises(errors.CompSetForbiddenError):
+        store.delete_comp_set("Energy comps", editor="bob", admin=False)
+    deleted = store.delete_comp_set("Energy comps", editor="bob", admin=True)
+    assert deleted is True
     assert store.comp_sets() == {}
-    with pytest.raises(errors.PilotStoreError):
+    with pytest.raises(errors.InvalidFeedbackError):
         store.record_vote(request_id="r", user_name="u", vote="meh")  # type: ignore[arg-type]
-    with pytest.raises(errors.PilotStoreError):
+    with pytest.raises(errors.InvalidFeedbackError):
         store.record_vote(
             request_id="r", user_name="u", vote="up", note="x" * 2001
         )
     store.record_vote(request_id="r", user_name="u", vote="up", note="  ")
     assert store.feedback()[0].note is None
     assert store.feedback(flagged_only=True) == []
+
+
+@pytest.mark.parametrize(
+    "typed", ["Software", "my software comps", "Our A&D peer set", "big  tech"]
+)
+def test_normalize_name_is_idempotent(typed: str) -> None:
+    once = pilot.normalize_name(typed)
+    assert pilot.normalize_name(once) == once
+
+
+def test_store_owner_rule_in_the_transaction(tmp_path) -> None:
+    store = pilot.PilotStore(tmp_path / "pilot.sqlite")
+    store.save_comp_set("kite", ["AAPL"], editor="alice", admin=False)
+    for variant in ("KITE", " my  Kite comps ", "the kite peers"):
+        with pytest.raises(errors.CompSetForbiddenError):
+            store.save_comp_set(variant, ["TSLA"], editor="bob", admin=False)
+        with pytest.raises(errors.CompSetForbiddenError):
+            store.delete_comp_set(variant, editor="bob", admin=False)
+    assert store.comp_sets()["kite"].tickers == ("AAPL",)
+    assert store.comp_sets()["kite"].owner == "alice"
+
+
+def test_admin_edit_keeps_the_owner(tmp_path) -> None:
+    store = pilot.PilotStore(tmp_path / "pilot.sqlite")
+    store.save_comp_set("kite", ["AAPL"], editor="alice", admin=False)
+    edited = store.save_comp_set("kite", ["TSLA"], editor="carol", admin=True)
+    assert (edited.owner, edited.tickers) == ("alice", ("TSLA",))
+    assert store.comp_sets()["kite"].owner == "alice"
+    again = store.save_comp_set("kite", ["JPM"], editor="alice", admin=False)
+    assert again.tickers == ("JPM",)
+
+
+def test_store_limits_the_sets(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(pilot, "MAX_COMP_SETS", 2)
+    store = pilot.PilotStore(tmp_path / "pilot.sqlite")
+    store.save_comp_set("one", ["AAPL"], editor="a", admin=False)
+    store.save_comp_set("two", ["AAPL"], editor="a", admin=False)
+    with pytest.raises(errors.InvalidCompSetError):
+        store.save_comp_set("three", ["AAPL"], editor="a", admin=False)
+    edited = store.save_comp_set("two", ["MSFT"], editor="a", admin=False)
+    assert edited.tickers == ("MSFT",)
+
+
+def test_bad_row_is_a_store_error(tmp_path) -> None:
+    path = tmp_path / "pilot.sqlite"
+    store = pilot.PilotStore(path)
+    store.save_comp_set("kite", ["AAPL"], editor=None, admin=True)
+    with sqlite3.connect(path) as conn:
+        conn.execute("UPDATE comp_sets SET tickers = 'not json'")
+    with pytest.raises(errors.PilotStoreError):
+        store.comp_sets()
+
+
+def test_db_path_follows_the_logs_dir(settings, tmp_path) -> None:
+    moved = settings.model_copy(
+        update={
+            "pilot": config.PilotConfig(db=None),
+            "logs": config.LogsConfig(dir=tmp_path / "data"),
+        }
+    )
+    assert pilot.db_path(moved) == tmp_path / "data" / "pilot.sqlite"
+    assert pilot.db_path(settings) == settings.pilot.db
