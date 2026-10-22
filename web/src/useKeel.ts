@@ -227,8 +227,10 @@ export function useKeel(): KeelController {
     const run = async (): Promise<void> => {
       let ended = false;
       try {
+        // The live path is the default (chapter 16.12 step 3): the page
+        // never asks for a cached answer; offline mode still serves one.
         for await (const event of askStream(
-          {question},
+          {question, options: {use_cache: false}},
           requestId,
           controller.signal,
         )) {

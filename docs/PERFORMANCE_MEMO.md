@@ -21,7 +21,7 @@ corpus, a quarter after the corpus, a quarantined filing).
 | First right passage near the top (MRR) | 0.96 | 0.60 | met |
 | Claims supported by the cited text (faithfulness) | 0.87 | 0.90 | miss |
 | Citations that support their claim | 0.99 | 0.90 | met |
-| Reported numbers within 0.5% of the filing | 9 of 9 (1.00) | 0.95 | met |
+| Reported numbers within 0.5% of the filing | 9 of 9 (1.00) | 0.90 gate, 0.95 to ship | met |
 | Valid answer format / correct refusals | 1.00 / 4 of 4 | 1.00 | met |
 | Model requests per answer | 1 (24 for 24) | 1 | met |
 | Time to the full answer, median / 95th percentile | 23.1 s / 34.1 s | 40 s | met |
@@ -33,13 +33,14 @@ Narrative questions: risk comparisons across companies (recall 0.93, and every c
 answer states the coverage of each company), regulatory scans of a sector, and
 how a company's outlook changed over time. Every claim cites a passage that
 opens on the SEC filing, and the server removes any citation outside the
-retrieved text (0 in the run, 0 unverified findings, 0 misquotes). Questions out of scope are
+retrieved text (0 in the run, 0 unverified findings, 0 misquotes:
+the validator flags in `eval/report.json`). Questions out of scope are
 refused without a model call.
 
 ## 3. What is weak, with evidence
 
 - **Trends need several annual reports.** 40 of the 53 companies have 1
-  10-K, 36 of them nothing else. A question about change over time for
+  10-K, 36 of them nothing else (the `filings` table of index 1.2.0). A question about change over time for
   them cannot be answered, and the answer says so in its gaps (for example
   "MRK has only one 10-K ... so no change over time can be shown").
 - **Trend and summary answers overreach.** Faithfulness is 0.76 on trend
@@ -56,14 +57,15 @@ refused without a model call.
   fiscal 2026 10-K, which is newer than the corpus; the answer cites the fact
   with its EDGAR link, and the cached answer to the NVIDIA trend question
   flags the filing date difference in its gaps.
-- **9 test values is a small sample** for a 0.95 gate.
+- **9 test values is a small sample** for the 0.95 rule.
 
 ## 4. Decision rule
 
 Ship narrative questions now. For numbers, ship the 8 mapped company facts
 (revenue, net income, diluted EPS, operating income, total assets, cash,
 shares outstanding, long-term debt), which the answer cites by fact ID:
-numeric accuracy is 1.00 against the 0.95 gate. Hold every other number
+numeric accuracy is 1.00 against the 0.95 that this rule asks (the eval
+gate is 0.90). Hold every other number
 behind a warning until a larger numeric test set holds 0.95.
 
 ## 5. What changes next and when

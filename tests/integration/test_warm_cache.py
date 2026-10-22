@@ -9,6 +9,7 @@ no test reaches the network.
 
 import argparse
 import asyncio
+import dataclasses
 import json
 import pathlib
 import socket
@@ -22,6 +23,7 @@ from keel import config
 from keel import edgar
 from keel import errors
 from keel import retriever
+from keel import understanding
 from keel import warm_cache
 from keel.evaluation import golden
 from keel.providers import mock
@@ -280,10 +282,16 @@ def test_corpus_tickers_include_quarantine_and_extras(
     answerer = make(
         index_dir, run_settings, mock.MockProvider(run_settings.llm.model)
     )
-    tickers = warm_cache.corpus_tickers(
-        answerer.retriever.catalog, ["zts", "WDAY"]
+    catalog = dataclasses.replace(
+        answerer.retriever.catalog,
+        quarantined=(
+            understanding.QuarantineNote(
+                "GE", "GE_10K_2015-02-27_full.txt", "registrant_mismatch", ""
+            ),
+        ),
     )
-    assert tickers == ("AAPL", "JPM", "TSLA", "WDAY", "ZTS")
+    tickers = warm_cache.corpus_tickers(catalog, ["zts", "WDAY"])
+    assert tickers == ("AAPL", "GE", "JPM", "TSLA", "WDAY", "ZTS")
 
 
 def _args(golden_path: pathlib.Path, **flags: bool) -> argparse.Namespace:
