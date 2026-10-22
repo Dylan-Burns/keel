@@ -3,8 +3,10 @@ name: deploy-aws
 # Manual, approved deploy of a released image to the AWS pilot host (D-39).
 # The production environment in GitHub requires a reviewer before the job
 # runs. The job assumes the deploy role through GitHub OIDC (no stored AWS
-# key) and runs infra/deploy_host.sh of the release tag on the instance
-# through SSM Run Command, so no SSH port is open to GitHub.
+# key) and runs infra/deploy_host.sh of the release tag's commit on the
+# instance through SSM Run Command, so no SSH port is open to GitHub. The
+# role trusts only jobs of the production environment, which requires the
+# engineer's approval and runs only from protected branches.
 on:
   workflow_dispatch:
     inputs:
@@ -47,7 +49,15 @@ jobs:
           INSTANCE_ID: ${{ vars.KEEL_INSTANCE_ID }}
           REPO: ${{ github.repository }}
         run: |
-          url="https://raw.githubusercontent.com/${REPO}/v${VERSION}/infra/deploy_host.sh"
+          # Fetch the script by the commit the tag names now, so the host runs
+          # exactly what this job resolved, even if the tag moves later.
+          sha="$(git ls-remote "https://github.com/${REPO}.git" "refs/tags/v${VERSION}^{}" "refs/tags/v${VERSION}" | awk 'NR==1 {print $1}')"
+          if [[ ! "${sha}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::tag v${VERSION} not found"
+            exit 1
+          fi
+          echo "v${VERSION} is ${sha}"
+          url="https://raw.githubusercontent.com/${REPO}/${sha}/infra/deploy_host.sh"
           params="$(jq -n --arg url "${url}" --arg version "${VERSION}" '{
             commands: [
               "set -euo pipefail",
