@@ -30,6 +30,7 @@ from keel import __version__ as keel_version
 from keel import answer
 from keel import cache
 from keel import citations
+from keel import coverage as coverage_report
 from keel import errors
 from keel import understanding
 from keel import users
@@ -363,15 +364,6 @@ async def service_status(services: Services, caller: Caller) -> dict[str, Any]:
     }
 
 
-def _fiscal_label(year: int | None, period: str | None) -> str:
-    """The fiscal label of the prefix line, as `context.Candidate` names it."""
-    if year is None:
-        return "unknown"
-    if period in {None, "FY", "unknown"}:
-        return f"FY{year}"
-    return f"{period} FY{year}"
-
-
 @router.get("/coverage")
 async def coverage(services: Services, caller: Caller) -> dict[str, Any]:
     """The filings per ticker, with forms and fiscal periods, and quarantine.
@@ -388,37 +380,9 @@ async def coverage(services: Services, caller: Caller) -> dict[str, Any]:
     """
     del caller
     answerer = require_answerer(services)
-    rows = answerer.retriever.conn.execute(
-        "SELECT ticker, company, form, fiscal_year, fiscal_period "
-        "FROM filings ORDER BY ticker, period_end_date, form"
-    ).fetchall()
-    companies: dict[str, dict[str, Any]] = {}
-    for ticker, company, form, year, period in rows:
-        entry = companies.setdefault(
-            ticker,
-            {"ticker": ticker, "company": company, "forms": [], "periods": []},
-        )
-        if form not in entry["forms"]:
-            entry["forms"].append(form)
-        label = _fiscal_label(year, period)
-        if label not in entry["periods"]:
-            entry["periods"].append(label)
-    return {
-        "companies": [
-            {
-                "ticker": c["ticker"],
-                "company": c["company"],
-                "forms": sorted(c["forms"]),
-                "fiscal_periods": c["periods"],
-            }
-            for c in companies.values()
-        ],
-        "filing_count": len(rows),
-        "quarantined": [
-            {"ticker": q.ticker, "file_name": q.file_name, "reason": q.reason}
-            for q in answerer.retriever.catalog.quarantined
-        ],
-    }
+    return coverage_report.coverage_report(
+        answerer.retriever.conn, answerer.retriever.catalog.quarantined
+    )
 
 
 @router.get("/chunks/{chunk_id}")
@@ -463,7 +427,7 @@ async def chunk(
         section,
         text,
     ) = row
-    label = _fiscal_label(year, period)
+    label = coverage_report.fiscal_label(year, period)
     urls = answer.sec_urls(answerer.retriever.conn, [filing_id])
     return {
         "chunk_id": found_id,
