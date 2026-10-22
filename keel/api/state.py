@@ -14,6 +14,7 @@ import logging
 import pathlib
 import threading
 import time
+from typing import TYPE_CHECKING
 from typing import Any
 
 from keel import answer
@@ -26,6 +27,10 @@ from keel import reliability
 from keel.api import auth
 from keel.api import ratelimit
 from keel.providers import base
+
+if TYPE_CHECKING:
+    from keel import scheduler
+    from keel.api import jobs
 
 logger = logging.getLogger(__name__)
 
@@ -246,6 +251,11 @@ class Services:  # pylint: disable=too-many-instance-attributes
         )
         self.tasks: set[asyncio.Task[Any]] = set()
         self.users = auth.directory_of(settings)
+        # Held by a heavy admin job and by the nightly refresh and backup,
+        # so only 1 of them writes the index or the backups at a time.
+        self.maintenance = threading.Lock()
+        self.jobs: jobs.JobRunner | None = None
+        self.scheduler: scheduler.Scheduler | None = None
 
     @property
     def is_mock(self) -> bool:
@@ -312,6 +322,8 @@ class Services:  # pylint: disable=too-many-instance-attributes
             opened.retriever.embedder = previous.retriever.embedder
             opened.retriever.reranker = previous.retriever.reranker
             opened.breaker = previous.breaker
+            # The shared models keep 1 lock across the old and new builds.
+            opened.retrieval_lock = previous.retrieval_lock
         self.manifest = manifest
         self.index_verified = manifest is not None
         self.answerer = opened
