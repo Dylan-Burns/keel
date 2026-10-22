@@ -27,3 +27,6 @@ coverage.xml
 reports/
 web/tsconfig.tsbuildinfo
 requirements-audit.txt
+
+# Pilot users with token hashes (chapter 27.2); config/users.example.yaml shows the shape
+config/users.yaml

@@ -86,6 +86,27 @@ def test_load_file_errors(tmp_path: pathlib.Path) -> None:
         users.load_file(bad)
 
 
+def test_errors_never_quote_the_file(
+    tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    secret = "pasted-plain-token-value-1234"  # noqa: S105
+    bad = tmp_path / "users.yaml"
+    for text in (
+        f"users: [{{name: a, role: admin, token_hash: {secret}}}]",
+        f"users: [{{name: a, role: admin, token: {secret}}}]",
+        f"users: [{{name: a, role: admin, token_hash: '{secret}'\n",
+    ):
+        bad.write_text(text)
+        with pytest.raises(errors.ConfigError) as raised:
+            users.load_file(bad)
+        assert secret not in str(raised.value)
+        assert raised.value.__cause__ is None
+        directory = users.UserDirectory(bad, None)
+        assert directory.find(secret) is None
+    assert secret not in caplog.text
+    assert "token_hash" in caplog.text  # the location stays
+
+
 def test_save_file_error(tmp_path: pathlib.Path) -> None:
     blocker = tmp_path / "file"
     blocker.write_text("")

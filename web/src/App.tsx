@@ -28,7 +28,7 @@ import {TraceDrawer} from './components/TraceDrawer';
 import {answerToJson, answerToMarkdown} from './lib/answerExport';
 import type {Example} from './lib/examples';
 import {EXAMPLES} from './lib/examples';
-import {sharedRequestId, shareUrl} from './lib/links';
+import {copyText, sharedRequestId, shareUrl} from './lib/links';
 import {pageLoad, pick, pickTransition, stateChange} from './motion/presets';
 import {baseState, canAsk, currentRun, hasOverlay, health} from './state';
 import {useKeel} from './useKeel';
@@ -129,8 +129,7 @@ export function App(): JSX.Element {
     if (requestId === undefined) {
       return;
     }
-    navigator.clipboard
-      .writeText(shareUrl(requestId))
+    copyText(shareUrl(requestId))
       .then(() => setCopyStatus('Link copied'))
       .catch(() => setCopyStatus('Copy failed'));
   };

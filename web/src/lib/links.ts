@@ -7,7 +7,7 @@
 export const HISTORY_PATH = '/history';
 
 /** The client route of a stored answer: `/a/{request_id}`. */
-export const SHARED_ROUTE = /^\/a\/([A-Za-z0-9._:-]{1,128})\/?$/;
+export const SHARED_ROUTE = /^\/a\/([A-Za-z0-9._:%-]{1,384})\/?$/;
 
 /**
  * The path of the shareable link of an answer.
@@ -42,4 +42,18 @@ export function shareUrl(
 export function sharedRequestId(pathname: string): string | null {
   const match = SHARED_ROUTE.exec(pathname);
   return match?.[1] === undefined ? null : decodeURIComponent(match[1]);
+}
+
+/**
+ * Copies a text to the clipboard, or rejects where the page has no
+ * clipboard (an insecure context), instead of throwing at once.
+ *
+ * @param text The text.
+ * @return The write.
+ */
+export function copyText(text: string): Promise<void> {
+  const clipboard = (navigator as {clipboard?: Clipboard}).clipboard;
+  return clipboard === undefined
+    ? Promise.reject(new Error('no clipboard in this context'))
+    : clipboard.writeText(text);
 }

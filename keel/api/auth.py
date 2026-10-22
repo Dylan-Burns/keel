@@ -35,7 +35,8 @@ class Principal:
     tenant_id: str = DEFAULT_TENANT
     allowed_tickers: frozenset[str] | None = None
     allowed_sources: frozenset[str] = frozenset({"edgar"})
-    user: users.User = users.LEGACY
+    # No default: a Principal built without a user must not become admin.
+    user: users.User = dataclasses.field(kw_only=True)
 
     @property
     def is_admin(self) -> bool:

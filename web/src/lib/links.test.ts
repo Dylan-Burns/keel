@@ -1,6 +1,8 @@
-import {describe, expect, it} from 'vitest';
+import {afterEach, describe, expect, it, vi} from 'vitest';
 
-import {sharePath, sharedRequestId, shareUrl} from './links';
+import {copyText, sharePath, sharedRequestId, shareUrl} from './links';
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe('links', () => {
   it('builds and reads the shareable link of an answer', () => {
@@ -10,8 +12,14 @@ describe('links', () => {
     );
     expect(sharedRequestId('/a/abc-1')).toBe('abc-1');
     expect(sharedRequestId('/a/key.1:x/')).toBe('key.1:x');
+    expect(sharedRequestId(sharePath('key.1:x'))).toBe('key.1:x');
     expect(sharedRequestId('/a/')).toBeNull();
     expect(sharedRequestId('/a/x/y')).toBeNull();
     expect(sharedRequestId('/history')).toBeNull();
+  });
+
+  it('rejects a copy without a clipboard instead of throwing', async () => {
+    vi.stubGlobal('navigator', {onLine: true});
+    await expect(copyText('x')).rejects.toThrow('no clipboard');
   });
 });

@@ -140,7 +140,41 @@ def load_file(path: pathlib.Path) -> UsersFile:
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         return UsersFile.model_validate(data)
     except (OSError, yaml.YAMLError, pydantic.ValidationError) as error:
-        raise errors.ConfigError(f"the users file {path}: {error}") from error
+        raise errors.ConfigError(
+            f"the users file {path}: {describe_error(error)}"
+        ) from None
+
+
+def describe_error(error: Exception) -> str:
+    """Describe a users file error without any value from the file.
+
+    A pydantic or YAML message quotes the input, and a token pasted into
+    the file by mistake would reach the log; only the locations and the
+    error types are kept.
+
+    Args:
+        error: The read, parse, or validation error.
+
+    Returns:
+        The description.
+    """
+    if isinstance(error, pydantic.ValidationError):
+        # A value_error message is written by this module, never input.
+        parts = []
+        for item in error.errors():
+            where = ".".join(str(part) for part in item["loc"]) or "file"
+            kind = item["type"]
+            detail = item["msg"] if kind == "value_error" else kind
+            parts.append(f"{where}: {detail}")
+        return "invalid entries (" + "; ".join(parts) + ")"
+    if isinstance(error, yaml.MarkedYAMLError) and error.problem_mark:
+        mark = error.problem_mark
+        return (
+            f"not valid YAML at line {mark.line + 1}, column {mark.column + 1}"
+        )
+    if isinstance(error, yaml.YAMLError):
+        return "not valid YAML"
+    return type(error).__name__
 
 
 def save_file(path: pathlib.Path, users_file: UsersFile) -> None:
@@ -164,15 +198,22 @@ def save_file(path: pathlib.Path, users_file: UsersFile) -> None:
             dir=path.parent, prefix=".tmp-", suffix=".yaml"
         )
         os.fchmod(handle, FILE_MODE)
-        with os.fdopen(handle, "w", encoding="utf-8") as stream:
-            stream.write(text)
-        os.replace(temporary, path)
+        try:
+            with os.fdopen(handle, "w", encoding="utf-8") as stream:
+                stream.write(text)
+            os.replace(temporary, path)
+        except OSError:
+            pathlib.Path(temporary).unlink(missing_ok=True)
+            raise
     except OSError as error:
         raise errors.ConfigError(f"cannot write {path}: {error}") from error
 
 
 def add_user(path: pathlib.Path, name: str, role: str) -> str:
     """Add a user with a new token and return the token.
+
+    The file is read, changed, and replaced without a lock: run 1 `keel
+    users` command at a time.
 
     Args:
         path: The users file.
@@ -205,6 +246,8 @@ def add_user(path: pathlib.Path, name: str, role: str) -> str:
 
 def remove_user(path: pathlib.Path, name: str) -> None:
     """Remove a user, which revokes their token at the next request.
+
+    Like `add_user`, run 1 `keel users` command at a time (no lock).
 
     Args:
         path: The users file.

@@ -642,8 +642,10 @@ async def _stored(
     owner = trail.get(history_log.USER_KEY) if trail else None
     cached = await asyncio.to_thread(answerer.cache.find, request_id)
     if cached is None:
+        if trail is None:
+            return None, None
         cached = await asyncio.to_thread(
-            history_log.stored_answer, logs, answerer.cache, request_id
+            history_log.stored_answer, logs, answerer.cache, request_id, trail
         )
     if cached is None:
         return None, None

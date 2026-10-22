@@ -4,6 +4,8 @@ import {openKeel, stateRoot} from './support/api';
 
 // Chapter 27.2: the history page per user, the shareable link of a stored
 // answer, and the re-run button. Live mode asks as the legacy token user.
+// Serial: the Re-run test reads the history the first test fills.
+test.describe.configure({mode: 'serial'});
 test('an answer appears in the history and opens read-only at its link', async ({
   page,
 }) => {

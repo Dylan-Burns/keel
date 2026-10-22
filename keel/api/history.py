@@ -158,7 +158,10 @@ def cache_key_of(record: dict[str, Any]) -> str | None:
 
 
 def stored_answer(
-    directory: pathlib.Path, answers: cache.AnswerCache, request_id: str
+    directory: pathlib.Path,
+    answers: cache.AnswerCache,
+    request_id: str,
+    record: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """The stored answer of a request ID, from the audit log and the cache.
 
@@ -166,12 +169,15 @@ def stored_answer(
         directory: The logs directory.
         answers: The answer cache.
         request_id: The request ID of the link.
+        record: The audit record of the request when the caller has read
+            it already, so the log is read once; None reads it.
 
     Returns:
         The cached answer with the request ID of the link and the audit
         record of that request, or None when the cache does not hold it.
     """
-    record = find_record(directory, request_id)
+    if record is None:
+        record = find_record(directory, request_id)
     if record is None:
         return None
     key = cache_key_of(record)
