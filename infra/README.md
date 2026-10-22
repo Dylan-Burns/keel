@@ -47,6 +47,21 @@ tflint, checkov).
    answers at once, and `/api/ready` reports `index_loaded: false` until the
    build ends. Later starts find the index and skip the build.
 
+### The index on a 4 GB host (Option A)
+
+The full index build needs about 6.6 GB, more than the 4 GB service. Build
+it off the host and let the bootstrap restore it:
+
+1. On a machine with the memory: `keel index`, then
+   `keel backup --index-only --out dist/` (no audit log, no user data: the
+   release is public).
+2. `gh release create index-v1 dist/keel-*.tar.gz*` (the archive and its
+   `.sha256`).
+3. On the host: `KEEL_INDEX__RELEASE_TAG=index-v1` and `GH_TOKEN`, with
+   `gh` on the PATH. The bootstrap restores the archive (about 6 s for the
+   133 MB archive of index 1.2.0) instead of building; a failed download
+   or check falls back to the build.
+
 The volume is mounted by Railway with its own ownership rules. If the
 non-root `keel` user cannot write `/data` on the first start, follow the
 current Railway volume documentation for the ownership setting; do not
@@ -57,7 +72,9 @@ switch the image to root.
 The in-app scheduler (`scheduler.enabled`) runs `refresh` at 02:00 and the
 backup at 02:30 inside the app, because a Railway cron service cannot share
 the app's volume. The backup writes the same checksummed archive as
-`backup.sh` to the S3-compatible bucket.
+`backup.sh` to `scheduler.backup_dir` on the volume and keeps the newest 7.
+The upload to the S3-compatible bucket is not implemented yet
+(`BackupUploadError`, see the gaps in `docs/BUILD_REPORT.md`).
 
 ## AWS alternative: first deploy
 
@@ -91,7 +108,8 @@ the app's volume. The backup writes the same checksummed archive as
 4. Start the app and check `/api/health` and `/api/ready`.
 
 Test the restore once before the pilot and record the date in
-`docs/BUILD_REPORT.md`.
+`docs/BUILD_REPORT.md`. Last tested on 2026-10-22 (index 1.2.0 into an
+empty index directory, 6.2 s); repeat it on the pilot host.
 
 ## Vercel
 
