@@ -38,6 +38,7 @@ class _Entry:
 
     expires: float
     record: dict[str, Any] | None
+    owner: str | None = None
 
 
 class ResultStore:
@@ -67,11 +68,12 @@ class ResultStore:
             del self._entries[key]
         return self._entries.get(request_id)
 
-    def start(self, request_id: str) -> bool:
+    def start(self, request_id: str, owner: str | None = None) -> bool:
         """Claim a request ID for a new answer.
 
         Args:
             request_id: The Idempotency-Key or the server ID.
+            owner: The user who asks; only they replay the key.
 
         Returns:
             False when the ID already has an answer or 1 in progress.
@@ -87,7 +89,9 @@ class ResultStore:
                 )
                 for key in order[: len(self._entries) - self.max_entries + 1]:
                     del self._entries[key]
-            self._entries[request_id] = _Entry(self.clock() + self.ttl, None)
+            self._entries[request_id] = _Entry(
+                self.clock() + self.ttl, None, owner
+            )
             return True
 
     def finish(self, request_id: str, record: dict[str, Any]) -> None:
@@ -98,7 +102,11 @@ class ResultStore:
             record: The answer response of chapter 14.2.
         """
         with self._lock:
-            self._entries[request_id] = _Entry(self.clock() + self.ttl, record)
+            current = self._entries.get(request_id)
+            owner = current.owner if current else None
+            self._entries[request_id] = _Entry(
+                self.clock() + self.ttl, record, owner
+            )
 
     def drop(self, request_id: str) -> None:
         """Forget a request that ended without an answer.
@@ -108,6 +116,33 @@ class ResultStore:
         """
         with self._lock:
             self._entries.pop(request_id, None)
+
+    def finished_ids(self) -> frozenset[str]:
+        """The request IDs with a stored answer.
+
+        Returns:
+            The IDs of the finished answers that have not expired.
+        """
+        with self._lock:
+            now = self.clock()
+            return frozenset(
+                key
+                for key, entry in self._entries.items()
+                if entry.record is not None and entry.expires > now
+            )
+
+    def owner(self, request_id: str) -> str | None:
+        """The user who claimed a request ID.
+
+        Args:
+            request_id: The request ID.
+
+        Returns:
+            The owner, or None for an unknown ID or an ID without one.
+        """
+        with self._lock:
+            entry = self._live(request_id)
+            return entry.owner if entry else None
 
     def state(self, request_id: str) -> tuple[bool, dict[str, Any] | None]:
         """Look up a request ID.

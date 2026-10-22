@@ -2,7 +2,8 @@
 
 `POST /api/ask` streams the events of chapter 14.3 or returns the JSON of
 chapter 14.2. The read routes serve the readiness, the coverage, 1 chunk,
-the examples, the index status, and a stored answer by request ID. With
+the examples, the index status, a stored answer by request ID, and the
+history of the caller (chapter 27.2). With
 `llm.provider: mock`, the header `X-Keel-Mock: <fault>` drives the states
 of table 14.6 for the front-end tests; with any other provider the service
 ignores it.
@@ -27,12 +28,14 @@ import yaml
 
 from keel import __version__ as keel_version
 from keel import answer
+from keel import cache
 from keel import citations
 from keel import errors
 from keel import understanding
 from keel import users
 from keel.api import auth
 from keel.api import eval_page
+from keel.api import history as history_log
 from keel.api import sse
 from keel.api import state
 from keel.providers import mock
@@ -592,11 +595,77 @@ async def feedback(caller: Caller) -> responses.JSONResponse:
     )
 
 
+def for_viewer(
+    record: dict[str, Any], caller: auth.Principal
+) -> dict[str, Any]:
+    """A stored answer as a viewer sees it through a shareable link.
+
+    Any token holder may open a link (chapter 27.2); the name of the user
+    who asked stays with that user and the admins.
+
+    Args:
+        record: The answer response.
+        caller: The Principal of the viewer.
+
+    Returns:
+        The response, with the user removed from its audit record when
+        the viewer is someone else and not an admin.
+    """
+    trail = record.get("audit")
+    if not isinstance(trail, dict) or caller.is_admin:
+        return record
+    if trail.get(history_log.USER_KEY) == caller.user.name:
+        return record
+    return {**record, "audit": {**trail, history_log.USER_KEY: None}}
+
+
+async def _stored(
+    services: state.Services, request_id: str
+) -> tuple[dict[str, Any] | None, str | None]:
+    """A finished answer outside the result store, and the user who asked.
+
+    Args:
+        services: The shared services.
+        request_id: The request ID.
+
+    Returns:
+        (record, owner): the answer from the answer cache, found by the
+        request that filled the entry or through the audit record of the
+        request, and the `user_name` of that audit record; (None, None)
+        when no store holds it.
+    """
+    answerer = services.answerer
+    if answerer is None or not REQUEST_ID.match(request_id):
+        return None, None
+    logs = services.settings.logs.dir
+    trail = await asyncio.to_thread(history_log.find_record, logs, request_id)
+    owner = trail.get(history_log.USER_KEY) if trail else None
+    cached = await asyncio.to_thread(answerer.cache.find, request_id)
+    if cached is None:
+        cached = await asyncio.to_thread(
+            history_log.stored_answer, logs, answerer.cache, request_id
+        )
+    if cached is None:
+        return None, None
+    return response_body(cached), owner
+
+
+def _may_read(caller: auth.Principal, owner: str | None) -> bool:
+    """True when the caller asked the question or is an admin."""
+    return caller.is_admin or owner == caller.user.name
+
+
 @router.get("/results/{request_id}")
 async def result(
     request_id: str, services: Services, caller: Caller
 ) -> dict[str, Any]:
-    """The stored answer of a request ID (E-F-04).
+    """The stored answer of the caller's own request (E-F-04).
+
+    The page reads it after a refresh mid-stream, so it also reports an
+    answer that still runs. Only the user who asked and the admins read
+    it here; anyone else gets the same 404 as for an unknown ID, so the
+    route does not tell that the ID exists. Sharing is the deliberate,
+    read-only route `GET /api/shared/{request_id}`.
 
     Args:
         request_id: The request ID.
@@ -608,21 +677,93 @@ async def result(
         or the answer cache.
 
     Raises:
-        HTTPException: 404 while the answer runs, and for an unknown ID.
+        HTTPException: 404 while the answer runs, for an unknown ID, for
+            an answer that no store holds any more, and for an answer of
+            another user.
     """
-    del caller
     known, record = services.results.state(request_id)
-    if record is not None:
-        return record
     if known:
-        raise http_error(404, "pending", "the answer is not complete yet")
-    if services.answerer is not None and REQUEST_ID.match(request_id):
-        cached = await asyncio.to_thread(
-            services.answerer.cache.find, request_id
-        )
-        if cached is not None:
-            return response_body(cached)
+        if not _may_read(caller, services.results.owner(request_id)):
+            raise http_error(
+                404, "not_found", "no stored answer for this request"
+            )
+        if record is None:
+            raise http_error(404, "pending", "the answer is not complete yet")
+        return record
+    stored, owner = await _stored(services, request_id)
+    if stored is not None and _may_read(caller, owner):
+        return stored
     raise http_error(404, "not_found", "no stored answer for this request")
+
+
+@router.get("/shared/{request_id}")
+async def shared_answer(
+    request_id: str, services: Services, caller: Caller
+) -> dict[str, Any]:
+    """A finished answer by its shareable link `/a/{request_id}` (27.2).
+
+    Deliberately open to any token holder, read-only, as chapter 27.2
+    asks: a link opens for any user with a token. The viewer sees the
+    answer and its trace, but not who asked unless it was the viewer or
+    the viewer is an admin. An answer that still runs is not shared.
+
+    Args:
+        request_id: The request ID of the link.
+        services: The shared services.
+        caller: The Principal of the viewer.
+
+    Returns:
+        The answer of chapter 14.2.
+
+    Raises:
+        HTTPException: 404 for an unknown, unfinished, or expired answer.
+    """
+    _, record = services.results.state(request_id)
+    if record is None:
+        record, _ = await _stored(services, request_id)
+    if record is None:
+        raise http_error(404, "not_found", "no stored answer for this link")
+    return for_viewer(record, caller)
+
+
+@router.get("/history")
+async def history(
+    services: Services,
+    caller: Caller,
+    scope: Annotated[str, fastapi.Query(pattern="^(own|all)$")] = "own",
+    limit: Annotated[
+        int, fastapi.Query(ge=1, le=history_log.MAX_LIMIT)
+    ] = history_log.DEFAULT_LIMIT,
+) -> history_log.HistoryPage:
+    """The questions of the caller, newest first (chapter 27.2).
+
+    Args:
+        services: The shared services.
+        caller: The Principal.
+        scope: `own`, or `all` for every user (admins only).
+        limit: The most items returned, 1 to 200.
+
+    Returns:
+        The caller, the scope, and the items from the audit log, each
+        marked when its answer can still be opened by its link.
+
+    Raises:
+        HTTPException: 403 when a user who is not an admin asks for all.
+    """
+    if scope == "all" and not caller.is_admin:
+        raise http_error(403, "forbidden", "only an admin reads every history")
+    user = None if scope == "all" else caller.user.name
+    items = await asyncio.to_thread(
+        history_log.history,
+        services.settings.logs.dir,
+        cache.AnswerCache(services.settings.cache.answers_dir),
+        user,
+        limit=limit,
+        live=services.results.finished_ids(),
+    )
+    return history_log.HistoryPage(
+        user=caller.user.name, role=caller.user.role, scope=scope, items=items
+    )
 
 
 def _placeholder_answer(record: dict[str, Any]) -> dict[str, Any]:
@@ -965,8 +1106,14 @@ async def ask(
     request_id = request_id_of(request)
     stream = wants_stream(request, body.options)
     known, record = services.results.state(request_id)
+    if known and services.results.owner(request_id) != caller.user.name:
+        # A key belongs to the user who sent it first; no data of another
+        # user's answer leaves through a replay.
+        raise http_error(
+            409, "request_id_taken", "this Idempotency-Key is in use"
+        )
     if record is not None:
-        return _replay(record, stream)
+        return _replay(for_viewer(record, caller), stream)
     if known:
         raise http_error(
             409, "request_in_progress", "the answer of this key still runs"
@@ -980,7 +1127,7 @@ async def ask(
             "too many questions; wait and ask again",
             decision.retry_after,
         )
-    if not services.results.start(request_id):
+    if not services.results.start(request_id, caller.user.name):
         raise http_error(
             409, "request_in_progress", "the answer of this key still runs"
         )
