@@ -43,7 +43,7 @@ jobs:
       - name: check out the release
         uses: actions/checkout@v4
         with:
-          ref: v${{ inputs.version }}
+          ref: refs/tags/v${{ inputs.version }}
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
@@ -58,6 +58,11 @@ jobs:
           # GitHub: the job bundles the deploy files of the release commit,
           # puts them in the S3 bucket, and the host runs the bundled script.
           sha="$(git rev-parse HEAD)"
+          tag_sha="$(git rev-parse "refs/tags/v${VERSION}^{commit}")"
+          if [[ "${sha}" != "${tag_sha}" ]]; then
+            echo "::error::checkout ${sha} is not tag v${VERSION}"
+            exit 1
+          fi
           echo "v${VERSION} is ${sha}"
           tar czf bundle.tgz docker-compose.yml infra/Caddyfile infra/backup.sh \
             infra/deploy_host.sh infra/systemd
@@ -67,7 +72,7 @@ jobs:
           # bash (it sets -euo pipefail) and 1 line chains the steps.
           params="$(jq -n --arg src "s3://${BUCKET}/${key}" --arg version "${VERSION}" '{
             commands: [
-              "mkdir -p /tmp/keel_bundle && cd /tmp/keel_bundle && /snap/bin/aws s3 cp --only-show-errors \($src) bundle.tgz && tar xzf bundle.tgz && bash infra/deploy_host.sh \($version) /tmp/keel_bundle"
+              "d=$(mktemp -d) && cd $d && /snap/bin/aws s3 cp --only-show-errors \($src) bundle.tgz && tar xzf bundle.tgz && bash infra/deploy_host.sh \($version) $d; s=$?; cd / && rm -r $d; exit $s"
             ],
             executionTimeout: ["3000"]
           }')"
