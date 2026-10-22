@@ -25,6 +25,7 @@ import re
 import sqlite3
 from typing import Literal
 
+from keel import config
 from keel import errors
 
 Vote = Literal["up", "down"]
@@ -32,10 +33,20 @@ VOTES: tuple[Vote, ...] = ("up", "down")
 NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9 &-]{0,39}$")
 TICKER_PATTERN = re.compile(r"^[A-Z][A-Z0-9.-]{0,9}$")
 MAX_TICKERS = 25
+MAX_COMP_SETS = 200  # every question matches every set
 MAX_NOTE_CHARS = 2000
 # A name typed with its suffix ("software comps") keeps the bare name.
 _RESERVED = frozenset(
-    {"comps", "comp set", "comparables", "peers", "peer set", "my", "our"}
+    {
+        "comps",
+        "comp set",
+        "comparables",
+        "peers",
+        "peer set",
+        "my",
+        "our",
+        "the",
+    }
 )
 _SUFFIX = re.compile(r"\s+(?:comps|comp set|comparables|peers|peer set)$")
 
@@ -102,28 +113,59 @@ class Feedback:
         return self.vote == "down"
 
 
+FILE_NAME = "pilot.sqlite"
+
+
+def db_path(settings: config.Settings) -> pathlib.Path:
+    """The pilot store file: `pilot.db`, or `pilot.sqlite` in `logs.dir`.
+
+    The default follows `logs.dir`, which is on the volume in the pilot
+    (chapter 29.9), so the comp sets and votes survive a redeploy.
+
+    Args:
+        settings: The loaded settings.
+
+    Returns:
+        The path.
+    """
+    return settings.pilot.db or settings.logs.dir / FILE_NAME
+
+
 def normalize_name(name: str) -> str:
     """Normalize and check a comp set name.
 
     Args:
         name: The name as typed.
 
+    The function is idempotent: a name whose stripped form would strip
+    again (`my my software comps`) is refused, so the key checked and the
+    key written are always the same. Only ASCII passes, so no Unicode
+    case or compatibility form maps onto another user's key.
+
     Returns:
         The lower-case name with single spaces and no `comps` suffix.
 
     Raises:
         InvalidCompSetError: The name is empty, too long, only a suffix
-            word, or has a character other than a letter, a digit, a
-            space, `&`, or `-`.
+            word, strips twice, or has a character other than an ASCII
+            letter, a digit, a space, `&`, or `-`.
     """
-    text = " ".join(name.lower().split())
-    text = _SUFFIX.sub("", text)
-    text = re.sub(r"^(?:my|our|the)\s+", "", text)
-    if not NAME_PATTERN.match(text) or text in _RESERVED:
+    text = _strip(name) if name.isascii() else ""
+    if (
+        not NAME_PATTERN.match(text)
+        or text in _RESERVED
+        or _strip(text) != text
+    ):
         raise errors.InvalidCompSetError(
             "a comp set name has 1 to 40 letters, digits, spaces, & or -"
         )
     return text
+
+
+def _strip(name: str) -> str:
+    text = " ".join(name.lower().split())
+    text = _SUFFIX.sub("", text)
+    return re.sub(r"^(?:my|our|the)\s+", "", text)
 
 
 def normalize_tickers(tickers: Sequence[str]) -> tuple[str, ...]:
@@ -153,6 +195,39 @@ def normalize_tickers(tickers: Sequence[str]) -> tuple[str, ...]:
     return tuple(found)
 
 
+def may_edit(
+    owner: str | None, exists: bool, editor: str | None, admin: bool
+) -> bool:
+    """The edit rule of a comp set.
+
+    Args:
+        owner: The owner of the saved set.
+        exists: True when the set is saved.
+        editor: The user who wants to change it.
+        admin: True for an admin or the CLI.
+
+    Returns:
+        True for a new set, an admin, or the owner of the set.
+    """
+    if not exists or admin:
+        return True
+    return owner is not None and owner == editor
+
+
+def _check_owner(
+    conn: sqlite3.Connection, key: str, editor: str | None, admin: bool
+) -> tuple[bool, str | None]:
+    row = conn.execute(
+        "SELECT owner FROM comp_sets WHERE name = ?", (key,)
+    ).fetchone()
+    owner = row[0] if row else None
+    if not may_edit(owner, row is not None, editor, admin):
+        raise errors.CompSetForbiddenError(
+            "only its owner or an admin changes this comp set"
+        )
+    return row is not None, owner
+
+
 def _now() -> str:
     return datetime.datetime.now(datetime.UTC).isoformat(timespec="seconds")
 
@@ -179,7 +254,8 @@ class PilotStore:
             ) from error
         try:
             with conn:
-                conn.executescript(SCHEMA)
+                if write:  # a read never writes; a written file has tables
+                    conn.executescript(SCHEMA)
                 yield conn
         except sqlite3.Error as error:
             raise errors.PilotStoreError(
@@ -205,36 +281,69 @@ class PilotStore:
                 "SELECT name, tickers, owner, updated_at FROM comp_sets "
                 "ORDER BY name"
             ).fetchall()
-        return {
-            name: CompSet(name, tuple(json.loads(tickers)), owner, updated)
-            for name, tickers, owner, updated in rows
-        }
+        try:
+            return {
+                name: CompSet(name, tuple(json.loads(tickers)), owner, updated)
+                for name, tickers, owner, updated in rows
+            }
+        except (ValueError, TypeError) as error:
+            raise errors.PilotStoreError(
+                f"pilot store {self.path}: a comp set row is not valid"
+            ) from error
 
     def save_comp_set(
-        self, name: str, tickers: Sequence[str], owner: str | None = None
+        self,
+        name: str,
+        tickers: Sequence[str],
+        *,
+        editor: str | None,
+        admin: bool,
     ) -> CompSet:
         """Create or replace a comp set.
+
+        The name is normalized once here, and the owner check and the
+        write run in 1 immediate transaction, so no concurrent save or
+        name variant slips between them.
 
         Args:
             name: The name as typed.
             tickers: The tickers as typed.
-            owner: The user who saves it, or None from the CLI.
+            editor: The user who saves it; the owner of a new set. An
+                edit keeps the owner. None from the CLI.
+            admin: True for an admin or the CLI: any set may change.
 
         Returns:
-            The saved comp set.
+            The saved comp set with its owner.
 
         Raises:
-            InvalidCompSetError: The name or the tickers fail validation.
+            InvalidCompSetError: The name or the tickers fail validation,
+                or a new set would pass the 200 sets of the store.
+            CompSetForbiddenError: Another user saved the set and the
+                editor is not an admin.
             PilotStoreError: The write failed.
         """
         entry = CompSet(
-            normalize_name(name), normalize_tickers(tickers), owner, _now()
+            normalize_name(name), normalize_tickers(tickers), editor, _now()
         )
         with self._connect(write=True) as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            exists, owner = _check_owner(conn, entry.name, editor, admin)
+            if exists:
+                # An edit keeps the owner, so an admin edit does not take
+                # the set away from the user who saved it.
+                entry = dataclasses.replace(entry, owner=owner)
+            else:
+                (count,) = conn.execute(
+                    "SELECT COUNT(*) FROM comp_sets"
+                ).fetchone()
+                if count >= MAX_COMP_SETS:
+                    raise errors.InvalidCompSetError(
+                        f"the store holds at most {MAX_COMP_SETS} comp sets"
+                    )
             conn.execute(
                 "INSERT INTO comp_sets (name, tickers, owner, updated_at) "
                 "VALUES (?, ?, ?, ?) ON CONFLICT (name) DO UPDATE SET "
-                "tickers = excluded.tickers, owner = excluded.owner, "
+                "tickers = excluded.tickers, "
                 "updated_at = excluded.updated_at",
                 (
                     entry.name,
@@ -245,23 +354,31 @@ class PilotStore:
             )
         return entry
 
-    def delete_comp_set(self, name: str) -> bool:
-        """Delete a comp set.
+    def delete_comp_set(
+        self, name: str, *, editor: str | None, admin: bool
+    ) -> bool:
+        """Delete a comp set; the owner check runs in the same transaction.
 
         Args:
             name: The name as typed.
+            editor: The user who deletes it, or None from the CLI.
+            admin: True for an admin or the CLI: any set may go.
 
         Returns:
             True when the set existed.
 
         Raises:
             InvalidCompSetError: The name fails validation.
+            CompSetForbiddenError: Another user saved the set and the
+                editor is not an admin.
             PilotStoreError: The write failed.
         """
         key = normalize_name(name)
         if not self.path.exists():
             return False
         with self._connect(write=True) as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            _check_owner(conn, key, editor, admin)
             cursor = conn.execute(
                 "DELETE FROM comp_sets WHERE name = ?", (key,)
             )
@@ -289,14 +406,16 @@ class PilotStore:
             The stored vote.
 
         Raises:
-            PilotStoreError: The vote or the note is not valid, or the
-                write failed.
+            InvalidFeedbackError: The vote or the note is not valid.
+            PilotStoreError: The write failed.
         """
         if vote not in VOTES:
-            raise errors.PilotStoreError(f"a vote is up or down, not {vote}")
+            raise errors.InvalidFeedbackError(
+                f"a vote is up or down, not {vote}"
+            )
         text = (note or "").strip() or None
         if text is not None and len(text) > MAX_NOTE_CHARS:
-            raise errors.PilotStoreError(
+            raise errors.InvalidFeedbackError(
                 f"a note has at most {MAX_NOTE_CHARS} characters"
             )
         entry = Feedback(request_id, user_name, vote, text, question, _now())

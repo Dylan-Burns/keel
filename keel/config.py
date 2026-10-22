@@ -205,9 +205,15 @@ class AuthConfig(_Section):
 
 
 class PilotConfig(_Section):
-    """The pilot store and the question templates (chapter 27.2)."""
+    """The pilot store and the question templates (chapter 27.2).
 
-    db: pathlib.Path = pathlib.Path("logs/pilot.sqlite")
+    Attributes:
+        db: The comp sets and feedback store; None for `pilot.sqlite` in
+            `logs.dir`, which is on the volume in the pilot.
+        templates: The question templates file.
+    """
+
+    db: pathlib.Path | None = None
     templates: pathlib.Path = pathlib.Path("config/templates.yaml")
 
 

@@ -206,3 +206,11 @@ class InvalidCompSetError(KeelError):
 
 class TemplateError(KeelError):
     """A question template is unknown, invalid, or misses a value."""
+
+
+class CompSetForbiddenError(KeelError):
+    """Another user saved the comp set, and the caller is not an admin."""
+
+
+class InvalidFeedbackError(KeelError):
+    """A feedback vote or note fails validation (chapter 27.2)."""

@@ -71,7 +71,7 @@ def run(
     """Run 1 of the pilot commands; `keel.cli` prints the lines.
 
     Args:
-        settings: The loaded settings, with `pilot.db` and
+        settings: The loaded settings, with the pilot store and
             `pilot.templates`.
         args: The parsed arguments.
 
@@ -86,9 +86,9 @@ def run(
         TemplateError: The template is unknown or a value is missing.
     """
     if args.command == "compsets":
-        return _compsets(pilot.PilotStore(settings.pilot.db), args)
+        return _compsets(pilot.PilotStore(pilot.db_path(settings)), args)
     if args.command == "feedback":
-        store = pilot.PilotStore(settings.pilot.db)
+        store = pilot.PilotStore(pilot.db_path(settings))
         return 0, [
             json.dumps(dataclasses.asdict(entry), ensure_ascii=False)
             for entry in store.feedback(flagged_only=args.flagged)
@@ -108,14 +108,16 @@ def _compsets(
     store: pilot.PilotStore, args: argparse.Namespace
 ) -> tuple[int, list[str]]:
     if args.compsets_command == "add":
-        entry = store.save_comp_set(args.name, args.tickers)
+        entry = store.save_comp_set(
+            args.name, args.tickers, editor=None, admin=True
+        )
         return 0, [
             f"saved {entry.name}: {_joined(entry.tickers)}",
             f"ask about it as 'my {entry.name} comps'",
         ]
     name = pilot.normalize_name(args.name) if "name" in args else ""
     if args.compsets_command == "remove":
-        if store.delete_comp_set(args.name):
+        if store.delete_comp_set(args.name, editor=None, admin=True):
             return 0, [f"removed {name}"]
         return 1, [f"no comp set {name}"]
     return 0, [

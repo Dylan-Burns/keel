@@ -13,6 +13,7 @@ calls the model.
 from __future__ import annotations
 
 import asyncio
+import functools
 import logging
 from typing import Annotated
 from typing import Literal
@@ -127,7 +128,7 @@ class FeedbackSaved(pydantic.BaseModel):
 
 
 def _store(services: state.Services) -> pilot.PilotStore:
-    return pilot.PilotStore(services.settings.pilot.db)
+    return pilot.PilotStore(pilot.db_path(services.settings))
 
 
 def _indexed(services: state.Services) -> frozenset[str] | None:
@@ -135,10 +136,8 @@ def _indexed(services: state.Services) -> frozenset[str] | None:
     return answerer.understander.indexed if answerer is not None else None
 
 
-def _may_edit(entry: pilot.CompSet | None, caller: auth.Principal) -> bool:
-    if entry is None or caller.is_admin:
-        return True
-    return entry.owner is not None and entry.owner == caller.user.name
+def _forbidden(error: errors.CompSetForbiddenError) -> fastapi.HTTPException:
+    return routes.http_error(403, "forbidden", str(error))
 
 
 def _item(
@@ -157,7 +156,9 @@ def _item(
         owner=entry.owner,
         updated_at=entry.updated_at,
         missing=missing,
-        editable=_may_edit(entry, caller),
+        editable=pilot.may_edit(
+            entry.owner, True, caller.user.name, caller.is_admin
+        ),
     )
 
 
@@ -217,23 +218,27 @@ async def save_comp_set(
             user saved the set and the caller is not an admin, 503 when
             the store fails.
     """
-    store = _store(services)
+    # The store normalizes the name once and checks the owner in the
+    # transaction of the write.
     try:
-        key = pilot.normalize_name(name)
-        tickers = pilot.normalize_tickers(body.tickers)
-        current = (await asyncio.to_thread(store.comp_sets)).get(key)
-        if not _may_edit(current, caller):
-            raise routes.http_error(
-                403, "forbidden", "only its owner or an admin edits this set"
-            )
         entry = await asyncio.to_thread(
-            store.save_comp_set, key, tickers, caller.user.name
+            functools.partial(
+                _store(services).save_comp_set,
+                name,
+                body.tickers,
+                editor=caller.user.name,
+                admin=caller.is_admin,
+            )
         )
     except errors.InvalidCompSetError as error:
         raise routes.http_error(400, "invalid_comp_set", str(error)) from error
+    except errors.CompSetForbiddenError as error:
+        raise _forbidden(error) from error
     except errors.PilotStoreError as error:
         raise _unavailable(error) from error
-    logger.info("comp set %s saved with %d tickers", key, len(tickers))
+    logger.info(
+        "comp set %s saved with %d tickers", entry.name, len(entry.tickers)
+    )
     return _item(entry, caller, _indexed(services))
 
 
@@ -256,24 +261,24 @@ async def delete_comp_set(
             the set and the caller is not an admin, 404 for an unknown
             set, 503 when the store fails.
     """
-    store = _store(services)
     try:
-        key = pilot.normalize_name(name)
-        current = (await asyncio.to_thread(store.comp_sets)).get(key)
-        if current is None:
-            raise routes.http_error(
-                404, "not_found", "no comp set by that name"
+        deleted = await asyncio.to_thread(
+            functools.partial(
+                _store(services).delete_comp_set,
+                name,
+                editor=caller.user.name,
+                admin=caller.is_admin,
             )
-        if not _may_edit(current, caller):
-            raise routes.http_error(
-                403, "forbidden", "only its owner or an admin deletes this set"
-            )
-        await asyncio.to_thread(store.delete_comp_set, key)
+        )
     except errors.InvalidCompSetError as error:
         raise routes.http_error(400, "invalid_comp_set", str(error)) from error
+    except errors.CompSetForbiddenError as error:
+        raise _forbidden(error) from error
     except errors.PilotStoreError as error:
         raise _unavailable(error) from error
-    logger.info("comp set %s deleted", key)
+    if not deleted:
+        raise routes.http_error(404, "not_found", "no comp set by that name")
+    logger.info("comp set deleted")
     return fastapi.Response(status_code=204)
 
 
@@ -339,6 +344,8 @@ async def feedback(
             note=body.note,
             question=question if isinstance(question, str) else None,
         )
+    except errors.InvalidFeedbackError as error:
+        raise routes.http_error(400, "invalid_feedback", str(error)) from error
     except errors.PilotStoreError as error:
         raise _unavailable(error) from error
     logger.info("feedback %s on %s", saved.vote, saved.request_id)

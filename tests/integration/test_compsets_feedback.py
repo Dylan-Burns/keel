@@ -7,6 +7,7 @@ test_users_api.py with the mock provider, 2 analysts, and an admin.
 from collections.abc import Iterator
 import pathlib
 import sqlite3
+import urllib.parse
 
 import pydantic
 import pytest
@@ -151,9 +152,15 @@ def test_compset_resolves(client, services, api_settings, tokens) -> None:
         headers=bearer(tokens["alice"]),
     )
     assert services.answerer.understander.analyze(QUESTION).tickers == ("JPM",)
-    # The answer cache skips a question that names a comp set.
-    assert services.answerer._cacheable(QUESTION) is False
-    assert services.answerer._cacheable("Apple risks?") is True
+    # The answer cache skips a question that names a comp set: a stale
+    # entry under its key is never served.
+    answerer = services.answerer
+    stale = {"request_id": "old", "answer": {"direct_answer": "stale"}}
+    answerer.cache.put(answerer.cache_key(QUESTION), stale)
+    fresh = ask(client, tokens["bob"], QUESTION, "set-2")
+    assert fresh["meta"]["from_cache"] is False
+    assert fresh["analysis"]["tickers"] == ["JPM"]
+    assert answerer._cacheable("Apple risks?") is True
     listed = client.get("/api/compsets", headers=bearer(tokens["bob"]))
     assert [i["name"] for i in listed.json()["items"]] == ["auto"]
     assert listed.json()["items"][0]["editable"] is False
@@ -162,14 +169,19 @@ def test_compset_resolves(client, services, api_settings, tokens) -> None:
 def test_compset_owner_rules(client, tokens) -> None:
     alice, bob, carol = (bearer(tokens[n]) for n in ("alice", "bob", "carol"))
     body = {"tickers": ["AAPL"]}
-    assert client.put("/api/compsets/tech", json=body, headers=alice).is_success
+    created = client.put("/api/compsets/tech", json=body, headers=alice)
+    assert created.status_code == 200
     denied = client.put("/api/compsets/tech", json=body, headers=bob)
     assert denied.status_code == 403
     assert denied.json()["detail"]["code"] == "forbidden"
-    assert client.delete("/api/compsets/tech", headers=bob).status_code == 403
-    assert client.put("/api/compsets/tech", json=body, headers=carol).is_success
-    assert client.delete("/api/compsets/tech", headers=carol).status_code == 204
-    assert client.delete("/api/compsets/tech", headers=carol).status_code == 404
+    refused = client.delete("/api/compsets/tech", headers=bob)
+    assert refused.status_code == 403
+    replaced = client.put("/api/compsets/tech", json=body, headers=carol)
+    assert replaced.status_code == 200
+    gone = client.delete("/api/compsets/tech", headers=carol)
+    assert gone.status_code == 204
+    again = client.delete("/api/compsets/tech", headers=carol)
+    assert again.status_code == 404
     bad = client.put(
         "/api/compsets/tech", json={"tickers": ["AB$C"]}, headers=alice
     )
@@ -177,7 +189,36 @@ def test_compset_owner_rules(client, tokens) -> None:
     assert bad.json()["detail"]["code"] == "invalid_comp_set"
     empty = client.put("/api/compsets/x", json={"tickers": []}, headers=alice)
     assert empty.status_code == 422
-    assert client.get("/api/compsets").status_code == 401
+    unauthorized = client.get("/api/compsets")
+    assert unauthorized.status_code == 401
+
+
+@pytest.mark.parametrize(
+    "variant",
+    [
+        "KITE",
+        " my  Kite comps ",
+        "my my kite comps",
+        "the kite peers",
+        "\u212aite",  # the Kelvin sign lowers to k
+        "\uff4bite",  # a fullwidth k
+    ],
+)
+def test_compset_name_variants_keep_the_owner(client, tokens, variant) -> None:
+    alice, bob = bearer(tokens["alice"]), bearer(tokens["bob"])
+    saved = client.put(
+        "/api/compsets/kite", json={"tickers": ["AAPL"]}, headers=alice
+    )
+    assert saved.status_code == 200
+    path = f"/api/compsets/{urllib.parse.quote(variant)}"
+    edit = client.put(path, json={"tickers": ["TSLA"]}, headers=bob)
+    assert edit.status_code in {400, 403}, edit.text
+    removal = client.delete(path, headers=bob)
+    assert removal.status_code in {400, 403}, removal.text
+    listed = client.get("/api/compsets", headers=bob).json()["items"]
+    assert [(i["name"], i["tickers"], i["owner"]) for i in listed] == [
+        ("kite", ["AAPL"], "alice")
+    ]
 
 
 def test_template_fill(client, services, api_settings, tokens) -> None:
@@ -293,7 +334,8 @@ def test_feedback_vote(client, api_settings, tokens) -> None:
         "/api/feedback", json=long_note, headers=bearer(tokens["bob"])
     )
     assert too_long.status_code == 422
-    assert client.post("/api/feedback", json={}).status_code == 401
+    anonymous = client.post("/api/feedback", json={})
+    assert anonymous.status_code == 401
     assert len(feedback_rows(api_settings)) == 2
 
 
@@ -322,26 +364,41 @@ def test_pilot_commands(api_settings, tmp_path, monkeypatch, capsys) -> None:
     monkeypatch.setenv(
         "KEEL_PILOT__TEMPLATES", str(api_settings.pilot.templates)
     )
-    assert cli.main(["--config", str(config_file), "compsets", "add",
-                     "Our Big Tech comps", "MSFT", "goog"]) == 0  # fmt: skip
+    code = cli.main(
+        [
+            "--config",
+            str(config_file),
+            "compsets",
+            "add",
+            "Our Big Tech comps",
+            "MSFT",
+            "goog",
+        ]
+    )
+    assert code == 0
     assert "saved big tech: MSFT GOOG" in capsys.readouterr().out
-    assert cli.main(["--config", str(config_file), "compsets", "list"]) == 0
+    code = cli.main(["--config", str(config_file), "compsets", "list"])
+    assert code == 0
     assert "big tech\tMSFT GOOG" in capsys.readouterr().out
     args = ["--config", str(config_file), "compsets", "remove", "big tech"]
-    assert cli.main(args) == 0
-    assert cli.main(args) == 1
+    code = cli.main(args)
+    assert code == 0
+    code = cli.main(args)
+    assert code == 1
     assert "no comp set big tech" in capsys.readouterr().out
     pilot.PilotStore(api_settings.pilot.db).record_vote(
         request_id="r1", user_name="alice", vote="down", note="n"
     )
-    assert (
-        cli.main(["--config", str(config_file), "feedback", "--flagged"]) == 0
-    )
+    code = cli.main(["--config", str(config_file), "feedback", "--flagged"])
+    assert code == 0
     assert '"request_id": "r1"' in capsys.readouterr().out
-    assert cli.main(["--config", str(config_file), "template"]) == 0
+    code = cli.main(["--config", str(config_file), "template"])
+    assert code == 0
     assert capsys.readouterr().out.count("\n") == 5
     fill = ["template", "regulatory_scan", "--companies", "my pharma comps"]
-    assert cli.main(["--config", str(config_file), *fill]) == 0
+    code = cli.main(["--config", str(config_file), *fill])
+    assert code == 0
     assert "my pharma comps" in capsys.readouterr().out
     bad = ["--config", str(config_file), "compsets", "add", "!", "AAPL"]
-    assert cli.main(bad) == 2
+    code = cli.main(bad)
+    assert code == 2
