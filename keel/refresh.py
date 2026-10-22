@@ -33,6 +33,7 @@ import json
 import logging
 import pathlib
 import re
+import sqlite3
 from typing import Literal
 from typing import Protocol
 
@@ -121,6 +122,15 @@ class LogEntry(pydantic.BaseModel):
     filing_id: str | None = None
     detail: str | None = None
 
+    @pydantic.field_validator("time")
+    @classmethod
+    def _utc(cls, value: datetime.datetime) -> datetime.datetime:
+        # A naive time (an injected clock, a hand-edited line) reads as UTC,
+        # so `added_since` always compares aware values.
+        if value.tzinfo is None:
+            return value.replace(tzinfo=datetime.UTC)
+        return value
+
 
 class TickerResult(pydantic.BaseModel):
     """What the refresh found and did for 1 ticker.
@@ -134,8 +144,8 @@ class TickerResult(pydantic.BaseModel):
     """
 
     ticker: str
-    new: list[edgar.FilingRef] = []
-    added: list[add.FilingReport] = []
+    new: list[edgar.FilingRef] = pydantic.Field(default_factory=list)
+    added: list[add.FilingReport] = pydantic.Field(default_factory=list)
     error: str | None = None
 
 
@@ -292,6 +302,10 @@ def known_accessions(
     conn = chunk_store.open_read_only(current / chunk_store.FILE_NAME)
     try:
         rows = conn.execute("SELECT ticker, source_url FROM filings").fetchall()
+    except sqlite3.Error as error:
+        raise errors.IndexCorruptError(
+            f"cannot read the filings of {current}: {error}"
+        ) from error
     finally:
         conn.close()
     for ticker, url in rows:
@@ -420,6 +434,15 @@ class _Run:
     clock: Clock
 
     def log(self, event: Event, **fields: object) -> None:
+        """Append 1 line to the refresh log.
+
+        Args:
+            event: The event of the line.
+            **fields: The other `LogEntry` fields.
+
+        Raises:
+            StateStoreError: The log cannot be written.
+        """
         entry = LogEntry.model_validate(
             {
                 "time": self.clock(),
@@ -502,12 +525,14 @@ def run_refresh(  # pylint: disable=too-many-arguments
 ) -> RefreshReport:
     """Check the watched and added tickers for new filings (26.3).
 
-    A failure on 1 ticker (an unknown ticker, a fetch, a quarantine-free
-    build error) is logged and the run goes on with the next ticker.
+    A failure on 1 ticker (an unknown ticker, a fetch, a build error) is
+    logged and the run goes on with the next ticker. A dry run still
+    refreshes the cached submissions, so the list is current.
 
     Args:
         settings: The loaded settings.
-        dry_run: List the new filings; write no corpus file, no index.
+        dry_run: List the new filings; write no corpus file and no
+            index.
         client: The EDGAR client; None builds one from the settings and
             closes it afterwards. An offline client compares against the
             cached submissions.
@@ -539,6 +564,7 @@ def run_refresh(  # pylint: disable=too-many-arguments
     owned = client is None
     active = client or edgar.EdgarClient.from_settings(settings)
     results: list[TickerResult] = []
+    requests_before = active.requests
     try:
         for ticker in tickers:
             try:
@@ -557,23 +583,30 @@ def run_refresh(  # pylint: disable=too-many-arguments
                 )
             except errors.StateStoreError:
                 raise
-            except errors.KeelError as error:
+            except (
+                errors.KeelError,
+                OSError,
+                sqlite3.Error,
+                ValueError,
+            ) as error:
                 message = f"{type(error).__name__}: {error}"
                 logger.error("refresh %s failed: %s", ticker, message)
                 run.log("error", ticker=ticker, detail=message)
                 results.append(TickerResult(ticker=ticker, error=message))
         report = RefreshReport(
-            dry_run=dry_run, tickers=results, requests=active.requests
+            dry_run=dry_run,
+            tickers=results,
+            requests=active.requests - requests_before,
         )
+        run.log(
+            "done",
+            detail=(
+                f"{len(tickers)} tickers, {report.new_count} new, "
+                f"{report.added_count} added, {report.error_count} errors, "
+                f"{report.requests} requests"
+            ),
+        )
+        return report
     finally:
         if owned:
             active.close()
-    run.log(
-        "done",
-        detail=(
-            f"{len(tickers)} tickers, {report.new_count} new, "
-            f"{report.added_count} added, {report.error_count} errors, "
-            f"{report.requests} requests"
-        ),
-    )
-    return report

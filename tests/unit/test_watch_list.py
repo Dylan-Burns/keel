@@ -92,3 +92,10 @@ def test_refresh_log_errors(tmp_path: pathlib.Path) -> None:
         refresh.append_log(tmp_path, [])
     with pytest.raises(errors.StateStoreError, match="cannot read"):
         refresh.read_log(tmp_path)
+
+
+def test_log_entry_naive_time_is_utc() -> None:
+    entry = refresh.LogEntry(
+        time=datetime.datetime(2026, 10, 21, 2, 0), event="added"
+    )
+    assert entry.time.tzinfo == datetime.UTC
