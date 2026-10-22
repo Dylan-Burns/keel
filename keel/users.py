@@ -203,11 +203,33 @@ def add_user(path: pathlib.Path, name: str, role: str) -> str:
     return token
 
 
+def remove_user(path: pathlib.Path, name: str) -> None:
+    """Remove a user, which revokes their token at the next request.
+
+    Args:
+        path: The users file.
+        name: The user name.
+
+    Raises:
+        ConfigError: The user does not exist, or the file cannot be read
+            or written.
+    """
+    current = load_file(path)
+    kept = [u for u in current.users if u.name != name]
+    if len(kept) == len(current.users):
+        raise errors.ConfigError(f"no user {name} in {path}")
+    save_file(path, UsersFile(users=kept))
+
+
 class UserDirectory:
     """The users of the file plus the legacy token, read on change.
 
-    The file is read again when its modification time changes, so
-    `keel users add` takes effect without a restart.
+    The file is read again when its modification time in nanoseconds, its
+    size, or its inode changes, so `keel users add` and `keel users
+    remove` take effect without a restart. A file that fails to read or
+    validate fails closed: no user of the file passes (the legacy token
+    still does), and the next request reads the file again, so a fixed
+    file restores access and a bad edit never keeps a removed user in.
 
     Args:
         path: The users file.
@@ -218,23 +240,34 @@ class UserDirectory:
         self.path = path
         self.legacy_token = legacy_token or None
         self._lock = threading.Lock()
-        self._stamp: float | None = None
+        self._stamp: tuple[int, int, int] | None = None
+        self._loaded = False
         self._entries: tuple[UserEntry, ...] = ()
 
     def _refresh(self) -> tuple[UserEntry, ...]:
+        stamp: tuple[int, int, int] | None = None
         try:
-            stamp: float | None = self.path.stat().st_mtime
-        except OSError:
+            info = self.path.stat()
+            stamp = (info.st_mtime_ns, info.st_size, info.st_ino)
+        except FileNotFoundError:
             stamp = None
+        except OSError as error:
+            logger.error("users file unreadable, no user passes: %s", error)
+            with self._lock:
+                self._entries, self._loaded = (), False
+            return ()
         with self._lock:
-            if stamp != self._stamp:
-                try:
-                    self._entries = tuple(load_file(self.path).users)
-                except errors.ConfigError as error:
-                    # Keep the last good list; a bad edit must not lock out.
-                    logger.error("users file not reloaded: %s", error)
-                self._stamp = stamp
-            return self._entries
+            if self._loaded and stamp == self._stamp:
+                return self._entries
+            try:
+                entries = tuple(load_file(self.path).users)
+            except errors.ConfigError as error:
+                # Fail closed and keep no stamp, so the next request retries.
+                logger.error("users file invalid, no user passes: %s", error)
+                self._entries, self._loaded = (), False
+                return ()
+            self._entries, self._stamp, self._loaded = entries, stamp, True
+            return entries
 
     @property
     def configured(self) -> bool:
