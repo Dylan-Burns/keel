@@ -4,7 +4,7 @@
 Usage:
     uv run python scripts/pilot_metrics.py [AUDIT ...] [--since DATE]
         [--exclude-user NAME ...] [--feedback-db PATH] [--manifest PATH]
-        [--refresh-log PATH] [--config PATH] [--json]
+        [--refresh-log PATH] [--exports PATH] [--config PATH] [--json]
 
 The script reads the audit log and its daily rotations
 (`audit-<date>.jsonl` next to it; a directory argument reads every audit
@@ -21,9 +21,10 @@ user); the `feedback` table of the pilot store (`pilot.db`, by default
 `<logs.dir>/pilot.sqlite`, stage 18); the `added` entries with `source:
 edgar` of the corpus manifest (stage 14), dated by the modification time
 of the corpus file that `keel add` wrote; and the `added` lines of
-`<logs.dir>/refresh.log` (stage 20). Memo exports (stage 19) leave no log
-line or audit record, so that column reads n/a. An absent source reads
-n/a. The script only reads; it never prints a token or a question.
+`<logs.dir>/refresh.log` (stage 20); and the memo exports of
+`<logs.dir>/exports.jsonl` (stage 22), 1 line per memo with its user. An
+absent source reads n/a. The script only reads; it never prints a token
+or a question.
 """
 
 from __future__ import annotations
@@ -45,6 +46,7 @@ from typing import Any
 from keel import audit
 from keel import config
 from keel import errors
+from keel import export
 from keel import refresh
 from keel.stores import pilot
 
@@ -78,7 +80,7 @@ class Week:
         cost_per_question: The cost divided by the questions, or None.
         thumbs_up_rate: The share of up votes, or None without votes.
         votes: The feedback votes of the week.
-        memos_exported: The memo exports, or None (not logged).
+        memos_exported: The memo exports, or None without the export log.
         companies_added: The tickers `keel add` brought in, or None.
         filings_refreshed: The filings `keel refresh` added, or None.
     """
@@ -107,7 +109,7 @@ class Metrics:
         cost_usd: The summed cost over the whole log.
         thumbs_up_rate: The overall share of up votes, or None.
         votes: The feedback votes over the whole log.
-        memos_exported: The memo exports, or None (not logged).
+        memos_exported: The memo exports, or None without the export log.
         companies_added: The distinct tickers added by `keel add`, or None.
         filings_refreshed: The filings added by `keel refresh`, or None.
         files: The audit files read.
@@ -170,12 +172,14 @@ class Sources:
         feedback_db: The pilot store with the `feedback` table.
         manifest: The corpus manifest.
         refresh_log: The refresh log.
+        exports: The export log.
     """
 
     audit: tuple[pathlib.Path, ...]
     feedback_db: pathlib.Path
     manifest: pathlib.Path
     refresh_log: pathlib.Path
+    exports: pathlib.Path
 
 
 def _from_text(text: str) -> datetime.date | None:
@@ -424,6 +428,53 @@ def read_refreshed(path: pathlib.Path | None) -> list[str | None] | None:
     ]
 
 
+@dataclasses.dataclass(frozen=True)
+class Export:
+    """1 memo export.
+
+    Attributes:
+        week: The ISO week of the export, or None when its time is not one.
+        user: The user who exported the memo, or None.
+    """
+
+    week: str | None
+    user: str | None = None
+
+
+def read_exports(path: pathlib.Path | None) -> list[Export] | None:
+    """Read the memo exports of the export log (stage 22).
+
+    Args:
+        path: The export log, or None.
+
+    Returns:
+        1 export per JSON line with a request ID, or None when the log is
+        absent or unreadable.
+    """
+    if path is None or not path.is_file():
+        return None
+    exports = []
+    try:
+        with path.open(encoding="utf-8", errors="replace") as stream:
+            for line in stream:
+                try:
+                    value = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(value, dict) and "request_id" in value:
+                    user = value.get("user_name")
+                    exports.append(
+                        Export(
+                            iso_week(value.get("time")),
+                            user if isinstance(user, str) else None,
+                        )
+                    )
+    except OSError as error:
+        logger.warning("export log unreadable: %s", error)
+        return None
+    return exports
+
+
 def _rate(positive: int, total: int) -> float | None:
     return positive / total if total else None
 
@@ -471,6 +522,7 @@ def compute(  # pylint: disable=too-many-arguments,too-many-locals
     votes: Sequence[Vote] | None = None,
     additions: Sequence[Addition] | None = None,
     refreshed: Sequence[str | None] | None = None,
+    exports: Sequence[Export] | None = None,
     *,
     since: str | None = None,
     until: str | None = None,
@@ -485,12 +537,14 @@ def compute(  # pylint: disable=too-many-arguments,too-many-locals
         votes: The feedback votes, or None when the table is absent.
         additions: The tickers added by `keel add`, or None.
         refreshed: The week of each filing the refresh added, or None.
+        exports: The memo exports, or None when the export log is absent.
         since: The ISO week the pilot starts; earlier entries are left
             out, and it is week 1 of the success metrics.
         until: The last ISO week to show, such as the current week, so a
             week with no activity at the end still counts as a 0 row.
-        exclude_users: Users left out of every count, votes included (the
-            engineer, and `legacy` for the CLI runs and the shared token).
+        exclude_users: Users left out of every count, votes and exports
+            included (the engineer, `legacy` for the CLI questions and the
+            shared token, and `cli` for `keel export`).
         files: The audit files read, for the report.
         skipped_lines: The lines that were not a JSON object.
 
@@ -521,8 +575,14 @@ def compute(  # pylint: disable=too-many-arguments,too-many-locals
     ]
     added_weeks = collections.Counter(a.week for a in kept_additions if a.week)
     refresh_weeks = collections.Counter(w for w in refreshed or () if keep(w))
+    export_weeks = collections.Counter(
+        str(e.week)
+        for e in exports or ()
+        if keep(e.week) and e.user not in excluded
+    )
     seen.update(vote_weeks, (str(w) for w in added_weeks))
     seen.update(str(w) for w in refresh_weeks)
+    seen.update(export_weeks)
     if since is not None and seen:
         seen.add(since)
     if until is not None and seen and until > max(seen):
@@ -542,7 +602,9 @@ def compute(  # pylint: disable=too-many-arguments,too-many-locals
                 else None,
                 thumbs_up_rate=_rate(sum(week_votes), len(week_votes)),
                 votes=len(week_votes),
-                memos_exported=None,
+                memos_exported=export_weeks[week]
+                if exports is not None
+                else None,
                 companies_added=added_weeks[week]
                 if additions is not None
                 else None,
@@ -560,7 +622,9 @@ def compute(  # pylint: disable=too-many-arguments,too-many-locals
         cost_usd=round(sum(tally.cost.values()), 6),
         thumbs_up_rate=_rate(sum(all_votes), len(all_votes)),
         votes=len(all_votes),
-        memos_exported=None,
+        memos_exported=sum(export_weeks.values())
+        if exports is not None
+        else None,
         companies_added=len(kept_additions) if additions is not None else None,
         filings_refreshed=sum(refresh_weeks.values())
         if refreshed is not None
@@ -571,7 +635,7 @@ def compute(  # pylint: disable=too-many-arguments,too-many-locals
         sources={
             "user_name": tally.named_user,
             "feedback_table": votes is not None,
-            "export_log": False,
+            "export_log": exports is not None,
             "manifest": additions is not None,
             "refresh_log": refreshed is not None,
         },
@@ -743,13 +807,10 @@ def to_markdown(metrics: Metrics) -> str:
         lines.append(
             "No record carries a user_name: the legacy token counts as 1 user."
         )
-    lines.append(
-        "Memo exports leave no log line or audit record (stage 19): n/a."
-    )
     absent = [
         k
         for k, found in metrics.sources.items()
-        if not found and k not in ("user_name", "export_log")
+        if not found and k != "user_name"
     ]
     if absent:
         joined = ", ".join(absent)
@@ -825,6 +886,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="the refresh log (default: <logs.dir>/refresh.log)",
     )
     parser.add_argument(
+        "--exports",
+        type=pathlib.Path,
+        default=None,
+        help="the memo export log (default: <logs.dir>/exports.jsonl)",
+    )
+    parser.add_argument(
         "--config",
         type=pathlib.Path,
         default=None,
@@ -855,6 +922,7 @@ def resolve_sources(args: argparse.Namespace) -> Sources:
         feedback_db=args.feedback_db or pilot.db_path(settings),
         manifest=args.manifest or settings.corpus.manifest,
         refresh_log=args.refresh_log or refresh.log_path(settings),
+        exports=args.exports or logs / export.LOG_NAME,
     )
 
 
@@ -887,6 +955,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         votes=read_votes(sources.feedback_db),
         additions=read_additions(sources.manifest),
         refreshed=read_refreshed(sources.refresh_log),
+        exports=read_exports(sources.exports),
         since=iso_week(args.since) if args.since else None,
         until=iso_week(datetime.datetime.now(tz=datetime.UTC))
         if args.since
