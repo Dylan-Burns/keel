@@ -214,3 +214,11 @@ class CompSetForbiddenError(KeelError):
 
 class InvalidFeedbackError(KeelError):
     """A feedback vote or note fails validation (chapter 27.2)."""
+
+
+class CorpusDownloadError(KeelError):
+    """The corpus zip cannot be downloaded (chapter 29.9 bootstrap)."""
+
+
+class HostNotAllowedError(KeelError):
+    """An outbound URL fails the allow list of control S-11."""

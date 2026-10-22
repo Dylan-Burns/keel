@@ -55,6 +55,8 @@ _BUILD_ID = re.compile(r"^\d{8}T\d{12}Z$")
 _HASH_BLOCK = 1 << 20
 
 EmbedderFactory = Callable[[], numpy_dense.Embedder]
+# Called after each shard with the shards done and the shards in all.
+Progress = Callable[[int, int], None]
 
 
 class ModelRef(pydantic.BaseModel):
@@ -327,7 +329,12 @@ def next_version(
     return f"{major}.{minor}.{patch + 1}"
 
 
-def _new_build_id() -> str:
+def new_build_id() -> str:
+    """Return a new build ID: the UTC time to the microsecond.
+
+    Returns:
+        A name like `20261021T231603728106Z` for a build directory.
+    """
     return datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%S%fZ")
 
 
@@ -448,6 +455,8 @@ def _write_shards(  # pylint: disable=too-many-locals
     previous: _Previous | None,
     settings: config.Settings,
     embedder_factory: EmbedderFactory,
+    *,
+    progress: Progress | None = None,
 ) -> _EmbedStats:
     total_chunks = sum(len(c) for _, c in work)
     done_chunks = embedded_filings = embedded_chunks = 0
@@ -470,6 +479,8 @@ def _write_shards(  # pylint: disable=too-many-locals
             embedded_filings += 1
             embedded_chunks += len(chunks)
         done_chunks += len(chunks)
+        if progress is not None:
+            progress(number, len(work))
         logger.info(
             "shard %d/%d %s: %d chunks, %s; %d/%d chunks done, %.1f chunks/s",
             number,
@@ -582,6 +593,7 @@ def build_index(  # pylint: disable=too-many-locals
     embedder_factory: EmbedderFactory,
     *,
     incremental: bool = False,
+    progress: Progress | None = None,
 ) -> BuildResult:
     """Build an index from a corpus directory and publish it as `current`.
 
@@ -592,6 +604,8 @@ def build_index(  # pylint: disable=too-many-locals
         embedder_factory: Loads the embedder; called only when a filing
             needs embedding.
         incremental: Reuse the shards of unchanged filings from `current`.
+        progress: Called after each shard with the shards done and the
+            shards in all, for the bootstrap state of `/api/ready`.
 
     Returns:
         The published build.
@@ -608,7 +622,7 @@ def build_index(  # pylint: disable=too-many-locals
     previous = _load_previous(index_dir)
     if incremental and previous is None:
         logger.info("no current build in %s: building in full", index_dir)
-    build_id = _new_build_id()
+    build_id = new_build_id()
     staging = index_dir / f".tmp-{build_id}"
     staging.mkdir()
     logger.info("building %s from %s", staging, corpus_dir)
@@ -628,12 +642,13 @@ def build_index(  # pylint: disable=too-many-locals
             seconds["chunk"],
         )
         step = time.perf_counter()
-        progress = _write_shards(
+        stats = _write_shards(
             staging,
             work,
             previous if incremental else None,
             settings,
             embedder_factory,
+            progress=progress,
         )
         seconds["embed"] = time.perf_counter() - step
         step = time.perf_counter()
@@ -707,13 +722,13 @@ def build_index(  # pylint: disable=too-many-locals
                 build_id=build_id,
                 incremental=incremental and previous is not None,
                 previous_build=previous.build_dir.name if previous else None,
-                embedded_filings=progress.embedded_filings,
-                reused_filings=len(work) - progress.embedded_filings,
-                embedded_chunks=progress.embedded_chunks,
+                embedded_filings=stats.embedded_filings,
+                reused_filings=len(work) - stats.embedded_filings,
+                embedded_chunks=stats.embedded_chunks,
                 seconds={k: round(v, 1) for k, v in seconds.items()},
                 chunks_per_second=(
-                    round(progress.embedded_chunks / progress.embed_seconds, 1)
-                    if progress.embed_seconds
+                    round(stats.embedded_chunks / stats.embed_seconds, 1)
+                    if stats.embed_seconds
                     else None
                 ),
             ),
