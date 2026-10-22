@@ -179,7 +179,7 @@ The last full run (`eval-20261022T145423Z`, index 1.2.0, prompt 1.5.1, judge pro
 
 `KEEL_OFFLINE=1` serves every question from the answer cache (`demo/answer_cache/`) with 0 model requests; a question outside the cache gets the degraded mode with the retrieved chunks. The cache key (D-29) holds the question, the index version, the prompt version, and the model, so a cached answer comes from the same pipeline on the same index. `keel warm-cache` fills the cache for the 28 golden questions (24 answers and 4 refusals, 2.17 USD on the first run, 0 requests on a second run) and pre-fetches the company facts of 56 tickers. The offline drill of stage 11 answered the 3 examples from the cache in 0.01 to 0.09 s with the provider unreachable. The committed entries hold prompt 1.5.1 answers on index 1.2.0 (rewarmed after the prompt change, 24 model requests, 2.14 USD); a new prompt or index needs `keel warm-cache` again.
 
-`npm run static-export --prefix web -- URL [--out DIR]` writes the 3 example answers as static HTML (no script, the CSS inlined, only `www.sec.gov` links) from a running `KEEL_OFFLINE=1 keel serve` with `KEEL_API_TOKEN` set; `-- URL --record FILE.webm` records a video of the 3 questions. Neither output is committed.
+The fallbacks of chapter 16.12, step 4: `demo/static/` holds the 3 example answers as static HTML (no script, the CSS inlined, only `www.sec.gov` links; open `demo/static/index.html` with the network off). `npm run static-export --prefix web -- URL` writes them again from a running `KEEL_OFFLINE=1 keel serve` with `KEEL_API_TOKEN` set, and `-- URL --record demo/recording.webm` records a draft video of the 3 questions (gitignored; the engineer saves the final recording as `demo/recording.mp4`).
 
 ## Security notes
 
@@ -203,6 +203,7 @@ The production list that the code does not hold yet: OpenID Connect instead of t
 | 2 | [`docs/02_business_context_and_value_creation_for_a_pe_firm.md`](docs/02_business_context_and_value_creation_for_a_pe_firm.md) |
 | 3 | [`docs/03_requirements.md`](docs/03_requirements.md) |
 | 4 | [`docs/04_assumptions_and_decisions_log.md`](docs/04_assumptions_and_decisions_log.md) |
+| 5 | [`docs/05_questions_for_the_panel.md`](docs/05_questions_for_the_panel.md) |
 | 6 | [`docs/06_architecture.md`](docs/06_architecture.md) |
 | 7 | [`docs/07_ingestion_and_normalization.md`](docs/07_ingestion_and_normalization.md) |
 | 8 | [`docs/08_section_detection.md`](docs/08_section_detection.md) |
@@ -217,19 +218,26 @@ The production list that the code does not hold yet: OpenID Connect instead of t
 | 17 | [`docs/17_extensibility_and_maintainability.md`](docs/17_extensibility_and_maintainability.md) |
 | 18 | [`docs/18_evaluation.md`](docs/18_evaluation.md) |
 | 19 | [`docs/19_edge_case_register.md`](docs/19_edge_case_register.md) |
+| 20 | [`docs/20_four_hour_build_plan.md`](docs/20_four_hour_build_plan.md) |
+| 21 | [`docs/21_demo_runbook.md`](docs/21_demo_runbook.md) |
 | 22 | [`docs/22_future_state_roadmap.md`](docs/22_future_state_roadmap.md) |
 | 23 | [`docs/23_readme_outline_and_repo_hand_off_checklist.md`](docs/23_readme_outline_and_repo_hand_off_checklist.md) |
 | 24 | [`docs/24_project_dictionary_and_conformance_note.md`](docs/24_project_dictionary_and_conformance_note.md) |
+| 25 | [`docs/25_demo_additions_from_the_recruiter_guidance.md`](docs/25_demo_additions_from_the_recruiter_guidance.md) |
 | 26 | [`docs/26_any_company_on_demand_the_edgar_extension.md`](docs/26_any_company_on_demand_the_edgar_extension.md) |
 | 27 | [`docs/27_pilot_ready_product_features.md`](docs/27_pilot_ready_product_features.md) |
 | 28 | [`docs/28_build_sequence.md`](docs/28_build_sequence.md) |
 | 29 | [`docs/29_engineering_standards.md`](docs/29_engineering_standards.md) |
 
-The build: [`docs/BUILD_REPORT.md`](docs/BUILD_REPORT.md) (every stage with its measured numbers and deviations), [`docs/STAGES.yaml`](docs/STAGES.yaml), [`docs/GOTCHAS.md`](docs/GOTCHAS.md). The admin API (jobs, users, system, backups, watch list, debug): [`docs/API_ADMIN.md`](docs/API_ADMIN.md). The pilot: [`docs/START_GUIDE.md`](docs/START_GUIDE.md) (the 1-page guide for the pilot users), and `scripts/pilot_metrics.py` (the weekly pilot numbers).
+The build: [`docs/BUILD_REPORT.md`](docs/BUILD_REPORT.md) (every stage with its measured numbers and deviations), [`docs/STAGES.yaml`](docs/STAGES.yaml), [`docs/GOTCHAS.md`](docs/GOTCHAS.md). The admin API (jobs, users, system, backups, watch list, debug): [`docs/API_ADMIN.md`](docs/API_ADMIN.md). The demo and the pilot: [`docs/REHEARSAL.md`](docs/REHEARSAL.md) (the demo rehearsal and the pilot walk-through), [`docs/START_GUIDE.md`](docs/START_GUIDE.md) (the 1-page guide for the pilot users), and `scripts/pilot_metrics.py` (the weekly pilot numbers).
 
 ## Decisions and assumptions
 
 [`docs/04_assumptions_and_decisions_log.md`](docs/04_assumptions_and_decisions_log.md): decisions D-01 to D-37 and assumptions A-01 to A-15, with the notes where the data overruled the plan (A-09, A-15, D-10, D-11, D-13). The decisions the build took without review are listed at the end of `docs/BUILD_REPORT.md`.
+
+## Questions for the panel
+
+[`docs/05_questions_for_the_panel.md`](docs/05_questions_for_the_panel.md).
 
 ## License and data source
 
