@@ -1,139 +1,135 @@
 question_id: G-15
 level: chunk
-index_version: 1.0.1
-build_id: 20261021T231603728106Z
-chunks_sha256: 722b9b5693e4284330cbe36342c8d8679357be7f4cd899cf67c02c65bdb266be
+index_version: 1.2.0
+build_id: 20261022T050249382998Z
+chunks_sha256: be95e3aa90a5857e023f945125193cc6a5e0de6df111119a5b31ff00b2f59737
 created: '2026-10-22'
-pool: hybrid top 30, lexical top 10, and dense top 10 per sub-query, with the reranker; plus the lexical top 10 in the expected filings without a section filter
+pool: hybrid top 30, lexical top 10, and dense top 10 per sub-query, with the reranker; plus the lexical top 10 in the expected filings without a section filter; moved to index 1.2.0 by text overlap from
+  the 1.0.1 chunks (stage 15)
 sections:
   - filing_id: NVDA_10K_2025-01-26
     section: mdna
-    chunks: 50
+    chunks: 36
   - filing_id: NVDA_10K_2025-01-26
     section: financial_statements
-    chunks: 189
+    chunks: 149
 chunks:
   - chunk_id: NVDA_10K_2025-01-26__financial_statements__0020
     grade: 0
     filing_id: NVDA_10K_2025-01-26
     section: financial_statements
     note: revenue recognition policy
-  - chunk_id: NVDA_10K_2025-01-26__financial_statements__0037
+  - chunk_id: NVDA_10K_2025-01-26__financial_statements__0035
     grade: 0
     filing_id: NVDA_10K_2025-01-26
     section: financial_statements
     note: stock-based compensation by line
-  - chunk_id: NVDA_10K_2025-01-26__financial_statements__0060
+  - chunk_id: NVDA_10K_2025-01-26__financial_statements__0050
     grade: 0
     filing_id: NVDA_10K_2025-01-26
     section: financial_statements
     note: lease maturity schedule
-  - chunk_id: NVDA_10K_2025-01-26__financial_statements__0105
+  - chunk_id: NVDA_10K_2025-01-26__financial_statements__0083
     grade: 0
     filing_id: NVDA_10K_2025-01-26
     section: financial_statements
     note: deferred revenue note heading
-  - chunk_id: NVDA_10K_2025-01-26__financial_statements__0106
+  - chunk_id: NVDA_10K_2025-01-26__financial_statements__0084
     grade: 0
     filing_id: NVDA_10K_2025-01-26
     section: financial_statements
     note: deferred revenue table heading
-  - chunk_id: NVDA_10K_2025-01-26__financial_statements__0108
-    grade: 0
-    filing_id: NVDA_10K_2025-01-26
-    section: financial_statements
-    note: deferred revenue rollforward
-  - chunk_id: NVDA_10K_2025-01-26__financial_statements__0109
+  - chunk_id: NVDA_10K_2025-01-26__financial_statements__0085
     grade: 0
     filing_id: NVDA_10K_2025-01-26
     section: financial_statements
     note: deferred revenue footnotes and derivatives
-  - chunk_id: NVDA_10K_2025-01-26__financial_statements__0117
+  - chunk_id: NVDA_10K_2025-01-26__financial_statements__0091
     grade: 0
     filing_id: NVDA_10K_2025-01-26
     section: financial_statements
     note: future obligations schedule
-  - chunk_id: NVDA_10K_2025-01-26__financial_statements__0153
+  - chunk_id: NVDA_10K_2025-01-26__financial_statements__0115
     grade: 2
     filing_id: NVDA_10K_2025-01-26
     section: financial_statements
     note: segment table, FY2025 total revenue 130,497
-  - chunk_id: NVDA_10K_2025-01-26__financial_statements__0161
+  - chunk_id: NVDA_10K_2025-01-26__financial_statements__0123
     grade: 2
     filing_id: NVDA_10K_2025-01-26
     section: financial_statements
     note: revenue by geography, total revenue 130,497
-  - chunk_id: NVDA_10K_2025-01-26__financial_statements__0162
+  - chunk_id: NVDA_10K_2025-01-26__financial_statements__0124
     grade: 1
     filing_id: NVDA_10K_2025-01-26
     section: financial_statements
     note: geographic revenue shares for FY2025, no total
-  - chunk_id: NVDA_10K_2025-01-26__financial_statements__0164
+  - chunk_id: NVDA_10K_2025-01-26__financial_statements__0126
     grade: 1
     filing_id: NVDA_10K_2025-01-26
     section: financial_statements
     note: heading for revenue by market table, no figures
-  - chunk_id: NVDA_10K_2025-01-26__financial_statements__0167
+  - chunk_id: NVDA_10K_2025-01-26__financial_statements__0129
     grade: 2
     filing_id: NVDA_10K_2025-01-26
     section: financial_statements
     note: revenue by market, total revenue 130,497
-  - chunk_id: NVDA_10K_2025-01-26__mdna__0010
+  - chunk_id: NVDA_10K_2025-01-26__mdna__0008
     grade: 2
     filing_id: NVDA_10K_2025-01-26
     section: mdna
     note: states FY2025 revenue 130.5 billion, up 114%
-  - chunk_id: NVDA_10K_2025-01-26__mdna__0016
+  - chunk_id: NVDA_10K_2025-01-26__mdna__0014
     grade: 0
     filing_id: NVDA_10K_2025-01-26
     section: mdna
     note: income statement as percent of revenue, no revenue amount
-  - chunk_id: NVDA_10K_2025-01-26__mdna__0018
+  - chunk_id: NVDA_10K_2025-01-26__mdna__0016
     grade: 1
     filing_id: NVDA_10K_2025-01-26
     section: mdna
     note: segment revenue table heading only, no figures
-  - chunk_id: NVDA_10K_2025-01-26__mdna__0025
+  - chunk_id: NVDA_10K_2025-01-26__mdna__0019
     grade: 1
     filing_id: NVDA_10K_2025-01-26
     section: mdna
     note: segment revenue growth discussion without total
-  - chunk_id: NVDA_10K_2025-01-26__mdna__0027
+  - chunk_id: NVDA_10K_2025-01-26__mdna__0021
     grade: 0
     filing_id: NVDA_10K_2025-01-26
     section: mdna
     note: customer concentration and gross margin, no revenue figure
-  - chunk_id: NVDA_10K_2025-01-26__mdna__0028
+  - chunk_id: NVDA_10K_2025-01-26__mdna__0022
     grade: 0
     filing_id: NVDA_10K_2025-01-26
     section: mdna
     note: gross margin and inventory provisions
-  - chunk_id: NVDA_10K_2025-01-26__mdna__0031
+  - chunk_id: NVDA_10K_2025-01-26__mdna__0023
     grade: 0
     filing_id: NVDA_10K_2025-01-26
     section: mdna
     note: operating expenses table
-  - chunk_id: NVDA_10Q_2024-04-28__financial_statements__0024
+  - chunk_id: NVDA_10Q_2024-04-28__financial_statements__0020
     grade: 0
     filing_id: NVDA_10Q_2024-04-28
     section: financial_statements
     note: Q1 stock-based compensation
-  - chunk_id: NVDA_10Q_2024-04-28__financial_statements__0067
+  - chunk_id: NVDA_10Q_2024-04-28__financial_statements__0045
     grade: 0
     filing_id: NVDA_10Q_2024-04-28
     section: financial_statements
     note: lease maturity schedule
-  - chunk_id: NVDA_10Q_2024-04-28__financial_statements__0095
+  - chunk_id: NVDA_10Q_2024-04-28__financial_statements__0069
     grade: 0
     filing_id: NVDA_10Q_2024-04-28
     section: financial_statements
     note: purchase obligations schedule
-  - chunk_id: NVDA_10Q_2024-04-28__financial_statements__0108
+  - chunk_id: NVDA_10Q_2024-04-28__financial_statements__0078
     grade: 0
     filing_id: NVDA_10Q_2024-04-28
     section: financial_statements
     note: Q1 quarterly segment revenue only
-  - chunk_id: NVDA_10Q_2024-04-28__financial_statements__0120
+  - chunk_id: NVDA_10Q_2024-04-28__financial_statements__0084
     grade: 0
     filing_id: NVDA_10Q_2024-04-28
     section: financial_statements
@@ -148,63 +144,58 @@ chunks:
     filing_id: NVDA_10Q_2024-04-28
     section: mdna
     note: Q1 segment table heading, quarterly only
-  - chunk_id: NVDA_10Q_2024-04-28__mdna__0024
+  - chunk_id: NVDA_10Q_2024-04-28__mdna__0015
+    grade: 0
+    filing_id: NVDA_10Q_2024-04-28
+    section: mdna
+    note: Q1 segment table heading, quarterly only
+  - chunk_id: NVDA_10Q_2024-04-28__mdna__0018
     grade: 0
     filing_id: NVDA_10Q_2024-04-28
     section: mdna
     note: Q1 operating expenses
-  - chunk_id: NVDA_10Q_2024-07-28__financial_statements__0069
+  - chunk_id: NVDA_10Q_2024-07-28__financial_statements__0047
     grade: 0
     filing_id: NVDA_10Q_2024-07-28
     section: financial_statements
     note: lease maturity schedule
-  - chunk_id: NVDA_10Q_2024-07-28__financial_statements__0098
+  - chunk_id: NVDA_10Q_2024-07-28__financial_statements__0072
     grade: 0
     filing_id: NVDA_10Q_2024-07-28
     section: financial_statements
     note: purchase obligations schedule
-  - chunk_id: NVDA_10Q_2024-07-28__financial_statements__0112
+  - chunk_id: NVDA_10Q_2024-07-28__financial_statements__0082
     grade: 0
     filing_id: NVDA_10Q_2024-07-28
     section: financial_statements
     note: Q2 and six month segment revenue only
-  - chunk_id: NVDA_10Q_2024-07-28__financial_statements__0126
+  - chunk_id: NVDA_10Q_2024-07-28__financial_statements__0090
     grade: 0
     filing_id: NVDA_10Q_2024-07-28
     section: financial_statements
     note: Q2 revenue by market, not full year
-  - chunk_id: NVDA_10Q_2024-07-28__mdna__0026
+  - chunk_id: NVDA_10Q_2024-07-28__mdna__0022
     grade: 0
     filing_id: NVDA_10Q_2024-07-28
     section: mdna
     note: Q2 customer table heading only
-  - chunk_id: NVDA_10Q_2024-07-28__mdna__0028
-    grade: 0
-    filing_id: NVDA_10Q_2024-07-28
-    section: mdna
-    note: Q2 operating expenses
-  - chunk_id: NVDA_10Q_2024-10-27__financial_statements__0069
+  - chunk_id: NVDA_10Q_2024-10-27__financial_statements__0047
     grade: 0
     filing_id: NVDA_10Q_2024-10-27
     section: financial_statements
     note: lease maturity schedule
-  - chunk_id: NVDA_10Q_2024-10-27__financial_statements__0098
+  - chunk_id: NVDA_10Q_2024-10-27__financial_statements__0072
     grade: 0
     filing_id: NVDA_10Q_2024-10-27
     section: financial_statements
     note: purchase obligations schedule
-  - chunk_id: NVDA_10Q_2024-10-27__financial_statements__0111
+  - chunk_id: NVDA_10Q_2024-10-27__financial_statements__0081
     grade: 0
     filing_id: NVDA_10Q_2024-10-27
     section: financial_statements
     note: Q3 and nine month segment revenue only
-  - chunk_id: NVDA_10Q_2024-10-27__mdna__0025
+  - chunk_id: NVDA_10Q_2024-10-27__mdna__0021
     grade: 0
     filing_id: NVDA_10Q_2024-10-27
     section: mdna
     note: Q3 customer table heading only
-  - chunk_id: NVDA_10Q_2024-10-27__mdna__0027
-    grade: 0
-    filing_id: NVDA_10Q_2024-10-27
-    section: mdna
-    note: Q3 operating expenses
