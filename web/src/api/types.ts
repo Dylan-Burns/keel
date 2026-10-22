@@ -146,6 +146,10 @@ export interface ResolvedCitation {
   readonly valid: boolean;
   /** Validator flags such as `quote_mismatch` (chapter 12.5). */
   readonly flags?: string[];
+  /** The company ticker of the cited chunk or fact. */
+  readonly ticker?: string;
+  /** `chunk` for a filing chunk, `fact` for an XBRL company fact. */
+  readonly kind?: 'chunk' | 'fact';
 }
 
 /** The latency breakdown in milliseconds. */
