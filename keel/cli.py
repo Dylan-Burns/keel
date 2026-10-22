@@ -28,6 +28,7 @@ import anthropic
 import keel
 from keel import add
 from keel import answer
+from keel import backup
 from keel import bootstrap
 from keel import calibrate
 from keel import chunker
@@ -298,6 +299,31 @@ def _add_users_parser(users_parser: argparse.ArgumentParser) -> None:
     users_commands.add_parser("list", help="list the users and their roles")
 
 
+def _add_operations_commands(
+    commands: "argparse._SubParsersAction[argparse.ArgumentParser]",
+) -> None:
+    """Add `keel bootstrap`, `keel backup`, and `keel restore`."""
+    commands.add_parser(
+        "bootstrap",
+        help="download and extract the corpus, build the index when absent",
+    )
+    backup_parser = commands.add_parser(
+        "backup", help="write the checksummed archive of the index and logs"
+    )
+    backup_parser.add_argument(
+        "--out",
+        type=pathlib.Path,
+        default=None,
+        help="the archive directory (default: scheduler.backup_dir)",
+    )
+    restore_parser = commands.add_parser(
+        "restore", help="restore an archive as the current index build"
+    )
+    restore_parser.add_argument(
+        "archive", type=pathlib.Path, help="the keel-<stamp>.tar.gz file"
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser for the `keel` command.
 
@@ -444,10 +470,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="the index directory with `current` (default: index.dir)",
     )
 
-    commands.add_parser(
-        "bootstrap",
-        help="download and extract the corpus, build the index when absent",
-    )
+    _add_operations_commands(commands)
 
     ask_parser = commands.add_parser(
         "ask", help="answer a question with 1 model request"
@@ -1013,6 +1036,48 @@ def run_bootstrap(settings: config.Settings) -> int:
     if status.error:
         print(f"error: {status.error}")
         return 2
+    return 0
+
+
+def run_backup(settings: config.Settings, out_dir: pathlib.Path | None) -> int:
+    """Run `keel backup`: the archive of `infra/backup.sh`, kept locally.
+
+    Args:
+        settings: The loaded settings.
+        out_dir: The archive directory, or None for `scheduler.backup_dir`.
+
+    Returns:
+        The process exit code: 0 after a written archive.
+    """
+    result = backup.create_backup(
+        settings.index.dir,
+        settings.logs.dir,
+        out_dir or settings.scheduler.backup_dir,
+    )
+    print(f"archive: {result.archive}")
+    print(f"sha256: {result.sha256}")
+    print("members: " + ", ".join(result.members))
+    return 0
+
+
+def run_restore(settings: config.Settings, archive: pathlib.Path) -> int:
+    """Run `keel restore`: check, extract, and publish an archive.
+
+    Args:
+        settings: The loaded settings.
+        archive: The archive with its `.sha256` file beside it.
+
+    Returns:
+        The process exit code: 0 after the pointer swap.
+    """
+    result = backup.restore_backup(
+        archive, settings.index.dir, settings.logs.dir
+    )
+    print(f"current: {result.build_dir}")
+    print(f"previous: {result.previous}")
+    print(f"index version: {result.manifest.index_version}")
+    if result.extra_dir is not None:
+        print(f"restored logs: {result.extra_dir}")
     return 0
 
 
@@ -1824,6 +1889,8 @@ def _dispatch(settings: config.Settings, args: argparse.Namespace) -> int:
             incremental=args.incremental,
         ),
         "bootstrap": lambda: run_bootstrap(settings),
+        "backup": lambda: run_backup(settings, args.out),
+        "restore": lambda: run_restore(settings, args.archive),
     }
     if args.command in ("calibrate", "eval", "warm-cache"):
         return _dispatch_measure(settings, args)

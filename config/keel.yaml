@@ -123,6 +123,8 @@ scheduler:
   refresh_at: "02:00"
   backup_at: "02:30"
   backup_bucket: null          # KEEL_SCHEDULER__BACKUP_BUCKET: S3-compatible bucket for the nightly archive
+  backup_dir: backups          # KEEL_SCHEDULER__BACKUP_DIR=/data/backups on Railway
+  backup_keep: 7               # local archives kept
 
 deploy:
   host: railway                # railway (default, chapter 29.9), aws (chapter 29.6), or a hostname

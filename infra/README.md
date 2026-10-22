@@ -29,6 +29,7 @@ tflint, checkov).
    `KEEL_LOGS__DIR=/data/logs`, `KEEL_EDGAR__CACHE_DIR=/data/cache/edgar`,
    `KEEL_CACHE__ANSWERS_DIR=/data/cache/answers`,
    `HF_HOME=/data/cache/hf`, `KEEL_SCHEDULER__ENABLED=1`,
+   `KEEL_SCHEDULER__BACKUP_DIR=/data/backups`,
    `KEEL_SCHEDULER__BACKUP_BUCKET=<bucket>`, the bucket credentials
    (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ENDPOINT_URL`), and
    `KEEL_CORPUS__URL` with the download URL of the corpus zip.
@@ -83,6 +84,10 @@ the app's volume. The backup writes the same checksummed archive as
 2. Stop the app (Railway: scale the service to 0; AWS: `docker compose stop app`).
 3. Extract into `<index dir>/restore`, move `current` to `previous`, move
    `restore` to `current`.
+   `keel restore keel-<stamp>.tar.gz` does steps 1 (the checksum) and 3:
+   it checks the manifest checksums, rebuilds the vector shards, points
+   `previous` at the old build and `current` at the restored one, and puts
+   the archived audit log under `<logs dir>/restored-<stamp>/`.
 4. Start the app and check `/api/health` and `/api/ready`.
 
 Test the restore once before the pilot and record the date in

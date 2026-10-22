@@ -222,3 +222,15 @@ class CorpusDownloadError(KeelError):
 
 class HostNotAllowedError(KeelError):
     """An outbound URL fails the allow list of control S-11."""
+
+
+class BackupError(KeelError):
+    """A backup archive cannot be written, read, or restored."""
+
+
+class BackupChecksumError(BackupError):
+    """A backup archive does not match its sha256 file."""
+
+
+class BackupUploadError(BackupError):
+    """A backup archive cannot be uploaded to the bucket."""

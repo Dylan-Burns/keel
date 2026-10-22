@@ -5,6 +5,7 @@ corpus/*.zip
 index/
 cache/
 logs/
+backups/
 demo/recording.mp4
 eval/labels/*.tmp
 .venv/
