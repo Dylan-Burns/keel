@@ -34,8 +34,10 @@ ROWS_PER_PART = 40
 YEAR_CELL = re.compile(r"^(?:19|20)\d{2}$")
 # A cell that holds only a currency symbol belongs to the next cell.
 CURRENCY_CELL = re.compile(r"^[$\u20ac\u00a3]$")
+# `(in millions)`, `(dollars in millions)`, and `($ in millions, ...)`.
 UNITS = re.compile(
-    r"\((?:in|dollars in|amounts in)\s+(?:thousands|millions|billions)[^)]*\)",
+    r"\((?:\$\s*)?(?:in|dollars in|amounts in)\s+"
+    r"(?:thousands|millions|billions)[^)]*\)",
     re.IGNORECASE,
 )
 # A numeric cell: an optional sign, currency, or parenthesis around digits
@@ -112,6 +114,18 @@ def is_table_row(line: str) -> bool:
         2,000 characters.
     """
     return len(line) <= MAX_ROW_CHARS and line.count("|") >= MIN_PIPES
+
+
+def is_units_line(line: str) -> bool:
+    """Tell whether a line holds only a units phrase, like `| ($ in millions)`.
+
+    Args:
+        line: 1 line of clean text.
+
+    Returns:
+        True when the line, without pipes and spaces, is 1 units phrase.
+    """
+    return UNITS.fullmatch(line.strip().strip("|").strip()) is not None
 
 
 def split_cells(line: str) -> list[str]:
@@ -249,6 +263,10 @@ def _groups(lines: Sequence[str]) -> list[tuple[int, int]]:
             blanks = 0
         elif first >= 0 and not line.strip() and blanks < MAX_BLANK_GAP:
             blanks += 1
+        elif first >= 0 and is_units_line(line):
+            # `| ($ in millions)` between the label rows and the data rows
+            # belongs to the table; it must not split it.
+            last = index
         elif first >= 0:
             groups.append((first, last))
             first = last = -1
@@ -275,7 +293,9 @@ def find_tables(text: str) -> list[Table]:
         position += len(line) + 1
     tables: list[Table] = []
     for first, last in _groups(lines):
-        rows = [split_cells(line) for line in lines[first : last + 1]]
+        group = lines[first : last + 1]
+        units_lines = [line for line in group if is_units_line(line)]
+        rows = [split_cells(line) for line in group if not is_units_line(line)]
         rows = [row for row in rows if any(row)]
         label_count = 0
         while label_count < min(MAX_LABEL_ROWS, len(rows) - 1) and is_label_row(
@@ -284,7 +304,9 @@ def find_tables(text: str) -> list[Table]:
             label_count += 1
         label_rows = rows[:label_count]
         before = lines[max(0, first - CONTEXT_LINES) : first]
-        units = _units([*before, *(" ".join(row) for row in label_rows)])
+        units = _units(
+            [*before, *units_lines, *(" ".join(row) for row in label_rows)]
+        )
         tables.append(
             Table(
                 start=offsets[first],

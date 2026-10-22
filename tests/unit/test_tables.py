@@ -86,3 +86,19 @@ def test_title_rules() -> None:
         start=0, end=0, title="T", units="", columns=("a",), rows=()
     )
     assert labels_only.render() == ["TABLE: T | columns: a"]
+
+
+def test_units_with_a_dollar_sign() -> None:
+    """NVDA MD&A tables write `($ in millions, except per share data)`."""
+    lines = [
+        "| Year Ended",
+        "| Jan 26, 2025 |  | Jan 28, 2024 |  | Change",
+        "| ($ in millions, except per share data)",
+        "Revenue | $ | 130,497 |  |  | $ | 60,922 |  |  | Up 114%",
+        "Gross margin | 75.0 | % |  | 72.7 | % |  | 2.3 pts",
+    ]
+    (table,) = tables.find_tables("\n".join(lines))
+    caption = table.caption()
+    assert "units: $ in millions, except per share data" in caption
+    assert "columns: Jan 26, 2025 | Jan 28, 2024 | Change" in caption
+    assert table.rows[0][0] == "Revenue"
