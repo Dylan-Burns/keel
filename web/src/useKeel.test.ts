@@ -29,7 +29,7 @@ function respond(askBody: string, results: Response[] = []): void {
       if (path === '/api/index/status') {
         return Promise.resolve(new Response(JSON.stringify(INDEX_STATUS)));
       }
-      if (path.startsWith('/api/results/')) {
+      if (path.startsWith('/api/results/') || path.startsWith('/api/shared/')) {
         return Promise.resolve(
           results.shift() ?? new Response('{}', {status: 404}),
         );
@@ -44,6 +44,8 @@ function respond(askBody: string, results: Response[] = []): void {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.useRealTimers();
+  window.history.replaceState(null, '', '/');
+  window.sessionStorage.clear();
 });
 
 describe('useKeel', () => {
@@ -86,5 +88,31 @@ describe('useKeel', () => {
     expect(window.sessionStorage.getItem(PENDING_REQUEST_KEY)).toBeNull();
     const ui = result.current.state.ui;
     expect(ui.kind === 'complete' && ui.run.question).toBe('Q2?');
+  });
+
+  it('opens a shared answer at /a/{request_id} with its question', async () => {
+    window.sessionStorage.setItem(TOKEN_KEY, 't');
+    window.history.replaceState(null, '', `/a/${RESPONSE_2.request_id}`);
+    respond('', [
+      new Response(JSON.stringify({...RESPONSE_2, question: 'Stored Q?'})),
+    ]);
+    const {result} = renderHook(() => useKeel());
+    expect(result.current.shared).toBe('loading');
+    await waitFor(() => expect(result.current.shared).toBe('loaded'));
+    const ui = result.current.state.ui;
+    expect(ui.kind === 'complete' && ui.run.question).toBe('Stored Q?');
+  });
+
+  it('stops at once on a link that no store holds', async () => {
+    window.sessionStorage.setItem(TOKEN_KEY, 't');
+    window.history.replaceState(null, '', '/a/gone');
+    const notFound = new Response(
+      JSON.stringify({detail: {code: 'not_found', message: 'no answer'}}),
+      {status: 404},
+    );
+    respond('', [notFound]);
+    const {result} = renderHook(() => useKeel());
+    await waitFor(() => expect(result.current.shared).toBe('missing'));
+    expect(result.current.state.ui.kind).toBe('empty');
   });
 });

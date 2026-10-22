@@ -1,5 +1,7 @@
 import type {JSX} from 'react';
 
+import {HISTORY_PATH} from '../lib/links';
+
 /** Props of Footer. */
 export interface FooterProps {
   readonly requestId: string | null;
@@ -9,10 +11,15 @@ export interface FooterProps {
   readonly copyStatus: string | null;
   readonly onCopy: () => void;
   readonly onExport: () => void;
+  /** False until the final answer is stored, so the link can open it. */
+  readonly canShare: boolean;
+  /** Copies the shareable link `/a/{request_id}` (chapter 27.2). */
+  readonly onShare: () => void;
 }
 
 /**
- * The footer (chapter 14.5): Copy as markdown, Export JSON, the link to the
+ * The footer (chapter 14.5): Copy as markdown, Export JSON, Copy link (the
+ * shareable link of chapter 27.2), the links to the history page and the
  * eval page (W-02), the request ID, and the prompt version.
  *
  * @param props The props.
@@ -25,6 +32,8 @@ export function Footer({
   copyStatus,
   onCopy,
   onExport,
+  canShare,
+  onShare,
 }: FooterProps): JSX.Element {
   return (
     <footer className="flex flex-wrap items-center gap-3 border-t border-slate-200 bg-white px-4 py-2 text-xs text-slate-600">
@@ -44,7 +53,24 @@ export function Footer({
       >
         Export JSON
       </button>
+      <button
+        type="button"
+        className="rounded border border-slate-300 px-2 py-1 disabled:opacity-50"
+        data-testid="share-link"
+        disabled={!canShare}
+        onClick={onShare}
+      >
+        Copy link
+      </button>
       {copyStatus !== null && <span role="status">{copyStatus}</span>}
+      <button
+        type="button"
+        className="underline"
+        data-testid="history-link"
+        onClick={() => window.location.assign(HISTORY_PATH)}
+      >
+        History
+      </button>
       <button
         type="button"
         className="underline"

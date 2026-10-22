@@ -273,6 +273,8 @@ export interface AuditRecord {
  */
 export interface AskResponse {
   readonly request_id: string;
+  /** The question of the stored record; a shareable link renders it. */
+  readonly question?: string | null;
   readonly analysis: AnalysisSummary;
   readonly retrieval: RetrievalSummary;
   readonly answer: Answer;
@@ -405,4 +407,32 @@ export interface EvalResponse {
   readonly report: EvalDocument;
   readonly prompt_log: EvalDocument;
   readonly gates: EvalGate[];
+}
+
+/** 1 question of `GET /api/history` (chapter 27.2). */
+export interface HistoryItem {
+  readonly request_id: string;
+  readonly timestamp: string;
+  readonly question: string;
+  /** The user who asked; null for a record from before the users file. */
+  readonly user: string | null;
+  readonly tickers: string[];
+  readonly outcome: string | null;
+  readonly model: string | null;
+  readonly cost_usd: number;
+  readonly from_cache: boolean;
+  readonly degraded: boolean;
+  /** True when the link `/a/{request_id}` can still open the answer. */
+  readonly stored: boolean;
+}
+
+/** Whose questions the history lists: the caller's, or every user's. */
+export type HistoryScope = 'own' | 'all';
+
+/** `GET /api/history`: the questions of the caller, newest first. */
+export interface HistoryResponse {
+  readonly user: string;
+  readonly role: string;
+  readonly scope: HistoryScope;
+  readonly items: HistoryItem[];
 }

@@ -5,7 +5,7 @@ import {
   useReducedMotion,
 } from 'motion/react';
 import type {JSX} from 'react';
-import {useCallback, useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 
 import {fetchChunk} from './api/client';
 import {AnswerArea} from './components/AnswerArea';
@@ -20,6 +20,7 @@ import {QuestionArea} from './components/QuestionArea';
 import {RateLimitedCard} from './components/RateLimitedCard';
 import type {SelectedChunk} from './components/RightPanel';
 import {RightPanel} from './components/RightPanel';
+import {SharedNotice} from './components/SharedNotice';
 import {StaleIndexBanner} from './components/StaleIndexBanner';
 import {TokenField} from './components/TokenField';
 import {TopBar} from './components/TopBar';
@@ -27,6 +28,7 @@ import {TraceDrawer} from './components/TraceDrawer';
 import {answerToJson, answerToMarkdown} from './lib/answerExport';
 import type {Example} from './lib/examples';
 import {EXAMPLES} from './lib/examples';
+import {rerunQuestion, sharedRequestId, shareUrl} from './lib/links';
 import {pageLoad, pick, pickTransition, stateChange} from './motion/presets';
 import {baseState, canAsk, currentRun, hasOverlay, health} from './state';
 import {useKeel} from './useKeel';
@@ -53,8 +55,12 @@ function download(name: string, text: string): void {
  * @return The page.
  */
 export function App(): JSX.Element {
-  const {state, hasToken, ask, saveToken, reload} = useKeel();
-  const [question, setQuestion] = useState('');
+  const {state, hasToken, shared, ask, saveToken, reload} = useKeel();
+  // A question to ask again from the history page (`/?rerun=...`), once.
+  const [initialRerun] = useState(() => rerunQuestion(window.location.search));
+  const rerunRef = useRef(initialRerun);
+  const [question, setQuestion] = useState(initialRerun ?? '');
+  const sharedId = sharedRequestId(window.location.pathname);
   const [selected, setSelected] = useState<SelectedChunk | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
@@ -79,6 +85,16 @@ export function App(): JSX.Element {
     },
     [ask],
   );
+  const serviceReady = state.service.ready !== null;
+  useEffect(() => {
+    const text = rerunRef.current;
+    if (text === null || !hasToken || !serviceReady || !askEnabled) {
+      return;
+    }
+    rerunRef.current = null;
+    window.history.replaceState(null, '', '/');
+    onAsk(text);
+  }, [hasToken, serviceReady, askEnabled, onAsk]);
   const onPick = (example: Example): void => {
     setQuestion(example.question);
     onAsk(example.question);
@@ -117,6 +133,16 @@ export function App(): JSX.Element {
           run.final === null ? 'Copied a partial answer' : 'Copied',
         ),
       )
+      .catch(() => setCopyStatus('Copy failed'));
+  };
+  const onShare = (): void => {
+    const requestId = run?.final?.request_id;
+    if (requestId === undefined) {
+      return;
+    }
+    navigator.clipboard
+      .writeText(shareUrl(requestId))
+      .then(() => setCopyStatus('Link copied'))
       .catch(() => setCopyStatus('Copy failed'));
   };
   const onExport = (): void => {
@@ -200,6 +226,10 @@ export function App(): JSX.Element {
               className="space-y-4"
               data-testid="answer-container"
             >
+              {sharedId !== null &&
+                (run === null || run.requestId === sharedId) && (
+                  <SharedNotice load={shared} requestId={sharedId} />
+                )}
               {base.kind === 'empty' && (
                 <CoverageSummary
                   coverage={state.service.coverage}
@@ -285,6 +315,8 @@ export function App(): JSX.Element {
           copyStatus={copyStatus}
           onCopy={onCopy}
           onExport={onExport}
+          canShare={run?.final !== null && run?.final !== undefined}
+          onShare={onShare}
         />
       </div>
     </MotionConfig>

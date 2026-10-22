@@ -11,12 +11,18 @@
  */
 import type {Locator, Page, Route} from '@playwright/test';
 
-import type {AskRequest, AskResponse, SseEvent} from '../../src/api/types';
+import type {
+  AskRequest,
+  AskResponse,
+  HistoryResponse,
+  SseEvent,
+} from '../../src/api/types';
 import {
   COVERAGE,
   EVAL_PAGE,
   INDEX_STATUS,
   INDEX_STATUS_STALE,
+  QUESTION_2,
   READY,
   READY_NO_INDEX,
   RESPONSE_1,
@@ -65,6 +71,28 @@ export const RESPONSE_INJECTION: AskResponse = {
       `Revenue grew. ${INJECTED_SCRIPT} <img src=x onerror="window.keelPwned = true"> ` +
       `[a bad link](${UNTRUSTED_URL})`,
   },
+};
+
+/** The history of the mocked mode: the answer of example 2, stored. */
+export const MOCK_HISTORY: HistoryResponse = {
+  user: 'legacy',
+  role: 'admin',
+  scope: 'own',
+  items: [
+    {
+      request_id: RESPONSE_2.request_id,
+      timestamp: '2026-10-21T10:05:00+00:00',
+      question: QUESTION_2,
+      user: 'legacy',
+      tickers: ['NVDA'],
+      outcome: 'answered',
+      model: 'mock',
+      cost_usd: 0,
+      from_cache: false,
+      degraded: false,
+      stored: true,
+    },
+  ],
 };
 
 function json(route: Route, body: unknown, status = 200): Promise<void> {
@@ -223,6 +251,12 @@ async function mockApi(page: Page, fault: Fault | null): Promise<void> {
     }
     if (path === '/api/ask') {
       return askRoute(route, fault);
+    }
+    if (path === '/api/history') {
+      return json(route, MOCK_HISTORY);
+    }
+    if (path === `/api/shared/${RESPONSE_2.request_id}`) {
+      return json(route, {...RESPONSE_2, question: QUESTION_2});
     }
     if (path.startsWith('/api/chunks/')) {
       const chunkId = decodeURIComponent(path.slice('/api/chunks/'.length));

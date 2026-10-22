@@ -11,6 +11,8 @@ import type {
   ErrorEvent,
   EvalResponse,
   HealthResponse,
+  HistoryResponse,
+  HistoryScope,
   IndexStatusResponse,
   ReadyResponse,
   SseEvent,
@@ -379,13 +381,35 @@ export const fetchChunk = (chunkId: string): Promise<ChunkResponse> =>
   getJson(`/api/chunks/${encodeURIComponent(chunkId)}`);
 
 /**
- * `GET /api/results/{request_id}`: the stored answer of a request (E-F-04).
+ * `GET /api/results/{request_id}`: the stored answer of the caller's own
+ * request (E-F-04).
  *
  * @param requestId The request ID.
  * @return The answer response.
  */
 export const fetchResult = (requestId: string): Promise<AskResponse> =>
   getJson(`/api/results/${encodeURIComponent(requestId)}`);
+
+/**
+ * `GET /api/shared/{request_id}`: a finished answer by its shareable link,
+ * read-only for any token holder (chapter 27.2).
+ *
+ * @param requestId The request ID of the link.
+ * @return The answer response.
+ */
+export const fetchShared = (requestId: string): Promise<AskResponse> =>
+  getJson(`/api/shared/${encodeURIComponent(requestId)}`);
+
+/**
+ * `GET /api/history`: the questions of the caller, newest first (27.2).
+ *
+ * @param scope `own`, or `all` for every user (admins only).
+ * @return The history.
+ */
+export const fetchHistory = (
+  scope: HistoryScope = 'own',
+): Promise<HistoryResponse> =>
+  getJson(`/api/history?scope=${encodeURIComponent(scope)}`);
 
 /**
  * `GET /api/eval`: the eval report, the prompt log, and the gates (W-02).
