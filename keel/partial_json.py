@@ -4,7 +4,8 @@ The provider sends the tool input as JSON fragments. The reader scans each
 new character once and reports 2 things as they appear: the new characters
 of the top-level `direct_answer` string (the `answer_delta` event) and each
 object of the top-level `company_findings` array when it closes (the
-`findings` event). It never parses the whole text again per fragment; the
+`findings` event). The structure is scanned once; only the direct answer
+string is decoded again per fragment (it is short), and the
 final parse after the stream is `json.loads` on the full text.
 """
 
@@ -20,7 +21,10 @@ _ESCAPE_LENGTHS = {"u": 5}
 
 
 def _high_surrogate(digits: str) -> bool:
-    return 0xD800 <= int(digits, 16) <= 0xDBFF
+    try:
+        return 0xD800 <= int(digits, 16) <= 0xDBFF
+    except ValueError:
+        return False  # not hex; the final parse reports the bad escape
 
 
 @dataclasses.dataclass(frozen=True)

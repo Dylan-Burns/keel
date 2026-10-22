@@ -55,6 +55,7 @@ OFFLINE_MESSAGE = (
 )
 CONNECT_DELAYS = (1.0, 3.0)
 SERVER_DELAYS = (2.0, 6.0)
+MAX_RETRY_WAIT = 30.0  # a longer Retry-After would pass the 120 s total
 
 Sleep = Callable[[float], Awaitable[None]]
 
@@ -80,11 +81,11 @@ def backoff(error: errors.ProviderError, attempt: int) -> float:
         attempt: The index of the retry.
 
     Returns:
-        Seconds: `Retry-After` when the provider sent it, else 2 then 6
-        seconds, or 1 then 3 seconds with jitter after a timeout.
+        Seconds: `Retry-After` when the provider sent it (at most 30), else
+        2 then 6 seconds, or 1 then 3 seconds with jitter after a timeout.
     """
     if error.retry_after is not None:
-        return error.retry_after
+        return min(error.retry_after, MAX_RETRY_WAIT)
     if isinstance(error, errors.ProviderTimeoutError):
         base_delay = CONNECT_DELAYS[min(attempt, len(CONNECT_DELAYS) - 1)]
         return base_delay + random.uniform(0, 0.5)  # noqa: S311
@@ -230,7 +231,9 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         self.provider = provider
         self.index_version = index_version
         self.sleep = sleep
-        self.files = prompt.PromptFiles.load(settings.llm.prompt_version)
+        self.files = prompt.PromptFiles.load(
+            settings.llm.prompt_version, settings.llm.prompts_dir
+        )
         self.prices = config.load_prices(settings.llm.prices)
         self.understander = understanding.Understander.from_settings(
             settings, step.catalog
@@ -360,7 +363,8 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         meta = dict(record.get("meta", {}))
         meta.update(
             from_cache=True,
-            model_requests=0,
+            # Requests that failed before content still count (D-01 audit).
+            model_requests=run.requests,
             cost_usd=0.0,
             latency_ms={"total": self._elapsed(run)},
         )
@@ -464,11 +468,12 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             update = run.stream.feed(event.text)
             out = []
             if update.answer_delta:
-                if not run.content:
-                    run.content = True
-                    run.first_token_ms = self._elapsed(run)
                 out.append(Event("answer_delta", {"text": update.answer_delta}))
             out.extend(Event("findings", f) for f in update.findings)
+            if out and not run.content:
+                # Any event to the client is content: no retry after it.
+                run.content = True
+                run.first_token_ms = self._elapsed(run)
             return out
         if isinstance(event, base.TextDelta):
             run.raw_text += event.text

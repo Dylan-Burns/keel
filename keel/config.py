@@ -167,6 +167,7 @@ class LlmConfig(_Section):
     thinking: dict[str, str] = pydantic.Field(default_factory=dict)
     max_output_tokens: int = 4000
     prompt_version: str = "1.0.0"
+    prompts_dir: pathlib.Path = pathlib.Path("prompts")
     cache_system_block: bool = True
     timeout_seconds: float = 120.0
     connect_timeout_seconds: float = 10.0

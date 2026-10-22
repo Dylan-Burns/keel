@@ -115,8 +115,9 @@ def test_system_block_size(settings: config.Settings) -> None:
     estimate = tokens * settings.retrieval.calibration_factor
     # The live request of stage 7 cached 2,320 tokens for both.
     assert 1000 <= estimate <= 2500
-    assert files.system.count("cache") == 0  # the schema is not in it
-    assert "additionalProperties" not in files.system
+    # The schema goes in the tool, never in the system block.
+    for word in ("input_schema", '"properties"', "additionalProperties"):
+        assert word not in files.system
 
 
 def test_schema_valid() -> None:

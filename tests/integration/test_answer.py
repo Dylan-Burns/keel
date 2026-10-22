@@ -21,6 +21,7 @@ from keel import config
 from keel import context
 from keel import errors
 from keel import retriever
+from keel.providers import base
 from keel.providers import mock
 from keel.stores import chunk_store
 from keel.stores import numpy_dense
@@ -288,6 +289,11 @@ def test_cache_after_failure_and_on_request(index_dir, run_settings) -> None:
     names = [e.name for e in events]
     assert names[-3:] == ["error", "final", "done"]
     assert final(events)["meta"]["from_cache"] is True
+    assert final(events)["meta"]["model_requests"] == 3
+    line = audit_lines(run_settings)[-1]
+    assert line["model_requests"] == 3
+    assert line["outcome"] == "cached"
+    assert line["error"] == "provider_rate_limited"
     provider = mock.MockProvider(run_settings.llm.model)
     events = ask(
         make(index_dir, run_settings, provider),
@@ -373,6 +379,9 @@ def test_helpers(run_settings) -> None:
     assert answer.backoff(limited, 0) == 2.0
     assert answer.backoff(limited, 5) == 6.0
     assert answer.backoff(errors.ProviderRateLimitedError("x", 4.0), 0) == 4.0
+    assert (
+        answer.backoff(errors.ProviderRateLimitedError("x", 900.0), 0) == 30.0
+    )
     slow = answer.backoff(errors.ProviderTimeoutError("t"), 1)
     assert 3.0 <= slow <= 3.5
     made = answer.provider_from_settings(
@@ -478,3 +487,26 @@ def test_ask_command(index_dir, run_settings, monkeypatch, capsys) -> None:
     )
     assert code == 1
     assert "error provider_unavailable" in capsys.readouterr().out
+
+
+class FindingsFirst(mock.MockProvider):
+    """Streams a company object first, then fails: content was sent."""
+
+    async def answer(self, bundle):
+        self.requests += 1
+        company = {"ticker": "AAPL", "company": "Apple", "findings": []}
+        yield base.JsonDelta(
+            '{"company_findings": [' + json.dumps(company) + "], "
+        )
+        raise errors.ProviderRateLimitedError("529 after findings", 0.0)
+
+
+def test_no_retry_after_findings(index_dir, run_settings) -> None:
+    provider = FindingsFirst(run_settings.llm.model)
+    events = ask(
+        make(index_dir, run_settings, provider), question(run_settings)
+    )
+    names = [e.name for e in events]
+    assert provider.requests == 1
+    assert names.index("findings") < names.index("error")
+    assert final(events)["meta"]["latency_ms"]["first_token"] is not None

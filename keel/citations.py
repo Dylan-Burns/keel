@@ -311,8 +311,10 @@ def period_mismatches(answer_text: str, built: context.Context) -> list[str]:
             period == "Q4" and year in years
         ):
             found.append(match.group(0))
+    spans = [m.span() for m in _QUARTER.finditer(answer_text)]
     for match in _YEAR.finditer(answer_text):
-        if int(match.group(1)) not in years:
+        inside = any(a <= match.start() < b for a, b in spans)
+        if not inside and int(match.group(1)) not in years:
             found.append(match.group(0))
     return list(dict.fromkeys(found))
 
@@ -333,6 +335,7 @@ def _strip_markers(text: str, valid: set[str]) -> tuple[str, int]:
     cleaned = _MARKER.sub(keep, text)
     if removed:
         cleaned = re.sub(r" {2,}", " ", re.sub(r" +([.,;])", r"\1", cleaned))
+        cleaned = cleaned.strip()
     return cleaned, removed
 
 
@@ -407,10 +410,22 @@ def validate(
             )
         )
     report.period_mismatch = period_mismatches(direct, built)
+    table = answer.comparison_table
+    if table is not None:
+        rows = []
+        for row in table.rows:
+            cells = []
+            for cell in row:
+                cleaned_cell, removed = _strip_markers(cell, valid_ids)
+                report.inline_drift += removed
+                cells.append(cleaned_cell)
+            rows.append(cells)
+        table = table.model_copy(update={"rows": rows})
     update: dict[str, object] = {
         "direct_answer": direct,
         "company_findings": findings,
         "citations": kept,
+        "comparison_table": table,
         "next_questions": answer.next_questions[:MAX_NEXT_QUESTIONS],
     }
     total = report.citations

@@ -16,6 +16,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import anthropic
+import httpx2
 
 from keel import config
 from keel import errors
@@ -43,9 +44,12 @@ def classify(error: Exception) -> errors.ProviderError:
     Returns:
         The provider error; its class says whether a retry is allowed.
     """
-    if isinstance(error, anthropic.APITimeoutError | TimeoutError):
+    timeouts = (
+        anthropic.APITimeoutError | httpx2.TimeoutException | TimeoutError
+    )
+    if isinstance(error, timeouts):
         return errors.ProviderTimeoutError(f"provider timeout: {error}")
-    if isinstance(error, anthropic.APIConnectionError):
+    if isinstance(error, anthropic.APIConnectionError | httpx2.TransportError):
         return errors.ProviderUnavailableError(f"connection failed: {error}")
     if not isinstance(error, anthropic.APIStatusError):
         return errors.ProviderUnavailableError(f"provider error: {error}")
@@ -168,14 +172,31 @@ class AnthropicProvider:  # pylint: disable=too-many-instance-attributes
         Raises:
             ProviderError: The request or the stream failed.
         """
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + self.total_timeout
         try:
-            async with asyncio.timeout(self.total_timeout):
-                stream = await self.client.messages.create(
+            # The deadline applies to each await, never around a `yield`,
+            # so the timeout cannot cancel the consumer of the events.
+            stream = await asyncio.wait_for(
+                self.client.messages.create(
                     **self.request(bundle), stream=True
-                )
-                async for event in self._events(stream):
-                    yield event
-        except (anthropic.APIError, TimeoutError) as error:
+                ),
+                deadline - loop.time(),
+            )
+            events = aiter(self._events(stream))
+            while True:
+                try:
+                    event = await asyncio.wait_for(
+                        anext(events), max(0.0, deadline - loop.time())
+                    )
+                except StopAsyncIteration:
+                    return
+                yield event
+        except (
+            anthropic.APIError,
+            httpx2.TransportError,
+            TimeoutError,
+        ) as error:
             raise classify(error) from error
 
     async def _events(

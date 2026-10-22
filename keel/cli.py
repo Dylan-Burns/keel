@@ -940,6 +940,9 @@ def run_ask(
 
     Raises:
         IndexMissingError: No published index.
+        ConfigError: The prompt version is outside the index range, or the
+            prompt files or the provider are invalid.
+        ProviderRequestError: `ANTHROPIC_API_KEY` is not set.
     """
     answerer = answer.Answerer.open(settings, index_dir)
     return asyncio.run(_ask(answerer, question, as_json, cached))
