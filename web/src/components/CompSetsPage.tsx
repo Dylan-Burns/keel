@@ -36,16 +36,20 @@ function tickersOf(text: string): string[] {
  * The message of a failed save or delete.
  *
  * @param error The error.
+ * @param action `saved` or `deleted`, for the generic message.
  * @return The text for the page.
  */
-function messageOf(error: unknown): string {
+function messageOf(error: unknown, action: 'saved' | 'deleted'): string {
   if (error instanceof ApiError && error.status === 403) {
     return 'Only the owner of this comp set or an admin can change it.';
   }
   if (error instanceof ApiError && error.status === 400) {
     return error.message;
   }
-  return 'The comp set could not be saved.';
+  if (error instanceof ApiError && error.status === 422) {
+    return 'A name has letters, digits, spaces, & or -; a set has 1 to 25 tickers.';
+  }
+  return `The comp set could not be ${action}.`;
 }
 
 /**
@@ -112,7 +116,7 @@ export function CompSetsPage(): JSX.Element {
         setTickers('');
         setVersion(n => n + 1);
       })
-      .catch((error: unknown) => setNotice(messageOf(error)));
+      .catch((error: unknown) => setNotice(messageOf(error, 'saved')));
   };
   const onDelete = (item: CompSetItem): void => {
     deleteCompSet(item.name)
@@ -120,7 +124,7 @@ export function CompSetsPage(): JSX.Element {
         setNotice(`Deleted ${item.name}.`);
         setVersion(n => n + 1);
       })
-      .catch((error: unknown) => setNotice(messageOf(error)));
+      .catch((error: unknown) => setNotice(messageOf(error, 'deleted')));
   };
   return (
     <div
