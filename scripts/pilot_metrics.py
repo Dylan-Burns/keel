@@ -753,9 +753,11 @@ def to_markdown(metrics: Metrics) -> str:
     lines = [
         "## Pilot metrics",
         "",
-        "| Week | Active users | Questions | Cost (USD) | Cost per question "
-        "| Thumbs-up rate | Votes | Memos exported | Companies added "
-        "| Filings refreshed |",
+        (
+            "| Week | Active users | Questions | Cost (USD) "
+            "| Cost per question | Thumbs-up rate | Votes | Memos exported "
+            "| Companies added | Filings refreshed |"
+        ),
         "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for w in metrics.weeks:
