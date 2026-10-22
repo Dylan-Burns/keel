@@ -50,6 +50,15 @@ LATEST_FILING_WEIGHT = 1.0
 OTHER_FILING_WEIGHT = 0.9
 DELTA_ONLY_RISK_WEIGHT = 0.9
 LATER_COMPARATIVE_WEIGHT = 1.05
+# Stage 10 (eval): a 10-K restates Item 1 and Item 1A in full each year,
+# so without a time scope an earlier filing's copy of those sections is
+# superseded by the latest 10-K (chapter 10.4: no scope prefers the latest
+# 10-K through weights). A question about a whole fiscal or calendar year
+# is answered by the 10-K of that year, not by the quarters inside it.
+STANDING_SECTIONS = ("risk_factors", "business")
+SUPERSEDED_WEIGHT = 0.6
+QUARTER_IN_YEAR_WEIGHT = 0.6
+YEAR_SCOPES = frozenset({"fiscal_year", "calendar_year"})
 SECTOR_MAX_COMPANIES = 12
 SECTOR_MIN_QUOTA = 3
 GENERIC_QUOTA = 4
@@ -717,6 +726,11 @@ class WeightRules:
         risk_question: True for a question about risks.
         latest_filings: The filing IDs that get the latest-filing weight.
         later_comparatives: The chunk IDs that get the 1.05 weight.
+        superseded_filings: The filings before the latest 10-K of a company
+            with no time scope; their standing sections get x0.6 on top
+            of the 0.9 of an earlier filing.
+        quarter_filings: The 10-Qs inside a whole-year scope that the 10-K
+            of that year covers; their chunks get x0.6.
     """
 
     section_weights: Mapping[str, float]
@@ -724,6 +738,8 @@ class WeightRules:
     risk_question: bool = False
     latest_filings: frozenset[str] = frozenset()
     later_comparatives: frozenset[str] = frozenset()
+    superseded_filings: frozenset[str] = frozenset()
+    quarter_filings: frozenset[str] = frozenset()
 
 
 def weigh(candidate: context.Candidate, rules: WeightRules) -> float:
@@ -756,7 +772,115 @@ def weigh(candidate: context.Candidate, rules: WeightRules) -> float:
         weight *= DELTA_ONLY_RISK_WEIGHT
     if candidate.chunk_id in rules.later_comparatives:
         weight *= LATER_COMPARATIVE_WEIGHT
+    if (
+        candidate.filing_id in rules.superseded_filings
+        and candidate.section in STANDING_SECTIONS
+    ):
+        weight *= SUPERSEDED_WEIGHT
+    if candidate.filing_id in rules.quarter_filings:
+        weight *= QUARTER_IN_YEAR_WEIGHT
     return weight
+
+
+def weight_rules(
+    analysis: understanding.QuestionAnalysis,
+    catalog: understanding.Catalog,
+    candidates: Sequence[context.Candidate],
+) -> WeightRules:
+    """Collect the facts the weights of 1 question need (11.1, 11.5).
+
+    Args:
+        analysis: The question analysis.
+        catalog: The corpus facts with filing IDs.
+        candidates: The candidates of the question.
+
+    Returns:
+        The weight rules.
+    """
+    latest: set[str] = set()
+    superseded: set[str] = set()
+    quarters: set[str] = set()
+    trend = "trend" in analysis.types
+    unscoped = analysis.time_scope.kind == "none"
+    year_scope = analysis.time_scope.kind in YEAR_SCOPES
+    for ticker in {c.ticker for c in candidates}:
+        window = _window(analysis, ticker)
+        filings = catalog.for_ticker(ticker)
+        scoped = _filings_in(filings, window)
+        if scoped and scoped[-1].filing_id:
+            latest.add(scoped[-1].filing_id)
+        annual = latest_10k(filings, window)
+        if annual is not None and annual.filing_id:
+            latest.add(annual.filing_id)
+        if trend:
+            continue
+        if unscoped:
+            superseded |= superseded_filings(filings)
+        elif year_scope and window is not None:
+            quarters |= quarter_filings(filings, window)
+    numeric = {"numeric", "trend"} & set(analysis.types)
+    return WeightRules(
+        section_weights=analysis.section_weights,
+        table_weight=analysis.table_weight,
+        risk_question=is_risk_question(analysis),
+        latest_filings=frozenset(latest),
+        later_comparatives=(
+            later_comparatives(candidates) if numeric else frozenset()
+        ),
+        superseded_filings=frozenset(superseded),
+        quarter_filings=frozenset(quarters),
+    )
+
+
+def superseded_filings(
+    filings: Sequence[understanding.FilingRef],
+) -> frozenset[str]:
+    """The filings of 1 company that end before its latest 10-K.
+
+    Args:
+        filings: The filings of 1 company.
+
+    Returns:
+        Their filing IDs; empty without a 10-K.
+    """
+    annual = latest_10k(filings, None)
+    if annual is None:
+        return frozenset()
+    return frozenset(
+        f.filing_id
+        for f in filings
+        if f.filing_id and f.period_end_date < annual.period_end_date
+    )
+
+
+def quarter_filings(
+    filings: Sequence[understanding.FilingRef], window: tuple[str, str]
+) -> frozenset[str]:
+    """The 10-Qs of a whole-year window that the 10-K in it covers.
+
+    Only a 10-Q that ends on or before the period end of the 10-K in the
+    window is part of that fiscal year: a calendar year scope over a
+    company with a January year end holds the 10-K of the previous fiscal
+    year and the 10-Qs of the next one, which keep their weight.
+
+    Args:
+        filings: The filings of 1 company.
+        window: The (start, end) window of the year.
+
+    Returns:
+        Their filing IDs; empty when the window holds no 10-K.
+    """
+    scoped = _filings_in(filings, window)
+    annual = latest_10k(scoped, None)
+    if annual is None:
+        return frozenset()
+    return frozenset(
+        f.filing_id
+        for f in scoped
+        if f.form == "10-Q"
+        and f.filing_id
+        and f.period_end_date <= annual.period_end_date
+    )
 
 
 def _mentions(text: str) -> tuple[frozenset[int], frozenset[datetime.date]]:
@@ -1200,32 +1324,6 @@ class Retriever:
                     found[candidate.chunk_id] = candidate
         return list(found.values())
 
-    def _rules(
-        self,
-        analysis: understanding.QuestionAnalysis,
-        candidates: Sequence[context.Candidate],
-    ) -> WeightRules:
-        latest: set[str] = set()
-        for ticker in {c.ticker for c in candidates}:
-            window = _window(analysis, ticker)
-            filings = self.catalog.for_ticker(ticker)
-            scoped = _filings_in(filings, window)
-            if scoped and scoped[-1].filing_id:
-                latest.add(scoped[-1].filing_id)
-            annual = latest_10k(filings, window)
-            if annual is not None and annual.filing_id:
-                latest.add(annual.filing_id)
-        numeric = {"numeric", "trend"} & set(analysis.types)
-        return WeightRules(
-            section_weights=analysis.section_weights,
-            table_weight=analysis.table_weight,
-            risk_question=is_risk_question(analysis),
-            latest_filings=frozenset(latest),
-            later_comparatives=(
-                later_comparatives(candidates) if numeric else frozenset()
-            ),
-        )
-
     def _rerank(
         self,
         queries: Sequence[SubQuery],
@@ -1360,7 +1458,7 @@ class Retriever:
         clock = _Clock()
         plan = self.plan(analysis, budget)
         candidates = self._gather(plan, clock)
-        rules = self._rules(analysis, candidates)
+        rules = weight_rules(analysis, self.catalog, candidates)
         candidates = [
             dataclasses.replace(
                 c, weight=(w := weigh(c, rules)), score=c.fused * w
