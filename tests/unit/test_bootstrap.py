@@ -5,11 +5,13 @@ host names resolve through a fake resolver, and `gh` is a fake runner.
 """
 
 from collections.abc import Sequence
+import logging
 import pathlib
 
 import httpx
 import pytest
 
+import conftest
 from keel import bootstrap
 from keel import config
 from keel import errors
@@ -202,7 +204,7 @@ def test_resolve_host(monkeypatch: pytest.MonkeyPatch) -> None:
 def serve(routes: dict[str, httpx.Response]) -> httpx.MockTransport:
     def handler(request: httpx.Request) -> httpx.Response:
         key = f"{request.url.host}{request.url.path}"
-        return routes.get(key, httpx.Response(404))
+        return conftest.with_peer(routes.get(key, httpx.Response(404)))
 
     return httpx.MockTransport(handler)
 
@@ -390,3 +392,66 @@ def test_run_command_errors() -> None:
         bootstrap._run_command(["/bin/sh", "-c", "exit 3"])
     with pytest.raises(errors.CorpusDownloadError, match="failed"):
         bootstrap._run_command(["/no/such/gh"])
+
+
+@pytest.mark.parametrize("peer", ["10.0.0.7", "127.0.0.1", "fe80::1"])
+def test_download_rejects_a_rebound_peer(
+    tmp_path: pathlib.Path, peer: str
+) -> None:
+    body = b"PK" + b"x" * 100
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return conftest.with_peer(httpx.Response(200, content=body), peer)
+
+    with pytest.raises(errors.HostNotAllowedError, match="non-public"):
+        bootstrap.download(
+            URL,
+            tmp_path / "c.zip",
+            allowed=bootstrap.allowed_hosts(URL),
+            resolver=public,
+            transport=httpx.MockTransport(handler),
+        )
+    assert not list(tmp_path.iterdir())
+
+
+def test_download_rejects_an_unknown_peer(tmp_path: pathlib.Path) -> None:
+    transport = httpx.MockTransport(lambda request: httpx.Response(200))
+    with pytest.raises(errors.HostNotAllowedError, match="no peer"):
+        bootstrap.download(
+            URL,
+            tmp_path / "c.zip",
+            allowed=bootstrap.allowed_hosts(URL),
+            resolver=public,
+            transport=transport,
+        )
+
+
+def test_download_never_logs_the_query(
+    tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    transport = serve(
+        {
+            "bucket.example.com/edgar_corpus.zip": httpx.Response(
+                302,
+                headers={
+                    "location": "https://bucket.example.com/b.zip?X-Sig=two456"
+                },
+            ),
+            "bucket.example.com/b.zip": httpx.Response(200, content=b"PK"),
+        }
+    )
+    bootstrap.download(
+        URL,
+        tmp_path / "c.zip",
+        allowed=bootstrap.allowed_hosts(URL),
+        resolver=public,
+        transport=transport,
+    )
+    text = caplog.text
+    assert "https://bucket.example.com/edgar_corpus.zip" in text
+    assert "secret123" not in text
+    assert "two456" not in text
+    assert "X-Signature" not in text
+    # The levels come back after the download.
+    assert logging.getLogger("httpx").level == logging.NOTSET

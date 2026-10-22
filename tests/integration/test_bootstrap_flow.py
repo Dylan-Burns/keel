@@ -91,7 +91,7 @@ def test_bootstrap_downloads_from_the_url(
 
     def handler(request: httpx.Request) -> httpx.Response:
         hosts.append(request.url.host)
-        return httpx.Response(200, content=body)
+        return conftest.with_peer(httpx.Response(200, content=body))
 
     configured = configure(settings, tmp_path, url=URL)
     deps = fake_deps(transport=httpx.MockTransport(handler))
