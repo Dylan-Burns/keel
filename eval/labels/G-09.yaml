@@ -4,7 +4,7 @@ index_version: 1.2.0
 build_id: 20261022T050249382998Z
 chunks_sha256: be95e3aa90a5857e023f945125193cc6a5e0de6df111119a5b31ff00b2f59737
 created: '2026-10-22'
-pool: hybrid top 30, lexical top 10, and dense top 10 per sub-query, with the reranker; plus the lexical top 10 in the expected filings without a section filter
+pool: hybrid top 30, lexical top 10, and dense top 10 per sub-query, with the reranker; plus the lexical top 10 in the expected filings without a section filter; plus the unjudged chunks in the top 25 of the retrieval follow-up after stage 22, graded on 2026-10-22
 sections:
   - filing_id: GOOG_10K_2025-12-31
     section: risk_factors
@@ -234,6 +234,16 @@ chunks:
     filing_id: META_10K_2025-12-31
     section: risk_factors
     note: user engagement risk, ad impressions only indirectly
+  - chunk_id: META_10K_2025-12-31__risk_factors__0007
+    grade: 1
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: mostly user engagement, ad heading runs into 0008
+  - chunk_id: META_10K_2025-12-31__risk_factors__0008
+    grade: 2
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: core ad dependence, marketer spending, targeting limits
   - chunk_id: META_10K_2025-12-31__risk_factors__0009
     grade: 2
     filing_id: META_10K_2025-12-31
@@ -244,6 +254,11 @@ chunks:
     filing_id: META_10K_2025-12-31
     section: risk_factors
     note: measurement tools and ad market share loss
+  - chunk_id: META_10K_2025-12-31__risk_factors__0015
+    grade: 2
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: GDPR and DMA signal limits, iOS impact on ad revenue
   - chunk_id: META_10K_2025-12-31__risk_factors__0016
     grade: 2
     filing_id: META_10K_2025-12-31
@@ -254,6 +269,11 @@ chunks:
     filing_id: META_10K_2025-12-31
     section: risk_factors
     note: AI initiatives risk, ad tools in passing
+  - chunk_id: META_10K_2025-12-31__risk_factors__0022
+    grade: 2
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: user data changes reduce ad targeting, stated harm
   - chunk_id: META_10K_2025-12-31__risk_factors__0023
     grade: 2
     filing_id: META_10K_2025-12-31
@@ -274,6 +294,16 @@ chunks:
     filing_id: META_10K_2025-12-31
     section: risk_factors
     note: ad pricing, spending, ad blocking in fluctuation factors
+  - chunk_id: META_10K_2025-12-31__risk_factors__0039
+    grade: 1
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: catastrophic events, ad demand volatility in passing
+  - chunk_id: META_10K_2025-12-31__risk_factors__0042
+    grade: 1
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: infrastructure outages, ad serving in passing
   - chunk_id: META_10K_2025-12-31__risk_factors__0043
     grade: 1
     filing_id: META_10K_2025-12-31
@@ -289,6 +319,11 @@ chunks:
     filing_id: META_10K_2025-12-31
     section: risk_factors
     note: government actions cutting China and Turkey ad revenue
+  - chunk_id: META_10K_2025-12-31__risk_factors__0086
+    grade: 1
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: content liability, ad targeting litigation in passing
   - chunk_id: META_10K_2025-12-31__risk_factors__0089
     grade: 1
     filing_id: META_10K_2025-12-31
@@ -299,6 +334,11 @@ chunks:
     filing_id: META_10K_2025-12-31
     section: risk_factors
     note: security breach risk, ads only in passing
+  - chunk_id: META_10K_2025-12-31__risk_factors__0092
+    grade: 1
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: security breaches, marketer confidence in passing
   - chunk_id: META_10K_2025-12-31__unknown__0015
     grade: 0
     filing_id: META_10K_2025-12-31
