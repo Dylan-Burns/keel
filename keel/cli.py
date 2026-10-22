@@ -7,7 +7,8 @@ stage 7 adds `keel ask`; stage 8 adds `keel calibrate`; stage 9 adds
 `keel serve`; stage 10 adds `keel eval`; stage 13 adds `keel facts`; stage
 14 adds `keel add`; stage 15 adds `keel warm-cache`; stage 20 adds `keel watch`
 and `keel refresh`; stage 21 adds `keel bootstrap`, `keel backup`, and
-`keel restore`.
+`keel restore`. The admin API follow-up adds `keel history`, `keel share`,
+`keel coverage`, and `keel jobs` (`keel.parity_cli`).
 """
 
 import argparse
@@ -41,6 +42,7 @@ from keel import export
 from keel import extractor
 from keel import indexer
 from keel import inventory
+from keel import parity_cli
 from keel import pilot_cli
 from keel import refresh
 from keel import retriever
@@ -275,8 +277,9 @@ def _add_pilot_commands(
 ) -> None:
     """Add the pilot commands of chapter 27.2.
 
-    These are `keel users`, and the comp sets, feedback, and template
-    commands of `keel.pilot_cli`.
+    These are `keel users`, the comp sets, feedback, and template
+    commands of `keel.pilot_cli`, and the history, share, coverage, and
+    jobs commands of `keel.parity_cli`.
     """
     _add_users_parser(
         add_command(
@@ -284,6 +287,7 @@ def _add_pilot_commands(
         )
     )
     pilot_cli.add_parsers(add_command)
+    parity_cli.add_parsers(add_command)
 
 
 def _add_users_parser(users_parser: argparse.ArgumentParser) -> None:
@@ -1918,8 +1922,12 @@ def _dispatch(settings: config.Settings, args: argparse.Namespace) -> int:
         return _dispatch_measure(settings, args)
     if args.command == "users":
         return run_users(settings, args)
-    if args.command in pilot_cli.COMMANDS:
-        code, lines = pilot_cli.run(settings, args)
+    if args.command in pilot_cli.COMMANDS | parity_cli.COMMANDS:
+        code, lines = (
+            pilot_cli.run(settings, args)
+            if args.command in pilot_cli.COMMANDS
+            else parity_cli.run(settings, args)
+        )
         for line in lines:
             print(line)
         return code
