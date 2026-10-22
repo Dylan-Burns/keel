@@ -333,7 +333,7 @@ def write(
         "stale_labels": list(run.stale_labels),
         "gates": [
             {
-                "key": r.gate.key,
+                "name": r.gate.name,
                 "threshold": r.gate.threshold,
                 "value": r.value,
                 "status": r.status,
