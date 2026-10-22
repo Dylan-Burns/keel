@@ -144,6 +144,10 @@ Prices live in `config/prices.yaml`, keyed by model id and checked on 2026-10-21
 | `keel refresh` | add the new filings of the watched and added tickers; `--dry-run` |
 | `keel export REQUEST_ID` | write a stored answer as a memo and 1 line of `<logs.dir>/exports.jsonl`; `--format markdown\|docx` |
 | `keel bootstrap` | download the corpus and restore or build the index when absent; `keel backup` and `keel restore` |
+| `keel history` | the questions of the History page, newest first; `--user NAME`, `--limit N`, `--json` |
+| `keel share REQUEST_ID` | the shareable link `/a/<ID>` of an answer; `--base-url URL` for the full address |
+| `keel coverage` | the companies, forms, and fiscal periods of the current index; `--json` |
+| `keel jobs [ID]` | the admin jobs of the web UI, or 1 job with its log tail |
 
 Also: `keel calibrate` (the token calibration factor, 1 count call), `keel facts TICKER` (the company facts lines), `keel users`, `keel compsets`, `keel feedback`, `keel template`, `keel watch` (the pilot features of chapter 27), `make test`, and `npm run check --prefix web`.
 
@@ -225,7 +229,7 @@ The production list that the code does not hold yet: OpenID Connect instead of t
 | 28 | [`docs/28_build_sequence.md`](docs/28_build_sequence.md) |
 | 29 | [`docs/29_engineering_standards.md`](docs/29_engineering_standards.md) |
 
-The build: [`docs/BUILD_REPORT.md`](docs/BUILD_REPORT.md) (every stage with its measured numbers and deviations), [`docs/STAGES.yaml`](docs/STAGES.yaml), [`docs/GOTCHAS.md`](docs/GOTCHAS.md). The demo and the pilot: [`docs/REHEARSAL.md`](docs/REHEARSAL.md) (the demo rehearsal and the pilot walk-through), [`docs/START_GUIDE.md`](docs/START_GUIDE.md) (the 1-page guide for the pilot users), and `scripts/pilot_metrics.py` (the weekly pilot numbers).
+The build: [`docs/BUILD_REPORT.md`](docs/BUILD_REPORT.md) (every stage with its measured numbers and deviations), [`docs/STAGES.yaml`](docs/STAGES.yaml), [`docs/GOTCHAS.md`](docs/GOTCHAS.md). The admin API (jobs, users, system, backups, watch list, debug): [`docs/API_ADMIN.md`](docs/API_ADMIN.md). The demo and the pilot: [`docs/REHEARSAL.md`](docs/REHEARSAL.md) (the demo rehearsal and the pilot walk-through), [`docs/START_GUIDE.md`](docs/START_GUIDE.md) (the 1-page guide for the pilot users), and `scripts/pilot_metrics.py` (the weekly pilot numbers).
 
 ## Decisions and assumptions
 
