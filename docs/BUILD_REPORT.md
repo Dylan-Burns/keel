@@ -721,6 +721,45 @@ Entry format:
 - Measured: distribution `d1otueg71oygkx.cloudfront.net` created; `terraform plan` shows no change after the apply. The first apply stopped at the deploy wait on an IAM propagation delay (`cloudfront:GetDistribution` denied seconds after the policy update); the resource was untainted, not recreated.
 - Attempts: 1.
 
+## Follow-up after stage 22: admin UI and CLI parity
+
+- Built: phase 2 of feature parity, the web UI on the admin API of phase 1. The footer of every answer gets **Memo .md** and **Memo .docx**: each fetches `GET /api/export/{request_id}` with the bearer token and saves the bytes through a blob URL and a temporary `<a download>` under the name of `Content-Disposition`. New pages in `web/src/components/admin/`, all in the terminal design (panes, the page bar of the secondary pages, a tab strip of the operations pages, both themes): **Companies** (`/companies`: Add company as the `add` job, the watch list for every role with Watch and an inline Remove confirmation for admins, Dry run and Run refresh, Fetch facts), **Jobs** (`/jobs` and `/jobs/{id}`: the list, refreshed every 3 s while a job is active, and a job card that polls every 1.5 s while the job is queued or running and stops at its final status, with the phase, a progress bar, the log tail, the result, the error, and Cancel for a queued job), **Users** (`/users`: the new token shown once with a copy button and a "won't be shown again" note, kept only in page state; Remove with an inline confirmation), **System** (`/system`: the doctor checks, the inventory, the index build, the scheduler, the budget, the backups with Download, Back up now, and Restore behind the typed archive name, Rebuild index behind a typed `rebuild` with the memory and time warning, Warm cache and Run eval behind the cost preview and an explicit tick before `confirm: "cost"`, and the admin audit), and **Debug** (`/debug`, every role: understanding and retrieval with the scored context chunks, labeled `model requests: 0`). A job started on a page shows its card there; a 409 links to the job that holds the slot. No `window.alert`, `confirm`, or `prompt`; model, filing, and log text render as JSX text nodes; wide tables scroll inside their box, and no page scrolls sideways at 390 px.
+- Role gate: the page probes `GET /api/admin/jobs?limit=1` (200 admin, 403 another role, 401 a rejected token). The admin pages and the footer links Jobs, Users, and System show only to an admin; another role gets an admin-only notice and the body never loads. The API checks the role on every call, so the gate is a convenience, not the control. The retrieve summary of `/api/debug/retrieve` now carries the rerank `score` of each context item (`docs/API_ADMIN.md`).
+- Parity: every CLI command and where it lives in the web UI.
+
+| CLI command | Web UI | Who |
+| --- | --- | --- |
+| `keel ask` | the question page | every role |
+| `keel export` | footer: Memo .md, Memo .docx | every role |
+| `keel history` | History | every role (every user's questions: admin) |
+| `keel share` | footer: Copy link | every role |
+| `keel coverage` | the coverage summary of the question page | every role |
+| `keel compsets` | Comp sets | every role |
+| `keel template` | the template picker | every role |
+| `keel feedback` | the thumbs under an answer (the weekly review stays in the CLI) | every role |
+| `keel understand`, `keel retrieve --summary` | Debug | every role |
+| `keel watch` | Companies: watch list (read by every role; add and remove: admin) | admin |
+| `keel add` | Companies: Add company | admin |
+| `keel refresh [--dry-run]` | Companies: Dry run, Run refresh | admin |
+| `keel facts` | Companies: Fetch facts | admin |
+| `keel jobs [ID]` | Jobs | admin |
+| `keel users` | Users | admin |
+| `keel doctor` | System: Doctor (without `--download-models`) | admin |
+| `keel inventory` | System: Corpus counts (the extraction stays in `keel add` and `keel index`) | admin |
+| `keel backup`, `keel restore` | System: Back up now, Download, Restore | admin |
+| `keel index` | System: Rebuild index | admin |
+| `keel warm-cache` | System: Warm cache | admin |
+| `keel eval` | System: Run eval; the Eval report page reads its report | admin |
+| `keel serve` | CLI only: it is the process that serves the page | |
+| `keel bootstrap` | CLI only: it runs before a server exists (`keel serve --bootstrap`) | |
+| `keel parse`, `keel chunk` | CLI only: build internals that `keel index` runs | |
+| `keel calibrate` | CLI only: a one-time count call that sets a config value | |
+
+- Tests: Vitest 231 (new: the role gate for an admin, an analyst, no token, and a rejected token; the footer admin links; the job card polls queued to running to succeeded and stops, stops on unmount, on a failed job, and on a 404, and cancels a queued job; a 409 links to the running job; restore stays off until the exact archive name is typed and sends it as `confirm`, Escape cancels; Rebuild index needs `rebuild`; eval with answers and warm-cache load the cost preview and send `confirm: "cost"` only after the tick, facts-only and an eval without answers send none; the new token shows once, copies, is in no storage, and leaves the page on Done; inline user and watch removals; the companies jobs and a bad ticker refused before sending; the debug page calls both routes and shows the scored chunks, an out-of-scope question, and the rate limit; the memo download builds `/api/export/{id}?format=markdown|docx` with the bearer header and saves under the server name). Playwright 54 live against `keel serve --port 8050` with the mock provider (new: an admin sees the operations pages and an analyst added through the API does not, with 403 from the API; the markdown memo downloads and opens with a heading; and in a new `ops-jobs` project that runs after the desktop and phone projects, because it changes the served index: `keel add ZTS` through the Companies page reaches succeeded on the recorded EDGAR responses, and a backup then a restore through the System page, whose Restore stays off until the exact name is typed); 50 in mocked mode, where the 4 job and role specs skip. CI gives `keel serve` copies of the mini corpus and of `tests/fixtures/edgar`, so the add job needs no network. Python 961 passing, coverage 96%.
+- Review: the reviewer subagent found no high issue and 3 medium ones, all fixed: a cost confirmation kept the old price and tick when an option changed (a changed option now closes it, and a new query resets the price and the tick); the eval and warm-cache confirmations stayed open after the answers or facts-only box changed; a backup download holds the archive in the browser's memory (the page warns above 200 MB and the guide points to `curl` for a large archive). Also fixed: a poll in flight could undo a cancel for 1 poll, the slot notice said a heavy job waits (it is refused with 409), the guide gave 1 interval for the list and the card, the debug page uses 2 questions of the rate limit per run, a result with only nested fields showed nothing, duplicate watch row keys for another user's rows, the focus returns to the button that opened a confirmation and moves into the cost panel, only the job store's own 503 counts as an admin in the role probe, and the add, watch, and cancel buttons turn off while their request runs. Kept: the footer links stay buttons, as the existing footer links are.
+- Decisions taken without review: the role comes from a 403 probe of the jobs route, the cheapest admin route, since no endpoint names the caller's role outside the history; the Companies and Debug pages are open to every role (the watch list read and the debug routes are), the others are admin-only. The pages live at `/companies`, `/jobs`, `/users`, `/system`, and `/debug`, not under an `/admin` prefix, so the watch list path reads the same for every role. The add-job e2e uses ZTS, whose 10-K and 10-Q responses are recorded in the repository.
+- Attempts: 1.
+
 ## Gaps
 
 Values that were not available when the build needed them, and what the build did instead.

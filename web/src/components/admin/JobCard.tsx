@@ -44,7 +44,9 @@ export function JobCard({
 }: JobCardProps): JSX.Element {
   const {job, error, replace} = useJob(id, initial, onFinal);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
   const onCancel = (): void => {
+    setCancelling(true);
     cancelJob(id)
       .then(replace)
       .catch((failure: unknown) =>
@@ -53,7 +55,8 @@ export function JobCard({
             ? 'The job already started; a running job runs to its end.'
             : 'The cancel failed.',
         ),
-      );
+      )
+      .finally(() => setCancelling(false));
   };
   const params = Object.entries(job?.params ?? {});
   const log = job?.log ?? [];
@@ -76,6 +79,7 @@ export function JobCard({
             <button
               type="button"
               className="btn"
+              disabled={cancelling}
               data-testid="job-cancel"
               onClick={onCancel}
             >

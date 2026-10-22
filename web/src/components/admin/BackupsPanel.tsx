@@ -1,5 +1,5 @@
 import type {JSX} from 'react';
-import {useState} from 'react';
+import {useRef, useState} from 'react';
 
 import {backupPath} from '../../api/admin';
 import type {BackupList, Job} from '../../api/types';
@@ -9,6 +9,12 @@ import {JobFeedback} from './JobFeedback';
 import {OpsPanelHead} from './OpsPanelHead';
 import {TypedConfirm} from './TypedConfirm';
 import {useJobLauncher} from './useJobLauncher';
+
+/**
+ * The size above which the page warns that the browser holds the whole
+ * archive in memory before it saves it.
+ */
+export const LARGE_ARCHIVE = 200 * 1024 * 1024;
 
 /** Props of BackupsPanel. */
 export interface BackupsPanelProps {
@@ -34,8 +40,13 @@ export function BackupsPanel({
   const [indexOnly, setIndexOnly] = useState(false);
   const [restoring, setRestoring] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const onDownload = (name: string): void => {
-    setNotice(`Downloading ${name}.`);
+  const backupNow = useRef<HTMLButtonElement>(null);
+  const onDownload = (name: string, size: number): void => {
+    setNotice(
+      size > LARGE_ARCHIVE
+        ? `Downloading ${name} (${bytes(size)}): the browser holds it in memory first; for a large archive prefer curl or the host.`
+        : `Downloading ${name}.`,
+    );
     downloadFile(backupPath(name), name)
       .then(saved => setNotice(`Saved ${saved}.`))
       .catch(() => setNotice(`${name} could not be downloaded.`));
@@ -49,6 +60,7 @@ export function BackupsPanel({
             type="button"
             className="btn btn-primary"
             disabled={state.kind === 'sending'}
+            ref={backupNow}
             data-testid="backup-now"
             onClick={() =>
               launch({kind: 'backup', params: {index_only: indexOnly}})
@@ -76,7 +88,10 @@ export function BackupsPanel({
             expected={restoring}
             actionLabel="Restore"
             testId="restore-confirm"
-            onCancel={() => setRestoring(null)}
+            onCancel={() => {
+              setRestoring(null);
+              backupNow.current?.focus();
+            }}
             onConfirm={typed => {
               setRestoring(null);
               launch({
@@ -102,70 +117,53 @@ export function BackupsPanel({
             No archives in the backup directory yet.
           </p>
         ) : (
-          <div className="overflow-x-auto border border-line">
-            <table className="grid-table" data-testid="backups-table">
-              <thead>
-                <tr>
-                  <th scope="col">Archive</th>
-                  <th scope="col" className="text-right">
-                    Size
-                  </th>
-                  <th scope="col">Created</th>
-                  <th scope="col">SHA-256</th>
-                  <th scope="col">
-                    <span className="sr-only">Actions</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {backups.items.map(item => (
-                  <tr
-                    key={item.name}
-                    data-testid="backup-row"
-                    data-name={item.name}
-                  >
-                    <td className="whitespace-nowrap font-mono text-[11.5px]">
-                      {item.name}
-                    </td>
-                    <td className="cell-num text-[11.5px]">
-                      {bytes(item.size_bytes)}
-                    </td>
-                    <td className="num whitespace-nowrap text-[11.5px] text-ink-2">
-                      {when(item.created_at)}
-                    </td>
-                    <td
-                      className="num text-[11px] text-muted"
-                      title={item.sha256 ?? undefined}
-                    >
+          <ul
+            className="divide-y divide-line border border-line"
+            aria-label="Backup archives"
+            data-testid="backups-table"
+          >
+            {backups.items.map(item => (
+              <li
+                key={item.name}
+                className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-2.5 py-2 odd:bg-raised"
+                data-testid="backup-row"
+                data-name={item.name}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="font-mono text-[12px] font-semibold text-ink [overflow-wrap:anywhere]">
+                    {item.name}
+                  </p>
+                  <p className="num text-[11px] text-muted">
+                    {bytes(item.size_bytes)} · {when(item.created_at)} ·{' '}
+                    <span title={item.sha256 ?? undefined}>
+                      sha256{' '}
                       {item.sha256 === null ? '--' : item.sha256.slice(0, 12)}
-                    </td>
-                    <td>
-                      <span className="flex justify-end gap-1.5">
-                        <button
-                          type="button"
-                          className="btn"
-                          aria-label={`Download ${item.name}`}
-                          data-testid="backup-download"
-                          onClick={() => onDownload(item.name)}
-                        >
-                          Download
-                        </button>
-                        <button
-                          type="button"
-                          className="btn"
-                          aria-label={`Restore ${item.name}`}
-                          data-testid="backup-restore"
-                          onClick={() => setRestoring(item.name)}
-                        >
-                          Restore
-                        </button>
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </span>
+                  </p>
+                </div>
+                <span className="flex gap-1.5">
+                  <button
+                    type="button"
+                    className="btn"
+                    aria-label={`Download ${item.name}`}
+                    data-testid="backup-download"
+                    onClick={() => onDownload(item.name, item.size_bytes)}
+                  >
+                    Download
+                  </button>
+                  <button
+                    type="button"
+                    className="btn"
+                    aria-label={`Restore ${item.name}`}
+                    data-testid="backup-restore"
+                    onClick={() => setRestoring(item.name)}
+                  >
+                    Restore
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </section>

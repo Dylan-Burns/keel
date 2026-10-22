@@ -32,8 +32,8 @@ if (container === null) {
 // page and `/compsets` the comp sets page (27.2), `/help` the data use page
 // (27.2), `/companies` the watch list and the company jobs, `/jobs` and
 // `/jobs/{id}` the admin jobs, `/users` and `/system` the other admin
-// pages, `/debug` the debug page; every other path is the question page, which reads the shared
-// answer route `/a/{request_id}` itself.
+// pages, `/debug` the debug page; every other path is the question page,
+// which reads the shared answer route `/a/{request_id}` itself.
 const path = window.location.pathname.replace(/\/+$/, '');
 const page =
   path === '/eval' ? (

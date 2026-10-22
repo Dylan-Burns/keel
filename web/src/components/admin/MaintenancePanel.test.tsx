@@ -138,4 +138,30 @@ describe('MaintenancePanel', () => {
     await waitFor(() => expect(posts(calls)).toHaveLength(1));
     expect(posts(calls)[0]).not.toHaveProperty('confirm');
   });
+
+  it('closes the cost confirmation when an option changes', async () => {
+    routeFetch({'GET /api/admin/costs/preview': {body: ESTIMATE}});
+    render(<MaintenancePanel onDone={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('eval-answers'));
+    fireEvent.click(screen.getByTestId('eval-run'));
+    expect(await screen.findByTestId('eval-confirm-usd')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('eval-confirm-accept'));
+    // Unticking the answers closes the panel: its price no longer applies.
+    fireEvent.click(screen.getByTestId('eval-answers'));
+    expect(screen.queryByTestId('eval-confirm')).toBeNull();
+    fireEvent.click(screen.getByTestId('eval-answers'));
+    fireEvent.click(screen.getByTestId('eval-run'));
+    expect(await screen.findByTestId('eval-confirm-accept')).not.toBeChecked();
+  });
+
+  it('returns the focus to the button that opened a confirmation', () => {
+    routeFetch({});
+    render(<MaintenancePanel onDone={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('index-rebuild'));
+    expect(screen.getByTestId('index-confirm-input')).toHaveFocus();
+    fireEvent.keyDown(screen.getByTestId('index-confirm-input'), {
+      key: 'Escape',
+    });
+    expect(screen.getByTestId('index-rebuild')).toHaveFocus();
+  });
 });

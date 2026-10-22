@@ -58,6 +58,7 @@ export function UsersPanel(): JSX.Element {
   const [created, setCreated] = useState<UserCreated | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
   useEffect(() => {
     let cancelled = false;
     fetchUsers()
@@ -84,6 +85,7 @@ export function UsersPanel(): JSX.Element {
       return;
     }
     setNotice(null);
+    setSending(true);
     addUser(value, role)
       .then(user => {
         setCreated(user);
@@ -92,7 +94,8 @@ export function UsersPanel(): JSX.Element {
       })
       .catch((error: unknown) =>
         setNotice(messageOf(error, 'The user could not be added.')),
-      );
+      )
+      .finally(() => setSending(false));
   };
   const onRemove = (user: string): void => {
     removeUser(user)
@@ -149,6 +152,7 @@ export function UsersPanel(): JSX.Element {
             <button
               type="submit"
               className="btn btn-primary"
+              disabled={sending}
               data-testid="user-add"
             >
               Add user

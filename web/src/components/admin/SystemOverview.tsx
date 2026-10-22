@@ -13,7 +13,7 @@ export interface SystemOverviewProps {
 
 /**
  * The service, the index build, the corpus inventory (`keel inventory`),
- * the budget, and the scheduler of the system page, as 4 stat panels.
+ * the budget, and the scheduler of the system page, as 3 stat panels.
  *
  * @param props The props.
  * @return The panels.

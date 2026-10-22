@@ -1,5 +1,5 @@
 import type {JSX} from 'react';
-import {useState} from 'react';
+import {useRef, useState} from 'react';
 
 import type {Job} from '../../api/types';
 import {CostConfirm} from './CostConfirm';
@@ -22,7 +22,8 @@ type Asking = 'none' | 'index' | 'warm' | 'eval';
  * typed `rebuild` with the memory and time warning), Warm cache
  * (`keel warm-cache`) and Run eval (`keel eval`), each behind the cost
  * preview and an explicit tick before it sends `confirm: "cost"` when it
- * calls the model.
+ * calls the model. Changing an option closes an open confirmation, so a
+ * price or a parameter set is never confirmed for another run.
  *
  * @param props The props.
  * @return The panel.
@@ -38,7 +39,22 @@ export function MaintenancePanel({onDone}: MaintenancePanelProps): JSX.Element {
   const [ablation, setAblation] = useState(true);
   const [subset, setSubset] = useState('');
   const subsetValue = subset.trim() === '' ? null : subset.trim();
-  const close = (): void => setAsking('none');
+  const indexButton = useRef<HTMLButtonElement>(null);
+  const warmButton = useRef<HTMLButtonElement>(null);
+  const evalButton = useRef<HTMLButtonElement>(null);
+  // Closing a confirmation returns the focus to the button that opened it.
+  const close = (): void => {
+    const opener =
+      asking === 'index'
+        ? indexButton
+        : asking === 'warm'
+          ? warmButton
+          : asking === 'eval'
+            ? evalButton
+            : null;
+    opener?.current?.focus();
+    setAsking('none');
+  };
   const busy = state.kind === 'sending';
   return (
     <section
@@ -60,6 +76,7 @@ export function MaintenancePanel({onDone}: MaintenancePanelProps): JSX.Element {
               type="button"
               className="btn"
               disabled={busy}
+              ref={indexButton}
               data-testid="index-rebuild"
               onClick={() => setAsking('index')}
             >
@@ -109,6 +126,7 @@ export function MaintenancePanel({onDone}: MaintenancePanelProps): JSX.Element {
               type="button"
               className="btn"
               disabled={busy}
+              ref={warmButton}
               data-testid="warm-cache"
               onClick={() =>
                 factsOnly
@@ -127,7 +145,10 @@ export function MaintenancePanel({onDone}: MaintenancePanelProps): JSX.Element {
                 className="h-4 w-4 accent-[var(--k-accent)]"
                 checked={warmRefresh}
                 disabled={factsOnly}
-                onChange={event => setWarmRefresh(event.target.checked)}
+                onChange={event => {
+                  setWarmRefresh(event.target.checked);
+                  setAsking('none');
+                }}
               />
               Answer every demo question again
             </label>
@@ -136,7 +157,10 @@ export function MaintenancePanel({onDone}: MaintenancePanelProps): JSX.Element {
                 type="checkbox"
                 className="h-4 w-4 accent-[var(--k-accent)]"
                 checked={factsOnly}
-                onChange={event => setFactsOnly(event.target.checked)}
+                onChange={event => {
+                  setFactsOnly(event.target.checked);
+                  setAsking('none');
+                }}
               />
               Facts only (no model request)
             </label>
@@ -177,7 +201,10 @@ export function MaintenancePanel({onDone}: MaintenancePanelProps): JSX.Element {
                 className="h-4 w-4 accent-[var(--k-accent)]"
                 checked={answers}
                 data-testid="eval-answers"
-                onChange={event => setAnswers(event.target.checked)}
+                onChange={event => {
+                  setAnswers(event.target.checked);
+                  setAsking('none');
+                }}
               />
               Answer the golden questions (calls the model)
             </label>
@@ -187,7 +214,10 @@ export function MaintenancePanel({onDone}: MaintenancePanelProps): JSX.Element {
                 className="h-4 w-4 accent-[var(--k-accent)]"
                 checked={judge}
                 disabled={!answers}
-                onChange={event => setJudge(event.target.checked)}
+                onChange={event => {
+                  setJudge(event.target.checked);
+                  setAsking('none');
+                }}
               />
               Judge
             </label>
@@ -196,7 +226,10 @@ export function MaintenancePanel({onDone}: MaintenancePanelProps): JSX.Element {
                 type="checkbox"
                 className="h-4 w-4 accent-[var(--k-accent)]"
                 checked={ablation}
-                onChange={event => setAblation(event.target.checked)}
+                onChange={event => {
+                  setAblation(event.target.checked);
+                  setAsking('none');
+                }}
               />
               Ablation
             </label>
@@ -207,13 +240,17 @@ export function MaintenancePanel({onDone}: MaintenancePanelProps): JSX.Element {
                 value={subset}
                 placeholder="G-01,G-02 or a tag"
                 maxLength={200}
-                onChange={event => setSubset(event.target.value)}
+                onChange={event => {
+                  setSubset(event.target.value);
+                  setAsking('none');
+                }}
               />
             </label>
             <button
               type="button"
               className="btn"
               disabled={busy}
+              ref={evalButton}
               data-testid="eval-run"
               onClick={() =>
                 answers
