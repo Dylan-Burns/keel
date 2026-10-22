@@ -635,12 +635,21 @@ def test_read_routes(client, api_settings) -> None:
         "provider_key": True,
     }
     assert ready["index_corrupt"] is False
-    assert ready["breaker"] == {"state": "closed", "failures": 0, "retry_in": 0}
-    assert ready["budget"] == {
+    assert ready["breaker"] == "closed"
+    assert ready["budget_stopped"] is False
+    details = client.get("/api/status", headers=AUTH).json()
+    assert details["breaker"] == {
+        "state": "closed",
+        "failures": 0,
+        "retry_in": 0,
+    }
+    assert details["budget"] == {
         "daily_usd": api_settings.limits.daily_budget_usd,
         "spent_usd": 0.0,
         "stopped": False,
     }
+    assert details["model"] == api_settings.llm.model
+    assert client.get("/api/status").status_code == 401
     coverage = client.get("/api/coverage", headers=AUTH).json()
     assert [c["ticker"] for c in coverage["companies"]] == [
         "AAPL",
@@ -779,6 +788,8 @@ def test_serve_command(monkeypatch, settings) -> None:
             "port": 8101,
             "log_level": "info",
             "proxy_headers": False,
+            "log_config": None,
+            "access_log": False,
         }
     ]
 
@@ -819,3 +830,29 @@ def test_services_load_corrupt_index(
     services.load()
     assert services.index_verified is False
     assert "does not match" in (services.index_error or "")
+
+
+def test_ready_exposes_no_spend_or_models(client, api_settings) -> None:
+    """S-06: /api/ready needs no token, so it holds no amount or model."""
+    response = client.get("/api/ready")
+    assert response.status_code == 200
+    text = response.text
+    for hidden in (
+        api_settings.llm.model,
+        api_settings.llm.fallback_model,
+        "spent",
+        "daily_usd",
+        "failures",
+        "retry_in",
+    ):
+        assert hidden not in text
+    assert set(response.json()) == {
+        "ready",
+        "index_version",
+        "checks",
+        "index_corrupt",
+        "offline",
+        "breaker",
+        "budget_stopped",
+        "answer_cache",
+    }

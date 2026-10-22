@@ -212,5 +212,9 @@ def serve(
         port=chosen,
         log_level="info",
         proxy_headers=False,
+        # The root handlers with the redacting formatter (S-01), and no
+        # access log, which would hold each client address (S-14).
+        log_config=None,
+        access_log=False,
     )
     return 0
