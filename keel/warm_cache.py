@@ -27,6 +27,7 @@ import time
 from typing import Any
 
 from keel import answer
+from keel import cache
 from keel import config
 from keel import edgar
 from keel import errors
@@ -179,10 +180,7 @@ def demo_questions(
         normalization of the cache key) is listed once, under its ID.
     """
     questions: dict[str, DemoQuestion] = {}
-
-    def norm(text: str) -> str:
-        return understanding.normalize(text).casefold()
-
+    norm = cache.normalize_question
     for number, text in enumerate(examples, start=1):
         questions[norm(text)] = DemoQuestion(f"example {number}", text)
     for item in golden_set.questions if golden_set else ():
@@ -247,6 +245,23 @@ def _store(
     record: dict[str, Any],
     started: float,
 ) -> WarmResult:
+    """Classify 1 answered question and store a no-call refusal.
+
+    An out-of-scope response with 0 model requests is written here; any
+    other outcome counts as answered only when the cache entry now holds
+    this request (the pipeline wrote it), so a failed `--refresh` does not
+    pass for an old entry.
+
+    Args:
+        answerer: The pipeline that answered.
+        key: The cache key of the question.
+        label: The question label.
+        record: The final record of the request.
+        started: The `time.perf_counter` value at the start.
+
+    Returns:
+        The result.
+    """
     meta = record.get("meta") or {}
     outcome = str(record.get("outcome") or "")
     requests = int(meta.get("model_requests") or 0)
@@ -360,8 +375,9 @@ def run(
         printer: Prints 1 line of the report.
 
     Returns:
-        0 when every question has a cache entry and every ticker a facts
-        file, else 1.
+        0 when every question has a cache entry from this run or an
+        earlier one, no answer failed, and every ticker has a facts file;
+        else 1.
 
     Raises:
         ConfigError: Offline mode is on, or the prompt, the provider, or
@@ -403,5 +419,7 @@ def run(
         if answerer.cache.get(answerer.cache_key(q.text)) is not None
     )
     _print_summary(results, entries, printer)
+    failed = any(r.status == "failed" for r in results)
     complete = entries == len(questions) and not prefetch.failed
+    complete = complete and not failed
     return 0 if complete else 1

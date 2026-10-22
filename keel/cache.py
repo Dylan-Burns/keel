@@ -26,6 +26,18 @@ ENTRY_SUFFIX = ".json"
 DIRECTORY_MODE = 0o700
 
 
+def normalize_question(question: str) -> str:
+    """The question part of the key: normalized and case-folded.
+
+    Args:
+        question: The question as asked.
+
+    Returns:
+        The normalized question.
+    """
+    return understanding.normalize(question).casefold()
+
+
 def cache_key(
     question: str, index_version: str, prompt_version: str, model: str
 ) -> str:
@@ -40,8 +52,7 @@ def cache_key(
     Returns:
         The hex sha256 of the parts.
     """
-    normalized = understanding.normalize(question).casefold()
-    parts = [normalized, index_version, prompt_version, model]
+    parts = [normalize_question(question), index_version, prompt_version, model]
     return hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()
 
 

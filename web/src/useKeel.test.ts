@@ -60,6 +60,23 @@ describe('useKeel', () => {
     expect(window.sessionStorage.getItem(PENDING_REQUEST_KEY)).toBeNull();
   });
 
+  it('asks for a live answer, never the answer cache', async () => {
+    respond(toSseText(eventsFor(RESPONSE_2)));
+    const {result} = renderHook(() => useKeel());
+    await waitFor(() =>
+      expect(result.current.state.service.ready).not.toBeNull(),
+    );
+    act(() => result.current.ask('How has NVIDIA revenue changed?'));
+    await waitFor(() => expect(result.current.state.ui.kind).toBe('complete'));
+    const calls = vi.mocked(fetch).mock.calls;
+    const ask = calls.find(([path]) => path === '/api/ask');
+    const body: unknown = JSON.parse(String(ask?.[1]?.body));
+    expect(body).toEqual({
+      question: 'How has NVIDIA revenue changed?',
+      options: {use_cache: false},
+    });
+  });
+
   it('ends in provider_down when the body closes without an end event', async () => {
     respond(toSseText(eventsFor(RESPONSE_2).slice(0, 4)));
     const {result} = renderHook(() => useKeel());

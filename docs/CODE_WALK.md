@@ -7,30 +7,31 @@ that the module answers, and the 2 questions the panel is most likely to
 ask, with a short answer.
 
 The 3-minute rule: no stop may take more than 3 minutes. The 3 largest
-modules (`understanding.py` 1,822 lines, `retriever.py` 1,539 lines,
-`sections.py` 1,174 lines) are each split into 2 stops of at most 3
+pipeline modules before the call (`understanding.py` 1,822 lines,
+`retriever.py` 1,539 lines, `sections.py` 1,174 lines) are each split into 2 stops of at most 3
 minutes, so the walk splits the explanation instead of the code. If a stop
 still runs over in rehearsal, split the module before the demo (chapter
 25.6 step 5) and record the split in the build report.
 
-The numbers below are the measured ones of `docs/BUILD_REPORT.md` (index
-1.2.0: 246 files, 245 indexed, 1 quarantined, 63,688 chunks).
+The numbers below are the measured ones of `docs/BUILD_REPORT.md` (the
+1.2.0 counts are in its stage 15 entry, from the index manifest: 246
+files, 245 indexed, 1 quarantined, 63,688 chunks).
 
 ## Timing plan
 
 | Stop | Module | Minutes |
 | --- | --- | --- |
 | 1 | `keel/extractor.py`, `keel/inventory.py` | 1 |
-| 2 | `keel/parsers/form_10k_10q.py`, `keel/parsers/base.py`, `keel/parsers/corpus.py`, `keel/tables.py` | 2.5 |
-| 3a, 3b | `keel/sections.py` | 2 + 1 |
-| 4 | `keel/chunker.py` | 1.5 |
-| 5 | `keel/indexer.py`, `keel/stores/` | 1.5 |
-| 6a, 6b | `keel/understanding.py` | 1.5 + 1.5 |
-| 7a, 7b | `keel/retriever.py`, `keel/context.py` | 2 + 1.5 |
+| 2 | `keel/parsers/form_10k_10q.py`, `keel/parsers/base.py`, `keel/parsers/corpus.py`, `keel/tables.py` | 1.5 |
+| 3a, 3b | `keel/sections.py` | 1.5 + 1 |
+| 4 | `keel/chunker.py` | 1 |
+| 5 | `keel/indexer.py`, `keel/stores/` | 1 |
+| 6a, 6b | `keel/understanding.py` | 1 + 1 |
+| 7a, 7b | `keel/retriever.py`, `keel/context.py` | 1.5 + 1 |
 | 8 | `keel/edgar.py` | 1 |
 | 9 | `keel/prompt.py`, `prompts/` | 1 |
-| 10 | `keel/providers/`, `keel/partial_json.py` | 1 |
-| 11 | `keel/answer.py`, `keel/reliability.py` | 2 |
+| 10 | `keel/providers/`, `keel/partial_json.py` | 0.5 |
+| 11 | `keel/answer.py`, `keel/reliability.py` | 1.5 |
 | 12 | `keel/citations.py` | 1 |
 | 13 | `keel/cache.py`, `keel/audit.py`, `keel/warm_cache.py` | 1 |
 | 14 | `keel/api/`, `web/src/` | 1 |
@@ -132,7 +133,7 @@ The numbers below are the measured ones of `docs/BUILD_REPORT.md` (index
   resolves to a not-indexed company (the quarantine).
 - Q: Why no LLM for entity resolution? A: D-02: no model call before the
   answer. 6 ordered rules (alias, explicit ticker, guarded ticker, fuzzy at
-  0.88) resolve all 30 golden questions as labeled in 1 to 3 ms.
+  0.88) resolve the 30 questions of chapter 18 as labeled (stage 5 sweep) in 1 to 3 ms.
 - Q: What stops `cost` from resolving to Costco? A: lower-case aliases that
   are English words never match; short tickers need upper case and a
   position guard.
@@ -232,8 +233,10 @@ The numbers below are the measured ones of `docs/BUILD_REPORT.md` (index
 
 - Files: `keel/cache.py` (`cache_key`, `AnswerCache`), `keel/audit.py`,
   `keel/warm_cache.py` (`prefetch_facts`, `demo_questions`, `warm_answers`).
-- Q: When is the cache used? A: only offline, after a provider failure
-  before content, or on a spent budget; the key holds the index, prompt,
+- Q: When is the cache used? A: offline, after a provider failure before
+  content, or on a spent budget; the page asks with `use_cache: false`, so
+  a live demo question always calls the model (an API client that keeps
+  the chapter 14.2 default `true` gets a cached answer); the key holds the index, prompt,
   and model versions, so a stale entry never hits.
 - Q: What is in the audit line? A: the request, the retrieval trace, the
   tokens, the cost, the flags; never the prompt or a key (S-07).
