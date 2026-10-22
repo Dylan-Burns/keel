@@ -335,6 +335,7 @@ def test_output_mode_of_each_version() -> None:
     assert modes["1.2.0"] == "tool"
     assert modes["1.3.0"] == "json_schema"
     assert modes["1.4.0"] == "json_schema"
+    assert modes["1.5.0"] == "json_schema"
 
 
 FACTS_VERSION = "1.4.0"
@@ -429,3 +430,22 @@ def test_wants_facts() -> None:
     assert prompt.wants_facts(numeric())
     assert not prompt.wants_facts(analysis())
     assert not prompt.wants_facts(numeric().model_copy(update={"tickers": ()}))
+
+
+def test_claim_support_rules_keep_the_user_block() -> None:
+    """1.5.0 changes only the system block (rules 3, 7, 11, and 17)."""
+    files = prompt.PromptFiles.load("1.5.0")
+    before = prompt.PromptFiles.load("1.4.0")
+    assert files.schema == before.schema
+    assert files.takes_facts
+    line = fact_line()
+    new = prompt.build_bundle(files, numeric(), built(), [], [line])
+    old = prompt.build_bundle(before, numeric(), built(), [], [line])
+    assert new.user == old.user
+    assert new.fact_ids == old.fact_ids
+    assert files.system != before.system
+    text = " ".join(files.system.split())
+    assert "stated in a chunk cited in that sentence" in text
+    assert "A prior-year column gets an end date only if" in text
+    assert "cites a chunk of both filings" in text
+    assert "cites a chunk of each" in text
