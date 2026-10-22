@@ -151,8 +151,9 @@ def log_export(
             os.O_WRONLY | os.O_APPEND | os.O_CREAT,
             audit.FILE_MODE,
         )
-        os.fchmod(handle, audit.FILE_MODE)  # also tighten an older file
         with os.fdopen(handle, "a", encoding="utf-8") as stream:
+            # Also tighten an older file; the stream closes on a failure.
+            os.fchmod(stream.fileno(), audit.FILE_MODE)
             stream.write(text + "\n")
     except (OSError, TypeError, ValueError) as error:
         logger.error("export log write failed: %s", type(error).__name__)
