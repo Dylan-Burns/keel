@@ -24,13 +24,20 @@ SECRET_NAME = re.compile(r"(KEY|TOKEN)$", re.IGNORECASE)
 _PATTERNS = (
     re.compile(r"sk-ant-[A-Za-z0-9_\-]{8,}"),
     re.compile(r"(?i)(bearer\s+)[A-Za-z0-9._~+/=\-]{8,}"),
-    # NAME_KEY=value, NAME_TOKEN: value, "api_key": "value": a name of at
-    # least 1 character before KEY or TOKEN, so "cache key: <hash>" stays.
+    # Query strings: ?token=...&, &api_key=...; the value stops at & or #.
+    re.compile(r"(?i)([?&][A-Z0-9_\-]*(?:KEY|TOKEN)=)[^&#\s'\"]{8,}"),
+    # key=..., token: ..., NAME_KEY=..., x-api-key: ..., "api_key": "..."
+    # a value that the query pattern already masked is left as it is:
+    # any name that ends in KEY or TOKEN, prefix optional; the value runs to
+    # the next space, quote, comma, or semicolon.
     re.compile(
-        r"(?i)\b([A-Z0-9_]+(?:KEY|TOKEN)['\"]?\s*[=:]\s*['\"]?)"
+        r"(?i)(?<![A-Z0-9_\-])"
+        r"(([A-Z0-9_\-]*)(?:KEY|TOKEN)['\"]?\s*[=:]\s*['\"]?)"
         r"[^\s'\",;]{8,}"
     ),
 )
+# The 1 benign phrase that the name pattern matches: "cache key: <hash>".
+_BENIGN_PREFIX = "cache "
 
 
 def secret_values(
@@ -75,9 +82,33 @@ def redact(text: str, secrets: Iterable[str] = ()) -> str:
         if value:
             text = text.replace(value, MASK)
     text = _PATTERNS[0].sub(MASK, text)
-    for pattern in _PATTERNS[1:]:
+    for pattern in _PATTERNS[1:3]:
         text = pattern.sub(lambda m: m.group(1) + MASK, text)
-    return text
+    return _PATTERNS[3].sub(_mask_named_value, text)
+
+
+def _mask_named_value(match: re.Match[str]) -> str:
+    """Mask 1 `name=value` match unless it is the phrase `cache key`.
+
+    A query parameter (the name follows `?` or `&`) whose value is exactly
+    the mask, ended by the text end, `&`, or `#`, was masked by the query
+    pattern and stays as it is; every other value is masked again.
+    """
+    value = match.group(0)[len(match.group(1)) :]
+    rest = value[len(MASK) :]
+    start = match.start()
+    in_query = start > 0 and match.string[start - 1] in "?&"
+    if in_query and value.startswith(MASK) and (not rest or rest[0] in "&#"):
+        # Keep the mask, then redact what follows it: the tail can hold
+        # another parameter such as `&api_key=...`.
+        return match.group(1) + MASK + redact(rest)
+    bare_key = match.group(2) == "" and match.group(1)[:3].lower() == "key"
+    if bare_key:
+        start = match.start()
+        window = match.string[max(0, start - len(_BENIGN_PREFIX)) : start]
+        if window.lower() == _BENIGN_PREFIX:
+            return match.group(0)
+    return match.group(1) + MASK
 
 
 class RedactingFormatter(logging.Formatter):

@@ -155,3 +155,89 @@ def test_short_service_token_masked(settings: config.Settings) -> None:
     )
     found = security.secret_values({"X_TOKEN": "short"}, loaded)
     assert found == ["abc12"]
+
+
+@pytest.mark.parametrize(
+    ("text", "kept"),
+    [
+        ("token=" + "abcdefgh123", "token="),
+        ("KEY: " + "q" * 12, "KEY: "),
+        ("x-api-key: " + "w" * 12, "x-api-key: "),
+        ("Authorization: Bearer sk-" + "ant-" + "e" * 20, "Bearer "),
+        ("GET /x?token=" + "r" * 12 + "&x=1", "&x=1"),
+        ("GET /x?a=1&api_key=" + "t" * 12, "?a=1&api_key="),
+        ("ANTHROPIC_API_KEY=sk-" + "ant-" + "y" * 20, "ANTHROPIC_API_KEY="),
+    ],
+)
+def test_redact_names_headers_and_queries(text: str, kept: str) -> None:
+    masked = security.redact(text)
+    assert security.MASK in masked
+    assert kept in masked
+    secret = text.split(kept if kept != "&x=1" else "=", 1)[-1]
+    secret = secret.removesuffix("&x=1").removeprefix("sk-")
+    assert secret not in masked
+
+
+def test_redact_keeps_cache_key_readable() -> None:
+    for text in ("cache key yyyyyyyyyyyy", "cache key: " + "0" * 16):
+        assert security.redact(text) == text
+
+
+@pytest.mark.parametrize(
+    ("text", "secret"),
+    [
+        ("token=qq&qq#qq?qqqqqqqq", "qq&qq#qq?qqqqqqqq"),
+        ("x-api-key: q?q&q#qqqqqqqq", "q?q&q#qqqqqqqq"),
+        ("cache api_key=zzzzzzzzzzzz", "zzzzzzzzzzzz"),
+        ("cache token=zzzzzzzzzzzz", "zzzzzzzzzzzz"),
+        ("GET /x?api_key=zzzzzzzzzzzz&y=1", "zzzzzzzzzzzz"),
+    ],
+)
+def test_redact_full_values_and_narrow_exclusion(
+    text: str, secret: str
+) -> None:
+    out = security.redact(text)
+    assert secret not in out
+    assert security.MASK in out
+
+
+def test_redact_keeps_cache_key_phrase() -> None:
+    assert (
+        security.redact("cache key: yyyyyyyyyyyy") == "cache key: yyyyyyyyyyyy"
+    )
+
+
+def test_redact_cannot_be_bypassed_with_a_mask_prefix() -> None:
+    out = security.redact("token=[REDACTED]qqqqqqqqqqqq")
+    assert "qqqqqqqqqqqq" not in out
+
+
+def test_redact_long_line_is_linear() -> None:
+    line = "key=zzzzzzzzzzzz " * 20000
+    out = security.redact(line)
+    assert "zzzzzzzzzzzz" not in out
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "GET /x?token: zzzzzzzzzzzz",
+        'POST /y&api_key="zzzzzzzzzzzz"',
+        "GET /z&token = zzzzzzzzzzzz",
+    ],
+)
+def test_redact_query_names_in_other_forms(text: str) -> None:
+    assert "zzzzzzzzzzzz" not in security.redact(text)
+
+
+def test_redact_mask_skip_only_in_a_query() -> None:
+    out = security.redact("token=[REDACTED]&zzzzzzzzzzzz")
+    assert "zzzzzzzzzzzz" not in out
+    kept = security.redact("GET /x?token=rrrrrrrrrrrr&x=1")
+    assert kept.endswith("&x=1")
+
+
+def test_redact_tail_after_a_masked_query_value() -> None:
+    out = security.redact("GET /x?token=[REDACTED]&api_key=zzzzzzzzzzzz&y=1")
+    assert "zzzzzzzzzzzz" not in out
+    assert out.endswith("&y=1")
