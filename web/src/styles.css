@@ -1,21 +1,564 @@
 @import 'tailwindcss';
 
-/* Theme tokens for Tailwind CSS 4 (no tailwind.config.js). */
-@theme {
-  --color-ink: #0f172a;
-  --color-paper: #f8fafc;
-  --color-accent: #0e7490;
-  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+/*
+ * Keel terminal theme. The raw palette lives in CSS variables on the root
+ * element: light by default, dark under [data-theme='dark'] (the toggle and
+ * public/theme-init.js set it), and dark under a dark system setting when no
+ * script ran (a static export). Components use only the semantic classes
+ * that the @theme block below maps to these variables, so 1 class serves
+ * both themes. Every text pair here meets WCAG AA in both themes.
+ */
+:root {
+  --k-canvas: #dfe4eb;
+  --k-panel: #ffffff;
+  --k-head: #f1f4f8;
+  --k-raised: #f6f8fb;
+  --k-field: #ffffff;
+  --k-line: #d3dae3;
+  --k-line-strong: #aeb8c5;
+  --k-ink: #0d1520;
+  --k-ink-2: #29374a;
+  --k-muted: #546173;
+  --k-accent: #0b6aa2;
+  --k-on-accent: #ffffff;
+  --k-up: #04764f;
+  --k-down: #b4232a;
+  --k-warn: #8f5a00;
+  --k-shadow: 0 1px 0 rgb(13 21 32 / 4%);
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --k-canvas: #05080d;
+  --k-panel: #0d131c;
+  --k-head: #111925;
+  --k-raised: #141d2a;
+  --k-field: #090e15;
+  --k-line: #1f2a39;
+  --k-line-strong: #2f3e52;
+  --k-ink: #e1e8f1;
+  --k-ink-2: #bcc7d5;
+  --k-muted: #8796aa;
+  --k-accent: #38b6f0;
+  --k-on-accent: #031019;
+  --k-up: #2fd08c;
+  --k-down: #ff6b6b;
+  --k-warn: #f4b740;
+  --k-shadow: none;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --k-canvas: #05080d;
+    --k-panel: #0d131c;
+    --k-head: #111925;
+    --k-raised: #141d2a;
+    --k-field: #090e15;
+    --k-line: #1f2a39;
+    --k-line-strong: #2f3e52;
+    --k-ink: #e1e8f1;
+    --k-ink-2: #bcc7d5;
+    --k-muted: #8796aa;
+    --k-accent: #38b6f0;
+    --k-on-accent: #031019;
+    --k-up: #2fd08c;
+    --k-down: #ff6b6b;
+    --k-warn: #f4b740;
+    --k-shadow: none;
+    color-scheme: dark;
+  }
+}
+
+/* The dark: variant follows the resolved theme, not the media query. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+@theme inline {
+  --color-canvas: var(--k-canvas);
+  --color-panel: var(--k-panel);
+  --color-head: var(--k-head);
+  --color-raised: var(--k-raised);
+  --color-field: var(--k-field);
+  --color-line: var(--k-line);
+  --color-line-strong: var(--k-line-strong);
+  --color-ink: var(--k-ink);
+  --color-ink-2: var(--k-ink-2);
+  --color-muted: var(--k-muted);
+  --color-accent: var(--k-accent);
+  --color-on-accent: var(--k-on-accent);
+  --color-up: var(--k-up);
+  --color-down: var(--k-down);
+  --color-warn: var(--k-warn);
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    monospace;
+}
+
+@layer base {
+  html {
+    background: var(--k-canvas);
+    color: var(--k-ink);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background: var(--k-canvas);
+    color: var(--k-ink);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--k-accent);
+    outline-offset: 1px;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--k-accent) 30%, transparent);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--k-muted);
+    opacity: 1;
+  }
+}
+
+@layer components {
+  /* A pane of the terminal: a hairline frame, a title strip, a body. */
+  .panel {
+    min-width: 0;
+    border: 1px solid var(--k-line);
+    border-radius: 2px;
+    background: var(--k-panel);
+    box-shadow: var(--k-shadow);
+  }
+
+  .panel-head {
+    display: flex;
+    min-height: 1.875rem;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.75rem;
+    border-bottom: 1px solid var(--k-line);
+    background: var(--k-head);
+    padding: 0.25rem 0.625rem;
+  }
+
+  .panel-title {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--k-muted);
+  }
+
+  .panel-title::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin-right: 0.5rem;
+    vertical-align: 1px;
+    background: var(--k-accent);
+  }
+
+  .panel-body {
+    padding: 0.75rem;
+  }
+
+  /* A small label inside a pane: FINDINGS, GAPS, NEXT. */
+  .section-title {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--k-muted);
+  }
+
+  .num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .btn {
+    display: inline-flex;
+    min-height: 1.75rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    border: 1px solid var(--k-line-strong);
+    border-radius: 2px;
+    background: var(--k-raised);
+    padding: 0.125rem 0.625rem;
+    font-size: 12px;
+    color: var(--k-ink);
+    white-space: nowrap;
+  }
+
+  .btn:hover:not(:disabled) {
+    border-color: var(--k-accent);
+    color: var(--k-accent);
+  }
+
+  /* Disabled by color, not opacity: an opacity below 1 reads as motion
+     to the reduced-motion end-to-end check. */
+  .btn:disabled {
+    cursor: not-allowed;
+    border-color: var(--k-line);
+    background: transparent;
+    color: var(--k-muted);
+  }
+
+  .btn-primary:disabled {
+    border-color: var(--k-line-strong);
+    background: var(--k-raised);
+    color: var(--k-muted);
+  }
+
+  .btn[aria-pressed='true'] {
+    border-color: var(--k-accent);
+    background: color-mix(in srgb, var(--k-accent) 14%, var(--k-panel));
+    color: var(--k-ink);
+  }
+
+  .btn-primary {
+    border-color: var(--k-accent);
+    background: var(--k-accent);
+    font-family: var(--font-mono);
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--k-on-accent);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--k-accent) 86%, var(--k-ink));
+    color: var(--k-on-accent);
+  }
+
+  .btn-danger {
+    border-color: var(--k-down);
+    background: var(--k-down);
+    color: var(--k-panel);
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    color: var(--k-panel);
+    background: color-mix(in srgb, var(--k-down) 86%, var(--k-ink));
+  }
+
+  .link {
+    color: var(--k-accent);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--k-accent) 45%, transparent);
+    text-underline-offset: 2px;
+  }
+
+  .link:hover {
+    text-decoration-color: var(--k-accent);
+  }
+
+  /* A question chip: example, template, next question. */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--k-line-strong);
+    border-radius: 2px;
+    background: var(--k-raised);
+    padding: 0.1875rem 0.5rem;
+    font-size: 12px;
+    color: var(--k-ink-2);
+    text-align: left;
+  }
+
+  .chip:hover:not(:disabled) {
+    border-color: var(--k-accent);
+    color: var(--k-accent);
+  }
+
+  .chip:disabled {
+    cursor: not-allowed;
+    border-color: var(--k-line);
+    background: transparent;
+    color: var(--k-muted);
+  }
+
+  /* A ticker tag: a citation, a company, a coverage or confidence mark. */
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border: 1px solid var(--k-line-strong);
+    border-radius: 2px;
+    background: var(--k-raised);
+    padding: 0 0.3125rem;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.125rem;
+    color: var(--k-ink-2);
+    white-space: nowrap;
+  }
+
+  .tag-accent {
+    border-color: color-mix(in srgb, var(--k-accent) 50%, transparent);
+    background: color-mix(in srgb, var(--k-accent) 10%, var(--k-panel));
+    color: var(--k-accent);
+  }
+
+  .tag-up {
+    border-color: color-mix(in srgb, var(--k-up) 50%, transparent);
+    background: color-mix(in srgb, var(--k-up) 10%, var(--k-panel));
+    color: var(--k-up);
+  }
+
+  .tag-down {
+    border-color: color-mix(in srgb, var(--k-down) 50%, transparent);
+    background: color-mix(in srgb, var(--k-down) 10%, var(--k-panel));
+    color: var(--k-down);
+  }
+
+  .tag-warn {
+    border-color: color-mix(in srgb, var(--k-warn) 55%, transparent);
+    background: color-mix(in srgb, var(--k-warn) 10%, var(--k-panel));
+    color: var(--k-warn);
+  }
+
+  button.tag-accent:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--k-accent) 22%, var(--k-panel));
+  }
+
+  .input {
+    border: 1px solid var(--k-line-strong);
+    border-radius: 2px;
+    background: var(--k-field);
+    padding: 0.25rem 0.5rem;
+    font-size: 12px;
+    color: var(--k-ink);
+  }
+
+  .input:focus {
+    border-color: var(--k-accent);
+    outline: none;
+    box-shadow: 0 0 0 1px var(--k-accent);
+  }
+
+  /* A notice strip: a banner, the shared answer note, a card. */
+  .notice {
+    border: 1px solid var(--k-line-strong);
+    border-left-width: 3px;
+    border-radius: 2px;
+    background: var(--k-panel);
+    padding: 0.5rem 0.75rem;
+    color: var(--k-ink);
+  }
+
+  .notice-down {
+    border-color: color-mix(in srgb, var(--k-down) 55%, transparent);
+    border-left-color: var(--k-down);
+    background: color-mix(in srgb, var(--k-down) 8%, var(--k-panel));
+  }
+
+  .notice-warn {
+    border-color: color-mix(in srgb, var(--k-warn) 55%, transparent);
+    border-left-color: var(--k-warn);
+    background: color-mix(in srgb, var(--k-warn) 8%, var(--k-panel));
+  }
+
+  /* The status strip of the top bar. */
+  .stat {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.375rem;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    color: var(--k-ink);
+  }
+
+  .stat-label {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--k-muted);
+  }
+
+  .segmented {
+    display: inline-flex;
+    border: 1px solid var(--k-line-strong);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .segmented-option {
+    padding: 0.125rem 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--k-muted);
+    background: var(--k-raised);
+  }
+
+  .segmented-option + .segmented-option {
+    border-left: 1px solid var(--k-line-strong);
+  }
+
+  .segmented-option:hover {
+    color: var(--k-ink);
+  }
+
+  .segmented-option[aria-pressed='true'] {
+    background: var(--k-accent);
+    color: var(--k-on-accent);
+  }
+
+  /* A quote grid: the comparison table and the tables of the answer. */
+  .grid-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  .grid-table th {
+    border-bottom: 1px solid var(--k-line-strong);
+    background: var(--k-head);
+    padding: 0.3125rem 0.5rem;
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--k-muted);
+    vertical-align: bottom;
+  }
+
+  .grid-table td {
+    border-bottom: 1px solid var(--k-line);
+    padding: 0.375rem 0.5rem;
+    vertical-align: top;
+  }
+
+  .grid-table tbody tr:nth-child(even) {
+    background: var(--k-raised);
+  }
+
+  .grid-table tbody tr:hover {
+    background: color-mix(in srgb, var(--k-accent) 7%, var(--k-panel));
+  }
+
+  .grid-table td:first-child {
+    font-weight: 600;
+    color: var(--k-ink);
+  }
+
+  .grid-table .cell-num {
+    text-align: right;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
 }
 
 /* The answer: 1 block per markdown block, spaced here so the blocks keep
    their size while the last one streams. */
 .answer-markdown {
-  line-height: 1.625;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--k-ink);
+  overflow-wrap: anywhere;
 }
 
 .answer-markdown > .answer-block + .answer-block {
   margin-top: 0.75rem;
+}
+
+.answer-markdown p + p {
+  margin-top: 0.75rem;
+}
+
+.answer-markdown strong {
+  font-weight: 650;
+  color: var(--k-ink);
+}
+
+.answer-markdown ul,
+.answer-markdown ol {
+  padding-left: 1.25rem;
+}
+
+.answer-markdown ul {
+  list-style: square;
+}
+
+.answer-markdown ol {
+  list-style: decimal;
+}
+
+.answer-markdown li + li {
+  margin-top: 0.25rem;
+}
+
+.answer-markdown li::marker {
+  color: var(--k-accent);
+}
+
+.answer-markdown code {
+  border: 1px solid color-mix(in srgb, var(--k-accent) 40%, transparent);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--k-accent) 8%, var(--k-panel));
+  padding: 0 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.78em;
+  color: var(--k-accent);
+  overflow-wrap: anywhere;
+}
+
+.answer-markdown a {
+  color: var(--k-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.answer-markdown table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.answer-markdown th {
+  border-bottom: 1px solid var(--k-line-strong);
+  background: var(--k-head);
+  padding: 0.3125rem 0.5rem;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--k-muted);
+}
+
+.answer-markdown td {
+  border-bottom: 1px solid var(--k-line);
+  padding: 0.3125rem 0.5rem;
+  vertical-align: top;
+}
+
+.answer-markdown tbody tr:nth-child(even) {
+  background: var(--k-raised);
 }
 
 .answer-cursor {
@@ -24,5 +567,15 @@
   height: 1em;
   margin-top: 0.25rem;
   vertical-align: text-bottom;
-  background: var(--color-accent);
+  background: var(--k-accent);
+}
+
+/* A score bar of the retrieved chunks and a gate bar of the eval page. */
+.meter {
+  height: 3px;
+  background: var(--k-line);
+}
+
+.meter > * {
+  height: 100%;
 }
