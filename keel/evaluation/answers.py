@@ -130,6 +130,7 @@ class ReplayRetriever(retriever.Retriever):
     """
 
     prepared: retriever.RetrievalResult | None = None
+    last: retriever.RetrievalResult | None = None
 
     @classmethod
     def from_retriever(cls, base: retriever.Retriever) -> ReplayRetriever:
@@ -163,12 +164,34 @@ class ReplayRetriever(retriever.Retriever):
             budget: The budget, or None for the config values.
 
         Returns:
-            The result.
+            The result; `last` keeps it for the judge.
         """
         if self.prepared is not None:
             result, self.prepared = self.prepared, None
-            return result
-        return super().retrieve(analysis, budget)
+        else:
+            result = super().retrieve(analysis, budget)
+        self.last = result
+        return result
+
+
+def rendered_chunks(result: retriever.RetrievalResult) -> dict[str, str]:
+    """The chunk elements the answer model read, by chunk ID.
+
+    Each element comes from `context.render_chunk`, the renderer of the
+    answer prompt, so the judge reads each cited chunk with the attributes
+    (company, form, fiscal label, period end, filing date, section) and the
+    text, cut or planted, that the answer model saw.
+
+    Args:
+        result: The retrieval the answer read.
+
+    Returns:
+        The `<chunk>` element by chunk ID.
+    """
+    return {
+        chunk.candidate.chunk_id: context.render_chunk(chunk)
+        for chunk in result.context.chunks
+    }
 
 
 def plant(result: retriever.RetrievalResult) -> retriever.RetrievalResult:
@@ -256,6 +279,9 @@ class AnswerSession:
     Attributes:
         facts: The source text by fact ID of the facts block of the last
             question, for the judge.
+        chunks: The `<chunk>` element by chunk ID of the context of the
+            last question, for the judge; empty when the retriever of the
+            answerer is not a `ReplayRetriever`.
     """
 
     def __init__(
@@ -266,6 +292,7 @@ class AnswerSession:
         self.factor = answerer.calibration.factor
         self.loop = asyncio.new_event_loop()
         self.facts: dict[str, str] = {}
+        self.chunks: dict[str, str] = {}
         loader = answerer.facts_loader
 
         def capture(
@@ -295,7 +322,14 @@ class AnswerSession:
         """
         self.answerer.calibration = context.Calibration(self.factor)
         self.facts = {}
-        return self.loop.run_until_complete(_final(self.answerer, question))
+        self.chunks = {}
+        step = self.answerer.retriever
+        if isinstance(step, ReplayRetriever):
+            step.last = None
+        record = self.loop.run_until_complete(_final(self.answerer, question))
+        if isinstance(step, ReplayRetriever) and step.last is not None:
+            self.chunks = rendered_chunks(step.last)
+        return record
 
     def close(self) -> None:
         """Close the event loop and remove the scratch answer cache."""

@@ -149,10 +149,12 @@ class AllSupported:
 
     def __init__(self) -> None:
         self.calls = 0
+        self.users: list[str] = []
 
     def complete(self, system: str, user: str) -> judge.JudgeReply:
         del system
         self.calls += 1
+        self.users.append(user)
         ids = re.findall(r'<(?:claim|citation) id="([CK]\d+)"', user)
         items = [{"id": i, "verdict": "supported", "reason": "r."} for i in ids]
         reply = {
@@ -213,6 +215,22 @@ def test_answer_step_with_mock_provider(
     assert by_id["G-28"].model_requests == 1
     assert by_id["G-28"].adversarial_ok is True
     assert answers.PLANTED_TEXT in provider.bundles[-1].user
+    # The judge reads each cited chunk with the opening tag the answer
+    # model read, the planted chunk of G-28 included.
+    heads = [
+        line
+        for user in client.users
+        for line in user.splitlines()
+        if line.startswith("<chunk ")
+    ]
+    assert heads
+    sent = {line for b in provider.bundles for line in b.user.splitlines()}
+    assert all(line in sent and "period_end=" in line for line in heads)
+    # The last question, G-28, kept the planted chunk as rendered.
+    planted = [t for i, t in setup.session.chunks.items() if "__9999" in i]
+    assert len(planted) == 1
+    assert 'period_end="' in planted[0]
+    assert answers.PLANTED_TEXT in planted[0]
     # The answer of G-01 read the context of the hybrid run, not a new one.
     hybrid_ids = {
         c.candidate.chunk_id
