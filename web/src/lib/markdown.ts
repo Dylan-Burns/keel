@@ -131,6 +131,21 @@ export function renderMarkdown(markdown: string): string {
   return sanitizeHtml(markdownParser.parse(markdown, {async: false}));
 }
 
+/** A chunk ID the model cites inline, such as `[AAPL_10K_2025-09-27__mdna__0003]`. */
+const INLINE_CHUNK_ID = /\[([A-Z][A-Z0-9.]{0,9}_[A-Za-z0-9._-]+__\d{4})\]/g;
+
+/**
+ * Marks the chunk IDs that the answer cites inline as code, so the page shows
+ * them as compact tags instead of long bracketed words. Display only: the
+ * copy and the export keep the model text.
+ *
+ * @param markdown The model text.
+ * @return The markdown with each inline chunk ID as a code span.
+ */
+export function tagChunkIds(markdown: string): string {
+  return markdown.replace(INLINE_CHUNK_ID, '`$1`');
+}
+
 /**
  * Splits answer markdown into its top-level blocks (paragraphs, lists,
  * tables, headings) as the `marked` lexer reads them. The answer area renders

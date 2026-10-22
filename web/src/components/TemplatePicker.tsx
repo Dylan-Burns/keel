@@ -58,21 +58,17 @@ export function TemplatePicker({
     chosen === null ? null : fillTemplate(chosen, companies, period);
   return (
     <section
-      className="space-y-2 text-sm"
+      className="mt-2.5 space-y-2"
       aria-label="Question templates"
       data-testid="template-picker"
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-slate-500">Templates:</span>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="section-title mr-1">Templates</span>
         {templates.map(template => (
           <button
             key={template.id}
             type="button"
-            className={`rounded border px-2 py-1 ${
-              chosen?.id === template.id
-                ? 'border-accent bg-accent/10'
-                : 'border-slate-300 bg-white'
-            }`}
+            className="chip aria-pressed:border-accent aria-pressed:text-accent"
             aria-pressed={chosen?.id === template.id}
             data-testid="template-button"
             onClick={() =>
@@ -85,7 +81,7 @@ export function TemplatePicker({
       </div>
       {chosen !== null && (
         <form
-          className="flex flex-wrap items-end gap-2"
+          className="flex flex-wrap items-end gap-2 border border-line bg-raised p-2"
           data-testid="template-form"
           onSubmit={event => {
             event.preventDefault();
@@ -96,9 +92,9 @@ export function TemplatePicker({
           }}
         >
           <label className="flex flex-col gap-1">
-            <span className="text-xs text-slate-500">Companies</span>
+            <span className="section-title">Companies</span>
             <input
-              className="w-64 rounded border border-slate-300 px-2 py-1"
+              className="input w-64 max-w-full"
               value={companies}
               placeholder="Apple and Tesla, or my software comps"
               maxLength={300}
@@ -107,9 +103,9 @@ export function TemplatePicker({
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-xs text-slate-500">Period</span>
+            <span className="section-title">Period</span>
             <input
-              className="w-48 rounded border border-slate-300 px-2 py-1"
+              className="input w-48 max-w-full"
               value={period}
               placeholder={chosen.default_period}
               maxLength={300}
@@ -119,7 +115,7 @@ export function TemplatePicker({
           </label>
           <button
             type="submit"
-            className="rounded bg-accent px-3 py-1 text-white disabled:opacity-50"
+            className="btn btn-primary"
             disabled={filled === null}
             data-testid="template-fill"
           >

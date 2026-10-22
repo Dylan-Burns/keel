@@ -176,10 +176,10 @@ function rows(lines: readonly TraceLine[]): JSX.Element[] {
   return lines.map((line, index) => (
     <div
       key={`${line.label}-${index}`}
-      className="grid grid-cols-[10rem_minmax(0,1fr)] gap-2"
+      className="grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)] gap-3 px-3 py-[3px] odd:bg-raised"
     >
-      <dt className="text-slate-500">{line.label}</dt>
-      <dd className="break-words text-slate-800">{line.value}</dd>
+      <dt className="truncate text-muted">{line.label}</dt>
+      <dd className="break-words text-ink">{line.value}</dd>
     </div>
   ));
 }
@@ -202,7 +202,7 @@ export function TraceDrawer({audit}: TraceDrawerProps): JSX.Element {
   const {before, after} = traceLines(audit);
   return (
     <motion.section
-      className="rounded-lg border border-slate-200 bg-white text-xs shadow-sm"
+      className="panel text-xs"
       aria-label="Answer trace"
       data-testid="trace-drawer"
       variants={pick(traceDrawer.drawer, reduced)}
@@ -212,22 +212,24 @@ export function TraceDrawer({audit}: TraceDrawerProps): JSX.Element {
     >
       <button
         type="button"
-        className="flex w-full items-center justify-between px-3 py-2 text-left text-sm font-medium"
+        className="panel-head w-full justify-between border-b-0 text-left"
         aria-expanded={open}
         data-testid="trace-toggle"
         onClick={() => setOpen(value => !value)}
       >
-        <span>Answer trace</span>
-        <span className="text-xs text-slate-500">{open ? 'Hide' : 'Show'}</span>
+        <span className="panel-title">Answer trace</span>
+        <span className="font-mono text-[10.5px] uppercase tracking-[0.08em] text-accent">
+          {open ? 'Hide' : 'Show'}
+        </span>
       </button>
       {open && (
         <dl
-          className="space-y-1 border-t border-slate-200 px-3 py-2 font-mono"
+          className="border-t border-line py-1 font-mono text-[11.5px]"
           data-testid="trace-body"
         >
           {rows(before)}
           <motion.div
-            className="origin-left py-1 text-sm font-semibold text-accent"
+            className="my-1 origin-left border-y border-up/40 bg-up/10 px-3 py-1 text-[13px] font-semibold text-up"
             variants={pick(traceDrawer.pulse, reduced)}
             initial={pulsed ? false : 'hidden'}
             animate="visible"

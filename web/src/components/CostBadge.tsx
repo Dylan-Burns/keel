@@ -56,7 +56,7 @@ export function CostBadge({latencyMs, costUsd}: CostBadgeProps): JSX.Element {
   }, [progress, reduced, latencyMs, costUsd]);
   return (
     <motion.span
-      className="rounded bg-slate-100 px-2 py-0.5 text-xs tabular-nums text-slate-700"
+      className="num text-ink"
       data-testid="cost-badge"
       data-final={badgeText(latencyMs, costUsd)}
     >

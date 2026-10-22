@@ -1,5 +1,7 @@
 import type {JSX} from 'react';
 
+import {PageBar} from './PageBar';
+
 /** The date the backup restore was last tested (infra/README.md). */
 export const RESTORE_TESTED_ON = '2026-10-22';
 
@@ -72,32 +74,26 @@ export const DATA_USE_SECTIONS: readonly Section[] = [
 export function HelpPage(): JSX.Element {
   return (
     <div
-      className="min-h-screen bg-paper font-sans text-ink"
+      className="min-h-screen bg-canvas font-sans text-ink"
       data-testid="help-page"
     >
-      <header className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-4 py-3">
-        <h1 className="text-lg font-semibold">Data use</h1>
-        <button
-          type="button"
-          className="text-sm text-accent underline"
-          onClick={() => window.location.assign('/')}
-        >
-          Back to questions
-        </button>
-      </header>
-      <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6">
+      <PageBar title="Data use" />
+      <main className="mx-auto w-full max-w-3xl space-y-3 px-3 py-3">
         {DATA_USE_SECTIONS.map(section => (
           <section
             key={section.id}
             aria-labelledby={`help-${section.id}`}
             data-testid={`help-${section.id}`}
-            className="space-y-2"
+            className="panel"
           >
-            <h2 id={`help-${section.id}`} className="text-base font-semibold">
+            <h2 id={`help-${section.id}`} className="panel-head panel-title">
               {section.title}
             </h2>
             {section.lines.map(line => (
-              <p key={line} className="text-sm text-slate-700">
+              <p
+                key={line}
+                className="px-3 py-1.5 text-[13px] leading-relaxed text-ink-2 first-of-type:pt-3 last:pb-3"
+              >
                 {line}
               </p>
             ))}

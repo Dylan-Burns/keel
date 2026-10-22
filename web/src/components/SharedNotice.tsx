@@ -33,16 +33,12 @@ export function SharedNotice({
   }
   return (
     <p
-      className={`rounded border px-3 py-2 text-sm ${
-        load === 'missing'
-          ? 'border-amber-300 bg-amber-50 text-amber-900'
-          : 'border-slate-200 bg-white text-slate-600'
-      }`}
+      className={`notice text-[13px] ${load === 'missing' ? 'notice-warn' : ''}`}
       role={load === 'missing' ? 'alert' : 'status'}
       data-testid="shared-notice"
       data-load={load}
     >
-      {TEXT[load]} <span className="font-mono text-xs">{requestId}</span>
+      {TEXT[load]} <span className="num text-xs text-muted">{requestId}</span>
     </p>
   );
 }

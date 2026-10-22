@@ -16,22 +16,18 @@ export function IndexNotBuiltCard({
 }: IndexNotBuiltCardProps): JSX.Element {
   return (
     <section
-      className="mx-auto mt-16 max-w-lg space-y-3 rounded-xl border border-slate-300 bg-white p-6 text-sm shadow"
+      className="panel mx-auto mt-16 max-w-lg space-y-3 p-5 text-[13px]"
       data-testid="card-index-not-built"
     >
-      <h2 className="text-lg font-medium">The index is not built</h2>
+      <h2 className="panel-title text-[12px]">The index is not built</h2>
       <p>Build it once from the corpus, then reload the page:</p>
-      <pre className="rounded bg-slate-900 px-3 py-2 font-mono text-slate-100">
+      <pre className="overflow-x-auto border border-line bg-field px-3 py-2 font-mono text-[12px] text-up">
         uv run keel index
       </pre>
-      <p className="text-slate-600">
+      <p className="text-muted">
         The full build takes several minutes on a laptop CPU.
       </p>
-      <button
-        type="button"
-        className="rounded bg-ink px-3 py-1 text-white"
-        onClick={onRecheck}
-      >
+      <button type="button" className="btn btn-primary" onClick={onRecheck}>
         Check again
       </button>
     </section>

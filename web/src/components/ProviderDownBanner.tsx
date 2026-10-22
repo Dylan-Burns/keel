@@ -30,16 +30,19 @@ export function ProviderDownBanner({
       initial="hidden"
       animate="visible"
       role="alert"
-      className="flex flex-wrap items-center gap-3 rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-900"
+      className="notice notice-down flex flex-wrap items-center gap-3 text-[13px]"
       data-testid="banner-provider-down"
     >
       <span>
-        <strong className="font-medium">Model unavailable.</strong> {message}
+        <strong className="font-mono text-[11px] font-semibold uppercase tracking-[0.1em] text-down">
+          Model unavailable.
+        </strong>{' '}
+        {message}
       </span>
       {onRetry !== null && (
         <button
           type="button"
-          className="ml-auto rounded bg-red-700 px-3 py-1 text-white disabled:opacity-50"
+          className="btn btn-danger ml-auto"
           disabled={!retryEnabled}
           onClick={onRetry}
         >

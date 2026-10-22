@@ -34,7 +34,7 @@ export function TokenField({
     return (
       <button
         type="button"
-        className="text-xs text-slate-500 underline"
+        className="font-mono text-[10.5px] uppercase tracking-[0.08em] text-muted underline underline-offset-2 hover:text-accent"
         onClick={() => setEditing(true)}
       >
         Change token
@@ -43,21 +43,21 @@ export function TokenField({
   }
   return (
     <form className="flex items-center gap-2" onSubmit={submit}>
-      <label className="text-xs text-slate-600" htmlFor="keel-token">
+      <label
+        className="font-mono text-[10.5px] uppercase tracking-[0.08em] text-muted"
+        htmlFor="keel-token"
+      >
         {rejected ? 'Token rejected, enter it again' : 'Access token'}
       </label>
       <input
         id="keel-token"
         type="password"
         autoComplete="off"
-        className="w-36 rounded border border-slate-300 px-2 py-1 text-xs"
+        className="input w-36"
         value={value}
         onChange={event => setValue(event.target.value)}
       />
-      <button
-        type="submit"
-        className="rounded bg-ink px-2 py-1 text-xs text-white"
-      >
+      <button type="submit" className="btn btn-primary">
         Save
       </button>
     </form>

@@ -37,10 +37,10 @@ export function Footer({
   onShare,
 }: FooterProps): JSX.Element {
   return (
-    <footer className="flex flex-wrap items-center gap-3 border-t border-slate-200 bg-white px-4 py-2 text-xs text-slate-600">
+    <footer className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-line bg-panel px-3 py-1.5 text-xs text-muted">
       <button
         type="button"
-        className="rounded border border-slate-300 px-2 py-1 disabled:opacity-50"
+        className="btn"
         disabled={!hasAnswer}
         onClick={onCopy}
       >
@@ -48,7 +48,7 @@ export function Footer({
       </button>
       <button
         type="button"
-        className="rounded border border-slate-300 px-2 py-1 disabled:opacity-50"
+        className="btn"
         disabled={!hasAnswer}
         onClick={onExport}
       >
@@ -56,50 +56,59 @@ export function Footer({
       </button>
       <button
         type="button"
-        className="rounded border border-slate-300 px-2 py-1 disabled:opacity-50"
+        className="btn"
         data-testid="share-link"
         disabled={!canShare}
         onClick={onShare}
       >
         Copy link
       </button>
-      {copyStatus !== null && <span role="status">{copyStatus}</span>}
-      <button
-        type="button"
-        className="underline"
-        data-testid="history-link"
-        onClick={() => window.location.assign(HISTORY_PATH)}
+      {copyStatus !== null && (
+        <span className="font-mono text-[11px] text-up" role="status">
+          {copyStatus}
+        </span>
+      )}
+      <nav
+        className="flex flex-wrap items-center gap-3 sm:border-l sm:border-line sm:pl-3"
+        aria-label="Pages"
       >
-        History
-      </button>
-      <button
-        type="button"
-        className="underline"
-        data-testid="compsets-link"
-        onClick={() => window.location.assign(COMPSETS_PATH)}
-      >
-        Comp sets
-      </button>
-      <button
-        type="button"
-        className="underline"
-        data-testid="eval-link"
-        onClick={() => window.location.assign('/eval')}
-      >
-        Eval report
-      </button>
-      <button
-        type="button"
-        className="underline"
-        data-testid="help-link"
-        onClick={() => window.location.assign(HELP_PATH)}
-      >
-        Data use
-      </button>
-      <span className="ml-auto font-mono" data-testid="request-id">
+        <button
+          type="button"
+          className="font-mono text-[11px] uppercase tracking-[0.08em] text-ink-2 hover:text-accent"
+          data-testid="history-link"
+          onClick={() => window.location.assign(HISTORY_PATH)}
+        >
+          History
+        </button>
+        <button
+          type="button"
+          className="font-mono text-[11px] uppercase tracking-[0.08em] text-ink-2 hover:text-accent"
+          data-testid="compsets-link"
+          onClick={() => window.location.assign(COMPSETS_PATH)}
+        >
+          Comp sets
+        </button>
+        <button
+          type="button"
+          className="font-mono text-[11px] uppercase tracking-[0.08em] text-ink-2 hover:text-accent"
+          data-testid="eval-link"
+          onClick={() => window.location.assign('/eval')}
+        >
+          Eval report
+        </button>
+        <button
+          type="button"
+          className="font-mono text-[11px] uppercase tracking-[0.08em] text-ink-2 hover:text-accent"
+          data-testid="help-link"
+          onClick={() => window.location.assign(HELP_PATH)}
+        >
+          Data use
+        </button>
+      </nav>
+      <span className="num ml-auto text-[11px]" data-testid="request-id">
         {requestId === null ? '' : `request ${requestId}`}
       </span>
-      <span data-testid="prompt-version">
+      <span className="num text-[11px]" data-testid="prompt-version">
         {promptVersion === null ? '' : `prompt ${promptVersion}`}
       </span>
     </footer>

@@ -50,39 +50,39 @@ export function GateBar({gate, reduced}: GateBarProps): JSX.Element {
   const {fill, mark} = gateScale(gate);
   const failed = gate.passed === false && grown;
   const color = failed
-    ? 'bg-red-500'
+    ? 'bg-down'
     : gate.passed === true
-      ? 'bg-emerald-500'
-      : 'bg-slate-300';
+      ? 'bg-up'
+      : 'bg-line-strong';
   const state =
     gate.passed === null ? 'pending' : gate.passed ? 'pass' : 'fail';
   return (
     <li
-      className="space-y-1"
+      className="space-y-1.5 px-3 py-2"
       data-testid="eval-gate"
       data-state={state}
       data-red={failed ? 'true' : 'false'}
     >
-      <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 text-[13px]">
         <span>{gate.name}</span>
         <span
-          className={`tabular-nums ${failed ? 'text-red-700' : 'text-slate-700'}`}
+          className={`num text-xs ${failed ? 'text-down' : gate.passed === true ? 'text-up' : 'text-ink'}`}
           data-testid="eval-gate-value"
         >
           {gate.value === null ? 'pending' : gate.value_text}
-          <span className="text-slate-500"> (gate {gate.threshold_text})</span>
+          <span className="text-muted"> (gate {gate.threshold_text})</span>
         </span>
       </div>
-      <div className="relative h-2 w-full rounded bg-slate-100">
-        <div className="h-2" style={{width: `${fill * 100}%`}}>
+      <div className="relative h-1.5 w-full bg-line">
+        <div className="h-1.5" style={{width: `${fill * 100}%`}}>
           <motion.div
-            className={`h-2 origin-left rounded ${color}`}
+            className={`h-1.5 origin-left ${color}`}
             variants={pick(evalPage.bar, reduced)}
             onAnimationComplete={() => setGrown(true)}
           />
         </div>
         <span
-          className="absolute top-[-2px] h-3 w-px bg-slate-700"
+          className="absolute top-[-3px] h-3 w-px bg-ink"
           style={{left: `${mark * 100}%`}}
           aria-hidden="true"
         />

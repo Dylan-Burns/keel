@@ -3,6 +3,7 @@ import type {JSX, ReactNode} from 'react';
 import type {ResponseMeta} from '../api/types';
 import type {Health} from '../state';
 import {CostBadge} from './CostBadge';
+import {ThemeToggle} from './ThemeToggle';
 
 /** Props of TopBar. */
 export interface TopBarProps {
@@ -10,20 +11,38 @@ export interface TopBarProps {
   readonly health: Health;
   /** The meta of the last answer, for the latency and cost badge. */
   readonly lastMeta: ResponseMeta | null;
+  /** The model requests of the last answer (its audit record), or null. */
+  readonly modelRequests?: number | null;
   /** The token field. */
   readonly children?: ReactNode;
 }
 
 const DOT: Readonly<Record<Health, string>> = {
-  green: 'bg-emerald-500',
-  amber: 'bg-amber-400',
-  red: 'bg-red-500',
-  unknown: 'bg-slate-300',
+  green: 'bg-up',
+  amber: 'bg-warn',
+  red: 'bg-down',
+  unknown: 'bg-line-strong',
+};
+
+const STATUS: Readonly<Record<Health, string>> = {
+  green: 'ready',
+  amber: 'degraded',
+  red: 'offline',
+  unknown: 'connecting',
+};
+
+const STATUS_COLOR: Readonly<Record<Health, string>> = {
+  green: 'text-up',
+  amber: 'text-warn',
+  red: 'text-down',
+  unknown: 'text-muted',
 };
 
 /**
- * The top bar (chapter 14.5): the name, the index version badge, the health
- * dot, and the latency and cost badge of the last answer.
+ * The top bar (chapter 14.5) as a market-status strip: the name, the service
+ * state with its health dot, the index version, the model requests and the
+ * latency and cost badge of the last answer, the theme toggle, and the token
+ * field.
  *
  * @param props The props.
  * @return The top bar.
@@ -32,34 +51,73 @@ export function TopBar({
   indexVersion,
   health,
   lastMeta,
+  modelRequests = null,
   children,
 }: TopBarProps): JSX.Element {
   return (
-    <header className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-4 py-3">
-      <h1 className="text-2xl font-semibold tracking-tight text-accent">
-        Keel
-      </h1>
-      <span
-        className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600"
-        data-testid="index-version"
-      >
-        index {indexVersion ?? 'unknown'}
-      </span>
-      <span
-        className={`inline-block h-2.5 w-2.5 rounded-full ${DOT[health]}`}
-        data-testid="health-dot"
-        data-health={health}
-        role="img"
-        aria-label={`Service health: ${health}`}
-      />
-      {lastMeta !== null && (
-        <CostBadge
-          key={`${lastMeta.latency_ms.total}:${lastMeta.cost_usd}`}
-          latencyMs={lastMeta.latency_ms.total}
-          costUsd={lastMeta.cost_usd}
-        />
-      )}
-      <div className="ml-auto">{children}</div>
+    <header className="border-b border-line bg-panel">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-3 py-1.5">
+        <div className="flex items-center gap-2">
+          <span
+            className="inline-block h-2.5 w-2.5 bg-accent"
+            aria-hidden="true"
+          />
+          <h1 className="font-mono text-[15px] font-bold uppercase tracking-[0.2em] text-ink">
+            Keel
+          </h1>
+          <span className="hidden font-mono text-[10px] uppercase tracking-[0.14em] text-muted md:inline">
+            SEC filings desk
+          </span>
+        </div>
+        <div
+          className="flex flex-wrap items-center gap-x-4 gap-y-1 sm:border-l sm:border-line sm:pl-4"
+          role="group"
+          aria-label="Service status"
+          data-testid="status-strip"
+        >
+          <span className="stat">
+            <span
+              className={`inline-block h-2 w-2 rounded-full ${DOT[health]}`}
+              data-testid="health-dot"
+              data-health={health}
+              role="img"
+              aria-label={`Service health: ${health}`}
+            />
+            <span
+              className={`uppercase tracking-[0.1em] ${STATUS_COLOR[health]}`}
+              aria-hidden="true"
+            >
+              {STATUS[health]}
+            </span>
+          </span>
+          <span className="stat" data-testid="index-version">
+            <span className="stat-label">index</span>{' '}
+            <span>{indexVersion ?? 'unknown'}</span>
+          </span>
+          <span className="stat" data-testid="status-requests">
+            <span className="stat-label">model req</span>{' '}
+            <span className={modelRequests === 1 ? 'text-up' : ''}>
+              {modelRequests === null ? '--' : modelRequests}
+            </span>
+          </span>
+          <span className="stat">
+            <span className="stat-label">last</span>{' '}
+            {lastMeta !== null ? (
+              <CostBadge
+                key={`${lastMeta.latency_ms.total}:${lastMeta.cost_usd}`}
+                latencyMs={lastMeta.latency_ms.total}
+                costUsd={lastMeta.cost_usd}
+              />
+            ) : (
+              <span className="text-muted">--</span>
+            )}
+          </span>
+        </div>
+        <div className="ml-auto flex flex-wrap items-center gap-3">
+          <ThemeToggle />
+          {children}
+        </div>
+      </div>
     </header>
   );
 }

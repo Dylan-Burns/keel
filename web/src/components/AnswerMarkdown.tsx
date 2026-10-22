@@ -2,7 +2,7 @@ import {motion, useReducedMotion} from 'motion/react';
 import type {JSX} from 'react';
 import {useMemo} from 'react';
 
-import {markdownBlocks, renderMarkdown} from '../lib/markdown';
+import {markdownBlocks, renderMarkdown, tagChunkIds} from '../lib/markdown';
 import {pick, stream} from '../motion/presets';
 
 /** Props of AnswerMarkdown. */
@@ -29,7 +29,8 @@ export function AnswerMarkdown({
 }: AnswerMarkdownProps): JSX.Element {
   const reduced = useReducedMotion();
   const blocks = useMemo(
-    () => markdownBlocks(markdown).map(block => renderMarkdown(block)),
+    () =>
+      markdownBlocks(markdown).map(block => renderMarkdown(tagChunkIds(block))),
     [markdown],
   );
   return (

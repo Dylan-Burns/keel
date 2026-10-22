@@ -41,9 +41,7 @@ export function FeedbackBar({requestId}: FeedbackBarProps): JSX.Element {
   const button = (value: Vote, label: string, symbol: string): JSX.Element => (
     <button
       type="button"
-      className={`rounded border px-2 py-1 ${
-        vote === value ? 'border-accent bg-accent/10' : 'border-slate-300'
-      }`}
+      className="btn"
       aria-label={label}
       aria-pressed={vote === value}
       disabled={status.kind === 'sending'}
@@ -55,14 +53,14 @@ export function FeedbackBar({requestId}: FeedbackBarProps): JSX.Element {
   );
   return (
     <div
-      className="flex flex-wrap items-center gap-2 text-sm"
+      className="panel flex flex-wrap items-center gap-2 px-2.5 py-2 text-xs"
       data-testid="feedback-bar"
     >
-      <span className="text-slate-500">Was this answer useful?</span>
+      <span className="section-title">Was this answer useful?</span>
       {button('up', 'Thumbs up', '\u{1F44D}')}
       {button('down', 'Thumbs down', '\u{1F44E}')}
       <input
-        className="min-w-0 flex-1 rounded border border-slate-300 px-2 py-1"
+        className="input min-w-0 flex-1 basis-48"
         value={note}
         placeholder="Optional note (what is wrong or missing)"
         maxLength={2000}
@@ -72,7 +70,7 @@ export function FeedbackBar({requestId}: FeedbackBarProps): JSX.Element {
       />
       <button
         type="button"
-        className="rounded border border-slate-300 px-2 py-1 disabled:border-slate-200 disabled:text-slate-400"
+        className="btn"
         disabled={vote === null || status.kind === 'sending'}
         data-testid="feedback-send-note"
         onClick={() => {
@@ -83,7 +81,11 @@ export function FeedbackBar({requestId}: FeedbackBarProps): JSX.Element {
       >
         Send note
       </button>
-      <span role="status" data-testid="feedback-status">
+      <span
+        className={`font-mono text-[11px] ${status.kind === 'failed' ? 'text-down' : 'text-up'}`}
+        role="status"
+        data-testid="feedback-status"
+      >
         {status.kind === 'saved' &&
           (status.vote === 'down'
             ? 'Thanks: flagged for review.'

@@ -63,7 +63,11 @@ describe('App', () => {
       screen.getByRole('heading', {level: 1, name: 'Keel'}),
     ).toBeInTheDocument();
     expect(screen.getAllByTestId('example-chip')).toHaveLength(3);
-    expect(await screen.findByText('index 1.0.0')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByTestId('index-version')).toHaveTextContent(
+        'index 1.0.0',
+      ),
+    );
   });
 
   it('never sends a question from the URL', async () => {
@@ -71,7 +75,11 @@ describe('App', () => {
     window.history.replaceState(null, '', '/?rerun=Spend%20money%3F&q=x');
     const fetchMock = serveAll();
     render(<App />);
-    expect(await screen.findByText('index 1.0.0')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByTestId('index-version')).toHaveTextContent(
+        'index 1.0.0',
+      ),
+    );
     await new Promise(resolve => setTimeout(resolve, 200));
     const paths = fetchMock.mock.calls.map(([path]) => path);
     expect(paths).not.toContain('/api/ask');
@@ -89,7 +97,11 @@ describe('App', () => {
     const box = screen.getByRole('textbox', {name: 'Question'});
     expect(box).toHaveValue('Q again?');
     expect(window.sessionStorage.getItem(RERUN_QUESTION_KEY)).toBeNull();
-    expect(await screen.findByText('index 1.0.0')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByTestId('index-version')).toHaveTextContent(
+        'index 1.0.0',
+      ),
+    );
     const isAsk = ([path]: unknown[]): boolean => path === '/api/ask';
     expect(fetchMock.mock.calls.filter(isAsk)).toHaveLength(0);
     const share = screen.getByTestId('share-link');

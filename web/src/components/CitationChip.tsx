@@ -32,10 +32,7 @@ export function CitationChip({
   const reduced = useReducedMotion();
   if (!valid) {
     return (
-      <span
-        className="rounded border border-amber-400 bg-amber-50 px-1.5 py-0.5 text-xs text-amber-800"
-        data-testid="citation-unverified"
-      >
+      <span className="tag tag-warn" data-testid="citation-unverified">
         unverified
       </span>
     );
@@ -44,7 +41,7 @@ export function CitationChip({
     <motion.button
       type="button"
       variants={pick(complete.chip, reduced)}
-      className="rounded border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-xs text-accent hover:bg-accent/20 disabled:opacity-60"
+      className="tag tag-accent cursor-pointer disabled:cursor-default"
       data-testid="citation-chip"
       data-chunk-id={chunkId}
       disabled={!clickable}

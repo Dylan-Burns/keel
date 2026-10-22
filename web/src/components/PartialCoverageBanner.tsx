@@ -36,10 +36,12 @@ export function PartialCoverageBanner({
       initial="hidden"
       animate="visible"
       role="status"
-      className="rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-2 text-sm text-yellow-900"
+      className="notice notice-warn text-[13px]"
       data-testid="banner-partial-coverage"
     >
-      <strong className="font-medium">Partial coverage.</strong>{' '}
+      <strong className="font-mono text-[11px] font-semibold uppercase tracking-[0.1em] text-warn">
+        Partial coverage.
+      </strong>{' '}
       {parts.join(' ')}
     </motion.div>
   );

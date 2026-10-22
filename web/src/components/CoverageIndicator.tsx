@@ -19,31 +19,23 @@ export function CoverageIndicator({
 }: CoverageIndicatorProps): JSX.Element {
   return (
     <ul
-      className="flex flex-wrap gap-2 text-xs"
+      className="flex flex-wrap items-center gap-1.5"
       aria-label="Coverage"
       data-testid="coverage-indicator"
     >
       {coverage.companies_used.map(company => (
-        <li
-          key={company.ticker}
-          className="rounded border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-emerald-900"
-          data-covered="true"
-        >
+        <li key={company.ticker} className="tag tag-up" data-covered="true">
           {company.ticker}: {company.forms.join(', ')}{' '}
           {company.fiscal_periods.join(', ')}
         </li>
       ))}
       {coverage.companies_missing.map(ticker => (
-        <li
-          key={ticker}
-          className="rounded border border-slate-300 bg-slate-100 px-2 py-0.5 text-slate-500"
-          data-covered="false"
-        >
+        <li key={ticker} className="tag tag-down" data-covered="false">
           {ticker}: no filings
         </li>
       ))}
       {coverage.data_as_of !== '' && (
-        <li className="px-1 py-0.5 text-slate-500">
+        <li className="num text-[11px] text-muted">
           data as of {coverage.data_as_of}
         </li>
       )}

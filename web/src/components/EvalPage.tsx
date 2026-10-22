@@ -7,6 +7,7 @@ import type {EvalResponse} from '../api/types';
 import {evalPage, pick} from '../motion/presets';
 import {GateBar} from './GateBar';
 import {MarkdownDocument} from './MarkdownDocument';
+import {PageBar} from './PageBar';
 import {TokenField} from './TokenField';
 
 /** The load state of the page. */
@@ -62,55 +63,47 @@ export function EvalPage(): JSX.Element {
   };
   return (
     <div
-      className="min-h-screen bg-paper font-sans text-ink"
+      className="min-h-screen bg-canvas font-sans text-ink"
       data-testid="eval-page"
       data-load={load.kind}
     >
-      <header className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-4 py-3">
-        <h1 className="text-lg font-semibold">Keel evaluation</h1>
-        <button
-          type="button"
-          className="text-sm text-accent underline"
-          onClick={() => window.location.assign('/')}
-        >
-          Back to questions
-        </button>
-        <div className="ml-auto">
-          <TokenField
-            hasToken={load.kind !== 'no_token'}
-            rejected={load.kind === 'no_token' && getToken() !== null}
-            onSave={onSave}
-          />
-        </div>
-      </header>
-      <main className="mx-auto w-full max-w-5xl space-y-8 px-4 py-6">
+      <PageBar title="Evaluation">
+        <TokenField
+          hasToken={load.kind !== 'no_token'}
+          rejected={load.kind === 'no_token' && getToken() !== null}
+          onSave={onSave}
+        />
+      </PageBar>
+      <main className="mx-auto w-full max-w-5xl space-y-3 px-3 py-3">
         {load.kind === 'no_token' && (
-          <p className="text-sm text-slate-600">
+          <p className="text-[13px] text-muted">
             Enter the access token to read the eval report.
           </p>
         )}
         {load.kind === 'loading' && (
-          <p className="text-sm text-slate-600">Loading the eval report.</p>
+          <p className="text-[13px] text-muted">Loading the eval report.</p>
         )}
         {load.kind === 'error' && (
-          <p className="text-sm text-red-700" role="alert">
+          <p className="notice notice-down text-[13px]" role="alert">
             {load.message}
           </p>
         )}
         {load.kind === 'ready' && (
           <>
-            <section className="space-y-3" aria-label="Regression gates">
-              <h2 className="text-lg font-semibold">Regression gates</h2>
+            <section className="panel" aria-label="Regression gates">
+              <div className="panel-head">
+                <h2 className="panel-title">Regression gates</h2>
+              </div>
               {load.data.gates.length === 0 ? (
                 <p
-                  className="text-sm text-slate-600"
+                  className="panel-body text-[13px] text-muted"
                   data-testid="eval-no-gates"
                 >
                   No gates yet: the report is missing or has no gates table.
                 </p>
               ) : (
                 <motion.ul
-                  className="space-y-3"
+                  className="divide-y divide-line"
                   variants={pick(evalPage.bars, reduced)}
                   initial="hidden"
                   animate="visible"

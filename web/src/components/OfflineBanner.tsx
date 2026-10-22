@@ -17,11 +17,13 @@ export function OfflineBanner(): JSX.Element {
       initial="hidden"
       animate="visible"
       role="alert"
-      className="border-b border-red-300 bg-red-50 px-4 py-2 text-sm text-red-900"
+      className="notice notice-down rounded-none border-x-0 border-t-0 text-[13px]"
       data-testid="banner-offline"
     >
-      <strong className="font-medium">Offline.</strong> The browser cannot reach
-      the service. The last answer stays on screen.
+      <strong className="font-mono text-[11px] font-semibold uppercase tracking-[0.1em] text-down">
+        Offline.
+      </strong>{' '}
+      The browser cannot reach the service. The last answer stays on screen.
     </motion.div>
   );
 }

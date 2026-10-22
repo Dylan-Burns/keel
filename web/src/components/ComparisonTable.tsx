@@ -9,6 +9,21 @@ export interface ComparisonTableProps {
   readonly table: Table;
 }
 
+/** A figure: an optional sign or currency, digits, a unit or a percent. */
+const NUMERIC =
+  /^[(+-]?[$\u20ac\u00a3]?\s?\d[\d,.]*\s?(%|x|bp|bps|[kmb]|bn|mn|million|billion|thousand)?\)?$/i;
+
+/**
+ * True when a cell holds a single figure, such as `$94.9B`, `(3.2%)`, or
+ * `1,204`: the quote grid right-aligns it in tabular numerals.
+ *
+ * @param cell The cell text.
+ * @return Whether the cell is a number.
+ */
+export function isNumericCell(cell: string): boolean {
+  return NUMERIC.test(cell.trim());
+}
+
 /**
  * The comparison table of a multi-company or multi-period answer. Cells are
  * JSX text nodes.
@@ -19,18 +34,12 @@ export interface ComparisonTableProps {
 export function ComparisonTable({table}: ComparisonTableProps): JSX.Element {
   const reduced = useReducedMotion();
   return (
-    <div className="overflow-x-auto">
-      <table
-        className="w-full border-collapse text-sm"
-        data-testid="comparison-table"
-      >
+    <div className="overflow-x-auto border border-line">
+      <table className="grid-table" data-testid="comparison-table">
         <thead>
           <tr>
             {table.columns.map(column => (
-              <th
-                key={column}
-                className="border-b border-slate-300 px-2 py-1 text-left font-medium"
-              >
+              <th key={column} scope="col">
                 {column}
               </th>
             ))}
@@ -46,7 +55,7 @@ export function ComparisonTable({table}: ComparisonTableProps): JSX.Element {
               {row.map((cell, cellIndex) => (
                 <td
                   key={cellIndex}
-                  className="border-b border-slate-100 px-2 py-1 align-top"
+                  className={isNumericCell(cell) ? 'cell-num' : undefined}
                 >
                   {cell}
                 </td>

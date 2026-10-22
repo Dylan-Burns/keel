@@ -11,6 +11,7 @@ import {
 } from '../api/client';
 import type {HistoryResponse, HistoryScope} from '../api/types';
 import {copyText, sharePath, shareUrl} from '../lib/links';
+import {PageBar} from './PageBar';
 import {TokenField} from './TokenField';
 
 /** The load state of the page. */
@@ -89,45 +90,38 @@ export function HistoryPage(): JSX.Element {
   const isAdmin = load.kind === 'ready' && load.data.role === 'admin';
   return (
     <div
-      className="min-h-screen bg-paper font-sans text-ink"
+      className="min-h-screen bg-canvas font-sans text-ink"
       data-testid="history-page"
       data-load={load.kind}
     >
-      <header className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-4 py-3">
-        <h1 className="text-lg font-semibold">History</h1>
-        <button
-          type="button"
-          className="text-sm text-accent underline"
-          onClick={() => window.location.assign('/')}
-        >
-          Back to questions
-        </button>
-        <div className="ml-auto">
-          <TokenField
-            hasToken={load.kind !== 'no_token'}
-            rejected={load.kind === 'no_token' && getToken() !== null}
-            onSave={onSave}
-          />
-        </div>
-      </header>
-      <main className="mx-auto w-full max-w-5xl space-y-4 px-4 py-6">
+      <PageBar title="History">
+        <TokenField
+          hasToken={load.kind !== 'no_token'}
+          rejected={load.kind === 'no_token' && getToken() !== null}
+          onSave={onSave}
+        />
+      </PageBar>
+      <main className="mx-auto w-full max-w-5xl space-y-3 px-3 py-3">
         {load.kind === 'no_token' && (
-          <p className="text-sm text-slate-600">
+          <p className="text-[13px] text-muted">
             Enter your access token to read your history.
           </p>
         )}
         {load.kind === 'loading' && (
-          <p className="text-sm text-slate-600">Loading the history.</p>
+          <p className="text-[13px] text-muted">Loading the history.</p>
         )}
         {load.kind === 'error' && (
-          <p className="text-sm text-red-700" role="alert">
+          <p className="notice notice-down text-[13px]" role="alert">
             {load.message}
           </p>
         )}
         {load.kind === 'ready' && (
           <>
-            <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
-              <span data-testid="history-user">
+            <div className="flex flex-wrap items-center gap-3">
+              <span
+                className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted"
+                data-testid="history-user"
+              >
                 {scope === 'all'
                   ? 'Questions of every user'
                   : `Questions of ${load.data.user}`}
@@ -135,7 +129,7 @@ export function HistoryPage(): JSX.Element {
               {isAdmin && (
                 <button
                   type="button"
-                  className="rounded border border-slate-300 px-2 py-1"
+                  className="btn"
                   data-testid="history-scope"
                   onClick={() => onScope(scope === 'all' ? 'own' : 'all')}
                 >
@@ -144,20 +138,22 @@ export function HistoryPage(): JSX.Element {
               )}
             </div>
             {load.data.items.length === 0 ? (
-              <p className="text-sm text-slate-600" data-testid="history-empty">
+              <p className="text-[13px] text-muted" data-testid="history-empty">
                 No questions yet. Ask one on the question page.
               </p>
             ) : (
-              <ol className="space-y-3" aria-label="History">
+              <ol className="panel divide-y divide-line" aria-label="History">
                 {load.data.items.map(item => (
                   <li
                     key={item.request_id}
-                    className="space-y-2 rounded border border-slate-200 bg-white p-3"
+                    className="space-y-1.5 px-3 py-2.5 hover:bg-raised"
                     data-testid="history-item"
                     data-request-id={item.request_id}
                   >
-                    <p className="font-medium">{item.question}</p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-[13px] font-medium text-ink">
+                      {item.question}
+                    </p>
+                    <p className="num text-[11px] text-muted">
                       {when(item.timestamp)}
                       {item.tickers.length > 0 &&
                         ` · ${item.tickers.join(', ')}`}
@@ -165,10 +161,10 @@ export function HistoryPage(): JSX.Element {
                       {` · $${item.cost_usd.toFixed(4)}`}
                       {scope === 'all' && ` · ${item.user ?? 'unknown user'}`}
                     </p>
-                    <div className="flex flex-wrap gap-2 text-sm">
+                    <div className="flex flex-wrap gap-1.5">
                       <button
                         type="button"
-                        className="rounded border border-slate-300 px-2 py-1 disabled:opacity-50"
+                        className="btn"
                         disabled={!item.stored}
                         title={
                           item.stored
@@ -184,7 +180,7 @@ export function HistoryPage(): JSX.Element {
                       </button>
                       <button
                         type="button"
-                        className="rounded border border-slate-300 px-2 py-1 disabled:opacity-50"
+                        className="btn"
                         disabled={!item.stored}
                         data-testid="history-copy-link"
                         onClick={() => onCopy(item.request_id)}
@@ -195,7 +191,7 @@ export function HistoryPage(): JSX.Element {
                       </button>
                       <button
                         type="button"
-                        className="rounded border border-slate-300 px-2 py-1"
+                        className="btn"
                         data-testid="history-rerun"
                         onClick={() => {
                           writeSession(RERUN_QUESTION_KEY, item.question);

@@ -59,37 +59,47 @@ export function QuestionArea({
     }
   };
   return (
-    <section className="space-y-3" aria-label="Question">
-      <form className="space-y-2" onSubmit={submit}>
+    <section className="space-y-2.5" aria-label="Question">
+      <form
+        className="flex items-stretch border border-line-strong bg-field focus-within:border-accent focus-within:shadow-[0_0_0_1px_var(--k-accent)]"
+        onSubmit={submit}
+      >
+        <span
+          className="select-none pl-3 pt-[0.4rem] font-mono text-[15px] font-bold text-accent"
+          aria-hidden="true"
+        >
+          &gt;
+        </span>
         <label htmlFor="keel-question" className="sr-only">
           Question
         </label>
         <textarea
           id="keel-question"
           rows={2}
-          className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-base shadow-sm focus:border-accent focus:outline-none"
+          className="min-h-[3.5rem] min-w-0 flex-1 resize-y bg-transparent px-2 py-2 font-mono text-[13.5px] leading-snug text-ink focus:outline-none"
           placeholder="Ask about the 10-K and 10-Q filings"
           value={question}
           onChange={event => onQuestionChange(event.target.value)}
           onKeyDown={onKeyDown}
         />
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 flex-col items-end justify-between gap-1 border-l border-line bg-head px-2 py-1.5">
           <span
-            className={`text-xs tabular-nums ${tooLong ? 'text-red-600' : 'text-slate-500'}`}
+            className={`num text-[10.5px] ${tooLong ? 'text-down' : 'text-muted'}`}
             data-testid="char-counter"
           >
             {question.trim().length} / {QUESTION_MAX}
           </span>
           <button
             type="submit"
-            className="ml-auto rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+            className="btn btn-primary px-4"
             disabled={!askEnabled || !valid}
           >
             Ask
           </button>
         </div>
       </form>
-      <div className="flex flex-wrap items-start gap-2">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="section-title mr-1">Examples</span>
         <ExampleChips
           examples={examples}
           disabled={!askEnabled}
@@ -100,7 +110,7 @@ export function QuestionArea({
         />
         <button
           type="button"
-          className="rounded-full border border-dashed border-red-300 bg-white px-3 py-1 text-sm text-red-700 hover:border-red-500"
+          className="chip border-dashed border-down text-down hover:border-down"
           data-testid="adversarial-preset"
           title={ADVERSARIAL.question}
           onClick={() => onQuestionChange(ADVERSARIAL.question)}
