@@ -34,6 +34,7 @@ from keel import context
 from keel import doctor
 from keel import edgar
 from keel import errors
+from keel import export
 from keel import extractor
 from keel import indexer
 from keel import inventory
@@ -457,6 +458,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     doctor_parser.add_argument(
         "--json", action="store_true", help="print the results as JSON"
+    )
+    export.add_arguments(
+        commands.add_parser("export", help="write a stored answer as a memo")
     )
     return parser
 
@@ -1559,6 +1563,7 @@ def _dispatch(settings: config.Settings, args: argparse.Namespace) -> int:
             as_json=args.json,
         ),
         "serve": lambda: api_app.serve(settings, args.host, args.port),
+        "export": lambda: export.run(settings, args),
         "index": lambda: run_index(
             settings,
             corpus_dir=args.corpus,
