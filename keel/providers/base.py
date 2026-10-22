@@ -105,7 +105,7 @@ class LLMProvider(Protocol):
         Raises:
             ProviderError: The request failed; a subclass names the cause.
         """
-        ...  # pylint: disable=unnecessary-ellipsis
+        raise NotImplementedError
 
 
 def cost_usd(usage: UsageReport, prices: config.ModelPrices) -> float:
