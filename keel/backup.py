@@ -526,6 +526,84 @@ def restore_backup(
     )
 
 
+@dataclasses.dataclass(frozen=True)
+class BackupInfo:
+    """1 local archive of the backup directory.
+
+    Attributes:
+        name: The `keel-<stamp>.tar.gz` file name.
+        path: The archive file.
+        size_bytes: The archive size.
+        created_at: The UTC time of the stamp, ISO 8601.
+        has_checksum: True when the `.sha256` file sits beside it.
+    """
+
+    name: str
+    path: pathlib.Path
+    size_bytes: int
+    created_at: str
+    has_checksum: bool
+
+
+def is_archive_name(name: str) -> bool:
+    """True for a Keel archive file name, `keel-<stamp>.tar.gz`.
+
+    Args:
+        name: The file name.
+
+    Returns:
+        True when the name matches; a path separator never does.
+    """
+    return bool(_ARCHIVE_NAME.fullmatch(name))
+
+
+def list_backups(out_dir: pathlib.Path) -> list[BackupInfo]:
+    """List the local archives, newest first.
+
+    Only regular files whose names match the archive pattern count, so a
+    symlink or a stray file in the directory is never listed (and never
+    offered for a download or a restore).
+
+    Args:
+        out_dir: The backup directory (`scheduler.backup_dir`).
+
+    Returns:
+        The archives; empty when the directory does not exist.
+    """
+    if not out_dir.is_dir():
+        return []
+    found: list[BackupInfo] = []
+    for path in out_dir.iterdir():
+        if not is_archive_name(path.name) or path.is_symlink():
+            continue
+        try:
+            info = path.stat()
+        except OSError:
+            continue
+        if not path.is_file():
+            continue
+        stamp = path.name.removeprefix(ARCHIVE_PREFIX).removesuffix(
+            ARCHIVE_SUFFIX
+        )
+        try:
+            created = datetime.datetime.strptime(stamp, STAMP_FORMAT)
+        except ValueError:
+            continue
+        created = created.replace(tzinfo=datetime.UTC)
+        found.append(
+            BackupInfo(
+                name=path.name,
+                path=path,
+                size_bytes=info.st_size,
+                created_at=created.isoformat(timespec="seconds"),
+                has_checksum=path.with_name(
+                    path.name + CHECKSUM_SUFFIX
+                ).is_file(),
+            )
+        )
+    return sorted(found, key=lambda item: item.name, reverse=True)
+
+
 def prune_backups(out_dir: pathlib.Path, keep: int) -> list[pathlib.Path]:
     """Remove the oldest local archives beyond the newest `keep`.
 

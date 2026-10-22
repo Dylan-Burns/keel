@@ -8,6 +8,7 @@ E-F-07), `/api/ready` reports it. With `--bootstrap` (chapter 29.9) the
 server starts first and a background thread fetches the corpus, builds or
 restores the index, and then opens it. With `scheduler.enabled` on, the
 nightly refresh and backup run in the app (`keel.api.background`). The
+admin job runner (`keel.api.jobs`) always starts with the app. The
 `/api` routes are registered first; then the hashed assets of `web/dist`
 and a fallback that returns `index.html` for every other path, so the
 client routes work on a reload.
@@ -31,8 +32,12 @@ import uvicorn
 from keel import config
 from keel import doctor
 from keel import errors
+from keel.api import admin
+from keel.api import admin_system
 from keel.api import background
 from keel.api import export_routes
+from keel.api import job_kinds
+from keel.api import jobs
 from keel.api import routes
 from keel.api import state
 from keel.api import workspace
@@ -148,7 +153,20 @@ def create_app(services: Services) -> fastapi.FastAPI:
         else:
             await asyncio.to_thread(services.load)
         nightly = background.start_scheduler(services)
+        services.scheduler = nightly
+        runner = jobs.JobRunner(
+            services, job_kinds.SPECS, asyncio.get_running_loop()
+        )
+        try:
+            await asyncio.to_thread(runner.start)
+        except errors.StateStoreError as error:
+            # The service starts without jobs; the admin routes say 503.
+            logger.error("admin jobs unavailable: %s", error)
+        else:
+            services.jobs = runner
         yield
+        services.jobs = None
+        await asyncio.to_thread(runner.stop)
         if nightly is not None:
             await asyncio.to_thread(nightly.stop)
         pending = list(services.tasks)
@@ -168,6 +186,8 @@ def create_app(services: Services) -> fastapi.FastAPI:
     app.include_router(routes.router)
     app.include_router(export_routes.router)
     app.include_router(workspace.router)
+    app.include_router(admin.router)
+    app.include_router(admin_system.router)
     _frontend(app, services.settings.server.web_dist)
     app.add_middleware(SecurityHeaders)
     return app
