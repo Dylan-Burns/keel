@@ -32,10 +32,11 @@ class _Section(pydantic.BaseModel):
 
 
 class ServerConfig(_Section):
-    """The HTTP server bind address."""
+    """The HTTP server bind address and the built front-end."""
 
     host: str = "127.0.0.1"
     port: int = pydantic.Field(default=8000, ge=1, le=65535)
+    web_dist: pathlib.Path = pathlib.Path("web/dist")
 
 
 class CacheConfig(_Section):

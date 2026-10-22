@@ -3,12 +3,14 @@
 Stage 1 ships `keel inventory` and `keel doctor`; stage 2 adds `keel parse`;
 stage 3 adds `keel chunk` and `keel parse --sections-report`; stage 4 adds
 `keel index`; stage 5 adds `keel understand`; stage 6 adds `keel retrieve`;
-stage 7 adds `keel ask`; stage 8 adds `keel calibrate`. Later stages add the
-commands that CLAUDE.md lists (serve, eval, and the rest).
+stage 7 adds `keel ask`; stage 8 adds `keel calibrate`; stage 9 adds
+`keel serve`. Later stages add the commands that CLAUDE.md lists (eval and
+the rest).
 """
 
 import argparse
 import asyncio
+from collections.abc import Callable
 from collections.abc import Sequence
 import json
 import logging
@@ -34,6 +36,7 @@ from keel import inventory
 from keel import retriever
 from keel import sections
 from keel import understanding
+from keel.api import app as api_app
 from keel.parsers import base as parser_base
 from keel.parsers import corpus as parser_corpus
 from keel.stores import chunk_store
@@ -249,6 +252,19 @@ def build_parser() -> argparse.ArgumentParser:
         type=pathlib.Path,
         default=None,
         help="the index directory with `current` (default: index.dir)",
+    )
+
+    serve_parser = commands.add_parser(
+        "serve", help="serve the API and the front-end (chapter 14)"
+    )
+    serve_parser.add_argument(
+        "--host", default=None, help="the bind address (default: server.host)"
+    )
+    serve_parser.add_argument(
+        "--port",
+        type=int,
+        default=None,
+        help="the port (default: server.port); a busy port moves up to +10",
     )
 
     doctor_parser = commands.add_parser(
@@ -1077,10 +1093,11 @@ def run_doctor(settings: config.Settings, download: bool, as_json: bool) -> int:
 
 def _dispatch(settings: config.Settings, args: argparse.Namespace) -> int:
     """Run the chosen command with its arguments."""
-    if args.command == "inventory":
-        return run_inventory(settings, args.corpus, args.manifest, args.json)
-    if args.command == "parse":
-        return run_parse(
+    handlers: dict[str, Callable[[], int]] = {
+        "inventory": lambda: run_inventory(
+            settings, args.corpus, args.manifest, args.json
+        ),
+        "parse": lambda: run_parse(
             settings,
             args.files,
             parse_all=args.all,
@@ -1088,24 +1105,26 @@ def _dispatch(settings: config.Settings, args: argparse.Namespace) -> int:
             show_summary=args.summary,
             as_json=args.json,
             sections_report=args.sections_report,
-        )
-    if args.command == "chunk":
-        return run_chunk(
+        ),
+        "chunk": lambda: run_chunk(
             settings,
             args.files,
             chunk_all=args.all,
             corpus_dir=args.corpus,
             as_json=args.json,
-        )
-    if args.command == "index":
-        return run_index(
+        ),
+        "serve": lambda: api_app.serve(settings, args.host, args.port),
+        "index": lambda: run_index(
             settings,
             corpus_dir=args.corpus,
             out_dir=args.out,
             incremental=args.incremental,
-        )
-    if args.command == "calibrate":
-        return run_calibrate(settings, args.sample, args.index)
+        ),
+        "calibrate": lambda: run_calibrate(settings, args.sample, args.index),
+    }
+    handler = handlers.get(args.command)
+    if handler is not None:
+        return handler()
     return run_doctor(settings, args.download_models, args.json)
 
 

@@ -97,6 +97,25 @@ class AnswerCache:
             return None
         return record
 
+    def find(self, request_id: str) -> dict[str, Any] | None:
+        """Find the stored record of a request ID (chapter 14.1 results).
+
+        Args:
+            request_id: The request ID of the answer that filled the entry.
+
+        Returns:
+            The record, or None when no valid entry holds the request ID.
+        """
+        if not self.directory.is_dir():
+            return None
+        for path in sorted(self.directory.glob(f"*{ENTRY_SUFFIX}")):
+            if path.name.startswith(".tmp-"):
+                continue
+            record = self.get(path.name[: -len(ENTRY_SUFFIX)])
+            if record is not None and record.get("request_id") == request_id:
+                return record
+        return None
+
     def put(self, key: str, record: dict[str, Any]) -> None:
         """Store a record; a write failure is logged, never raised.
 
