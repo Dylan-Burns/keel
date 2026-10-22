@@ -591,6 +591,7 @@ Entry format:
 - Spend: 2.0583 USD (answers 1.1331, judge 0.9252), within the 3 USD cap.
 - Decisions taken without review: the live run covers 13 questions, not 24, to stay within the cap. `eval/report.md` and `eval/report.json` keep the full 24-question run eval-20261022T111922Z, because a 13-question report would replace the full retrieval and answer tables; the subset report stayed outside the repository and its numbers are above. The judge version moves to 1.2.0, not 1.1.0, because 1.1.0 already exists (the `filing:` line). The new verdict is a fourth claim value, not a `supported` verdict, so a statement about Keel cannot raise the score.
 - Cut or deferred: a full live eval with judge prompt 1.2.0; keeping the answer records of a live run for a re-judge; prompt 1.5.0 (a change claim cites the earlier and the later filing, a comparative period end cites the filing that states it, a listed theme carries its own citation).
+- Full run: after the merge, 1 full live eval (eval-20261022T123820Z, 28 questions, 24 answered, judge prompt 1.2.0, prompt 1.4.0, index 1.2.0, `--no-ablation`) measured faithfulness 0.895 (the report rounds it to 0.90 and marks it fail), recall at 25 0.86, MRR 0.96, citation precision 0.99, coverage, numeric accuracy, schema validity, and refusal correctness 1.00, latency p50 23.5 s and p95 31.3 s, mean answer cost 0.0924 USD (highest 0.1126). Faithfulness by type: trend 0.82, ambiguous entity 0.83, single company 0.89, comparison 0.89, numeric 0.92, sector 0.96, adversarial 0.98. Weakest answers: G-12 0.72, G-01 0.75, G-06 0.75, G-14 0.78. 9 of 10 gates pass; faithfulness misses by 0.005. Spend 4.2020 USD (answers 2.2176, judge 1.9844).
 - Attempts: 1.
 
 ## Gaps
@@ -658,6 +659,7 @@ Decisions that CLAUDE.md says to ask about, taken in unattended mode. One line e
 - The 1 live answer eval of the follow-up ran from the main checkout directory with the worktree's code, so the app loads the API key from the main checkout's environment file; no secret file is copied or read. Follow-up after stage 22.
 - The faithfulness fixes (judge prompt 1.1.0, prompt 1.5.0) are recorded as proposals, not made, because a prompt change needs its own live eval. Follow-up after stage 22.
 - Judge prompt 1.2.0 is measured on a 13-question live run (2.06 USD) instead of the full set, which would pass the 3 USD cap; `eval/report.md` keeps the full 24-question run. Follow-up after stage 22: judge context.
+- The full live eval with judge prompt 1.2.0 ran with `--no-ablation` and wrote its report outside the repository, so `eval/report.md` keeps the ablation tables of eval-20261022T111922Z; the full-run numbers are in the judge context entry, the memo, and the README. Prompt 1.5.0 is not started: it changes the answer prompt and needs its own live eval, so it waits for review. Follow-up after stage 22: judge context.
 
 ## Placeholders resolved
 
