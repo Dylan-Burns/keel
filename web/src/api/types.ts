@@ -47,6 +47,8 @@ export interface AnalysisSummary {
   readonly time_scope: TimeScope;
   readonly entities?: Entity[];
   readonly groups?: string[];
+  /** The saved comp sets the question names (chapter 27.2). */
+  readonly comp_sets?: CompSetUse[];
   readonly unknown_entities?: string[];
   readonly suggested_tickers?: string[];
   readonly out_of_scope_reason?: string | null;
@@ -435,4 +437,57 @@ export interface HistoryResponse {
   readonly role: string;
   readonly scope: HistoryScope;
   readonly items: HistoryItem[];
+}
+
+/** 1 comp set that a question names (the `comp_sets` of the analysis). */
+export interface CompSetUse {
+  readonly name: string;
+  /** The text of the question that named the set. */
+  readonly text: string;
+  readonly tickers: string[];
+  /** The tickers of the set without an indexed filing. */
+  readonly missing: string[];
+}
+
+/** 1 saved comp set of `GET /api/compsets` (chapter 27.2). */
+export interface CompSetItem {
+  /** The name a question uses as `my <name> comps`. */
+  readonly name: string;
+  readonly tickers: string[];
+  readonly owner: string | null;
+  readonly updated_at: string;
+  /** The tickers outside the index; `keel add` adds them (chapter 26). */
+  readonly missing: string[];
+  /** True when the caller may replace or delete the set. */
+  readonly editable: boolean;
+}
+
+/** `GET /api/compsets`: the saved comp sets in name order. */
+export interface CompSetList {
+  readonly items: CompSetItem[];
+}
+
+/** 1 question template of `GET /api/templates` (chapter 27.2). */
+export interface QuestionTemplate {
+  readonly id: string;
+  readonly label: string;
+  /** The question with the `{companies}` and `{period}` placeholders. */
+  readonly text: string;
+  readonly default_period: string;
+}
+
+/** `GET /api/templates`: the templates in file order. */
+export interface TemplateList {
+  readonly items: QuestionTemplate[];
+}
+
+/** A thumbs vote on an answer. */
+export type Vote = 'up' | 'down';
+
+/** `POST /api/feedback`: the stored vote. */
+export interface FeedbackSaved {
+  readonly request_id: string;
+  readonly vote: Vote;
+  readonly note: string | null;
+  readonly user: string;
 }

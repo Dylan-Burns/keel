@@ -1,6 +1,6 @@
 import type {JSX} from 'react';
 
-import {HISTORY_PATH} from '../lib/links';
+import {COMPSETS_PATH, HISTORY_PATH} from '../lib/links';
 
 /** Props of Footer. */
 export interface FooterProps {
@@ -19,8 +19,9 @@ export interface FooterProps {
 
 /**
  * The footer (chapter 14.5): Copy as markdown, Export JSON, Copy link (the
- * shareable link of chapter 27.2), the links to the history page and the
- * eval page (W-02), the request ID, and the prompt version.
+ * shareable link of chapter 27.2), the links to the history page, the comp
+ * sets page, and the eval page (W-02), the request ID, and the prompt
+ * version.
  *
  * @param props The props.
  * @return The footer.
@@ -70,6 +71,14 @@ export function Footer({
         onClick={() => window.location.assign(HISTORY_PATH)}
       >
         History
+      </button>
+      <button
+        type="button"
+        className="underline"
+        data-testid="compsets-link"
+        onClick={() => window.location.assign(COMPSETS_PATH)}
+      >
+        Comp sets
       </button>
       <button
         type="button"

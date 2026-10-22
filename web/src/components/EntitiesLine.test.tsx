@@ -33,4 +33,27 @@ describe('EntitiesLine', () => {
     ).toEqual(['JPM', 'AAPL']);
     expect(screen.getByText(/Did you mean JPMorgan Chase/)).toBeInTheDocument();
   });
+
+  it('names each comp set and its tickers outside the index', () => {
+    render(
+      <EntitiesLine
+        analysis={{
+          tickers: ['MSFT', 'ORCL'],
+          primary_type: 'comparison',
+          time_scope: {kind: 'none'},
+          comp_sets: [
+            {
+              name: 'software',
+              text: 'my software comps',
+              tickers: ['MSFT', 'ORCL', 'WDAY'],
+              missing: ['WDAY'],
+            },
+          ],
+        }}
+      />,
+    );
+    expect(screen.getByTestId('comp-set-note')).toHaveTextContent(
+      '"my software comps" is the comp set software; not in the index: WDAY',
+    );
+  });
 });

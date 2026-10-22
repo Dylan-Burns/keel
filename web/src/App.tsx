@@ -10,6 +10,7 @@ import {useCallback, useState} from 'react';
 import {fetchChunk, takeRerunQuestion} from './api/client';
 import {AnswerArea} from './components/AnswerArea';
 import {CoverageSummary} from './components/CoverageSummary';
+import {FeedbackBar} from './components/FeedbackBar';
 import {Footer} from './components/Footer';
 import {IndexNotBuiltCard} from './components/IndexNotBuiltCard';
 import {OfflineBanner} from './components/OfflineBanner';
@@ -22,6 +23,7 @@ import type {SelectedChunk} from './components/RightPanel';
 import {RightPanel} from './components/RightPanel';
 import {SharedNotice} from './components/SharedNotice';
 import {StaleIndexBanner} from './components/StaleIndexBanner';
+import {TemplatePicker} from './components/TemplatePicker';
 import {TokenField} from './components/TokenField';
 import {TopBar} from './components/TopBar';
 import {TraceDrawer} from './components/TraceDrawer';
@@ -207,6 +209,7 @@ export function App(): JSX.Element {
                 examples={EXAMPLES}
                 analysis={run?.analysis ?? null}
               />
+              <TemplatePicker enabled={hasToken} onFill={setQuestion} />
             </motion.div>
             <motion.div
               layout
@@ -263,6 +266,12 @@ export function App(): JSX.Element {
                     setQuestion(text);
                     onAsk(text);
                   }}
+                />
+              )}
+              {showAnswer && run?.final && base.kind !== 'streaming' && (
+                <FeedbackBar
+                  key={run.final.request_id}
+                  requestId={run.final.request_id}
                 />
               )}
               {run?.retrieval !== undefined && run?.retrieval !== null && (

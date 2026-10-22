@@ -7,9 +7,12 @@ import type {
   AskRequest,
   AskResponse,
   ChunkResponse,
+  CompSetItem,
+  CompSetList,
   CoverageResponse,
   ErrorEvent,
   EvalResponse,
+  FeedbackSaved,
   HealthResponse,
   HistoryResponse,
   HistoryScope,
@@ -17,6 +20,8 @@ import type {
   ReadyResponse,
   SseEvent,
   SseEventName,
+  TemplateList,
+  Vote,
 } from './types';
 
 /** The session storage key of the bearer token (the only stored secret). */
@@ -435,6 +440,113 @@ export const fetchHistory = (
  * @return The eval page data.
  */
 export const fetchEval = (): Promise<EvalResponse> => getJson('/api/eval');
+
+/**
+ * Sends a JSON request with the bearer token: POST, PUT, or DELETE.
+ *
+ * @param method The HTTP method.
+ * @param path The path under the same origin.
+ * @param body The JSON body, or undefined for none.
+ * @return The parsed JSON, or null for an empty response (HTTP 204).
+ * @throws ApiError On an HTTP error or a body that is not JSON.
+ */
+export async function sendJson<T>(
+  method: 'POST' | 'PUT' | 'DELETE',
+  path: string,
+  body?: unknown,
+): Promise<T | null> {
+  const response = await fetch(path, {
+    method,
+    headers: {
+      Accept: 'application/json',
+      ...(body === undefined ? {} : {'Content-Type': 'application/json'}),
+      ...authHeaders(),
+    },
+    ...(body === undefined ? {} : {body: JSON.stringify(body)}),
+  });
+  if (!response.ok) {
+    throw await toApiError(response);
+  }
+  if (response.status === 204) {
+    return null;
+  }
+  try {
+    return (await response.json()) as T;
+  } catch {
+    throw new ApiError(
+      response.status,
+      'bad_json',
+      'The response is not JSON',
+      null,
+    );
+  }
+}
+
+/** `GET /api/compsets`. @return The saved comp sets (chapter 27.2). */
+export const fetchCompSets = (): Promise<CompSetList> =>
+  getJson('/api/compsets');
+
+/**
+ * `PUT /api/compsets/{name}`: creates or replaces a comp set.
+ *
+ * @param name The name; a question names it as `my <name> comps`.
+ * @param tickers The tickers.
+ * @return The saved comp set.
+ * @throws ApiError On an HTTP error or an empty response.
+ */
+export async function saveCompSet(
+  name: string,
+  tickers: readonly string[],
+): Promise<CompSetItem> {
+  const saved = await sendJson<CompSetItem>(
+    'PUT',
+    `/api/compsets/${encodeURIComponent(name)}`,
+    {tickers},
+  );
+  if (saved === null) {
+    throw new ApiError(204, 'empty_body', 'The response is empty', null);
+  }
+  return saved;
+}
+
+/**
+ * `DELETE /api/compsets/{name}`.
+ *
+ * @param name The name.
+ * @return Resolves when the set is gone.
+ */
+export async function deleteCompSet(name: string): Promise<void> {
+  await sendJson('DELETE', `/api/compsets/${encodeURIComponent(name)}`);
+}
+
+/** `GET /api/templates`. @return The question templates (chapter 27.2). */
+export const fetchTemplates = (): Promise<TemplateList> =>
+  getJson('/api/templates');
+
+/**
+ * `POST /api/feedback`: a thumbs vote and a note on an answer (27.2).
+ *
+ * @param requestId The request ID of the answer.
+ * @param vote `up` or `down`.
+ * @param note An optional note.
+ * @return The stored vote.
+ * @throws ApiError On an HTTP error or an empty response.
+ */
+export async function sendFeedback(
+  requestId: string,
+  vote: Vote,
+  note: string | null,
+): Promise<FeedbackSaved> {
+  const saved = await sendJson<FeedbackSaved>('POST', '/api/feedback', {
+    request_id: requestId,
+    vote,
+    note,
+  });
+  if (saved === null) {
+    throw new ApiError(204, 'empty_body', 'The response is empty', null);
+  }
+  return saved;
+}
 
 /**
  * `POST /api/ask` with streaming: yields the server-sent events.
