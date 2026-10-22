@@ -660,21 +660,21 @@ def _restore_from_url(
     def fetch(staging: pathlib.Path) -> pathlib.Path:
         archive = staging / archive_name(url)
         allowed = allowed_hosts(url)
-        for source, target in (
-            (url, archive),
-            (
-                checksum_url(url),
-                archive.with_name(archive.name + backup.CHECKSUM_SUFFIX),
-            ),
-        ):
-            download(
-                source,
-                target,
-                allowed=allowed,
-                resolver=deps.resolver,
-                transport=deps.transport,
-                progress=state.advance,
-            )
+        download(
+            url,
+            archive,
+            allowed=allowed,
+            resolver=deps.resolver,
+            transport=deps.transport,
+            progress=state.advance,
+        )
+        download(
+            checksum_url(url),
+            archive.with_name(archive.name + backup.CHECKSUM_SUFFIX),
+            allowed=allowed,
+            resolver=deps.resolver,
+            transport=deps.transport,
+        )
         return archive
 
     return _restore_staged(
@@ -706,7 +706,10 @@ def archive_name(url: str) -> str:
 def checksum_url(url: str) -> str:
     """Return the URL of the `.sha256` file beside the archive.
 
-    The suffix goes on the path, so a query (a signature) stays intact.
+    The suffix goes on the path and the query is kept as it is. A
+    presigned bucket URL signs the path, so its signature does not cover the
+    `.sha256` file: `index.url` is meant to be an unsigned public URL, such
+    as a GitHub release asset.
 
     Args:
         url: The https URL of the archive.

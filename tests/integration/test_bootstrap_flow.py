@@ -7,6 +7,7 @@ or a fake `gh`; the index build is the real one with a fake embedder.
 from collections.abc import Sequence
 import dataclasses
 import io
+import logging
 import pathlib
 import zipfile
 
@@ -308,9 +309,12 @@ def release_transport(
 
 
 def test_bootstrap_restores_the_index_url(
-    settings: config.Settings, tmp_path: pathlib.Path
+    settings: config.Settings,
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Option A without gh or a token: the archive comes over https."""
+    caplog.set_level(logging.INFO)
     archive = release_archive(settings, tmp_path)
     data = tmp_path / "data"
     configured = url_settings(
@@ -342,6 +346,7 @@ def test_bootstrap_restores_the_index_url(
     assert current is not None
     assert indexer.verify(current).counts.indexed == 3
     assert "secret123" not in status.detail
+    assert "secret123" not in caplog.text
 
 
 def test_bootstrap_builds_when_the_index_url_checksum_fails(
@@ -364,6 +369,7 @@ def test_bootstrap_builds_when_the_index_url_checksum_fails(
     assert status.phase == bootstrap.Phase.READY, status.error
     assert status.index == "built"
     assert "BackupChecksumError" in caplog.text
+    assert "secret123" not in caplog.text
     assert not list(data.glob(".url-index-*"))
 
 
