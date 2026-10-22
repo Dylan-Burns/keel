@@ -715,6 +715,12 @@ Entry format:
 - Found on the way: the repository uses GitHub's immutable OIDC subject (`repo:<owner>@<owner id>/<name>@<repo id>:...`), so a trust policy on `repo:Dylan-Burns/keel:...` never matched; the first PR plan failed with `Not authorized to perform sts:AssumeRoleWithWebIdentity`. Both the plan and the deploy roles now trust `var.github_subject_prefix`. The plan role also denies parameter history, batched secrets, live log tails, SSM command output, and the EC2 console output; the state bucket expires old versions after 90 days, both buckets abort failed uploads after 7 days, and the checkov rules for KMS, access logs, replication, and event notifications are skipped on the state bucket with their reason. The provider lock file is committed for linux and macOS.
 - Attempts: 1.
 
+## Follow-up after stage 22: CloudFront address
+
+- Built: `infra/terraform/cloudfront.tf`, a CloudFront distribution in front of the AWS host with the free `*.cloudfront.net` name and certificate (the engineer asked for a free name from AWS after `keel.io`, `.com`, `.app`, `.dev`, and `.ai` proved taken). Caching off (`Managed-CachingDisabled`), every viewer header but `Host` forwarded (`Managed-AllViewerExceptHostHeader`), so the bearer token and the SSE streams pass through; `Managed-SecurityHeadersPolicy`; origin Caddy over HTTPS under the `sslip.io` name; checkov rules for WAF, access logs, origin failover, geo restriction, and a custom certificate are skipped with their reason. `deploy-aws.yml` reports `KEEL_PUBLIC_URL` and smoke tests both the host and the CloudFront address.
+- Measured: distribution `d1otueg71oygkx.cloudfront.net` created; `terraform plan` shows no change after the apply. The first apply stopped at the deploy wait on an IAM propagation delay (`cloudfront:GetDistribution` denied seconds after the policy update); the resource was untainted, not recreated.
+- Attempts: 1.
+
 ## Gaps
 
 Values that were not available when the build needed them, and what the build did instead.

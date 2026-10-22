@@ -27,3 +27,8 @@ output "hostname" {
   description = "HTTPS name without a DNS zone; the GitHub variable KEEL_HOSTNAME."
   value       = var.hostname != "" ? var.hostname : "${replace(aws_eip.keel.public_ip, ".", "-")}.sslip.io"
 }
+
+output "cloudfront_url" {
+  description = "Public HTTPS address of the pilot (the free *.cloudfront.net name); the GitHub variable KEEL_PUBLIC_URL."
+  value       = "https://${aws_cloudfront_distribution.keel.domain_name}"
+}

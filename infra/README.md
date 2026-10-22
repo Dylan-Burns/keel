@@ -120,6 +120,16 @@ To run the same deploy by hand: `aws ssm send-command --document-name
 AWS-RunShellScript` with `curl -fsSL <raw URL of infra/deploy_host.sh at the
 tag> | bash -s <version>`, or SSH as `ubuntu` from the admin CIDR.
 
+## AWS: the public address
+
+`cloudfront.tf` puts a CloudFront distribution in front of the host: the
+free `*.cloudfront.net` name with its certificate (the `cloudfront_url`
+output, the GitHub variable `KEEL_PUBLIC_URL`). Caching is off and every
+viewer header but `Host` reaches the origin, so the bearer token and the SSE
+streams pass through unchanged. The origin is Caddy on the host over HTTPS
+under its `sslip.io` name. A custom domain later needs an ACM certificate in
+`us-east-1` and an alias on the distribution.
+
 ## AWS: CI and CD
 
 | Workflow | When | What |
