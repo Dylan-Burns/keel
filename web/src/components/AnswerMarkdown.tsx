@@ -39,7 +39,7 @@ export function AnswerMarkdown({
       data-testid="answer-markdown"
       data-streaming={streaming}
       data-blocks={blocks.length}
-      aria-live={streaming ? 'polite' : undefined}
+      aria-live="polite"
       aria-busy={streaming}
     >
       {blocks.map((html, index) => (

@@ -396,7 +396,6 @@
     display: inline-flex;
     border: 1px solid var(--k-line-strong);
     border-radius: 2px;
-    overflow: hidden;
   }
 
   .segmented-option {
@@ -420,6 +419,16 @@
   .segmented-option[aria-pressed='true'] {
     background: var(--k-accent);
     color: var(--k-on-accent);
+  }
+
+  /* An inset ring, so the frame does not hide it and the selected option
+     shows it in the color that sits on the accent. */
+  .segmented-option:focus-visible {
+    outline-offset: -3px;
+  }
+
+  .segmented-option[aria-pressed='true']:focus-visible {
+    outline-color: var(--k-on-accent);
   }
 
   /* A quote grid: the comparison table and the tables of the answer. */
