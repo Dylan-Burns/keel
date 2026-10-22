@@ -7,8 +7,8 @@ import docx
 import pydantic
 import pytest
 from starlette import testclient
-from tests.unit import test_export as samples
 
+import export_samples as samples
 from keel import audit
 from keel import cache
 from keel import config

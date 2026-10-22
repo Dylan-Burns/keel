@@ -11,7 +11,6 @@ from __future__ import annotations
 import asyncio
 import logging
 from typing import Annotated
-from typing import Any
 
 import fastapi
 
@@ -63,7 +62,11 @@ async def export_memo(
     try:
         if record is None:
             record = await asyncio.to_thread(
-                export.find_record, services.settings, request_id
+                export.find_record,
+                services.settings,
+                request_id,
+                None,
+                False,
             )
         memo = export.build_memo(record, request_id)
     except export.ExportError as error:
@@ -76,7 +79,7 @@ async def export_memo(
     except export.ExportError as error:
         raise routes.http_error(501, "export_unavailable", str(error)) from None
     name = export.file_name(request_id, fmt)
-    headers: dict[str, Any] = {
+    headers: dict[str, str] = {
         "Content-Disposition": f'attachment; filename="{name}"',
         "Cache-Control": "no-store",
     }

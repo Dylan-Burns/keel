@@ -1,5 +1,7 @@
 """A stored answer record for the memo export tests (chapter 27.2)."""
 
+from typing import Any
+
 AAPL = "AAPL_10K_2025-09-27__risk_factors__0003"
 AAPL_MDNA = "AAPL_10K_2025-09-27__mdna__0011"
 MSFT = "MSFT_10K_2025-06-30__risk_factors__0007"
@@ -10,8 +12,14 @@ EVIL_URL = "https://evil.example/filing.htm"
 QUESTION = "How do Apple and Microsoft describe supply chain risk?"
 
 
-def resolved(chunk_id, url, *, quote="net sales of $416,161 million"):
-    ticker = chunk_id.split("_")[0]
+def resolved(
+    chunk_id: str,
+    url: str | None,
+    *,
+    quote: str = "net sales of $416,161 million",
+) -> dict[str, Any]:
+    """1 resolved citation of the record."""
+    ticker = chunk_id.split("_", maxsplit=1)[0]
     company = {"AAPL": "Apple Inc.", "MSFT": "Microsoft Corp"}[ticker]
     label = "FY2025"
     period_end = chunk_id.split("_")[2]
@@ -32,7 +40,10 @@ def resolved(chunk_id, url, *, quote="net sales of $416,161 million"):
     }
 
 
-def make_record(request_id="req-1", msft_url=MSFT_URL):
+def make_record(
+    request_id: str = "req-1", msft_url: str | None = MSFT_URL
+) -> dict[str, Any]:
+    """A `final` record with findings, a table, gaps, and 4 sources."""
     return {
         "request_id": request_id,
         "question": QUESTION,
@@ -126,8 +137,14 @@ def make_record(request_id="req-1", msft_url=MSFT_URL):
     }
 
 
-def audit_line(request_id: str, model: str = "claude-sonnet-5-5") -> dict:
+def audit_line(
+    request_id: str,
+    model: str = "claude-sonnet-5-5",
+    outcome: str = "cached",
+) -> dict[str, Any]:
+    """The audit fields the export reads; `cached` by default."""
     return {
+        "outcome": outcome,
         "request_id": request_id,
         "question": QUESTION,
         "index_version": "1.0.0",
