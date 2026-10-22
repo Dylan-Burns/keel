@@ -1,13 +1,17 @@
 """The SEC EDGAR client and the company facts lines (chapter 26).
 
-The client fetches 3 documents: the ticker map from `www.sec.gov`, and the
-company facts and the submissions of 1 company from `data.sec.gov`. Every
+The client fetches 4 documents: the ticker map and the primary document of
+a filing from `www.sec.gov`, and the company facts and the submissions of 1
+company from `data.sec.gov`. Every
 request carries the `User-Agent` header from `edgar.user_agent`, waits for
 the minimum interval since the previous request, and passes the outbound
 allow list of control S-11: https only, the 2 SEC hosts only, no private,
 loopback, or link-local address, and every redirect target checked again.
 Every response lands in the disk cache under `edgar.cache_dir` with its
 fetch time, so a repeat run makes no request.
+
+`filings_of` and `pick_latest` read the submissions of a company and pick
+the filings that `keel add` ingests (chapter 26.2, step 2).
 
 `facts_lines` is a pure function: from a company facts document, a ticker,
 the concepts of `config/facts.yaml`, and a period window, it builds the
@@ -28,6 +32,7 @@ import ipaddress
 import json
 import logging
 import pathlib
+import re
 import socket
 import tempfile
 import time
@@ -52,6 +57,14 @@ FILING_INDEX_URL = (
     "-index.htm"
 )
 LOOKUP_URL = "https://www.sec.gov/edgar/searchedgar/companysearch"
+DOCUMENT_URL = (
+    "https://www.sec.gov/Archives/edgar/data/{cik}/{folder}/{document}"
+)
+ADD_FORMS = ("10-K", "10-Q")
+# The submissions JSON is data from the network: an accession number and a
+# document name must have these shapes before they name a URL or a file.
+ACCESSION = re.compile(r"^\d{10}-\d{2}-\d{6}$")
+DOCUMENT_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,120}\.html?$")
 MAX_REDIRECTS = 3
 MAX_FACT_LINES = 40
 FACT_FORMS = frozenset({"10-K", "10-K/A", "10-Q", "10-Q/A"})
@@ -298,6 +311,135 @@ class TickerMap:
         return self.lookup(ticker).cik
 
 
+# --- Submissions (chapter 26.2, step 2) ---------------------------------------
+
+
+class FilingRef(_Model):
+    """1 filing of the submissions JSON that `keel add` can ingest.
+
+    Attributes:
+        cik: The CIK of the filer, 10 digits.
+        form: `10-K` or `10-Q`.
+        accession: The accession number, `0001555280-26-000011`.
+        filing_date: The filing date.
+        report_date: The period end date the submissions JSON states.
+        primary_document: The file name of the primary document.
+    """
+
+    cik: str
+    form: str
+    accession: str
+    filing_date: datetime.date
+    report_date: datetime.date
+    primary_document: str
+
+    @property
+    def url(self) -> str:
+        """The https URL of the primary document on www.sec.gov.
+
+        Returns:
+            The archive URL.
+        """
+        return DOCUMENT_URL.format(
+            cik=int(self.cik),
+            folder=self.accession.replace("-", ""),
+            document=self.primary_document,
+        )
+
+
+def filings_of(
+    submissions: Mapping[str, Any], forms: Sequence[str] = ADD_FORMS
+) -> list[FilingRef]:
+    """List the filings of the given forms in a submissions body.
+
+    Only the forms named count: a `10-K/A` is not a `10-K`. A row with a
+    malformed accession number, document name, or date is skipped with a
+    warning, because the values name a URL and a cache file.
+
+    Args:
+        submissions: The submissions JSON (`CachedDocument.data`).
+        forms: The forms to keep.
+
+    Returns:
+        The filings, newest filing date first (the accession number breaks
+        a tie).
+
+    Raises:
+        EdgarError: The body has no `filings.recent` arrays or no CIK.
+    """
+    try:
+        cik = cik10(submissions["cik"])
+        recent = submissions["filings"]["recent"]
+        columns = [
+            recent[key]
+            for key in (
+                "form",
+                "accessionNumber",
+                "filingDate",
+                "reportDate",
+                "primaryDocument",
+            )
+        ]
+    except (KeyError, TypeError) as error:
+        raise errors.EdgarError(
+            "the submissions body has no filings.recent arrays"
+        ) from error
+    found: list[FilingRef] = []
+    for form, accession, filed, report, document in zip(*columns, strict=False):
+        if form not in forms:
+            continue
+        if not (
+            ACCESSION.match(str(accession))
+            and DOCUMENT_NAME.match(str(document))
+        ):
+            logger.warning(
+                "skipping a %s row: %s %r", form, accession, document
+            )
+            continue
+        try:
+            found.append(
+                FilingRef(
+                    cik=cik,
+                    form=form,
+                    accession=accession,
+                    filing_date=datetime.date.fromisoformat(filed),
+                    report_date=datetime.date.fromisoformat(report),
+                    primary_document=document,
+                )
+            )
+        except (TypeError, ValueError):
+            logger.warning(
+                "skipping a %s row with a bad date: %s", form, accession
+            )
+    found.sort(key=lambda ref: (ref.filing_date, ref.accession), reverse=True)
+    return found
+
+
+def pick_latest(
+    submissions: Mapping[str, Any], forms: Sequence[str] = ADD_FORMS
+) -> list[FilingRef]:
+    """Pick the latest filing of each form (chapter 26.2, step 2).
+
+    Args:
+        submissions: The submissions JSON (`CachedDocument.data`).
+        forms: The forms, in output order.
+
+    Returns:
+        1 filing per form that the company has filed, in `forms` order.
+
+    Raises:
+        EdgarError: The body is malformed, or it holds none of the forms.
+    """
+    latest: dict[str, FilingRef] = {}
+    for ref in filings_of(submissions, forms):
+        latest.setdefault(ref.form, ref)
+    if not latest:
+        raise errors.EdgarError(
+            "the submissions list no " + " or ".join(forms) + " filing"
+        )
+    return [latest[form] for form in forms if form in latest]
+
+
 # --- The client ---------------------------------------------------------------
 
 
@@ -495,6 +637,61 @@ class EdgarClient:
         url = SUBMISSIONS_URL.format(cik=cik10(cik))
         return self._document(url, self.submissions_path(cik), refresh)
 
+    def document_path(self, ref: FilingRef) -> pathlib.Path:
+        """Return the cache file of the primary document of a filing.
+
+        The path mirrors the archive URL: `Archives/<cik>/<accession
+        without dashes>/<document>`. A sidecar `<document>.json` holds the
+        URL and the fetch time.
+
+        Args:
+            ref: The filing.
+
+        Returns:
+            The path under the cache directory.
+        """
+        return (
+            self.cache_dir
+            / "Archives"
+            / str(int(ref.cik))
+            / ref.accession.replace("-", "")
+            / ref.primary_document
+        )
+
+    def filing_document(self, ref: FilingRef) -> bytes:
+        """Load the primary document of a filing (chapter 26.2, step 3).
+
+        Args:
+            ref: The filing, from `pick_latest` or `filings_of`.
+
+        Returns:
+            The document bytes (inline XBRL HTML).
+
+        Raises:
+            EdgarCacheMissError: The client is offline and the cache holds
+                no copy.
+            EdgarError: The fetch or the cache write fails.
+        """
+        path = self.document_path(ref)
+        sidecar = path.with_name(path.name + ".json")
+        if path.is_file() and sidecar.is_file():
+            return path.read_bytes()
+        if self.offline:
+            raise errors.EdgarCacheMissError(
+                f"offline and no cached copy of {ref.url} at {path}"
+            )
+        body = self.fetch(ref.url)
+        _write_bytes(path, body)
+        write_cached(
+            sidecar,
+            CachedDocument(
+                url=ref.url,
+                fetched_at=datetime.datetime.now(datetime.UTC),
+                data={"bytes": len(body), "form": ref.form},
+            ),
+        )
+        return body
+
     def _document(
         self, url: str, path: pathlib.Path, refresh: bool
     ) -> CachedDocument:
@@ -603,6 +800,19 @@ def write_cached(path: pathlib.Path, document: CachedDocument) -> None:
             delete=False,
         ) as stream:
             stream.write(document.model_dump_json())
+        pathlib.Path(stream.name).replace(path)
+    except OSError as error:
+        raise errors.EdgarError(f"cannot write {path}: {error}") from error
+
+
+def _write_bytes(path: pathlib.Path, body: bytes) -> None:
+    """Write bytes to a cache file through a temporary file."""
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(
+            "wb", dir=path.parent, prefix=path.name, suffix=".tmp", delete=False
+        ) as stream:
+            stream.write(body)
         pathlib.Path(stream.name).replace(path)
     except OSError as error:
         raise errors.EdgarError(f"cannot write {path}: {error}") from error
