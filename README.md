@@ -165,7 +165,7 @@ The last full run (`eval-20261022T064805Z`, index 1.2.0, prompt 1.4.0, stage 15)
 | Latency p95 | <= 40 s | 34.1 s (p50 23.1 s) | pass |
 | Mean cost per question | <= 0.25 USD | 0.0935 USD | pass |
 
-1 model request per answer (24 for 24). [`docs/PERFORMANCE_MEMO.md`](docs/PERFORMANCE_MEMO.md) explains each number. The 2 failing gates are known: the faithfulness judge partly read period labels the answer took from the chunk wrapper line (judge prompt 1.1.0 now sees it), and recall suffers where the labels grade risk factor chunks while the context holds response sections.
+1 model request per answer (24 for 24). [`docs/PERFORMANCE_MEMO.md`](docs/PERFORMANCE_MEMO.md) explains each number. The 2 failing gates are known: faithfulness is 0.86 on the full set (judge prompt 1.2.0, which reads each chunk as the answer model read it, scores 0.93 on a 13-question live run), and recall suffers where the labels grade risk factor chunks while the context holds response sections.
 
 ## Prompt log
 
