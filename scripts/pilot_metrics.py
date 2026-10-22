@@ -543,8 +543,9 @@ def compute(  # pylint: disable=too-many-arguments,too-many-locals
         until: The last ISO week to show, such as the current week, so a
             week with no activity at the end still counts as a 0 row.
         exclude_users: Users left out of every count, votes and exports
-            included (the engineer, `legacy` for the CLI questions and the
-            shared token, and `cli` for `keel export`).
+            included (the engineer, and `legacy` for the CLI questions and
+            the shared token). A memo of `keel export` carries the user
+            `cli`; it counts unless `cli` is named here.
         files: The audit files read, for the report.
         skipped_lines: The lines that were not a JSON object.
 

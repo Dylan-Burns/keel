@@ -159,4 +159,4 @@ Week 0 of chapter 27.6 on the pilot host, after the walk-through passes:
 - [ ] `keel add TICKER` for every ticker of the comp sets and the watch list outside the corpus.
 - [ ] Run the golden set (`keel eval --answers`) and write the performance memo with the measured numbers (stage 15).
 - [ ] Send `docs/START_GUIDE.md` with the pilot address; write the pilot start date for `pilot_metrics.py --since`.
-- [ ] Each week: `keel feedback --flagged`, the golden questions from the flagged answers, `scripts/pilot_metrics.py --since <start> --exclude-user eng --exclude-user legacy` (the terminal runs and the shared token write `legacy`) (the memos come from the export log).
+- [ ] Each week: `keel feedback --flagged`, the golden questions from the flagged answers, `scripts/pilot_metrics.py --since <start> --exclude-user eng --exclude-user legacy` (the terminal runs and the shared token write `legacy`); the memos come from the export log.
