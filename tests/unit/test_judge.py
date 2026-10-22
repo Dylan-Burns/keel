@@ -353,3 +353,25 @@ def test_judge_client_complete() -> None:
 def test_judge_client_needs_the_key(settings: config.Settings) -> None:
     with pytest.raises(errors.ProviderRequestError):
         judge.AnthropicJudgeClient.from_settings(settings)
+
+
+def test_chunk_text_carries_the_filing_line() -> None:
+    row = (
+        "NVDA_10K_2025-01-26__mdna__0001",
+        "NVIDIA Corporation",
+        "NVDA",
+        "10-K",
+        2025,
+        "FY",
+        "2025-01-26",
+        "2025-02-26",
+        "mdna",
+        "Revenue was $130.5 billion.",
+    )
+    text = judge._with_filing_line(row)  # pylint: disable=protected-access
+    first, body = text.split("\n", 1)
+    assert first == (
+        "filing: NVIDIA Corporation (NVDA), 10-K, fiscal FY2025, period end "
+        "2025-01-26, filed 2025-02-26, section mdna"
+    )
+    assert body == "Revenue was $130.5 billion."

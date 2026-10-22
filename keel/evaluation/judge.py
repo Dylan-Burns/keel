@@ -36,7 +36,7 @@ from keel import config
 from keel import errors
 from keel.providers import base
 
-JUDGE_VERSION = "1.0.0"
+JUDGE_VERSION = "1.1.0"
 JUDGE_EFFORT = "medium"
 JUDGE_MAX_TOKENS = 16_000
 MIN_SENTENCE = 15
@@ -345,11 +345,27 @@ def chunk_texts(
     if not chunk_ids:
         return {}
     rows = conn.execute(
-        "SELECT chunk_id, text FROM chunks "
+        "SELECT chunk_id, company, ticker, form, fiscal_year, fiscal_period, "
+        "period_end_date, filing_date, section, text FROM chunks "
         "WHERE chunk_id IN (SELECT value FROM json_each(?))",
         (json.dumps(list(chunk_ids)),),
     ).fetchall()
-    return {str(row[0]): str(row[1]) for row in rows}
+    return {str(row[0]): _with_filing_line(row) for row in rows}
+
+
+def _with_filing_line(row: Sequence[Any]) -> str:
+    """Prefix the chunk text with the attributes the answer model saw.
+
+    The answer prompt gives each chunk its company, form, fiscal label,
+    period end, filing date, and section as attributes (chapter 12.2); the
+    judge sees the same facts in 1 `filing:` line (judge prompt 1.1.0).
+    """
+    _, company, ticker, form, year, period, end, filed, section, text = row
+    fiscal = f"FY{year}" if period == "FY" else f"{period} FY{year}"
+    return (
+        f"filing: {company} ({ticker}), {form}, fiscal {fiscal}, period end "
+        f"{end}, filed {filed}, section {section}\n{text}"
+    )
 
 
 @dataclasses.dataclass(frozen=True)
