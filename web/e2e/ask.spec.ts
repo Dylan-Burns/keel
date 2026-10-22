@@ -1,0 +1,43 @@
+import {expect, test} from '@playwright/test';
+
+import {openKeel, stateRoot, statesSeen} from './support/api';
+
+test('example question 1 streams, lights the steps in order, and opens a citation', async ({
+  page,
+}) => {
+  await openKeel(page);
+  await page.getByTestId('example-chip').first().click();
+
+  const steps = page.getByTestId('progress-steps');
+  await expect(stateRoot(page)).toHaveAttribute(
+    'data-state',
+    /^(complete|partial_coverage)$/,
+  );
+  await expect(steps).toHaveAttribute(
+    'data-order',
+    'understanding,retrieval,model',
+  );
+  await expect(steps.locator('[data-lit="true"]')).toHaveCount(3);
+
+  // The answer grew: the page passed loading and streaming before the end.
+  const seen = await statesSeen(page);
+  expect(seen.slice(0, 3)).toEqual(['empty', 'loading', 'streaming']);
+  await expect(page.getByTestId('answer-markdown')).not.toBeEmpty();
+
+  // The entities line and the retrieved chunks.
+  await expect(page.getByTestId('entity-chip').first()).toBeVisible();
+  await expect(page.getByTestId('chunk-row').first()).toBeAttached();
+
+  // A citation chip opens the chunk in the right panel, with the SEC link.
+  const chip = page.getByTestId('citation-chip').first();
+  await expect(chip).toBeEnabled();
+  await chip.click();
+  const selected = page.getByTestId('selected-chunk');
+  await expect(selected).toBeVisible();
+  await expect(selected.getByTestId('sec-link')).toHaveAttribute(
+    'rel',
+    'noopener noreferrer',
+  );
+  await expect(page.getByTestId('request-id')).toContainText('request ');
+  await expect(page.getByTestId('cost-badge')).toBeVisible();
+});
