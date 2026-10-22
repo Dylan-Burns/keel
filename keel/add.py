@@ -182,9 +182,10 @@ def record_in_manifest(
 ) -> bool:
     """Add files to the corpus manifest with their source (26.2, step 6).
 
-    The file names join `files`, `file_count` and `filing_types` follow
-    the list, and each file gets an entry under `added` with `source:
-    edgar`, the accession number, and the URL. Unknown keys are kept.
+    The new file names join `files`, `file_count` and `filing_types` grow
+    by them, and each file gets an entry under `added` with `source:
+    edgar`, the form, the accession number, and the URL. Unknown keys are
+    kept.
 
     Args:
         path: The manifest JSON file.
@@ -206,17 +207,21 @@ def record_in_manifest(
     if not isinstance(data, dict) or not isinstance(data.get("files"), list):
         raise errors.ManifestMissingError(f"{path} has no files list")
     before = json.dumps(data, sort_keys=True)
-    files = sorted(set(data["files"]) | set(entries))
+    new = sorted(set(entries) - set(data["files"]))
     added = data.get("added")
     added = dict(added) if isinstance(added, dict) else {}
     added.update(entries)
-    data["files"] = files
-    data["file_count"] = len(files)
-    forms: dict[str, int] = {}
-    for name in files:
+    data["files"] = sorted([*data["files"], *new])
+    # The claims of the zip manifest grow by the new files only, so a
+    # discrepancy that `keel inventory` reports stays visible.
+    if isinstance(data.get("file_count"), int):
+        data["file_count"] += len(new)
+    forms = data.get("filing_types")
+    forms = dict(forms) if isinstance(forms, dict) else {}
+    for name in new:
         parsed = inventory.parse_filename(name)
         if parsed is not None:
-            forms[parsed.form] = forms.get(parsed.form, 0) + 1
+            forms[parsed.form] = int(forms.get(parsed.form, 0)) + 1
     data["filing_types"] = dict(sorted(forms.items()))
     data["added"] = dict(sorted(added.items()))
     if json.dumps(data, sort_keys=True) == before:
@@ -236,7 +241,10 @@ def aliases(ticker: str, company: str) -> list[str]:
         The lower-case aliases, such as `["workday", "wday"]`.
     """
     tokens = [t.strip(".") for t in _NAME_TOKEN.split(company) if t]
-    while tokens and tokens[-1].upper() in base.NAME_STOP_TOKENS:
+    while tokens and (
+        tokens[-1].upper() in base.NAME_STOP_TOKENS
+        or not any(char.isalnum() for char in tokens[-1])
+    ):
         tokens.pop()
     found = [" ".join(tokens).lower(), ticker.lower()]
     return [alias for i, alias in enumerate(found) if alias not in found[:i]]
@@ -257,29 +265,41 @@ def ensure_company(path: pathlib.Path, ticker: str, company: str) -> bool:
         True when the entry was added.
 
     Raises:
-        ConfigError: The dictionary is unreadable, or invalid after the
-            append (the file is then restored).
+        ConfigError: The dictionary is unreadable or unwritable, or
+            invalid after the append (the file is then restored).
     """
     if ticker in config.read_yaml(path):
         return False
-    original = path.read_text(encoding="utf-8")
+    try:
+        original = path.read_text(encoding="utf-8")
+    except OSError as error:
+        raise errors.ConfigError(f"cannot read {path}: {error}") from error
+    # A quoted key: YAML reads a bare `ON` or `NO` as a boolean.
     entry = (
-        f"{ticker}:\n"
+        f"{json.dumps(ticker)}:\n"
         f"  company: {json.dumps(company)}\n"
         f"  aliases: {json.dumps(aliases(ticker, company))}\n"
         "  groups: []\n"
     )
     separator = "" if original.endswith("\n") else "\n"
-    path.write_text(original + separator + entry, encoding="utf-8")
+    _replace_text(path, original + separator + entry)
     try:
-        loaded = config.read_yaml(path)
+        loaded = config.read_yaml(path).get(ticker)
     except errors.ConfigError:
-        path.write_text(original, encoding="utf-8")
+        _replace_text(path, original)
         raise
-    if loaded.get(ticker, {}).get("company") != company:
-        path.write_text(original, encoding="utf-8")
+    if not isinstance(loaded, dict) or loaded.get("company") != company:
+        _replace_text(path, original)
         raise errors.ConfigError(f"cannot add {ticker} to {path}")
     return True
+
+
+def _replace_text(path: pathlib.Path, text: str) -> None:
+    """Write a config file through a temporary file."""
+    try:
+        write_if_changed(path, text)
+    except errors.EdgarError as error:
+        raise errors.ConfigError(str(error)) from error
 
 
 def _parse_ticker(
@@ -367,11 +387,17 @@ def add_ticker(  # pylint: disable=too-many-locals
 
     Raises:
         UnknownTickerError: The SEC ticker map has no such ticker.
-        EdgarError: A fetch, the cache, or the conversion fails.
+        EdgarError: A form is not 10-K or 10-Q, or a fetch, the cache,
+            or the conversion fails.
+        ConfigError: The dictionary cannot take the company.
         IndexMissingError: The index directory has no current build.
         ManifestMissingError: The corpus has no usable manifest.
     """
-    if indexer.current_build(index_dir) is None:
+    unknown = [form for form in forms if form not in FORM_CODES]
+    if unknown:
+        raise errors.EdgarError("keel add reads no " + ", ".join(unknown))
+    current = indexer.current_build(index_dir)
+    if current is None:
         raise errors.IndexMissingError(
             f"no current build in {index_dir}: run `keel index` first"
         )
@@ -382,6 +408,9 @@ def add_ticker(  # pylint: disable=too-many-locals
         submissions.get("name") or client.ticker_map().lookup(ticker).title
     )
     refs = edgar.pick_latest(submissions, forms)
+    dictionary_added = ensure_company(
+        settings.dictionaries.companies, spelled, company
+    )
     written: list[tuple[edgar.FilingRef, str, bool]] = []
     entries: dict[str, dict[str, str]] = {}
     for ref in refs:
@@ -412,9 +441,6 @@ def add_ticker(  # pylint: disable=too-many-locals
             "url": ref.url,
         }
     manifest_changed = record_in_manifest(corpus_dir / MANIFEST, entries)
-    dictionary_added = ensure_company(
-        settings.dictionaries.companies, spelled, company
-    )
     parsed = _parse_ticker(settings, corpus_dir, spelled)
     for name, filing in parsed.items():
         if name in entries and filing.quarantine is not None:
@@ -424,7 +450,19 @@ def add_ticker(  # pylint: disable=too-many-locals
                 filing.quarantine.reason,
                 filing.quarantine.detail,
             )
-    needs_build = manifest_changed or any(c for _, _, c in written)
+    # A file written by an earlier run whose build failed is not indexed
+    # yet; an indexable picked filing missing from `current` builds too.
+    indexed = _chunk_counts(current)
+    missing = [
+        name
+        for name, picked in parsed.items()
+        if name in entries
+        and picked.quarantine is None
+        and (picked.filing_id or "") not in indexed
+    ]
+    needs_build = (
+        manifest_changed or any(c for _, _, c in written) or bool(missing)
+    )
     embedded = (0, 0)
     if needs_build:
         result = indexer.build_index(
@@ -441,7 +479,7 @@ def add_ticker(  # pylint: disable=too-many-locals
         )
     else:
         logger.info("no new or changed filing: the index stays as it is")
-        build_dir = indexer.current_build(index_dir) or index_dir
+        build_dir = current
     counts = _chunk_counts(build_dir)
     return AddReport(
         ticker=spelled,
