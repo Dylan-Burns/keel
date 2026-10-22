@@ -495,3 +495,333 @@ export interface FeedbackSaved {
   readonly note: string | null;
   readonly user: string;
 }
+
+// The admin, watch list, and debug routes (docs/API_ADMIN.md).
+
+/** The kinds of admin job, each the twin of a CLI command. */
+export type JobKind =
+  | 'add'
+  | 'refresh'
+  | 'warm_cache'
+  | 'eval'
+  | 'facts'
+  | 'backup'
+  | 'restore'
+  | 'index';
+
+/** The status of a job. */
+export type JobStatus =
+  'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+
+/** The progress of a job: steps done and the total when known. */
+export interface JobProgress {
+  readonly done: number;
+  readonly total: number | null;
+}
+
+/** A job record; `log` is present on the detail and the submit response. */
+export interface Job {
+  readonly id: string;
+  readonly kind: JobKind;
+  readonly params: Readonly<Record<string, unknown>>;
+  readonly requested_by: string;
+  readonly heavy: boolean;
+  readonly status: JobStatus;
+  readonly progress: JobProgress;
+  readonly phase: string;
+  readonly created_at: string;
+  readonly started_at: string | null;
+  readonly finished_at: string | null;
+  readonly result: Readonly<Record<string, unknown>> | null;
+  readonly error: string | null;
+  readonly log?: readonly string[];
+}
+
+/** `GET /api/admin/jobs`. */
+export interface JobList {
+  readonly items: readonly Job[];
+  readonly active: Job | null;
+}
+
+/** The cost estimate of a job that calls the model. */
+export interface CostEstimate {
+  readonly kind: 'eval' | 'warm_cache';
+  readonly questions: number;
+  readonly model_requests: number;
+  readonly judge_requests: number;
+  readonly answer_usd: number;
+  readonly judge_usd: number;
+  readonly usd: number;
+  readonly basis: 'audit' | 'prices';
+  readonly confirm: string | null;
+}
+
+/** `POST /api/admin/jobs` HTTP 202. */
+export interface JobSubmitted {
+  readonly job: Job;
+  readonly warnings: readonly string[];
+  readonly estimate: CostEstimate | null;
+}
+
+/** The body of `POST /api/admin/jobs`. */
+export interface JobRequest {
+  readonly kind: JobKind;
+  readonly params?: Readonly<Record<string, unknown>>;
+  readonly confirm?: string;
+}
+
+/** A user role. */
+export type Role = 'analyst' | 'partner' | 'admin';
+
+/** A user of the users file; never a token or a hash. */
+export interface UserItem {
+  readonly name: string;
+  readonly role: Role;
+}
+
+/** `GET /api/admin/users`. */
+export interface UserList {
+  readonly items: readonly UserItem[];
+  readonly legacy_enabled: boolean;
+}
+
+/** `POST /api/admin/users` HTTP 201: the only response with the token. */
+export interface UserCreated extends UserItem {
+  readonly token: string;
+}
+
+/** 1 check of `keel doctor`. */
+export interface DoctorCheck {
+  readonly name: string;
+  readonly status: 'ok' | 'warn' | 'fail';
+  readonly detail: string;
+}
+
+/** The `keel inventory` counts, or an error. */
+export interface InventorySummary {
+  readonly error?: string;
+  readonly corpus_dir?: string;
+  readonly file_count?: number;
+  readonly total_bytes?: number;
+  readonly ticker_count?: number;
+  readonly form_counts?: Readonly<Record<string, number>>;
+  readonly first_filing?: string | null;
+  readonly last_filing?: string | null;
+  readonly manifest_present?: boolean;
+  readonly discrepancy_count?: number;
+  readonly discrepancies?: readonly string[];
+}
+
+/** The index build in service. */
+export interface IndexSummary {
+  readonly loaded: boolean;
+  readonly index_version: string | null;
+  readonly build_id: string | null;
+  readonly verified: boolean | null;
+  readonly error: string | null;
+  readonly corpus_checksum_match: boolean | null;
+  readonly corpus_note: string | null;
+  readonly built_at: string | null;
+  readonly counts: Readonly<Record<string, number>> | null;
+  readonly filings: number | null;
+  readonly quarantined: number | null;
+}
+
+/** A backup archive. */
+export interface BackupItem {
+  readonly name: string;
+  readonly size_bytes: number;
+  readonly created_at: string;
+  readonly sha256: string | null;
+}
+
+/** `GET /api/admin/backups`. */
+export interface BackupList {
+  readonly directory: string;
+  readonly items: readonly BackupItem[];
+}
+
+/** The in-app scheduler. */
+export interface SchedulerSummary {
+  readonly enabled: boolean;
+  readonly running: boolean;
+  readonly refresh_at: string;
+  readonly backup_at: string;
+  readonly backup_keep: number;
+  readonly backup_bucket_set: boolean;
+  readonly jobs: readonly {readonly name: string; readonly next_run: string}[];
+}
+
+/** The daily budget. */
+export interface BudgetSummary {
+  readonly daily_usd: number;
+  readonly spent_usd: number;
+  readonly stopped: boolean;
+}
+
+/** `GET /api/admin/system`. */
+export interface SystemResponse {
+  readonly version: string;
+  readonly offline: boolean;
+  readonly provider: string;
+  readonly model: string;
+  readonly doctor: readonly DoctorCheck[];
+  readonly doctor_failed: boolean;
+  readonly inventory: InventorySummary;
+  readonly index: IndexSummary;
+  readonly backups: BackupList;
+  readonly scheduler: SchedulerSummary;
+  readonly budget: BudgetSummary | null;
+  readonly active_job: Job | null;
+  readonly bootstrap: Readonly<Record<string, unknown>> | null;
+}
+
+/** 1 row of the admin audit. */
+export interface AuditItem {
+  readonly at: string;
+  readonly user: string;
+  readonly action: string;
+  readonly target: string | null;
+  readonly params: Readonly<Record<string, unknown>> | null;
+  readonly outcome: string;
+}
+
+/** `GET /api/admin/audit`. */
+export interface AuditList {
+  readonly items: readonly AuditItem[];
+}
+
+/** 1 watch list row. */
+export interface WatchItem {
+  readonly ticker: string;
+  readonly user: string | null;
+  readonly added_date: string;
+  readonly mine: boolean;
+}
+
+/** `GET /api/watch`. */
+export interface WatchList {
+  readonly items: readonly WatchItem[];
+  readonly tickers: readonly string[];
+}
+
+/** `POST /api/watch`. */
+export interface WatchAdded {
+  readonly user: string;
+  readonly added: readonly string[];
+  readonly unchanged: readonly string[];
+}
+
+/** A resolved company of `POST /api/debug/understand`. */
+export interface DebugEntity {
+  readonly ticker: string;
+  readonly company: string;
+  readonly text: string;
+  readonly rule: string;
+  readonly fuzzy: boolean;
+  readonly score: number | null;
+}
+
+/** The time scope of the question analysis. */
+export interface DebugTimeScope {
+  readonly kind: string;
+  readonly scopes: readonly unknown[];
+  readonly fiscal_year: number | null;
+  readonly fiscal_period: string | null;
+}
+
+/** `POST /api/debug/understand`: the `QuestionAnalysis` as JSON. */
+export interface DebugUnderstand {
+  readonly question: string;
+  readonly tickers: readonly string[];
+  readonly entities: readonly DebugEntity[];
+  readonly groups: readonly unknown[];
+  readonly unknown_entities: readonly unknown[];
+  readonly not_indexed: readonly unknown[];
+  readonly time_scope: DebugTimeScope;
+  readonly primary_type: string;
+  readonly types: readonly string[];
+  readonly topic_terms: readonly string[];
+  readonly section_weights: Readonly<Record<string, number>>;
+  readonly flags: Readonly<Record<string, boolean>>;
+  readonly out_of_scope_reason: string | null;
+  readonly suggested_tickers: readonly string[];
+  readonly elapsed_ms: number;
+  readonly comp_sets: readonly unknown[];
+}
+
+/** 1 sub-query of the retrieval plan. */
+export interface DebugSubQuery {
+  readonly label: string;
+  readonly dense_text: string;
+  readonly terms: readonly string[];
+}
+
+/** The quota fill of 1 sub-query. */
+export interface DebugFill {
+  readonly label: string;
+  readonly taken: number;
+  readonly quota: number;
+  readonly candidates: number;
+  readonly tokens: number;
+}
+
+/** 1 chunk of the built context. */
+export interface DebugContextItem {
+  readonly chunk_id: string;
+  readonly ticker: string;
+  readonly form: string;
+  readonly section: string;
+  readonly period_end_date: string | null;
+  readonly estimated_tokens: number;
+  readonly truncated: boolean;
+  /** The rerank score; older servers leave it out. */
+  readonly score?: number;
+}
+
+/** The summary of `keel retrieve --summary`. */
+export interface DebugRetrieval {
+  readonly sub_queries: readonly DebugSubQuery[];
+  readonly candidates: number;
+  readonly collapsed: number;
+  readonly after_collapse: number;
+  readonly reranked: number;
+  readonly fills: readonly DebugFill[];
+  readonly context: {
+    readonly chunks: number;
+    readonly token_estimate: number;
+    readonly max_tokens: number;
+    readonly max_chunks: number;
+    readonly dropped: number;
+    readonly items: readonly DebugContextItem[];
+  };
+  readonly sections: Readonly<Record<string, number>>;
+  readonly timings_ms: Readonly<Record<string, number>>;
+  readonly gaps: readonly string[];
+  readonly degraded: readonly string[];
+}
+
+/** `POST /api/debug/retrieve`. */
+export interface DebugRetrieve {
+  readonly question: string;
+  readonly primary_type: string;
+  readonly types: readonly string[];
+  readonly tickers: readonly string[];
+  readonly out_of_scope: boolean;
+  readonly out_of_scope_reason: string | null;
+  readonly retrieval: DebugRetrieval | null;
+}
+
+/** The parameters of a cost preview. */
+export type CostQuery =
+  | {
+      readonly kind: 'eval';
+      readonly answers: boolean;
+      readonly judge: boolean;
+      readonly subset: string | null;
+    }
+  | {
+      readonly kind: 'warm_cache';
+      readonly refresh: boolean;
+      readonly facts_only: boolean;
+    };

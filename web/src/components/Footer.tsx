@@ -1,5 +1,6 @@
 import type {JSX} from 'react';
 
+import type {MemoFormat} from '../api/admin';
 import {COMPSETS_PATH, HELP_PATH, HISTORY_PATH} from '../lib/links';
 
 /** Props of Footer. */
@@ -15,11 +16,14 @@ export interface FooterProps {
   readonly canShare: boolean;
   /** Copies the shareable link `/a/{request_id}` (chapter 27.2). */
   readonly onShare: () => void;
+  /** Downloads the memo of the stored answer (chapter 27.2). */
+  readonly onMemo: (format: MemoFormat) => void;
 }
 
 /**
- * The footer (chapter 14.5): Copy as markdown, Export JSON, Copy link (the
- * shareable link of chapter 27.2), the links to the history page, the comp
+ * The footer (chapter 14.5): Copy as markdown, Export JSON, the memo
+ * downloads (`keel export` as Markdown or DOCX), Copy link (the shareable
+ * link of chapter 27.2), the links to the history page, the comp
  * sets page, the eval page (W-02), and the data use page (27.2), the
  * request ID, and the prompt version.
  *
@@ -35,6 +39,7 @@ export function Footer({
   onExport,
   canShare,
   onShare,
+  onMemo,
 }: FooterProps): JSX.Element {
   return (
     <footer className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-line bg-panel px-3 py-1.5 text-xs text-muted">
@@ -53,6 +58,26 @@ export function Footer({
         onClick={onExport}
       >
         Export JSON
+      </button>
+      <button
+        type="button"
+        className="btn"
+        data-testid="memo-markdown"
+        disabled={!canShare}
+        title="Download the memo as Markdown"
+        onClick={() => onMemo('markdown')}
+      >
+        Memo .md
+      </button>
+      <button
+        type="button"
+        className="btn"
+        data-testid="memo-docx"
+        disabled={!canShare}
+        title="Download the memo as a Word document"
+        onClick={() => onMemo('docx')}
+      >
+        Memo .docx
       </button>
       <button
         type="button"

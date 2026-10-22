@@ -69,12 +69,15 @@ export class ApiError extends Error {
    * @param code The error code of the body, or `http_<status>`.
    * @param message The message of the body, or the status text.
    * @param retryAfter Seconds from `Retry-After` or the body, or null.
+   * @param detail The whole error body, with the extra fields of the admin
+   *     routes (`job_id`, `confirm`, `estimate`), or null.
    */
   constructor(
     readonly status: number,
     readonly code: string,
     message: string,
     readonly retryAfter: number | null,
+    readonly detail: Readonly<Record<string, unknown>> | null = null,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -288,7 +291,12 @@ export function newRequestId(): string {
   return crypto.randomUUID();
 }
 
-function authHeaders(): Record<string, string> {
+/**
+ * The Authorization header of the stored token.
+ *
+ * @return The header, or an empty object without a token.
+ */
+export function authHeaders(): Record<string, string> {
   const token = getToken();
   return token === null ? {} : {Authorization: `Bearer ${token}`};
 }
@@ -338,6 +346,7 @@ export async function toApiError(response: Response): Promise<ApiError> {
       body.code,
       body.message,
       header ?? body.retry_after ?? null,
+      body as unknown as Readonly<Record<string, unknown>>,
     );
   }
   return new ApiError(
