@@ -115,7 +115,7 @@ The zip goes through a safe extractor; the inventory compares the files with the
 | Section | Holds |
 | --- | --- |
 | `server`, `cache` | host, port, the front-end build, the answer cache directory |
-| `corpus`, `index`, `logs` | the zip, the extracted corpus and manifest, the index directory, the audit and refresh logs |
+| `corpus`, `index`, `logs` | the zip, the extracted corpus and manifest, the index directory, the audit, export, and refresh logs |
 | `parser`, `dictionaries`, `chunker` | the parser version and word lists, the companies, groups, synonyms, the chunk sizes |
 | `embedding`, `reranker` | the 2 pinned Hugging Face models with their revision hashes |
 | `retrieval` | the candidate counts, the fusion, the context budget, the calibration factor 1.91 |
@@ -142,7 +142,7 @@ Prices live in `config/prices.yaml`, keyed by model id and checked on 2026-10-21
 | `keel doctor` | check FTS5, the models, the keys, the clock, the port; `--download-models` |
 | `keel add TICKER` | add the latest 10-K and 10-Q of 1 company from EDGAR |
 | `keel refresh` | add the new filings of the watched and added tickers; `--dry-run` |
-| `keel export REQUEST_ID` | write a stored answer as a memo; `--format markdown\|docx` |
+| `keel export REQUEST_ID` | write a stored answer as a memo and 1 line of `<logs.dir>/exports.jsonl`; `--format markdown\|docx` |
 | `keel bootstrap` | download the corpus and restore or build the index when absent; `keel backup` and `keel restore` |
 
 Also: `keel calibrate` (the token calibration factor, 1 count call), `keel facts TICKER` (the company facts lines), `keel users`, `keel compsets`, `keel feedback`, `keel template`, `keel watch` (the pilot features of chapter 27), `make test`, and `npm run check --prefix web`.
