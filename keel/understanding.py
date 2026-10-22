@@ -161,11 +161,14 @@ class TopicProfile:
         name: The topic name.
         pattern: The trigger words.
         section_weights: The weight per canonical section (chapter 11.1).
+        unless: Words that keep this profile from setting the weights, or
+            None.
     """
 
     name: str
     pattern: re.Pattern[str]
     section_weights: Mapping[str, float]
+    unless: re.Pattern[str] | None = None
 
 
 # The first profile that matches sets the section weights; every match adds
@@ -210,6 +213,22 @@ TOPIC_PROFILES = (
             "mdna": 1.0,
             "business": 0.8,
         },
+    ),
+    # How a company is organized (its business or reportable segments) is
+    # described in Item 1; a question that asks for a segment figure (a
+    # measure word such as revenue or net sales) stays with "financial".
+    TopicProfile(
+        "structure",
+        re.compile(
+            r"(?i)\b(?:(?:business|operating|reportable)\s+segments?|"
+            r"segment\s+structure|lines?\s+of\s+business|"
+            r"business\s+model|organizational\s+structure)\b"
+        ),
+        {"business": 1.5, "mdna": 1.0, "financial_statements": 0.8},
+        re.compile(
+            r"(?i)\b(?:revenues?|sales|income|margins?|earnings|profits?|"
+            r"how\s+much|total)\b|\$"
+        ),
     ),
     TopicProfile(
         "financial",
@@ -1497,7 +1516,8 @@ def topics(text: str) -> tuple[list[str], dict[str, float]]:
     weights: Mapping[str, float] | None = None
     for profile in TOPIC_PROFILES:
         matches = list(profile.pattern.finditer(text))
-        if matches and weights is None:
+        blocked = profile.unless is not None and profile.unless.search(text)
+        if matches and weights is None and not blocked:
             weights = profile.section_weights
         found += [(m.start(), m.group().lower()) for m in matches]
     terms: list[str] = []
