@@ -184,7 +184,9 @@ def _copy_verified(
 
 
 def _stage(
-    build_dir: pathlib.Path, logs_dir: pathlib.Path, work: pathlib.Path
+    build_dir: pathlib.Path,
+    logs_dir: pathlib.Path | None,
+    work: pathlib.Path,
 ) -> list[str]:
     """Copy the files of 1 backup into the work directory."""
     manifest = indexer.load_manifest(build_dir)
@@ -194,6 +196,8 @@ def _stage(
         _copy_verified(build_dir / name, work / name, manifest.files[name])
     shutil.copyfile(build_dir / indexer.MANIFEST, work / indexer.MANIFEST)
     members = list(REQUIRED_MEMBERS)
+    if logs_dir is None:
+        return members
     audit = logs_dir / AUDIT_LOG
     if audit.is_file():
         # The audit log only grows, so a copy is a consistent prefix.
@@ -213,7 +217,7 @@ def _stage(
 
 def create_backup(
     index_dir: pathlib.Path,
-    logs_dir: pathlib.Path,
+    logs_dir: pathlib.Path | None,
     out_dir: pathlib.Path,
     *,
     now: datetime.datetime | None = None,
@@ -222,7 +226,9 @@ def create_backup(
 
     Args:
         index_dir: The index directory with the `current` pointer.
-        logs_dir: The logs directory with `audit.jsonl`.
+        logs_dir: The logs directory with `audit.jsonl`, or None for an
+            index-only archive (the `index-v1` release asset, which must
+            never hold a user's question).
         out_dir: The directory that receives the archive.
         now: The time of the stamp; None takes the UTC clock.
 

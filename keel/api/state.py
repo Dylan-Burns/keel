@@ -17,6 +17,7 @@ import time
 from typing import Any
 
 from keel import answer
+from keel import bootstrap
 from keel import config
 from keel import errors
 from keel import indexer
@@ -211,6 +212,9 @@ class Services:  # pylint: disable=too-many-instance-attributes
         answerer: An opened pipeline (tests), or None to open the index at
             startup.
         clock: The monotonic clock of the stores and the rate limiter.
+        bootstrap_first: Run the first-start bootstrap of chapter 29.9 in
+            a background thread and open the index when it is ready
+            (`keel serve --bootstrap`), instead of opening it at startup.
     """
 
     def __init__(
@@ -218,9 +222,13 @@ class Services:  # pylint: disable=too-many-instance-attributes
         settings: config.Settings,
         answerer: answer.Answerer | None = None,
         clock: Callable[[], float] = time.monotonic,
+        *,
+        bootstrap_first: bool = False,
     ) -> None:
         self.settings = settings
         self.answerer = answerer
+        self.bootstrap = bootstrap.BootstrapState() if bootstrap_first else None
+        self._reload_lock = threading.Lock()
         self.loaded = answerer is not None
         self.index_error: str | None = None
         self.index_verified = answerer is not None
@@ -253,29 +261,55 @@ class Services:  # pylint: disable=too-many-instance-attributes
         if self.loaded:
             return
         self.loaded = True
+        self._open()
+
+    def reload(self) -> None:
+        """Open the current build again and swap it in.
+
+        The bootstrap thread calls it when the first build is ready, and
+        the nightly refresh after it published a new build. A request in
+        flight keeps the pipeline it started with. When the new build
+        cannot be opened, the old pipeline stays and the error is logged.
+        """
+        with self._reload_lock:
+            self.loaded = True
+            self._open()
+
+    def _open(self) -> None:
+        """Open the pipeline and check the build; assign only on success."""
         settings = self.settings
         provider: base.LLMProvider | None = None
         if not self.provider_key:
             logger.warning("ANTHROPIC_API_KEY is not set: degraded mode only")
             provider = MissingKeyProvider(settings.llm.model)
         try:
-            self.answerer = answer.Answerer.open(settings, provider=provider)
+            opened = answer.Answerer.open(settings, provider=provider)
         except (errors.IndexMissingError, errors.IndexCorruptError) as error:
-            self.index_error = str(error)
+            if self.answerer is None:
+                self.index_error = str(error)
             logger.warning("no index loaded: %s", error)
             return
         build = indexer.current_build(settings.index.dir)
         if build is None:  # pragma: no cover  # removed after the open
             return
+        manifest: indexer.Manifest | None = None
         try:
-            self.manifest = reliability.check_index(build)
-            self.index_verified = True
+            manifest = reliability.check_index(build)
         except (errors.IndexMissingError, errors.IndexCorruptError) as error:
-            self.index_error = str(error)
             logger.error("index check failed: %s", error)
+            if self.answerer is not None:
+                # A reload keeps the verified build it serves.
+                return
+            self.index_error = str(error)
+        else:
+            self.index_error = None
+        self.manifest = manifest
+        self.index_verified = manifest is not None
+        self.answerer = opened
         self.corpus_match, self.corpus_note = corpus_check(
-            settings.corpus.dir, self.manifest
+            settings.corpus.dir, manifest
         )
+        logger.info("index %s loaded from %s", opened.index_version, build)
 
     def keep(self, task: asyncio.Task[Any]) -> None:
         """Hold a pipeline task until it ends, so it outlives its client.

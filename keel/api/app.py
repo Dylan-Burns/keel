@@ -4,9 +4,13 @@
 lifespan opens the index, loads the embedding model and the reranker once,
 builds the provider, and checks the index files and the corpus checksum;
 a missing index or provider key does not stop the service (E-F-01,
-E-F-07), `/api/ready` reports it. The `/api` routes are registered first;
-then the hashed assets of `web/dist` and a fallback that returns
-`index.html` for every other path, so the client routes work on a reload.
+E-F-07), `/api/ready` reports it. With `--bootstrap` (chapter 29.9) the
+server starts first and a background thread fetches the corpus, builds or
+restores the index, and then opens it. With `scheduler.enabled` on, the
+nightly refresh and backup run in the app (`keel.api.background`). The
+`/api` routes are registered first; then the hashed assets of `web/dist`
+and a fallback that returns `index.html` for every other path, so the
+client routes work on a reload.
 """
 
 from __future__ import annotations
@@ -27,6 +31,7 @@ import uvicorn
 from keel import config
 from keel import doctor
 from keel import errors
+from keel.api import background
 from keel.api import export_routes
 from keel.api import routes
 from keel.api import state
@@ -138,8 +143,14 @@ def create_app(services: Services) -> fastapi.FastAPI:
     @contextlib.asynccontextmanager
     async def lifespan(app: fastapi.FastAPI) -> AsyncIterator[None]:
         del app
-        await asyncio.to_thread(services.load)
+        if services.bootstrap is not None:
+            background.start_bootstrap(services)
+        else:
+            await asyncio.to_thread(services.load)
+        nightly = background.start_scheduler(services)
         yield
+        if nightly is not None:
+            await asyncio.to_thread(nightly.stop)
         pending = list(services.tasks)
         for task in pending:
             task.cancel()
@@ -187,6 +198,8 @@ def serve(
     settings: config.Settings,
     host: str | None = None,
     port: int | None = None,
+    *,
+    bootstrap_first: bool = False,
 ) -> int:
     """Run `keel serve`: the API and the front-end on 1 origin.
 
@@ -195,6 +208,8 @@ def serve(
         host: The bind address, or None for `server.host`.
         port: The port, or None for `server.port`; a busy port moves to the
             next free one up to 10 above it.
+        bootstrap_first: Run the first-start bootstrap in the background
+            (`--bootstrap`, chapter 29.9) and open the index when it ends.
 
     Returns:
         0 after the server stops.
@@ -211,7 +226,7 @@ def serve(
         logger.warning("port %d is in use; serving on %d", wanted, chosen)
     logger.info("Keel serves at http://%s:%d", bind_host, chosen)
     uvicorn.run(
-        create_app(Services(settings)),
+        create_app(Services(settings, bootstrap_first=bootstrap_first)),
         host=bind_host,
         port=chosen,
         log_level="info",

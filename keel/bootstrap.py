@@ -8,7 +8,10 @@ skips the build, so later starts cost a directory listing.
 The zip comes from, in order: the local `corpus.zip`, a zip downloaded by an
 earlier run, `gh release download` of the `corpus.release_tag` asset when
 `GH_TOKEN` is set and `gh` is installed (chapter 29.11), or an https GET of
-`corpus.url`. The GET follows control S-11: https only, a host on the allow
+`corpus.url`. Without a `current` build, the index comes from the archive of
+the `index.release_tag` release when it is set (an index built off the
+host, because the build needs more memory than a 4 GB host has), else from
+a full build. The GET follows control S-11: https only, a host on the allow
 list (the host of `corpus.url` and the GitHub release asset hosts), every
 resolved address public, the address of the opened socket public too (DNS
 rebinding), and each redirect target checked again. The URL can carry a
@@ -44,6 +47,7 @@ from urllib import parse
 import httpx
 import pydantic
 
+from keel import backup
 from keel import config
 from keel import errors
 from keel import extractor
@@ -95,7 +99,7 @@ class BootstrapStatus(pydantic.BaseModel):
             while indexing.
         total: The units in all, or None when unknown.
         corpus: `present`, `extracted`, or `downloaded`, once known.
-        index: `present` or `built`, once known.
+        index: `present`, `restored`, or `built`, once known.
         error: The error class and message after a failure.
         started_at: The UTC start time, or None before the start.
         finished_at: The UTC end time, or None while it runs.
@@ -587,14 +591,75 @@ def _ensure_corpus(
     return action
 
 
+def _restore_release(
+    settings: config.Settings, state: BootstrapState, deps: Dependencies
+) -> bool:
+    """Restore the index from the `index.release_tag` archive, if set.
+
+    The archive comes through `gh release download` (GH_TOKEN and `gh`),
+    like the corpus zip, and passes the checks of `backup.restore_backup`:
+    the sha256 file, the member names, and the manifest checksums. A
+    failure is logged and returns False, so the caller builds instead.
+    """
+    tag = settings.index.release_tag
+    repo = settings.corpus.release_repo
+    environ = os.environ if deps.environ is None else deps.environ
+    gh = deps.which("gh")
+    if not (tag and repo and gh and environ.get("GH_TOKEN")):
+        return False
+    state.enter(Phase.DOWNLOADING, f"gh release download {tag} from {repo}")
+    parent = settings.index.dir.parent
+    staging: pathlib.Path | None = None
+    try:
+        parent.mkdir(parents=True, exist_ok=True)
+        staging = pathlib.Path(
+            tempfile.mkdtemp(prefix=".gh-index-", dir=parent)
+        )
+        deps.run_command(
+            [
+                gh,
+                "release",
+                "download",
+                tag,
+                "--repo",
+                repo,
+                "--pattern",
+                f"{backup.ARCHIVE_PREFIX}*",
+                "--dir",
+                str(staging),
+            ]
+        )
+        archives = sorted(staging.glob(f"*{backup.ARCHIVE_SUFFIX}"))
+        if not archives:
+            raise errors.BackupError(f"release {tag} holds no Keel archive")
+        state.enter(Phase.INDEXING, f"restoring {archives[-1].name}")
+        backup.restore_backup(
+            archives[-1], settings.index.dir, settings.logs.dir
+        )
+    except (errors.KeelError, OSError) as error:
+        logger.warning(
+            "index release %s not restored (%s: %s); building instead",
+            tag,
+            type(error).__name__,
+            error,
+        )
+        return False
+    finally:
+        if staging is not None:
+            shutil.rmtree(staging, ignore_errors=True)
+    return True
+
+
 def _ensure_index(
     settings: config.Settings, state: BootstrapState, deps: Dependencies
 ) -> str:
-    """Build the index when no `current` pointer exists."""
+    """Restore or build the index when no `current` pointer exists."""
     index_dir = settings.index.dir
     if indexer.current_build(index_dir) is not None:
         logger.info("bootstrap: index present in %s", index_dir)
         return "present"
+    if _restore_release(settings, state, deps):
+        return "restored"
     factory = deps.embedder_factory or (
         lambda: numpy_dense.SentenceEmbedder.from_settings(settings)
     )
