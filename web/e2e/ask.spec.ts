@@ -61,3 +61,26 @@ test('the G-27 preset fills the adversarial question without sending it', async 
   );
   await expect(stateRoot(page)).toHaveAttribute('data-state', 'empty');
 });
+
+test('the cited IDs in the answer text show as chips that open the source', async ({
+  page,
+}) => {
+  await openKeel(page);
+  await page.getByTestId('example-chip').first().click();
+  await expect(stateRoot(page)).toHaveAttribute(
+    'data-state',
+    /^(complete|partial_coverage)$/,
+  );
+  const answer = page.getByTestId('answer-markdown');
+  const inline = answer.getByTestId('inline-citation').first();
+  await expect(inline).toBeEnabled();
+  await expect(inline).toHaveText(/^[A-Z0-9.-]+ \S+/);
+  await expect(answer).not.toContainText('__');
+  await expect(answer).not.toContainText('facts:');
+  const chunkId = (await inline.getAttribute('data-chunk-id')) ?? '';
+  await inline.click();
+  await expect(page.getByTestId('selected-chunk')).toHaveAttribute(
+    'data-chunk-id',
+    chunkId,
+  );
+});
