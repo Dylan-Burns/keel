@@ -12,10 +12,10 @@ from keel import understanding
 from keel.stores import pilot
 
 SETS = {
-    "software": ("MSFT", "ORCL", "CRM", "ADBE", "ZTS"),
+    "software": ("MSFT", "ORCL", "CRM", "ADBE", "SNOW"),
     "big tech": ("AAPL", "MSFT"),
     "industrial": ("GE", "LMT"),
-    "outside": ("ZTS", "WDAY"),
+    "outside": ("SNOW", "DDOG"),
 }
 
 
@@ -73,7 +73,7 @@ def test_comp_set_phrases(step, phrase: str) -> None:
     analysis = step.analyze(f"How do the margins of {phrase} compare?")
     assert [u.name for u in analysis.comp_sets] == ["software"]
     assert analysis.tickers == ("MSFT", "ORCL", "CRM", "ADBE")
-    assert analysis.comp_sets[0].missing == ("ZTS",)
+    assert analysis.comp_sets[0].missing == ("SNOW",)
     assert analysis.primary_type == "comparison"
     assert analysis.groups == ()  # "software" is not read as the group
 
@@ -102,8 +102,8 @@ def test_comp_set_quarantined_and_outside(step) -> None:
     assert outside.tickers == ()
     assert outside.out_of_scope_reason == "not_indexed"
     assert outside.out_of_scope_parts == (
-        "ZTS (comp set, not in the corpus)",
-        "WDAY (comp set, not in the corpus)",
+        "SNOW (comp set, not in the corpus)",
+        "DDOG (comp set, not in the corpus)",
     )
 
 
