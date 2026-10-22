@@ -102,6 +102,66 @@ def test_sector_cap(tmp_path: pathlib.Path, settings: config.Settings) -> None:
     assert {c.candidate.query for c in result.context.chunks} <= set(range(12))
 
 
+def test_response_reserve_with_the_cap(
+    tmp_path: pathlib.Path, settings: config.Settings
+) -> None:
+    # 14 companies with risk chunks and Item 1 chunks; the question asks
+    # how they address the risks, so each kept company gets a response
+    # group over the business, MD&A, and legal sections.
+    tickers = [f"R{chr(65 + n)}" for n in range(14)]
+    filings = [
+        FakeFiling(t, "10-K", "2024-12-31", "2025-02-14", 2024) for t in tickers
+    ]
+    chunks = []
+    for n, filing in enumerate(filings):
+        for k in range(5):
+            words = " ".join(f"{word}{k}" for word in THEMES)
+            chunks.append(
+                conftest.make_chunk(
+                    filing,
+                    "risk_factors",
+                    k,
+                    "risk " + "regulatory " * (1 + n // 4) + words,
+                )
+            )
+            chunks.append(
+                conftest.make_chunk(
+                    filing,
+                    "business",
+                    k,
+                    "we comply with regulatory approval programs " + words,
+                )
+            )
+    step = open_retriever(
+        conftest.build_store(tmp_path, filings, chunks), settings
+    )
+    step.reranker = TopicReranker()
+    analysis = analyze(
+        step,
+        settings,
+        "What regulatory risks do all companies face, and how are they "
+        "addressing them?",
+    )
+    assert retriever.asks_for_response(analysis)
+    result = step.retrieve(analysis)
+    kept = {g.ticker for g in result.plan.groups}
+    assert len(kept) == 12
+    assert len(result.plan.groups) == 24
+    # 1 risk and 1 response sub-query per kept company.
+    assert len(result.plan.sub_queries) == 24
+    response = [g for g in result.plan.groups if g.key.endswith(" response")]
+    assert {g.quota for g in response} == {1}
+    assert {g.quota for g in result.plan.groups if g not in response} == {3}
+    sections = {
+        (c.candidate.ticker, c.candidate.section) for c in result.context.chunks
+    }
+    for ticker in kept:
+        assert (ticker, "business") in sections
+        assert (ticker, "risk_factors") in sections
+    queries = {c.candidate.query for c in result.context.chunks}
+    assert queries <= set(range(24))
+
+
 def risk_store(tmp_path: pathlib.Path) -> pathlib.Path:
     annual = FakeFiling("PFE", "10-K", "2024-12-31", "2025-02-27", 2024)
     q1 = FakeFiling("PFE", "10-Q", "2025-03-30", "2025-05-01", 2025, "Q1")

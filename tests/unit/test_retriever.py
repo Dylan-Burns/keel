@@ -343,16 +343,58 @@ def test_sector_plan(understander: understanding.Understander) -> None:
         "and how are they addressing them?",
     )
     assert result.sector
+    # The question asks how the companies address the risks, so a third
+    # of each quota of 9 goes to a response group (stage 8).
+    tickers = ["PFE", "JNJ", "MRK", "LLY", "ABBV"]
     assert [g.key for g in result.groups] == [
-        "PFE",
-        "JNJ",
-        "MRK",
-        "LLY",
-        "ABBV",
+        key for t in tickers for key in (t, f"{t} response")
     ]
-    assert {g.quota for g in result.groups} == {9}
+    assert [g.quota for g in result.groups] == [6, 3] * 5
     assert {g.token_quota for g in result.groups} == {None}
     assert "FDA" in result.sub_queries[0].terms
+    response = [q for q in result.sub_queries if q.label.endswith("response")]
+    assert [q.group for q in response] == [f"{t} response" for t in tickers]
+    assert {q.filter.sections for q in response} == {
+        ("business", "mdna", "legal_proceedings")
+    }
+    assert {q.filter.tickers for q in response} == {(t,) for t in tickers}
+    # Without a response word the company keeps 1 group of 9.
+    risks = plan(
+        understander,
+        "What regulatory risks do the major pharmaceutical companies face?",
+    )
+    assert [g.quota for g in risks.groups] == [9] * 5
+    assert len(risks.sub_queries) == 5
+
+
+def test_response_reserve_on_a_comparison(
+    understander: understanding.Understander,
+) -> None:
+    result = plan(
+        understander,
+        "What are the risk factors of Apple and Tesla, and how do they "
+        "mitigate them?",
+    )
+    assert [g.key for g in result.groups] == [
+        "AAPL",
+        "AAPL response",
+        "TSLA",
+        "TSLA response",
+    ]
+    # 24 chunks and 16,000 tokens per company, a third reserved.
+    assert [g.quota for g in result.groups] == [16, 8, 16, 8]
+    assert [g.token_quota for g in result.groups] == [
+        10_667,
+        5_333,
+        10_667,
+        5_333,
+    ]
+    # A question that is not about risks never reserves.
+    revenue = plan(
+        understander,
+        "How do Apple and Tesla revenues compare, and how did they respond?",
+    )
+    assert len(revenue.groups) == 2
 
 
 def test_risk_supplement_plan(
