@@ -32,11 +32,13 @@ class _Section(pydantic.BaseModel):
 
 
 class ServerConfig(_Section):
-    """The HTTP server bind address and the built front-end."""
+    """The bind address, the front-end build, and the eval page files."""
 
     host: str = "127.0.0.1"
     port: int = pydantic.Field(default=8000, ge=1, le=65535)
     web_dist: pathlib.Path = pathlib.Path("web/dist")
+    eval_report: pathlib.Path = pathlib.Path("eval/report.md")
+    prompt_log: pathlib.Path = pathlib.Path("docs/PROMPT_LOG.md")
 
 
 class CacheConfig(_Section):

@@ -12,8 +12,8 @@ export interface FooterProps {
 }
 
 /**
- * The footer (chapter 14.5): Copy as markdown, Export JSON, the request ID,
- * and the prompt version.
+ * The footer (chapter 14.5): Copy as markdown, Export JSON, the link to the
+ * eval page (W-02), the request ID, and the prompt version.
  *
  * @param props The props.
  * @return The footer.
@@ -45,6 +45,14 @@ export function Footer({
         Export JSON
       </button>
       {copyStatus !== null && <span role="status">{copyStatus}</span>}
+      <button
+        type="button"
+        className="underline"
+        data-testid="eval-link"
+        onClick={() => window.location.assign('/eval')}
+      >
+        Eval report
+      </button>
       <span className="ml-auto font-mono" data-testid="request-id">
         {requestId === null ? '' : `request ${requestId}`}
       </span>

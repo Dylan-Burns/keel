@@ -900,3 +900,66 @@ def test_ready_exposes_no_spend_or_models(client, api_settings) -> None:
         "budget_stopped",
         "answer_cache",
     }
+
+
+EVAL_FIXTURE = conftest.FIXTURES / "eval"
+
+
+def eval_client(api_settings, index_dir, report, prompt_log):
+    server = api_settings.server.model_copy(
+        update={"eval_report": report, "prompt_log": prompt_log}
+    )
+    settings = api_settings.model_copy(update={"server": server})
+    services = api_app.Services(settings, make_answerer(settings, index_dir))
+    return testclient.TestClient(api_app.create_app(services))
+
+
+def test_eval_page_renders(api_settings, index_dir, tmp_path) -> None:
+    log = tmp_path / "PROMPT_LOG.md"
+    log.write_text("# Prompt log\n\n| Version | Result |\n| --- | --- |\n")
+    report = EVAL_FIXTURE / "report.md"
+    with eval_client(api_settings, index_dir, report, log) as client:
+        assert client.get("/api/eval").status_code == 401
+        page = client.get("/api/eval", headers=AUTH).json()
+        # The page route is a client route of the front-end.
+        assert client.get("/eval").status_code == 200
+    assert page["report"]["source"] == "eval/report.md"
+    assert page["report"]["markdown"] == report.read_text()
+    assert page["report"]["truncated"] is False
+    assert page["prompt_log"]["source"] == "docs/PROMPT_LOG.md"
+    assert page["prompt_log"]["markdown"].startswith("# Prompt log")
+    # The markdown leaves as text: the client sanitizes it (chapter 15).
+    assert "<script>" in page["report"]["markdown"]
+    gates = {g["name"]: g for g in page["gates"]}
+    assert list(gates) == [
+        "Recall at 25",
+        "MRR",
+        "Faithfulness",
+        "Latency p95",
+        "Mean cost per question",
+    ]
+    assert gates["Recall at 25"] == {
+        "name": "Recall at 25",
+        "comparator": ">=",
+        "threshold": 0.85,
+        "threshold_text": ">= 0.85",
+        "value": 0.63,
+        "value_text": "0.63",
+        "status": "fail",
+        "passed": False,
+    }
+    assert gates["MRR"]["passed"] is True
+    assert gates["Faithfulness"]["value"] is None
+    assert gates["Faithfulness"]["passed"] is None
+    assert gates["Latency p95"]["comparator"] == "<="
+    assert gates["Latency p95"]["passed"] is True
+    assert gates["Mean cost per question"]["passed"] is False
+
+
+def test_eval_page_without_report(api_settings, index_dir, tmp_path) -> None:
+    absent = tmp_path / "absent.md"
+    with eval_client(api_settings, index_dir, absent, absent) as client:
+        page = client.get("/api/eval", headers=AUTH).json()
+    assert page["report"]["markdown"] is None
+    assert page["prompt_log"]["markdown"] is None
+    assert page["gates"] == []

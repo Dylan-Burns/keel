@@ -2,7 +2,7 @@ import type {FormEvent, JSX, KeyboardEvent} from 'react';
 
 import type {AnalysisSummary} from '../api/types';
 import type {Example} from '../lib/examples';
-import {QUESTION_MAX, QUESTION_MIN} from '../lib/examples';
+import {ADVERSARIAL, QUESTION_MAX, QUESTION_MIN} from '../lib/examples';
 import {EntitiesLine} from './EntitiesLine';
 import {ExampleChips} from './ExampleChips';
 
@@ -31,7 +31,8 @@ export function questionValid(question: string): boolean {
 
 /**
  * The question area (chapter 14.5): the input with a character counter, the
- * example chips, the Ask button, and the resolved entities line.
+ * example chips with the G-27 preset (W-04), the Ask button, and the resolved
+ * entities line.
  *
  * @param props The props.
  * @return The question area.
@@ -88,14 +89,25 @@ export function QuestionArea({
           </button>
         </div>
       </form>
-      <ExampleChips
-        examples={examples}
-        disabled={!askEnabled}
-        onPick={example => {
-          onQuestionChange(example.question);
-          onAsk(example.question);
-        }}
-      />
+      <div className="flex flex-wrap items-start gap-2">
+        <ExampleChips
+          examples={examples}
+          disabled={!askEnabled}
+          onPick={example => {
+            onQuestionChange(example.question);
+            onAsk(example.question);
+          }}
+        />
+        <button
+          type="button"
+          className="rounded-full border border-dashed border-red-300 bg-white px-3 py-1 text-sm text-red-700 hover:border-red-500"
+          data-testid="adversarial-preset"
+          title={ADVERSARIAL.question}
+          onClick={() => onQuestionChange(ADVERSARIAL.question)}
+        >
+          {ADVERSARIAL.label}
+        </button>
+      </div>
       <EntitiesLine analysis={analysis} />
     </section>
   );

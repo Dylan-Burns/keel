@@ -14,6 +14,7 @@ import type {Locator, Page, Route} from '@playwright/test';
 import type {AskRequest, AskResponse, SseEvent} from '../../src/api/types';
 import {
   COVERAGE,
+  EVAL_PAGE,
   INDEX_STATUS,
   INDEX_STATUS_STALE,
   READY,
@@ -217,6 +218,9 @@ async function mockApi(page: Page, fault: Fault | null): Promise<void> {
     if (path === '/api/coverage') {
       return json(route, COVERAGE);
     }
+    if (path === '/api/eval') {
+      return json(route, EVAL_PAGE);
+    }
     if (path === '/api/ask') {
       return askRoute(route, fault);
     }
@@ -251,6 +255,8 @@ export interface OpenOptions {
    * 60). 0 serves the whole stream from the route mock at once.
    */
   readonly paceMs?: number;
+  /** The page path to open (default `/`). */
+  readonly path?: string;
 }
 
 /**
@@ -281,7 +287,7 @@ export async function openKeel(
     }
   }
   await recordStates(page);
-  await page.goto('/');
+  await page.goto(options.path ?? '/');
 }
 
 /**
