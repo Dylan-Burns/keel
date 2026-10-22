@@ -21,6 +21,7 @@ ignores:
   - "docs/1*_*.md"
   - "docs/2*_*.md"
   - "CHANGELOG.md"
+  - "prompts/*.md"            # model input, not documentation: the bytes are the prompt
   - "web/node_modules/**"
   - "web/dist/**"
   - "corpus/**"

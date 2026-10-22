@@ -72,11 +72,16 @@ llm:
   fallback_model: claude-haiku-5-5  # Claude Haiku 5.5
   judge_model: claude-opus-5-5  # eval only; a different model from llm.model (D-35)
   prices: config/prices.yaml   # USD per 1 million tokens, keyed by model id
-  temperature: 0
-  max_output_tokens: 4000
+  temperature: null             # D-12 asks for 0; the 5.5 models reject the parameter (build report, stage 7)
+  thinking:                    # the lowest thinking setting per model; the answer is 1 tool call
+    claude-sonnet-5-5: between_tools
+    claude-haiku-5-5: disabled
+  max_output_tokens: 8000      # D-12 says 4,000; the strict JSON answer needs about 2.2 characters per token (stage 7)
   prompt_version: 1.0.0
   cache_system_block: true
-  timeout_seconds: 120
+  timeout_seconds: 120         # the whole request (chapter 16.1)
+  connect_timeout_seconds: 10
+  idle_timeout_seconds: 30     # the gap between 2 stream events
   max_retries: 2               # before any content only (D-04)
 
 limits:
