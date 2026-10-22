@@ -279,7 +279,8 @@ class TickerMap:
         """Find the row of a ticker.
 
         Args:
-            ticker: The ticker, in any case, with `.` or `-`.
+            ticker: The ticker, in any case, with `.` or `-`, or the root
+                of share classes that all belong to 1 company.
 
         Returns:
             The row.
@@ -288,7 +289,16 @@ class TickerMap:
             UnknownTickerError: The map has no such ticker. The message
                 names the SEC company lookup page.
         """
-        entry = self._entries.get(normalize_ticker(ticker))
+        key = normalize_ticker(ticker)
+        entry = self._entries.get(key)
+        if entry is None:
+            # A share class root (the corpus writes `BRK`, the map `BRK-B`)
+            # resolves when every class of it belongs to 1 CIK.
+            classes = [
+                e for t, e in self._entries.items() if t.startswith(key + "-")
+            ]
+            if classes and len({e.cik for e in classes}) == 1:
+                entry = classes[0]
         if entry is None:
             raise errors.UnknownTickerError(
                 f"unknown ticker {ticker!r}: the SEC ticker map has no "
