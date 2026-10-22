@@ -20,6 +20,8 @@ cache:
 corpus:
   zip: corpus/edgar_corpus.zip
   url: null                    # KEEL_CORPUS__URL: where `keel bootstrap` downloads the zip when it is absent
+  release_repo: Dylan-Burns/keel   # `gh release download` source when GH_TOKEN is set (chapter 29.11)
+  release_tag: corpus-v1
   dir: corpus/edgar
   manifest: corpus/edgar/manifest.json
   date_filter: null            # or {min: "2023-01-01", max: "2025-12-31"}; decision D-19 keeps all files

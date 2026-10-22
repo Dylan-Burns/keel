@@ -6,7 +6,8 @@ stage 3 adds `keel chunk` and `keel parse --sections-report`; stage 4 adds
 stage 7 adds `keel ask`; stage 8 adds `keel calibrate`; stage 9 adds
 `keel serve`; stage 10 adds `keel eval`; stage 13 adds `keel facts`; stage
 14 adds `keel add`; stage 15 adds `keel warm-cache`; stage 20 adds `keel watch`
-and `keel refresh`. Later stages add the commands that CLAUDE.md lists.
+and `keel refresh`; stage 21 adds `keel bootstrap`, `keel backup`, and
+`keel restore`.
 """
 
 import argparse
@@ -27,6 +28,7 @@ import anthropic
 import keel
 from keel import add
 from keel import answer
+from keel import bootstrap
 from keel import calibrate
 from keel import chunker
 from keel import config
@@ -158,6 +160,28 @@ def _add_arguments() -> argparse.ArgumentParser:
         help="the index directory with `current` (default: index.dir)",
     )
     return add_parser
+
+
+def _calibrate_arguments() -> argparse.ArgumentParser:
+    """Build the arguments of `keel calibrate` as a parent parser.
+
+    Returns:
+        A parser without help that holds the `calibrate` arguments.
+    """
+    calibrate_parser = argparse.ArgumentParser(add_help=False)
+    calibrate_parser.add_argument(
+        "--sample",
+        type=_positive,
+        default=calibrate.SAMPLE_SIZE,
+        help="the chunks in the sample (default: 200, chapter 11.6)",
+    )
+    calibrate_parser.add_argument(
+        "--index",
+        type=pathlib.Path,
+        default=None,
+        help="the index directory with `current` (default: index.dir)",
+    )
+    return calibrate_parser
 
 
 def _serve_arguments() -> argparse.ArgumentParser:
@@ -420,6 +444,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="the index directory with `current` (default: index.dir)",
     )
 
+    commands.add_parser(
+        "bootstrap",
+        help="download and extract the corpus, build the index when absent",
+    )
+
     ask_parser = commands.add_parser(
         "ask", help="answer a question with 1 model request"
     )
@@ -439,21 +468,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="the index directory with `current` (default: index.dir)",
     )
 
-    calibrate_parser = commands.add_parser(
+    commands.add_parser(
         "calibrate",
+        parents=[_calibrate_arguments()],
         help="measure the token calibration factor with 1 count call",
-    )
-    calibrate_parser.add_argument(
-        "--sample",
-        type=_positive,
-        default=calibrate.SAMPLE_SIZE,
-        help="the chunks in the sample (default: 200, chapter 11.6)",
-    )
-    calibrate_parser.add_argument(
-        "--index",
-        type=pathlib.Path,
-        default=None,
-        help="the index directory with `current` (default: index.dir)",
     )
 
     commands.add_parser(
@@ -968,6 +986,33 @@ def run_index(
     for name, digest in manifest.files.items():
         print(f"sha256 {name}: {digest}")
     print(f"chunks_sha256: {manifest.chunks_sha256}")
+    return 0
+
+
+def run_bootstrap(settings: config.Settings) -> int:
+    """Run `keel bootstrap`: corpus and index on a first start (29.9).
+
+    Args:
+        settings: The loaded settings.
+
+    Returns:
+        The process exit code: 0 when the corpus and the index are ready,
+        2 after a failure.
+    """
+    # SIGTERM exits through SystemExit, so an index build removes its
+    # staging directory before the process ends.
+    handler = signal.signal(signal.SIGTERM, _exit_on_sigterm)
+    try:
+        status = bootstrap.run_bootstrap(settings)
+    finally:
+        signal.signal(signal.SIGTERM, handler)
+    print(f"phase: {status.phase}")
+    unknown = "unknown"
+    print(f"corpus: {status.corpus or unknown}")
+    print(f"index: {status.index or unknown}")
+    if status.error:
+        print(f"error: {status.error}")
+        return 2
     return 0
 
 
@@ -1778,6 +1823,7 @@ def _dispatch(settings: config.Settings, args: argparse.Namespace) -> int:
             out_dir=args.out,
             incremental=args.incremental,
         ),
+        "bootstrap": lambda: run_bootstrap(settings),
     }
     if args.command in ("calibrate", "eval", "warm-cache"):
         return _dispatch_measure(settings, args)

@@ -79,10 +79,23 @@ class DateFilter(_Section):
 
 
 class CorpusConfig(_Section):
-    """The corpus zip, the extracted directory, and the manifest."""
+    """The corpus zip, the extracted directory, and the manifest.
+
+    Attributes:
+        zip: The local corpus zip.
+        url: The https URL `keel bootstrap` downloads the zip from.
+        release_repo: The GitHub repository (`owner/name`) whose release
+            asset `keel bootstrap` downloads with `gh` when `GH_TOKEN` is set.
+        release_tag: The release tag of that asset (chapter 29.11).
+        dir: The extracted corpus directory.
+        manifest: The corpus manifest.
+        date_filter: The filing date window, or None.
+    """
 
     zip: pathlib.Path = pathlib.Path("corpus/edgar_corpus.zip")
     url: str | None = None
+    release_repo: str | None = None
+    release_tag: str = "corpus-v1"
     dir: pathlib.Path = pathlib.Path("corpus/edgar")
     manifest: pathlib.Path = pathlib.Path("corpus/edgar/manifest.json")
     date_filter: DateFilter | None = None
