@@ -10,7 +10,9 @@ With `scheduler.enabled` on (Railway, chapter 29.9 step 7) the in-app
 scheduler runs the refresh of chapter 26.3 at `scheduler.refresh_at` and the
 backup at `scheduler.backup_at`. A refresh that added a filing published a
 new build, so the server reloads the index after it. Both jobs skip while
-the first build is not served yet, so they never race the bootstrap.
+the first build is not served yet, so they never race the bootstrap, and
+while a heavy admin job (`keel.api.jobs`) is queued or running: they
+share the maintenance slot of `Services.maintenance`.
 """
 
 from __future__ import annotations
@@ -86,6 +88,24 @@ def _busy(services: state.Services, job: str) -> bool:
     return False
 
 
+def _claim(services: state.Services, job: str) -> bool:
+    """Take the maintenance slot; False, and logged, while a job holds it.
+
+    A heavy admin job that is queued holds the slot too, so the nightly
+    run never slips in between its request and its start.
+    """
+    runner = services.jobs
+    try:
+        queued = runner is not None and runner.holder() is not None
+    except errors.StateStoreError as error:
+        logger.error("job store unreadable: %s", error)
+        queued = True
+    if not queued and services.maintenance.acquire(blocking=False):
+        return True
+    logger.warning("%s skipped: an admin job holds the index", job)
+    return False
+
+
 def backup_job(
     services: state.Services,
     runner: Callable[[], object] | None = None,
@@ -99,10 +119,13 @@ def backup_job(
     Returns:
         The runner's result, or None when the job was skipped.
     """
-    if _busy(services, "backup"):
+    if _busy(services, "backup") or not _claim(services, "backup"):
         return None
-    run = runner or (lambda: backup.run_nightly_backup(services.settings))
-    return run()
+    try:
+        run = runner or (lambda: backup.run_nightly_backup(services.settings))
+        return run()
+    finally:
+        services.maintenance.release()
 
 
 def refresh_job(
@@ -120,7 +143,7 @@ def refresh_job(
         The refresh report, or None when the run failed (logged) or was
         skipped because the first build is not served yet.
     """
-    if _busy(services, "refresh"):
+    if _busy(services, "refresh") or not _claim(services, "refresh"):
         return None
     run = runner or (lambda: refresh.run_refresh(services.settings))
     try:
@@ -128,6 +151,8 @@ def refresh_job(
     except errors.KeelError as error:
         logger.error("refresh failed: %s: %s", type(error).__name__, error)
         return None
+    finally:
+        services.maintenance.release()
     logger.info(
         "refresh: %d new, %d added", report.new_count, report.added_count
     )

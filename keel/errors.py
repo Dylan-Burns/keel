@@ -234,3 +234,20 @@ class BackupChecksumError(BackupError):
 
 class BackupUploadError(BackupError):
     """A backup archive cannot be uploaded to the bucket."""
+
+
+class JobBusyError(KeelError):
+    """A heavy admin job is queued or running, so another must wait.
+
+    Attributes:
+        job_id: The ID of the job that holds the slot, or None while the
+            first-start bootstrap holds it.
+    """
+
+    def __init__(self, message: str, job_id: str | None = None) -> None:
+        super().__init__(message)
+        self.job_id = job_id
+
+
+class JobStateError(KeelError):
+    """An admin job is not in a state that permits the change asked for."""
