@@ -71,6 +71,9 @@ def test_audit_line(tmp_path: pathlib.Path) -> None:
     lines = log.path.read_text().splitlines()
     assert [json.loads(line)["request_id"] for line in lines] == ["r1", "r2"]
     assert stat.S_IMODE(log.path.stat().st_mode) == audit.FILE_MODE
+    log.path.chmod(0o644)
+    log.write({"request_id": "r3"})
+    assert stat.S_IMODE(log.path.stat().st_mode) == audit.FILE_MODE
 
 
 def test_audit_refuses_prompt_and_logs_failure(

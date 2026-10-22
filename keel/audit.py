@@ -72,6 +72,7 @@ class AuditLog:
             handle = os.open(
                 self.path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, FILE_MODE
             )
+            os.fchmod(handle, FILE_MODE)  # also tighten an older file
             with os.fdopen(handle, "a", encoding="utf-8") as stream:
                 stream.write(line + "\n")
         except (

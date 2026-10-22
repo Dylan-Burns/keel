@@ -208,3 +208,27 @@ def test_stream_reader_without_answer_key() -> None:
     assert reader.feed('{"direct_answer": "abc\\').answer_delta == "abc"
     assert reader.feed("u00").answer_delta == ""
     assert reader.feed('e9 d"').answer_delta == "é d"
+
+
+def test_table_cells_checked() -> None:
+    table = {
+        "columns": ["Theme", "Apple", "Microsoft"],
+        "rows": [["Supply", f"Asia [{AAPL}]", f"Cloud [{OUTSIDE}]"]],
+    }
+    result = citations.validate(
+        answer(comparison_table=table), context_of(apple()), {}
+    )
+    assert result.answer.comparison_table is not None
+    assert result.answer.comparison_table.rows == [
+        ["Supply", f"Asia [{AAPL}]", "Cloud"]
+    ]
+    assert result.report.inline_drift == 1
+
+
+def test_quarter_reported_once_and_bad_escape() -> None:
+    built = context_of(apple())
+    assert citations.period_mismatches("In Q2 fiscal 2027 sales", built) == [
+        "Q2 fiscal 2027"
+    ]
+    reader = partial_json.AnswerStream()
+    assert reader.feed('{"direct_answer": "a\\uZZZZ b').answer_delta == ""

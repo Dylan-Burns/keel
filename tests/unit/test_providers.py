@@ -380,3 +380,42 @@ def test_mock_faults_after_content() -> None:
         "".join(e.text for e in out if isinstance(e, base.JsonDelta))
         == '{"a": 1}'
     )
+
+
+@pytest.mark.parametrize(
+    ("failure", "expected"),
+    [
+        (httpx2.ReadTimeout("idle"), errors.ProviderTimeoutError),
+        (httpx2.RemoteProtocolError("cut"), errors.ProviderUnavailableError),
+        (httpx2.ReadError("reset"), errors.ProviderUnavailableError),
+    ],
+)
+def test_transport_errors_inside_the_stream(
+    settings: config.Settings, failure, expected
+) -> None:
+    broken = provider(
+        settings,
+        FakeStream(events('{"direct_answer": "abc')[:6], fail=failure),
+    )
+    seen: list[base.ProviderEvent] = []
+
+    async def run() -> None:
+        async for event in broken.answer(bundle()):
+            seen.append(event)
+
+    with pytest.raises(expected):
+        asyncio.run(run())
+    assert any(isinstance(e, base.JsonDelta) for e in seen)
+
+
+def test_total_deadline(settings: config.Settings) -> None:
+    class SlowStream(FakeStream):
+        async def _run(self):
+            for event in self.events:
+                await asyncio.sleep(0.05)
+                yield event
+
+    slow = provider(settings, SlowStream(events('{"direct_answer": "abc"}')))
+    slow.total_timeout = 0.12
+    with pytest.raises(errors.ProviderTimeoutError):
+        asyncio.run(collect(slow.answer(bundle())))
