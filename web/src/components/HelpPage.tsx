@@ -7,7 +7,7 @@ export const RESTORE_TESTED_ON = '2026-10-22';
 export const AUDIT_RETENTION_MONTHS = 12;
 
 /** 1 section of the data use page. */
-interface Section {
+export interface Section {
   readonly id: string;
   readonly title: string;
   readonly lines: readonly string[];
@@ -20,7 +20,7 @@ export const DATA_USE_SECTIONS: readonly Section[] = [
     title: 'What goes to the model provider',
     lines: [
       'Each question makes exactly 1 request to the Anthropic API.',
-      'The request holds the question, the filing excerpts that retrieval picked from the index, the SEC company facts lines for the companies in the question, and the fixed instructions of the prompt.',
+      'The request holds the question, the filing excerpts that retrieval picked from the index, for a numeric question the SEC company facts lines of the companies in it, and the fixed instructions of the prompt.',
       'It holds no token, no user name, and no earlier question.',
       'Under its commercial terms, Anthropic does not use API inputs or outputs to train its models. The engineer checks the current terms before the pilot starts.',
     ],
@@ -31,7 +31,7 @@ export const DATA_USE_SECTIONS: readonly Section[] = [
     lines: [
       'The service fetches public documents from www.sec.gov and data.sec.gov: the ticker map, the company facts, the list of filings of a company, and the filing documents that keel add and the nightly refresh ingest.',
       'Each request carries the contact name and email address that the SEC requires. No question and no answer goes to the SEC.',
-      'No other outbound host is allowed, except the GitHub release host that the first start downloads the corpus or the index archive from.',
+      'The other outbound requests are made by the operator setup, never with a question: the first start downloads the corpus and the index archive from GitHub or the configured corpus URL, and the embedding models from Hugging Face when the host has no copy yet.',
     ],
   },
   {
@@ -40,7 +40,8 @@ export const DATA_USE_SECTIONS: readonly Section[] = [
     lines: [
       'The audit log holds 1 line per question: the request ID, the time, the user name, the question, the tickers, the IDs of the filing excerpts sent, the prompt version and hash, the index version, the model, the token counts, the cost, and the latency.',
       'It never holds the prompt text, an API key, or a token. The users file keeps only the sha256 of each token.',
-      `The pilot keeps the audit log for ${AUDIT_RETENTION_MONTHS} months. The engineer deletes older lines; the service does not delete them on its own.`,
+      'The answer cache keeps each cached question with its full answer, so a repeat answers at once. The pilot store keeps the comp sets and the feedback votes and notes with the user name.',
+      `The pilot keeps the audit log, the answer cache, and the feedback for ${AUDIT_RETENTION_MONTHS} months. The engineer deletes older entries; the service does not delete them on its own.`,
     ],
   },
   {
@@ -64,7 +65,7 @@ export const DATA_USE_SECTIONS: readonly Section[] = [
 /**
  * The data use page (chapter 27.2): what Keel sends where, what it logs and
  * for how long, who sees the history, and the date of the restore test.
- * External names are text, not links: the page links only to www.sec.gov.
+ * External names are text, not links.
  *
  * @return The page.
  */
