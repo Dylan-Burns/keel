@@ -3,6 +3,7 @@
 import datetime
 import hashlib
 import io
+import os
 import pathlib
 import sqlite3
 import tarfile
@@ -402,6 +403,7 @@ def test_restore_refuses_a_directory_named_current(
     assert sorted(p.name for p in plain.iterdir()) == [indexer.CURRENT]
 
 
+@pytest.mark.skipif(os.name != "posix", reason="POSIX file modes")
 def test_backup_keeps_the_rotated_audit_days_private(
     index_dir: pathlib.Path, logs_dir: pathlib.Path, tmp_path: pathlib.Path
 ) -> None:
@@ -417,6 +419,8 @@ def test_backup_keeps_the_rotated_audit_days_private(
     assert [line.split('"')[3] for line in lines] == ["r0", "rx", "r1"]
     assert result.archive.stat().st_mode & 0o777 == 0o600
     assert result.checksum_file.stat().st_mode & 0o777 == 0o600
+    assert (tmp_path / "b").stat().st_mode & 0o777 == 0o700
+    assert not list((tmp_path / "b").glob(".backup-*"))
 
     restored = backup.restore_backup(
         result.archive, tmp_path / "fresh", tmp_path / "fresh-logs"
