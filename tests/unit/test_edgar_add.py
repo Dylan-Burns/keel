@@ -86,7 +86,7 @@ def make_client(
     return edgar.EdgarClient(
         USER_AGENT,
         cache,
-        transport=httpx.MockTransport(handler),
+        transport=conftest.peer_transport(handler),
         resolver=lambda host: ["93.184.215.14"],
         min_interval=0.0,
         **options,

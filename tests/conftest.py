@@ -1,5 +1,6 @@
 """Shared fixtures: the repository paths and a settings loader."""
 
+from collections.abc import Callable
 from collections.abc import Sequence
 import dataclasses
 import datetime
@@ -210,3 +211,10 @@ def with_peer(
     """Attach a peer address, as a real connection would."""
     response.extensions["network_stream"] = FakeNetworkStream(address)
     return response
+
+
+def peer_transport(
+    handler: Callable[[httpx.Request], httpx.Response],
+) -> httpx.MockTransport:
+    """A mock transport whose responses carry a public peer address."""
+    return httpx.MockTransport(lambda request: with_peer(handler(request)))

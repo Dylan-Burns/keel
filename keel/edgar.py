@@ -6,9 +6,11 @@ company from `data.sec.gov`. Every
 request carries the `User-Agent` header from `edgar.user_agent`, waits for
 the minimum interval since the previous request, and passes the outbound
 allow list of control S-11: https only, the 2 SEC hosts only, no private,
-loopback, or link-local address, and every redirect target checked again.
-Every response lands in the disk cache under `edgar.cache_dir` with its
-fetch time, so a repeat run makes no request.
+loopback, or link-local address, every redirect target checked again, and
+the address of the opened socket checked before the body is read (a DNS
+rebinding answer between the 2 lookups). Every response lands in the disk
+cache under `edgar.cache_dir` with its fetch time, so a repeat run makes no
+request.
 
 `filings_of` and `pick_latest` read the submissions of a company and pick
 the filings that `keel add` ingests (chapter 26.2, step 2).
@@ -45,6 +47,7 @@ import pydantic
 
 from keel import config
 from keel import errors
+from keel import net
 
 logger = logging.getLogger(__name__)
 
@@ -779,9 +782,18 @@ class EdgarClient:
             wait = self.min_interval - (self._clock() - self._last_request)
             if wait > 0:
                 self._sleep(wait)
+        host = (urllib.parse.urlsplit(url).hostname or "").lower()
         try:
             logger.info("EDGAR GET %s", url)
-            return self._http.get(url)
+            with self._http.stream("GET", url) as response:
+                # DNS rebinding (S-11): the connect resolves the name again,
+                # so the address of the open socket is checked too, before
+                # the body is read.
+                net.check_peer(response, host)
+                response.read()
+                return response
+        except errors.HostNotAllowedError as error:
+            raise errors.OutboundBlockedError(str(error)) from error
         except httpx.HTTPError as error:
             raise errors.EdgarFetchError(f"GET {url}: {error}") from error
         finally:

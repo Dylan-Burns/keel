@@ -108,7 +108,7 @@ def make_client(
     return edgar.EdgarClient(
         USER_AGENT,
         cache,
-        transport=httpx.MockTransport(handler),
+        transport=conftest.peer_transport(handler),
         resolver=options.pop("resolver", public_resolver),
         **options,
     )
@@ -561,6 +561,36 @@ def test_redirect_target_address_is_checked_again(
     ):
         c.fetch(edgar.TICKER_MAP_URL)
     assert [r.url.host for r in handler.requests] == ["www.sec.gov"]
+
+
+@pytest.mark.parametrize(
+    ("attach", "message"),
+    [
+        (lambda r: conftest.with_peer(r, "10.0.0.7"), r"10\.0\.0\.7"),
+        (lambda r: r, "no peer address"),
+    ],
+)
+def test_peer_address_is_checked_after_connect(
+    tmp_path: pathlib.Path,
+    attach: Callable[[httpx.Response], httpx.Response],
+    message: str,
+) -> None:
+    """DNS rebinding: the socket peer must be public, not just the lookup."""
+    transport = httpx.MockTransport(
+        lambda request: attach(httpx.Response(200, json={"ok": True}))
+    )
+    with (
+        edgar.EdgarClient(
+            USER_AGENT,
+            tmp_path,
+            transport=transport,
+            resolver=public_resolver,
+            sleep=lambda seconds: None,
+        ) as c,
+        pytest.raises(errors.OutboundBlockedError, match=message),
+    ):
+        c.ticker_map()
+    assert not c.ticker_map_path().exists()
 
 
 @pytest.mark.parametrize(
