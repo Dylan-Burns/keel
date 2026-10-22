@@ -5,6 +5,7 @@ HF_HUB_OFFLINE=1.
 """
 
 from collections.abc import Iterator
+import json
 import os
 import pathlib
 
@@ -16,6 +17,7 @@ from keel import config
 from keel import indexer
 from keel import retriever
 from keel import understanding
+from keel.evaluation import labels
 from keel.parsers import corpus as parser_corpus
 from keel.stores import numpy_dense
 
@@ -191,3 +193,64 @@ def test_understand_reads_the_index(
     code, out = run(capsys, "understand", "What risks does NVIDIA face?")
     assert code == 0
     assert '"NVDA"' in out
+
+
+def test_eval_command_ci_subset(
+    clean_env: pytest.MonkeyPatch,
+    index_dir: pathlib.Path,
+    tmp_path: pathlib.Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # The nightly eval workflow runs this subset on the mini corpus index.
+    del clean_env
+    report_path = tmp_path / "report.md"
+    code, out = run(
+        capsys,
+        "eval",
+        "--set",
+        str(conftest.REPO_ROOT / "eval" / "golden.yaml"),
+        "--subset",
+        "ci",
+        "--index",
+        str(index_dir),
+        "--report",
+        str(report_path),
+        "--no-ablation",
+        "--gate",
+    )
+    data = json.loads(report_path.with_suffix(".json").read_text("utf-8"))
+    blocked = any(g["status"] == "fail" for g in data["gates"])
+    assert code == (1 if blocked else 0)
+    assert "Refusal correctness: 1.00 (pass)" in out
+    text = report_path.read_text(encoding="utf-8")
+    assert "subset ci" in text
+    outcomes = {r["question_id"]: r["outcome"] for r in data["results"]}
+    assert outcomes["G-22"] == "refused"
+    assert outcomes["G-24"] == "refused"
+    assert outcomes["G-15"] == "scored"
+    g15 = next(r for r in data["results"] if r["question_id"] == "G-15")
+    # The mini index has other chunk IDs, so the section labels apply.
+    assert g15["label_level"] == "section"
+    assert g15["metrics"]["mrr"] is not None
+    stamp = labels.IndexStamp.from_build(index_dir / "current")
+    assert stamp.index_version == data["info"]["index_version"]
+    assert stamp.chunks_sha256 == data["info"]["chunks_sha256"]
+
+
+def test_eval_command_no_index(
+    clean_env: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    del clean_env
+    code, _ = run(
+        capsys,
+        "eval",
+        "--set",
+        str(conftest.REPO_ROOT / "eval" / "golden.yaml"),
+        "--index",
+        str(tmp_path),
+        "--report",
+        str(tmp_path / "report.md"),
+    )
+    assert code == 2
