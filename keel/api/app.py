@@ -35,11 +35,13 @@ from keel import errors
 from keel.api import admin
 from keel.api import admin_system
 from keel.api import background
+from keel.api import debug
 from keel.api import export_routes
 from keel.api import job_kinds
 from keel.api import jobs
 from keel.api import routes
 from keel.api import state
+from keel.api import watch
 from keel.api import workspace
 
 logger = logging.getLogger(__name__)
@@ -188,6 +190,8 @@ def create_app(services: Services) -> fastapi.FastAPI:
     app.include_router(workspace.router)
     app.include_router(admin.router)
     app.include_router(admin_system.router)
+    app.include_router(watch.router)
+    app.include_router(debug.router)
     _frontend(app, services.settings.server.web_dist)
     app.add_middleware(SecurityHeaders)
     return app
