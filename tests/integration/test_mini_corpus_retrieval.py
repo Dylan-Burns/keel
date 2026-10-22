@@ -66,6 +66,26 @@ def test_models_load_once(step: retriever.Retriever) -> None:
     assert step.catalog.indexed_tickers == ["AAPL", "JPM", "NVDA"]
 
 
+def test_reranker_returns_logits(step: retriever.Retriever) -> None:
+    # score() applies the sigmoid, so the model itself must return raw
+    # logits under every sentence-transformers line (3.4 on the Intel
+    # laptop, 6.x on Linux). A model that already applied a sigmoid would
+    # squash the scores and let the section weights dominate the ranking.
+    assert isinstance(step.reranker, retriever.CrossEncoderReranker)
+    raw = step.reranker.model.predict(
+        [
+            ["Apple risk factors", "Apple faces supply chain risk in China."],
+            ["Apple risk factors", "The weather in Paris was sunny."],
+        ],
+        show_progress_bar=False,
+    )
+    relevant, irrelevant = (float(v) for v in raw)
+    assert relevant > 0.0
+    assert irrelevant < -1.0
+    scores = step.reranker.score([("q", "Apple faces supply chain risk.")])
+    assert 0.0 < scores[0] < 1.0
+
+
 def test_comparison_on_mini_corpus(
     step: retriever.Retriever, module_settings: config.Settings
 ) -> None:
