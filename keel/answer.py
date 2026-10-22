@@ -459,7 +459,9 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             },
         )
         offline = self.settings.offline
-        stopped = not offline and self.budget.exhausted()
+        stopped = not offline and (
+            await asyncio.to_thread(self.budget.exhausted)
+        )
         if offline or use_cache or stopped:
             cached = self.cache.get(self.cache_key(question))
             if cached is not None:
@@ -564,12 +566,14 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         The primary model gets up to 3 requests while the breaker lets
         them through; the fallback gets its own 3 when the primary model
         failed for availability before any content, or the breaker is
-        open. No request follows content (D-04).
+        open. No request follows content (D-04), and with `max_retries: 0`
+        the fallback is off.
         """
         async for out in self._attempts(run, self.provider, primary=True):
             yield out
         primary_down = run.error is None or run.error.retryable
-        fallback = self.fallback
+        # D-04 reversal: `max_retries: 0` allows 1 request, so no fallback.
+        fallback = self.fallback if self.settings.llm.max_retries else None
         if (
             fallback is not None
             and not run.succeeded
@@ -590,9 +594,11 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         """Send up to 3 requests to 1 model; retry only before content."""
         attempts = self.settings.llm.max_retries + 1
         for attempt in range(attempts):
-            if primary and not self.breaker.allow():
+            permit = self.breaker.allow() if primary else None
+            if primary and permit is None:
                 logger.warning("circuit breaker open: primary model skipped")
                 return
+            probe = permit == reliability.HALF_OPEN
             if run.bundle is None:  # pragma: no cover  # set by the caller
                 return
             run.requests += 1
@@ -608,7 +614,13 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
                 settled = True
                 last = attempt == attempts - 1
                 if not await self._recover(
-                    run, provider, error, attempt, primary=primary, last=last
+                    run,
+                    provider,
+                    error,
+                    attempt,
+                    primary=primary,
+                    probe=probe,
+                    last=last,
                 ):
                     return
             else:
@@ -619,8 +631,8 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
                 run.succeeded = True
                 return
             finally:
-                if primary and not settled:
-                    # Cancelled mid-request: free the probe, if this was it.
+                if probe and not settled:
+                    # Cancelled mid-request: free the probe this request holds.
                     self.breaker.release()
 
     async def _recover(  # pylint: disable=too-many-arguments
@@ -631,6 +643,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         attempt: int,
         *,
         primary: bool,
+        probe: bool,
         last: bool,
     ) -> bool:
         """Record a failed request and decide on the next one.
@@ -641,9 +654,10 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         run.error = error
         if primary and reliability.counts_as_failure(error):
             self.breaker.record_failure()
-        elif primary:
+        elif probe:
             self.breaker.release()
-        if run.content or last:
+        opened = primary and not self.breaker.closed
+        if run.content or last or (opened and error.retryable):
             logger.warning(
                 "%s failed after %d request(s): %s",
                 provider.model,

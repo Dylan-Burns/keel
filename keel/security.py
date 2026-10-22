@@ -24,8 +24,10 @@ SECRET_NAME = re.compile(r"(KEY|TOKEN)$", re.IGNORECASE)
 _PATTERNS = (
     re.compile(r"sk-ant-[A-Za-z0-9_\-]{8,}"),
     re.compile(r"(?i)(bearer\s+)[A-Za-z0-9._~+/=\-]{8,}"),
+    # NAME_KEY=value, NAME_TOKEN: value, "api_key": "value": a name of at
+    # least 1 character before KEY or TOKEN, so "cache key: <hash>" stays.
     re.compile(
-        r"(?i)\b([A-Z0-9_]*(?:KEY|TOKEN)\s*[=:]\s*['\"]?)"
+        r"(?i)\b([A-Z0-9_]+(?:KEY|TOKEN)['\"]?\s*[=:]\s*['\"]?)"
         r"[^\s'\",;]{8,}"
     ),
 )
@@ -43,18 +45,20 @@ def secret_values(
             token read from the dotenv file.
 
     Returns:
-        The values of at least 8 characters, longest first.
+        The values, longest first: environment values of at least 8
+        characters, and the 2 service secrets at any length.
     """
-    values = {v for k, v in environ.items() if SECRET_NAME.search(k)}
+    values = {
+        v
+        for k, v in environ.items()
+        if SECRET_NAME.search(k) and len(v) >= MIN_SECRET_CHARS
+    }
     if settings is not None:
+        # The 2 secrets of the service are masked at any length.
         for secret in (settings.anthropic_api_key, settings.api_token):
-            if secret is not None:
+            if secret is not None and secret.get_secret_value():
                 values.add(secret.get_secret_value())
-    return sorted(
-        (v for v in values if len(v) >= MIN_SECRET_CHARS),
-        key=len,
-        reverse=True,
-    )
+    return sorted(values, key=len, reverse=True)
 
 
 def redact(text: str, secrets: Iterable[str] = ()) -> str:
