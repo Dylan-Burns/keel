@@ -69,6 +69,8 @@ describe('Footer', () => {
     );
     fireEvent.click(screen.getByTestId('history-link'));
     expect(assign).toHaveBeenCalledWith('/history');
+    fireEvent.click(screen.getByTestId('compsets-link'));
+    expect(assign).toHaveBeenCalledWith('/compsets');
     vi.unstubAllGlobals();
   });
 });

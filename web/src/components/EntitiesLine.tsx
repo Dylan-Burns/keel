@@ -10,7 +10,8 @@ export interface EntitiesLineProps {
 }
 
 /**
- * The resolved entities line, with a did-you-mean note after a fuzzy match.
+ * The resolved entities line, with a did-you-mean note after a fuzzy match
+ * and a note per comp set the question names (chapter 27.2).
  *
  * @param props The props.
  * @return The line, or nothing before the analysis.
@@ -41,6 +42,17 @@ export function EntitiesLine({
         >
           {ticker}
         </motion.span>
+      ))}
+      {(analysis.comp_sets ?? []).map(set => (
+        <span
+          key={set.name}
+          className="text-xs text-slate-500"
+          data-testid="comp-set-note"
+        >
+          {`"${set.text}" is the comp set ${set.name}`}
+          {set.missing.length > 0 &&
+            `; not in the index: ${set.missing.join(', ')}`}
+        </span>
       ))}
       {fuzzy.map(e => (
         <span key={e.text} className="text-xs text-slate-500">

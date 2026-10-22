@@ -18,12 +18,26 @@ afterEach(() => {
   window.sessionStorage.clear();
 });
 
-function serveAll(): ReturnType<typeof vi.fn> {
+const TEMPLATES = {
+  items: [
+    {
+      id: 'risk_benchmark',
+      label: 'Risk benchmark',
+      text: 'What are the risks of {companies} in {period}?',
+      default_period: 'the latest fiscal year',
+    },
+  ],
+};
+
+function serveAll(
+  extra: Record<string, unknown> = {},
+): ReturnType<typeof vi.fn> {
   const fetchMock = vi.fn((path: string) => {
     const bodies: Record<string, unknown> = {
       '/api/ready': READY,
       '/api/coverage': COVERAGE,
       '/api/index/status': INDEX_STATUS,
+      ...extra,
     };
     if (path in bodies) {
       return Promise.resolve(new Response(JSON.stringify(bodies[path])));
@@ -94,5 +108,41 @@ describe('App', () => {
       ),
     );
     expect(await screen.findByText('Link copied')).toBeInTheDocument();
+  });
+
+  it('fills a template into the box, then takes a vote on the answer', async () => {
+    window.sessionStorage.setItem(TOKEN_KEY, 't');
+    const fetchMock = serveAll({
+      '/api/templates': TEMPLATES,
+      '/api/feedback': {
+        request_id: RESPONSE_2.request_id,
+        vote: 'up',
+        note: null,
+        user: 'alice',
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('template-button'));
+    fireEvent.change(screen.getByTestId('template-companies'), {
+      target: {value: 'my software comps'},
+    });
+    fireEvent.click(screen.getByTestId('template-fill'));
+    const box = screen.getByRole('textbox', {name: 'Question'});
+    expect(box).toHaveValue(
+      'What are the risks of my software comps in the latest fiscal year?',
+    );
+    const isAsk = ([path]: unknown[]): boolean => path === '/api/ask';
+    expect(fetchMock.mock.calls.filter(isAsk)).toHaveLength(0);
+    expect(screen.queryByTestId('feedback-bar')).toBeNull();
+    fireEvent.click(screen.getByRole('button', {name: 'Ask'}));
+    fireEvent.click(await screen.findByTestId('feedback-up'));
+    expect(await screen.findByText('Thanks: vote saved.')).toBeInTheDocument();
+    const vote = fetchMock.mock.calls.find(
+      ([path]) => path === '/api/feedback',
+    );
+    expect(JSON.parse(String(vote?.[1]?.body))).toMatchObject({
+      request_id: RESPONSE_2.request_id,
+      vote: 'up',
+    });
   });
 });
