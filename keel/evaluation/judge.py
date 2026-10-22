@@ -9,10 +9,13 @@ at question time (D-28), and it is a different model from the answer model
 
 Faithfulness is the mean claim score and citation precision the mean
 citation score, with supported 1, partly supported 0.5, and not supported
-0. A finding with no valid citation (`unverified`) scores 0 without a
-judge verdict, an item the judge returned no verdict for scores 0, and
-each citation the validator removed (the server drift count) counts as an
-unsupported citation.
+0. A claim the judge marks `about_keel` (a statement about Keel itself,
+such as its scope or that it gives no investment advice) states no filing
+fact, so it leaves the claim count (judge prompt 1.2.0). A finding with
+no valid citation (`unverified`) scores 0 without a judge verdict, an
+item the judge returned no verdict for scores 0, and each citation the
+validator removed (the server drift count) counts as an unsupported
+citation.
 """
 
 from __future__ import annotations
@@ -20,6 +23,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from collections.abc import Sequence
 import dataclasses
+import html
 import json
 import pathlib
 import re
@@ -36,7 +40,7 @@ from keel import config
 from keel import errors
 from keel.providers import base
 
-JUDGE_VERSION = "1.1.0"
+JUDGE_VERSION = "1.2.0"
 JUDGE_EFFORT = "medium"
 JUDGE_MAX_TOKENS = 16_000
 MIN_SENTENCE = 15
@@ -45,9 +49,13 @@ NO_VERDICT = "The judge returned no verdict for this item."
 SUPPORTED: Final = "supported"
 PARTLY: Final = "partly_supported"
 NOT_SUPPORTED: Final = "not_supported"
+ABOUT_KEEL: Final = "about_keel"
 VERDICTS = (SUPPORTED, PARTLY, NOT_SUPPORTED)
+CLAIM_VERDICTS = (*VERDICTS, ABOUT_KEEL)
 SCORES = {SUPPORTED: 1.0, PARTLY: 0.5, NOT_SUPPORTED: 0.0}
-Verdict = Literal["supported", "partly_supported", "not_supported"]
+Verdict = Literal[
+    "supported", "partly_supported", "not_supported", "about_keel"
+]
 
 _MARKER = re.compile(r"\[([^\[\]\n]{1,400})\]")
 _CHUNK_ID = re.compile(
@@ -55,23 +63,28 @@ _CHUNK_ID = re.compile(
 )
 _SENTENCE = re.compile(r"(?<=[.!?])\s+(?=[A-Z(\[\"'])")
 
-_ITEM_SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "additionalProperties": False,
-    "required": ["id", "verdict", "reason"],
-    "properties": {
-        "id": {"type": "string"},
-        "verdict": {"type": "string", "enum": list(VERDICTS)},
-        "reason": {"type": "string"},
-    },
-}
+
+def _item_schema(verdicts: Sequence[str]) -> dict[str, Any]:
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["id", "verdict", "reason"],
+        "properties": {
+            "id": {"type": "string"},
+            "verdict": {"type": "string", "enum": list(verdicts)},
+            "reason": {"type": "string"},
+        },
+    }
+
+
+# Only a claim can be `about_keel`; a citation always names a filing chunk.
 SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
     "required": ["claims", "citations"],
     "properties": {
-        "claims": {"type": "array", "items": _ITEM_SCHEMA},
-        "citations": {"type": "array", "items": _ITEM_SCHEMA},
+        "claims": {"type": "array", "items": _item_schema(CLAIM_VERDICTS)},
+        "citations": {"type": "array", "items": _item_schema(VERDICTS)},
     },
 }
 
@@ -85,7 +98,8 @@ class ItemVerdict(_Model):
 
     Attributes:
         id: The claim ID (`C1`) or citation ID (`K1`).
-        verdict: `supported`, `partly_supported`, or `not_supported`.
+        verdict: `supported`, `partly_supported`, or `not_supported`; a
+            claim may also be `about_keel`.
         reason: 1 sentence.
     """
 
@@ -104,6 +118,15 @@ class JudgeOutput(_Model):
 
     claims: tuple[ItemVerdict, ...]
     citations: tuple[ItemVerdict, ...]
+
+    @pydantic.field_validator("citations")
+    @classmethod
+    def _citations_judge_a_chunk(
+        cls, value: tuple[ItemVerdict, ...]
+    ) -> tuple[ItemVerdict, ...]:
+        if any(v.verdict == ABOUT_KEEL for v in value):
+            raise ValueError("a citation cannot be about_keel")
+        return value
 
 
 def parse_output(text: str) -> JudgeOutput:
@@ -292,7 +315,7 @@ def render_user(
     lines = [f"<question>{_escape(item.question)}</question>", "<chunks>"]
     for chunk_id in item.chunk_ids:
         text = chunks.get(chunk_id, "(chunk text not found)")
-        lines.append(f'<chunk id="{chunk_id}">\n{_escape(text)}\n</chunk>')
+        lines.append(_chunk_element(chunk_id, text))
     lines += ["</chunks>", "<claims>"]
     for claim in judged:
         cites = " ".join(claim.chunk_ids)
@@ -308,6 +331,24 @@ def render_user(
         )
     lines.append("</citations>")
     return "\n".join(lines)
+
+
+def _chunk_element(chunk_id: str, text: str) -> str:
+    """Wrap 1 source text in a `<chunk>` element of the judge message.
+
+    A text that is already the `<chunk>` element of this ID as the answer
+    prompt rendered it (`context.render_chunk`) keeps its opening tag with
+    the attributes the answer model read; only its body passes the judge
+    escape. Any other text (a store chunk with its `filing:` line, a fact
+    line) gets a bare element.
+    """
+    opening = f'<chunk id="{html.escape(chunk_id, quote=True)}" '
+    closing = "\n</chunk>"
+    if text.startswith(opening) and text.endswith(closing) and "\n" in text:
+        head, body = text[: -len(closing)].split("\n", 1)
+        if head.endswith(">"):
+            return f"{head}\n{_escape(body)}{closing}"
+    return f'<chunk id="{chunk_id}">\n{_escape(text)}\n</chunk>'
 
 
 def load_prompt(directory: pathlib.Path, version: str = JUDGE_VERSION) -> str:
@@ -357,8 +398,9 @@ def _with_filing_line(row: Sequence[Any]) -> str:
     """Prefix the chunk text with the attributes the answer model saw.
 
     The answer prompt gives each chunk its company, form, fiscal label,
-    period end, filing date, and section as attributes (chapter 12.2); the
-    judge sees the same facts in 1 `filing:` line (judge prompt 1.1.0).
+    period end, filing date, and section as attributes (chapter 12.2); a
+    chunk the eval has no rendered element for (`keel/evaluation/answers.py`
+    keeps those) shows the same facts in 1 `filing:` line.
     """
     _, company, ticker, form, year, period, end, filed, section, text = row
     fiscal = f"FY{year}" if period == "FY" else f"{period} FY{year}"
@@ -396,14 +438,22 @@ class JudgeResult:  # pylint: disable=too-many-instance-attributes
 
     @property
     def faithfulness(self) -> float | None:
-        """The mean claim score, or None without a judged claim."""
-        scores = [SCORES[v.verdict] for v in self.claims.values()]
+        """The mean claim score, or None without a judged claim.
+
+        A claim about Keel itself (`about_keel`) is not a filing claim, so
+        it leaves the count.
+        """
+        scores = [
+            SCORES[v.verdict]
+            for v in self.claims.values()
+            if v.verdict != ABOUT_KEEL
+        ]
         return sum(scores) / len(scores) if scores else None
 
     @property
     def citation_precision(self) -> float | None:
         """The mean citation score with the drift as unsupported."""
-        scores = [SCORES[v.verdict] for v in self.citations.values()]
+        scores = [SCORES.get(v.verdict, 0.0) for v in self.citations.values()]
         total = len(scores) + self.drift
         return sum(scores) / total if total else None
 

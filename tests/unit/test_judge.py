@@ -20,6 +20,7 @@ from keel import config
 from keel import context
 from keel import edgar
 from keel import errors
+from keel import retriever
 from keel.evaluation import answers
 from keel.evaluation import golden
 from keel.evaluation import judge
@@ -102,12 +103,18 @@ def verdict(item_id: str, value: str) -> dict[str, str]:
 
 def test_judge_schema() -> None:
     # The schema fits the structured output rules: every object closed,
-    # every property required, the verdict an enum of the 3 values.
-    for node in (judge.SCHEMA, judge.SCHEMA["properties"]["claims"]["items"]):
+    # every property required, the verdict an enum: 3 values for a
+    # citation, plus `about_keel` for a claim.
+    claim = judge.SCHEMA["properties"]["claims"]["items"]
+    for node in (judge.SCHEMA, claim):
         assert node["additionalProperties"] is False
         assert set(node["required"]) == set(node["properties"])
     item = judge.SCHEMA["properties"]["citations"]["items"]
     assert item["properties"]["verdict"]["enum"] == list(judge.VERDICTS)
+    assert claim["properties"]["verdict"]["enum"] == [
+        *judge.VERDICTS,
+        judge.ABOUT_KEEL,
+    ]
     good = {
         "claims": [verdict("C1", "supported")],
         "citations": [verdict("K1", "partly_supported")],
@@ -118,6 +125,7 @@ def test_judge_schema() -> None:
         {"claims": [verdict("C1", "maybe")], "citations": []},
         {"claims": [{"id": "C1", "verdict": "supported"}], "citations": []},
         {"claims": [], "citations": [], "extra": 1},
+        {"claims": [], "citations": [verdict("K1", "about_keel")]},
         "not json",
     ]
     for value in bad:
@@ -125,7 +133,7 @@ def test_judge_schema() -> None:
         with pytest.raises(errors.SchemaViolationError):
             judge.parse_output(text)
     prompt = judge.load_prompt(PROMPTS)
-    for name in judge.VERDICTS:
+    for name in judge.CLAIM_VERDICTS:
         assert f"`{name}`" in prompt
     with pytest.raises(errors.ConfigError):
         judge.load_prompt(PROMPTS, "0.0.0")
@@ -413,6 +421,7 @@ class _FactsAnswerer:
         self.calibration = context.Calibration(1.0)
         self.result = result
         self.facts_loader: Callable[[Any], edgar.FactsResult] = self.load
+        self.retriever: Any = None
 
     def load(self, analysis: Any) -> edgar.FactsResult:
         del analysis
@@ -421,6 +430,8 @@ class _FactsAnswerer:
     async def ask(self, question: str) -> AsyncIterator[answer.Event]:
         if question == "numeric":
             self.facts_loader(None)
+        if self.retriever is not None and question != "cached":
+            self.retriever.retrieve(None)
         yield answer.Event("final", {"question": question})
 
 
@@ -440,3 +451,114 @@ def test_judge_reads_fact_citations() -> None:
         assert not session.facts
     finally:
         session.close()
+
+
+def _context_chunk(
+    text: str, *, truncated: bool = False
+) -> context.ContextChunk:
+    candidate = context.Candidate(
+        chunk_id=AAPL_MDNA,
+        filing_id="AAPL_10K_2024-09-28",
+        ticker="AAPL",
+        company="Apple Inc.",
+        form="10-K",
+        fiscal_year=2024,
+        fiscal_period="FY",
+        period_end_date="2024-09-28",
+        filing_date="2024-11-01",
+        section="mdna",
+        item_label="Item 7",
+        text=text,
+        token_count=20,
+        is_table=False,
+        delta_only=False,
+        boilerplate_flag=None,
+        simhash=1,
+        vector_row=1,
+    )
+    return context.ContextChunk(
+        candidate=candidate, truncated=truncated, estimated_tokens=30
+    )
+
+
+def _retrieval(*chunks: context.ContextChunk) -> retriever.RetrievalResult:
+    built = types.SimpleNamespace(chunks=chunks)
+    return cast(retriever.RetrievalResult, types.SimpleNamespace(context=built))
+
+
+def test_judge_reads_the_rendered_chunk() -> None:
+    # The judge reads a context chunk as the answer prompt rendered it: the
+    # same opening tag with the period end and the fiscal label, the cut
+    # text, and only the body escaped for the judge wrapper.
+    chunk = _context_chunk("Net sales <of> $391,035 million.", truncated=True)
+    element = context.render_chunk(chunk)
+    texts = answers.rendered_chunks(_retrieval(chunk))
+    assert texts == {AAPL_MDNA: element}
+    item = judge.JudgeInput(
+        question="q",
+        claims=(
+            judge.Claim("C1", "Fiscal 2024 ended 2024-09-28.", (AAPL_MDNA,)),
+        ),
+        citations=(),
+    )
+    user = judge.render_user(item, texts, item.claims)
+    head = element.split("\n", 1)[0]
+    assert head in user.splitlines()
+    assert 'period_end="2024-09-28"' in head
+    assert 'fiscal="FY2024"' in head
+    assert 'truncated="true"' in head
+    assert "Net sales &lt;of> $391,035 million.\n</chunk>" in user
+    assert user.count("<chunk ") == 1
+    # A store text keeps its bare element with the `filing:` line.
+    plain = judge.render_user(item, {AAPL_MDNA: "filing: x\nbody"}, item.claims)
+    assert f'<chunk id="{AAPL_MDNA}">\nfiling: x\nbody\n</chunk>' in plain
+    # An element of another chunk ID is text, not a trusted element.
+    other = judge.render_user(
+        item, {AAPL_MDNA: element.replace(AAPL_MDNA, AAPL_RISK)}, item.claims
+    )
+    assert f'<chunk id="{AAPL_MDNA}">\n&lt;chunk id="{AAPL_RISK}"' in other
+
+
+def test_session_keeps_the_rendered_context() -> None:
+    chunk = _context_chunk("Revenue text.")
+    replay = answers.ReplayRetriever.__new__(answers.ReplayRetriever)
+    fake = _FactsAnswerer(edgar.FactsResult())
+    fake.retriever = replay
+    session = answers.AnswerSession(cast(answer.Answerer, fake))
+    try:
+        replay.prepared = _retrieval(chunk)
+        session.ask("question")
+        assert session.chunks == {AAPL_MDNA: context.render_chunk(chunk)}
+        assert replay.last is not None
+        # A question with no retrieval leaves no chunk of the last one.
+        session.ask("cached")
+        assert not session.chunks
+    finally:
+        session.close()
+
+
+def test_about_keel_leaves_the_claim_count() -> None:
+    item = judge.judge_input(record())
+    assert item is not None
+    reply = {
+        "claims": [
+            verdict("C1", "about_keel"),
+            verdict("C2", "partly_supported"),
+            verdict("C3", "supported"),
+        ],
+        "citations": [verdict("K1", "supported")],
+    }
+    result = judge.Judge(
+        FakeClient(json.dumps(reply)), "You are the evaluation judge"
+    ).judge(item, {})
+    # C1 is out of the count; C4 (unverified) still scores 0.
+    assert result.faithfulness == pytest.approx((0.5 + 1 + 0) / 3)
+    assert result.claims["C1"].verdict == judge.ABOUT_KEEL
+    assert result.missing == ()
+    only = judge.JudgeResult(
+        claims={
+            "C1": judge.ItemVerdict(id="C1", verdict="about_keel", reason="r.")
+        },
+        citations={},
+    )
+    assert only.faithfulness is None

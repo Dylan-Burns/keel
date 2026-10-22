@@ -210,7 +210,7 @@ def _first_problem(result: answering.AnswerResult) -> str:
         *result.judge.claims.values(),
         *result.judge.citations.values(),
     ):
-        if verdict.verdict != judging.SUPPORTED:
+        if verdict.verdict not in (judging.SUPPORTED, judging.ABOUT_KEEL):
             return f"{verdict.id} {verdict.verdict}: {verdict.reason}"
     return ""
 

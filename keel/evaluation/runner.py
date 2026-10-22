@@ -624,12 +624,13 @@ def _answer(
     judged = None
     item = judging.judge_input(record) if harness.judge else None
     if harness.judge is not None and item is not None:
+        # The judge reads each cited chunk as the answer model read it: the
+        # rendered context element, else the fact line, else the store text.
         texts = judging.chunk_texts(harness.conn, item.chunk_ids)
-        texts.update(
-            (i, session.facts[i]) for i in item.chunk_ids if i in session.facts
-        )
         if planted is not None:
             texts[planted] = answering.PLANTED_TEXT
+        for source in (session.facts, session.chunks):
+            texts.update((i, source[i]) for i in item.chunk_ids if i in source)
         judged = harness.judge.judge(item, texts)
     return _Answered(question, record, planted, judged, retrieval_ms)
 
