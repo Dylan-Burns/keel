@@ -116,6 +116,8 @@ class QuotaGroup:
         label: A readable name, such as `NVDA FY2025 10-K`.
         quota: The chunk quota.
         token_quota: The token quota, or None for the budget alone.
+        minimum: The chunks the group takes before any group fills its
+            quota, such as the 4 of a 10-K trend cell.
     """
 
     key: str
@@ -123,6 +125,7 @@ class QuotaGroup:
     label: str
     quota: int
     token_quota: int | None = None
+    minimum: int = 0
 
 
 @dataclasses.dataclass(frozen=True)
@@ -200,10 +203,9 @@ def truncate_table(
     if len(kept) == len(lines):
         return candidate, False
     text = "\n".join(kept)
-    tokens = min(
-        limit,
-        math.ceil(candidate.token_count * len(text) / len(candidate.text)),
-    )
+    # The share of characters kept; a prefix and first row over the limit
+    # stay, and the estimate says so.
+    tokens = math.ceil(candidate.token_count * len(text) / len(candidate.text))
     return dataclasses.replace(candidate, text=text, token_count=tokens), True
 
 
@@ -285,54 +287,88 @@ class Context:
 
 @dataclasses.dataclass
 class _Fill:
+    """A private accumulator of the fill loop, never returned."""
+
     group: QuotaGroup
     queue: list[Candidate]
     taken: list[ContextChunk] = dataclasses.field(default_factory=list)
     tokens: int = 0
     candidates: int = 0
 
+    def take(self, queued: Candidate, budget: Budget, room: int) -> int:
+        """Take 1 queued candidate when its estimate fits `room`.
 
-def _fill_groups(
-    fills: Sequence[_Fill], budget: Budget, *, quotas: bool
+        Returns:
+            The estimated tokens taken, or 0 when it does not fit.
+        """
+        candidate, truncated = truncate_table(queued)
+        cost = estimate_tokens(candidate.token_count, budget.calibration_factor)
+        if cost > room:
+            return 0
+        self.queue.remove(queued)
+        self.taken.append(ContextChunk(candidate, truncated, cost))
+        self.tokens += cost
+        return cost
+
+
+def _used(fills: Sequence[_Fill]) -> tuple[int, int]:
+    return sum(f.tokens for f in fills), sum(len(f.taken) for f in fills)
+
+
+def _fill_quotas(
+    fills: Sequence[_Fill], budget: Budget, *, minimum: bool = False
 ) -> None:
-    """Take candidates round-robin until the quotas or the budget stop it.
+    """Steps 4 and 5: take the top candidate of each group in turn.
+
+    A group stops at its chunk quota or its token quota. A candidate that
+    does not fit is skipped, never cut, and stays queued for step 7.
 
     Args:
-        fills: The groups with their remaining candidates, in turn order.
+        fills: The groups with their candidates, best first, in turn order.
         budget: The budget.
-        quotas: True for the quota pass (step 4); False for the pass that
-            moves the unused quota to the groups with candidates (step 7).
+        minimum: Stop each group at its minimum instead of its quota.
     """
-    used_tokens = sum(f.tokens for f in fills)
-    used_chunks = sum(len(f.taken) for f in fills)
+    used_tokens, used_chunks = _used(fills)
     active = True
     while active and used_chunks < budget.max_chunks:
         active = False
         for fill in fills:
             if used_chunks >= budget.max_chunks:
                 break
-            if quotas and len(fill.taken) >= fill.group.quota:
+            cap = fill.group.minimum if minimum else fill.group.quota
+            if len(fill.taken) >= cap:
                 continue
-            token_room = budget.max_tokens - used_tokens
-            if quotas and fill.group.token_quota is not None:
-                token_room = min(
-                    token_room, fill.group.token_quota - fill.tokens
-                )
-            # Step 5: skip what does not fit, take the next that does. A
-            # skipped candidate stays queued: the next pass may have room.
-            for position, queued in enumerate(fill.queue):
-                candidate, truncated = truncate_table(queued)
-                cost = estimate_tokens(
-                    candidate.token_count, budget.calibration_factor
-                )
-                if cost <= token_room:
-                    del fill.queue[position]
-                    fill.taken.append(ContextChunk(candidate, truncated, cost))
-                    fill.tokens += cost
+            room = budget.max_tokens - used_tokens
+            if fill.group.token_quota is not None:
+                room = min(room, fill.group.token_quota - fill.tokens)
+            for queued in list(fill.queue):
+                cost = fill.take(queued, budget, room)
+                if cost:
                     used_tokens += cost
                     used_chunks += 1
                     active = True
                     break
+
+
+def _move_unused(fills: Sequence[_Fill], budget: Budget) -> None:
+    """Step 7: give the unused quota to the remaining candidates by rank.
+
+    Args:
+        fills: The groups after the quota pass.
+        budget: The budget.
+    """
+    used_tokens, used_chunks = _used(fills)
+    pool = sorted(
+        ((queued, fill) for fill in fills for queued in fill.queue),
+        key=lambda pair: pair[0].rank_key,
+    )
+    for queued, fill in pool:
+        if used_chunks >= budget.max_chunks:
+            break
+        cost = fill.take(queued, budget, budget.max_tokens - used_tokens)
+        if cost:
+            used_tokens += cost
+            used_chunks += 1
 
 
 def _order_key(
@@ -385,8 +421,9 @@ def build_context(
             fill.queue.append(candidate)
             fill.candidates += 1
     ordered = list(fills.values())
-    _fill_groups(ordered, budget, quotas=True)
-    _fill_groups(ordered, budget, quotas=False)
+    _fill_quotas(ordered, budget, minimum=True)
+    _fill_quotas(ordered, budget)
+    _move_unused(ordered, budget)
     order = {ticker: i for i, ticker in enumerate(company_order)}
     chunks = sorted(
         (chunk for fill in ordered for chunk in fill.taken),
@@ -435,7 +472,7 @@ def _attribute(value: object) -> str:
 
 
 def render_chunk(chunk: ContextChunk) -> str:
-    """Render 1 `<chunk>` element with its 11 attributes (chapter 12.2).
+    """Render 1 `<chunk>` element with the attributes of chapter 12.2.
 
     The chunk text is untrusted: a closing tag inside it is neutralized so
     the text cannot end its element.

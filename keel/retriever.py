@@ -401,6 +401,10 @@ def _cell_label(filing: understanding.FilingRef) -> str:
     )
 
 
+def _cell_minimum(filing: understanding.FilingRef) -> int:
+    return TREND_10K_MIN_QUOTA if filing.form == "10-K" else 0
+
+
 def _cell_quota(filing: understanding.FilingRef, base: int) -> int:
     quota = max(TREND_MIN_QUOTA, base)
     if filing.form == "10-K":
@@ -497,7 +501,13 @@ def _trend_plan(
             key = f"{ticker}|{cell.filing_id}"
             label = _cell_label(cell)
             groups.append(
-                context.QuotaGroup(key, ticker, label, _cell_quota(cell, base))
+                context.QuotaGroup(
+                    key,
+                    ticker,
+                    label,
+                    _cell_quota(cell, base),
+                    minimum=_cell_minimum(cell),
+                )
             )
             queries.append(
                 SubQuery(
@@ -516,7 +526,11 @@ def _trend_plan(
             key = f"{ticker}|{filing.filing_id}"
             groups.append(
                 context.QuotaGroup(
-                    key, ticker, query.label, _cell_quota(filing, base)
+                    key,
+                    ticker,
+                    query.label,
+                    _cell_quota(filing, base),
+                    minimum=_cell_minimum(filing),
                 )
             )
             queries.append(dataclasses.replace(query, group=key))
@@ -806,16 +820,17 @@ def rerank_share(top_n: int, sub_queries: int) -> int:
 
     The reranker scores the top 80 candidates of a question (decision D-10,
     chapter 6.3 step 7); each sub-query gets an equal share, so every quota
-    group starts from reranked candidates.
+    group starts from reranked candidates. With more sub-queries than N,
+    each gets 1 and the caller stops at N.
 
     Args:
-        top_n: `reranker.top_n`.
+        top_n: The pairs left to score.
         sub_queries: The sub-queries with candidates.
 
     Returns:
         The candidates to rerank per sub-query.
     """
-    return max(1, math.ceil(top_n / max(1, sub_queries)))
+    return max(1, top_n // max(1, sub_queries))
 
 
 # --- The retriever ------------------------------------------------------------
@@ -865,6 +880,8 @@ class RetrievalResult:
 
 @dataclasses.dataclass
 class _Clock:
+    """A private accumulator of 1 retrieval, never returned."""
+
     lexical: float = 0.0
     dense: float = 0.0
     rerank: float = 0.0
@@ -1109,21 +1126,25 @@ class Retriever:
         queries: Sequence[SubQuery],
         candidates: list[context.Candidate],
         clock: _Clock,
+        limit: int,
     ) -> tuple[list[context.Candidate], int]:
         """Rerank the top weighted candidates of each sub-query.
 
-        A candidate that a first round scored keeps its score; the call
-        returns the count of new scores.
+        A candidate that an earlier round scored keeps its score; at most
+        `limit` new pairs are scored, split evenly over the sub-queries.
+        The call returns the count of new scores.
         """
         chosen: list[context.Candidate] = []
-        if self.reranker is not None:
+        if self.reranker is not None and limit > 0:
             by_query: dict[int, list[context.Candidate]] = {}
             for c in candidates:
-                by_query.setdefault(c.query, []).append(c)
-            share = rerank_share(self.settings.reranker.top_n, len(by_query))
+                if c.rerank is None:
+                    by_query.setdefault(c.query, []).append(c)
+            share = rerank_share(limit, len(by_query))
             for group in by_query.values():
                 group.sort(key=lambda c: (-c.fused * c.weight, c.chunk_id))
-                chosen += [c for c in group[:share] if c.rerank is None]
+                chosen += group[:share]
+            chosen = chosen[:limit]
         started = time.perf_counter()
         scores = (
             self.reranker.score(
@@ -1183,17 +1204,29 @@ class Retriever:
                 context.QuotaGroup(t, t, t, GENERIC_QUOTA) for t in kept
             )
             plan = dataclasses.replace(plan, groups=groups)
-        else:
-            plan = dataclasses.replace(
-                plan,
-                groups=tuple(g for g in plan.groups if g.ticker in keep),
-                sub_queries=tuple(
-                    s
-                    for s in plan.sub_queries
-                    if set(s.filter.tickers) & keep or not s.filter.tickers
-                ),
+            return plan, [c for c in candidates if c.ticker in keep], gaps
+        # The sub-queries of the dropped companies go; each candidate then
+        # points at the index of its sub-query in the shorter tuple.
+        index = {
+            old: new
+            for new, old in enumerate(
+                i for i, s in enumerate(plan.sub_queries) if s.group in keep
             )
-        return plan, [c for c in candidates if c.ticker in keep], gaps
+        }
+        plan = dataclasses.replace(
+            plan,
+            groups=tuple(g for g in plan.groups if g.ticker in keep),
+            sub_queries=tuple(s for s in plan.sub_queries if s.group in keep),
+        )
+        return (
+            plan,
+            [
+                dataclasses.replace(c, query=index[c.query])
+                for c in candidates
+                if c.query in index
+            ],
+            gaps,
+        )
 
     def retrieve(
         self,
@@ -1221,7 +1254,6 @@ class Retriever:
         clock = _Clock()
         plan = self.plan(analysis, budget)
         candidates = self._gather(plan, clock)
-        queries = plan.sub_queries  # the candidates index these
         rules = self._rules(analysis, candidates)
         candidates = [
             dataclasses.replace(
@@ -1229,15 +1261,21 @@ class Retriever:
             )
             for c in candidates
         ]
+        top_n = self.settings.reranker.top_n
         reranked = 0
         if plan.sector or plan.generic:
             # Reranker scores compare across sub-queries, fused ranks do
-            # not, so the 12-company cap sums the scores of a first round.
-            candidates, reranked = self._rerank(queries, candidates, clock)
+            # not, so the 12-company cap sums the scores of a first round;
+            # both rounds share the top N of the question.
+            candidates, reranked = self._rerank(
+                plan.sub_queries, candidates, clock, top_n
+            )
         plan, candidates, cap_gaps = self._cap(
             plan, analysis, candidates, budget
         )
-        candidates, more = self._rerank(queries, candidates, clock)
+        candidates, more = self._rerank(
+            plan.sub_queries, candidates, clock, top_n - reranked
+        )
         reranked += more
         gathered = len(candidates)
         kept, collapsed = collapse(candidates, retrieval.simhash_max_distance)
@@ -1245,7 +1283,8 @@ class Retriever:
             kept,
             plan.groups,
             budget,
-            company_order=analysis.tickers,
+            company_order=analysis.tickers
+            or tuple(g.ticker for g in plan.groups),
             section_weights=analysis.section_weights,
             collapsed=collapsed,
         )

@@ -291,6 +291,28 @@ def test_trend_cells(understander: understanding.Understander) -> None:
     assert quotas["NVDA FY2025 10-K"] == 4
     assert quotas["NVDA FY2024 10-K"] == 4
     assert quotas["NVDA Q3 FY2026 10-Q"] == 2
+    # Filled, each 10-K cell gets its 4 chunks within the 16.
+    pool = [
+        candidate(
+            chunk_id=f"{g.key}__mdna__{k:04d}",
+            ticker="NVDA",
+            group=g.key,
+            score=1 - k / 100,
+        )
+        for g in small.groups
+        for k in range(10)
+    ]
+    built = context.build_context(
+        pool,
+        small.groups,
+        context.Budget(max_chunks=16),
+        company_order=["NVDA"],
+        section_weights={"mdna": 1.5},
+    )
+    taken = {f.label: f.taken for f in built.fills}
+    assert taken["NVDA FY2025 10-K"] == 4
+    assert taken["NVDA FY2024 10-K"] == 4
+    assert len(built.chunks) == 16
 
 
 def test_trend_cells_without_window() -> None:
@@ -404,8 +426,9 @@ def test_is_risk_question(understander: understanding.Understander) -> None:
 
 def test_rerank_share() -> None:
     assert retriever.rerank_share(80, 1) == 80
-    assert retriever.rerank_share(80, 3) == 27
+    assert retriever.rerank_share(80, 3) == 26
     assert retriever.rerank_share(80, 0) == 80
+    assert retriever.rerank_share(27, 53) == 1
 
 
 class FakeModel:
