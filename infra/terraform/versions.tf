@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.9"
+  required_version = ">= 1.10"
 
   required_providers {
     aws = {
@@ -8,14 +8,9 @@ terraform {
     }
   }
 
-  # Remote state for a team: uncomment and set the bucket before `init`.
-  # backend "s3" {
-  #   bucket         = "keel-terraform-state"
-  #   key            = "pilot/terraform.tfstate"
-  #   region         = "us-west-2"
-  #   dynamodb_table = "keel-terraform-locks"
-  #   encrypt        = true
-  # }
+  # State in S3 with a native lock file (ci.tf creates the bucket). Values
+  # come from backend.hcl: terraform init -backend-config=backend.hcl
+  backend "s3" {}
 }
 
 provider "aws" {

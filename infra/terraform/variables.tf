@@ -30,6 +30,7 @@ variable "ssh_key_name" {
 variable "admin_cidr" {
   description = "CIDR allowed to reach SSH, for example your office or VPN egress /32."
   type        = string
+  sensitive   = true
 
   validation {
     condition     = can(cidrnetmask(var.admin_cidr)) && var.admin_cidr != "0.0.0.0/0"
@@ -64,4 +65,10 @@ variable "github_environment" {
   description = "GitHub environment whose jobs may assume the deploy role."
   type        = string
   default     = "production"
+}
+
+variable "github_subject_prefix" {
+  description = "OIDC sub prefix of the repository. GitHub's immutable subject embeds the owner and repository IDs: repo:<owner>@<owner id>/<name>@<repo id>; see repos/<owner>/<name>/actions/oidc/customization/sub."
+  type        = string
+  default     = "repo:Dylan-Burns@65887526/keel@1428567830"
 }
