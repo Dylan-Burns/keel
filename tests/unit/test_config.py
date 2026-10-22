@@ -128,7 +128,9 @@ def test_prices_invalid(tmp_path: pathlib.Path) -> None:
 def test_dictionaries_are_consistent(settings: config.Settings) -> None:
     companies = config.read_yaml(settings.dictionaries.companies)
     groups = config.read_yaml(settings.dictionaries.groups)
-    assert len(companies) == 54
+    # 54 corpus companies and the 2 of demo.add_companies (chapter 26.6).
+    assert len(companies) == 54 + len(settings.demo.add_companies)
+    assert set(settings.demo.add_companies) <= set(companies)
     for ticker, entry in companies.items():
         assert entry["company"], ticker
         assert entry["aliases"], ticker

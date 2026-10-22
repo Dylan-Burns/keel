@@ -218,3 +218,14 @@ XOM:
   company: Exxon Mobil Corporation
   aliases: [exxon, exxonmobil, exxon mobil, xom]
   groups: [energy]
+# The 2 companies of demo.add_companies, outside the zip: `keel add` fetches
+# their filings from EDGAR (chapter 26.2). They join no sector group, so a
+# group question keeps the corpus companies.
+WDAY:
+  company: Workday, Inc.
+  aliases: [workday, wday]
+  groups: [software, technology]
+ZTS:
+  company: Zoetis Inc.
+  aliases: [zoetis, zts]
+  groups: [healthcare]

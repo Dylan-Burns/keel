@@ -4,8 +4,9 @@ Stage 1 ships `keel inventory` and `keel doctor`; stage 2 adds `keel parse`;
 stage 3 adds `keel chunk` and `keel parse --sections-report`; stage 4 adds
 `keel index`; stage 5 adds `keel understand`; stage 6 adds `keel retrieve`;
 stage 7 adds `keel ask`; stage 8 adds `keel calibrate`; stage 9 adds
-`keel serve`; stage 10 adds `keel eval`; stage 13 adds `keel facts`. Later
-stages add the commands that CLAUDE.md lists (warm-cache and the rest).
+`keel serve`; stage 10 adds `keel eval`; stage 13 adds `keel facts`; stage
+14 adds `keel add`. Later stages add the commands that CLAUDE.md lists
+(warm-cache and the rest).
 """
 
 import argparse
@@ -24,6 +25,7 @@ from typing import Any
 import anthropic
 
 import keel
+from keel import add
 from keel import answer
 from keel import calibrate
 from keel import chunker
@@ -104,6 +106,53 @@ def _facts_arguments() -> argparse.ArgumentParser:
         help="read only the EDGAR cache, make no request",
     )
     return facts_parser
+
+
+def _add_arguments() -> argparse.ArgumentParser:
+    """Build the arguments of `keel add` as a parent parser.
+
+    Returns:
+        A parser without help that holds the `add` arguments.
+    """
+    add_parser = argparse.ArgumentParser(add_help=False)
+    add_parser.add_argument("ticker", help="the ticker, such as ZTS")
+    add_parser.add_argument(
+        "--offline",
+        action="store_true",
+        help="read only the EDGAR cache, make no request",
+    )
+    add_parser.add_argument(
+        "--corpus",
+        type=pathlib.Path,
+        default=None,
+        help="the directory of filings (default: corpus.dir)",
+    )
+    add_parser.add_argument(
+        "--out",
+        type=pathlib.Path,
+        default=None,
+        help="the index directory with `current` (default: index.dir)",
+    )
+    return add_parser
+
+
+def _serve_arguments() -> argparse.ArgumentParser:
+    """Build the arguments of `keel serve` as a parent parser.
+
+    Returns:
+        A parser without help that holds the `serve` arguments.
+    """
+    serve_parser = argparse.ArgumentParser(add_help=False)
+    serve_parser.add_argument(
+        "--host", default=None, help="the bind address (default: server.host)"
+    )
+    serve_parser.add_argument(
+        "--port",
+        type=int,
+        default=None,
+        help="the port (default: server.port); a busy port moves up to +10",
+    )
+    return serve_parser
 
 
 def _eval_arguments() -> argparse.ArgumentParser:
@@ -348,17 +397,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="the index directory with `current` (default: index.dir)",
     )
 
-    serve_parser = commands.add_parser(
-        "serve", help="serve the API and the front-end (chapter 14)"
-    )
-    serve_parser.add_argument(
-        "--host", default=None, help="the bind address (default: server.host)"
-    )
-    serve_parser.add_argument(
-        "--port",
-        type=int,
-        default=None,
-        help="the port (default: server.port); a busy port moves up to +10",
+    commands.add_parser(
+        "serve",
+        parents=[_serve_arguments()],
+        help="serve the API and the front-end (chapter 14)",
     )
 
     commands.add_parser(
@@ -371,6 +413,12 @@ def build_parser() -> argparse.ArgumentParser:
         "facts",
         parents=[_facts_arguments()],
         help="print the company facts lines of 1 ticker (debug)",
+    )
+
+    commands.add_parser(
+        "add",
+        parents=[_add_arguments()],
+        help="add the latest 10-K and 10-Q of 1 company from EDGAR",
     )
 
     doctor_parser = commands.add_parser(
@@ -1280,6 +1328,87 @@ def run_facts(
     return 0
 
 
+def run_add(
+    settings: config.Settings,
+    ticker: str,
+    *,
+    offline: bool,
+    corpus_dir: pathlib.Path | None,
+    out_dir: pathlib.Path | None,
+) -> int:
+    """Run `keel add`: 1 company from EDGAR into the index (26.2).
+
+    Args:
+        settings: The loaded settings.
+        ticker: The ticker.
+        offline: Read only the EDGAR cache.
+        corpus_dir: The directory of filings, or None for `corpus.dir`
+            (extracted from the zip when empty).
+        out_dir: The index directory, or None for `index.dir`.
+
+    Returns:
+        0, or 1 when a picked filing is quarantined.
+
+    Raises:
+        EdgarError: The ticker is unknown, or a fetch or the conversion
+            fails.
+        IndexMissingError: The index has no current build.
+        IndexWriteError: The incremental build cannot be published.
+    """
+    directory = corpus_dir or settings.corpus.dir
+    if corpus_dir is None:
+        _ensure_corpus(settings, directory)
+    handler = signal.signal(signal.SIGTERM, _exit_on_sigterm)
+    try:
+        with edgar.EdgarClient.from_settings(
+            settings, offline=offline or None
+        ) as client:
+            report = add.add_ticker(
+                settings,
+                ticker,
+                client=client,
+                corpus_dir=directory,
+                index_dir=out_dir or settings.index.dir,
+                embedder_factory=lambda: (
+                    numpy_dense.SentenceEmbedder.from_settings(settings)
+                ),
+            )
+    finally:
+        signal.signal(signal.SIGTERM, handler)
+    print(f"{report.ticker} CIK {report.cik} {report.company}")
+    for filing in report.filings:
+        changed = "new or changed" if filing.changed else "unchanged"
+        state = (
+            f"quarantined: {filing.quarantine}"
+            if filing.quarantine
+            else f"{filing.chunks} chunks"
+        )
+        print(
+            f"  {filing.form} filed {filing.filing_date} accession "
+            f"{filing.accession}: {filing.file_name} ({changed})"
+        )
+        print(
+            f"    {filing.filing_id}, {filing.fiscal_period} FY"
+            f"{filing.fiscal_year}, period end {filing.period_end_date}, "
+            f"{state}"
+        )
+        if filing.warnings:
+            print("    warnings: " + ", ".join(filing.warnings))
+    if report.dictionary_added:
+        print(f"added {report.ticker} to {settings.dictionaries.companies}")
+    print(
+        f"index version {report.index_version}: "
+        + (
+            f"embedded {report.embedded_filings} filings, "
+            f"{report.embedded_chunks} chunks"
+            if report.index_built
+            else "unchanged"
+        )
+        + f"; {report.requests} EDGAR requests"
+    )
+    return 1 if any(f.quarantine for f in report.filings) else 0
+
+
 def run_doctor(settings: config.Settings, download: bool, as_json: bool) -> int:
     """Run `keel doctor`.
 
@@ -1312,7 +1441,7 @@ def _dispatch_measure(
 def _dispatch_questions(
     settings: config.Settings, args: argparse.Namespace
 ) -> int | None:
-    """Run a question or facts command; None for the other commands."""
+    """Run a question, facts, or add command; None for the others."""
     if args.command == "understand":
         return run_understand(settings, args.question, args.corpus)
     if args.command == "ask":
@@ -1334,6 +1463,14 @@ def _dispatch_questions(
     if args.command == "facts":
         return run_facts(
             settings, args.ticker, (args.start, args.end), args.offline
+        )
+    if args.command == "add":
+        return run_add(
+            settings,
+            args.ticker,
+            offline=args.offline,
+            corpus_dir=args.corpus,
+            out_dir=args.out,
         )
     return None
 
