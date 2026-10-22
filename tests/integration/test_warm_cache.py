@@ -181,7 +181,7 @@ def facts_client(cache_dir: pathlib.Path) -> edgar.EdgarClient:
     return edgar.EdgarClient(
         "Keel Test test@example.com",
         cache_dir,
-        transport=httpx.MockTransport(facts_handler),
+        transport=conftest.peer_transport(facts_handler),
         resolver=lambda host: [PUBLIC_IP],
         sleep=lambda seconds: None,
     )
