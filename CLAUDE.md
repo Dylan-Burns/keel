@@ -87,7 +87,7 @@ Tests:
 - Front-end (chapters 14.8 and 14.9): React 19 with TypeScript in strict mode, Vite, Tailwind CSS 4, Motion for React, `marked` and `DOMPurify`. `npm run build --prefix web` writes `web/dist`. FastAPI serves it at `/` with a fallback to `index.html`. The 11 UI states are a union type in `web/src/state.ts` with one reducer. The SSE client uses `fetch` and a `ReadableStream` parser, because the bearer token rules out `EventSource`. The Dockerfile builds the front-end in a Node stage.
 - Repo layout: `docs/17_*.md`, chapter 17.6, plus the foundation files in chapter 29.3. Do not add a top-level directory outside that tree without a question.
 - Config: `config/keel.yaml`. A top-level key overrides as `KEEL_<KEY>` (for example `KEEL_OFFLINE=1`). A nested key overrides as `KEEL_<SECTION>__<KEY>` (for example `KEEL_INDEX__DIR`). Prices live in `config/prices.yaml` with their check date.
-- Pilot host: Railway by default (`railway.toml`, chapter 29.9), with one volume at `/data`. The AWS path in `infra/terraform/` is the alternative.
+- Pilot host: AWS (D-39): 1 EC2 `t3.large` from `infra/terraform/`, Caddy for HTTPS, S3 for backups. Railway (`railway.toml`, chapter 29.9) was the default; it stays in the repository as the alternative.
 
 ## Commands
 

@@ -678,6 +678,13 @@ Entry format:
 - Decisions taken without review: the Stream moment of chapter 14.8 fades each markdown block once instead of each `answer_delta` (120 ms per delta), because a fade per delta on a growing paragraph reads as flicker; the State change moment keeps the `layout` prop on the answer container as `layout="position"`. The answer renders through the DOMPurify path while it streams too (it was text nodes until `final`): the same sanitizer and allow list, so a script in a delta still shows as text. Inline chunk IDs in the answer show as code tags (display only; copy and export keep the model text). Disabled buttons use muted colors, not opacity, since the reduced-motion spec reads an opacity below 1 as motion. `demo/static/` keeps the exports of the previous look until the static export runs again; the export script needs no change.
 - Attempts: 1.
 
+## Follow-up after stage 22: pilot host moves to AWS
+
+- Decision (D-39, with the engineer's approval on 2026-10-22): the pilot runs on AWS, 1 EC2 `t3.large` (8 GB) in `us-east-2` built from `infra/terraform/`, with Caddy and an `sslip.io` name for HTTPS and an S3 bucket for the nightly backups. Railway is no longer the pilot host.
+- Why: Railway had a security incident that invalidated every API and project token, and on the deploy day a platform outage disabled builds for Hobby workspaces, so the stage 21 deploy could not run there. The AWS alternative was already written and checked in CI (`infra.yml`: fmt, validate, tflint, checkov). The pilot is expected to last about 1 month, so the engineer chose the larger `t3.large` over the `t3.medium` default: cost is not a concern for that period, and 8 GB lets the host build the index itself (about 6.6 GB) as well as restore the `index-v1` archive. The S3 bucket also gives the backup upload of stage 21 a home.
+- Credentials: a dedicated `keel` IAM profile scoped to EC2 in `us-east-2`, the `keel-pilot-*` buckets, `keel-*` roles, the GitHub OIDC provider, and SSM, so the pilot stays separate from the engineer's other projects. Terraform state lives outside the repository.
+- Still to do: provision the host, the first release (release-please PR #18), the deploy, and the HTTPS check from a phone (the stage 21 done-when). `deploy-aws.yml` connects over SSH from a GitHub runner while the security group admits SSH only from the admin CIDR; a follow-up moves it to SSM Run Command through a GitHub OIDC role.
+
 ## Gaps
 
 Values that were not available when the build needed them, and what the build did instead.
