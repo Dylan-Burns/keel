@@ -23,6 +23,10 @@ The DOCX writer needs python-docx (the `export` extra). It is imported on
 first use, so the core install runs without it. python-docx has no
 footnote API, so the DOCX memo carries superscript numbers in the text
 and the numbered notes in a `Sources` section at the end (endnotes).
+
+Each written memo appends 1 line to `<logs.dir>/exports.jsonl` (the time,
+the request ID, the format, and the user), which the pilot metrics count
+(chapter 27.6).
 """
 
 from __future__ import annotations
@@ -31,10 +35,12 @@ import argparse
 from collections.abc import Iterable
 from collections.abc import Mapping
 import dataclasses
+import datetime
 import importlib
 import io
 import json
 import logging
+import os
 import pathlib
 import re
 import sys
@@ -105,6 +111,53 @@ Text = tuple[str | int, ...]
 
 class ExportError(errors.KeelError):
     """No stored answer to export, or the memo cannot be written."""
+
+
+# The export log of the pilot metrics (chapter 27.6): 1 line per memo.
+LOG_NAME = "exports.jsonl"
+CLI_USER = "cli"
+
+
+def log_export(
+    directory: pathlib.Path, request_id: str, fmt: str, user_name: str
+) -> bool:
+    """Append 1 line to `<logs.dir>/exports.jsonl` for a written memo.
+
+    The line holds the time, the request ID, the format, and the user; no
+    question, no answer text, and no token. The file is readable by the
+    owner only, like the audit log. A write failure is logged and never
+    fails the export.
+
+    Args:
+        directory: The logs directory.
+        request_id: The request ID of the exported answer.
+        fmt: `markdown` or `docx`.
+        user_name: The user of the API route, or `cli` for `keel export`.
+
+    Returns:
+        True when the line was written; False after a logged failure.
+    """
+    line = {
+        "time": datetime.datetime.now(tz=datetime.UTC).isoformat(),
+        "request_id": request_id,
+        "format": fmt,
+        "user_name": user_name,
+    }
+    try:
+        text = json.dumps(line, ensure_ascii=False)
+        directory.mkdir(parents=True, exist_ok=True)
+        handle = os.open(
+            directory / LOG_NAME,
+            os.O_WRONLY | os.O_APPEND | os.O_CREAT,
+            audit.FILE_MODE,
+        )
+        os.fchmod(handle, audit.FILE_MODE)  # also tighten an older file
+        with os.fdopen(handle, "a", encoding="utf-8") as stream:
+            stream.write(text + "\n")
+    except (OSError, TypeError, ValueError) as error:
+        logger.error("export log write failed: %s", type(error).__name__)
+        return False
+    return True
 
 
 @dataclasses.dataclass(frozen=True)
@@ -883,6 +936,7 @@ def run(settings: config.Settings, args: argparse.Namespace) -> int:
         out.write_bytes(data)
     except OSError as error:
         raise ExportError(f"cannot write {out}: {error}") from None
+    log_export(settings.logs.dir, args.request_id, args.memo_format, CLI_USER)
     sys.stdout.write(
         f"memo {out} ({len(memo.sources)} sources, {len(data)} bytes)\n"
     )

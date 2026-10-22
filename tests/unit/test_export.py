@@ -1,8 +1,10 @@
 """The memo export of chapter 27.2: Markdown, DOCX, sources, and links."""
 
+import datetime
 import importlib
 import io
 import json
+import os
 import pathlib
 import re
 import types
@@ -366,3 +368,60 @@ def test_export_sec_link_is_encoded() -> None:
     links = [link.url for p in document.paragraphs for link in p.hyperlinks]
     assert msft.sec_url in links
     assert all(">" not in link and ")" not in link for link in links)
+
+
+def test_export_log(
+    settings: config.Settings,
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`keel export` appends 1 owner-only line with the 4 fields."""
+    local = store_settings(settings, tmp_path)
+    monkeypatch.setattr(config, "load_settings", lambda _path=None: local)
+    saved = tmp_path / "result.json"
+    saved.write_text(json.dumps(make_record("cli-1")))
+    out = tmp_path / "memo.md"
+    argv = ["export", "cli-1", "--record", str(saved), "--out", str(out)]
+    codes = [cli.main(argv), cli.main([*argv, "--format", "docx"])]
+    assert codes == [0, 0]
+    log = local.logs.dir / export.LOG_NAME
+    assert log.stat().st_mode & 0o777 == 0o600
+    lines = [json.loads(line) for line in log.read_text().splitlines()]
+    assert [set(line) for line in lines] == [
+        {"time", "request_id", "format", "user_name"}
+    ] * 2
+    assert [(x["request_id"], x["format"], x["user_name"]) for x in lines] == [
+        ("cli-1", "markdown", "cli"),
+        ("cli-1", "docx", "cli"),
+    ]
+    moment = datetime.datetime.fromisoformat(lines[0]["time"])
+    assert moment.utcoffset() == datetime.timedelta(0)
+    assert QUESTION not in log.read_text()
+    # An older file with a wider mode is tightened on the next line.
+    os.chmod(log, 0o644)
+    written = export.log_export(local.logs.dir, "cli-2", export.MARKDOWN, "cli")
+    assert written
+    assert log.stat().st_mode & 0o777 == 0o600
+
+
+def test_export_log_failure_never_fails_the_export(
+    settings: config.Settings,
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    blocked = tmp_path / "logs"
+    blocked.write_text("")  # a file where the logs directory should be
+    local = settings.model_copy(update={"logs": config.LogsConfig(dir=blocked)})
+    monkeypatch.setattr(config, "load_settings", lambda _path=None: local)
+    saved = tmp_path / "result.json"
+    saved.write_text(json.dumps(make_record("cli-1")))
+    out = tmp_path / "memo.md"
+    argv = ["export", "cli-1", "--record", str(saved), "--out", str(out)]
+    code = cli.main(argv)
+    assert code == 0
+    assert out.read_text().startswith("# How do")
+    assert "export log write failed" in caplog.text
+    assert "cli-1" not in caplog.text
+    written = export.log_export(blocked, "cli-1", export.DOCX, "cli")
+    assert written is False

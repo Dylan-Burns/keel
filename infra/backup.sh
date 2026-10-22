@@ -2,7 +2,7 @@
 #
 # Nightly backup of the Keel state to an S3 bucket (chapter 27.2).
 # Copies a consistent snapshot of the SQLite index, the vectors, the manifest,
-# the audit log, and the feedback table. Restore procedure: infra/README.md.
+# the audit log, the export log, and the feedback table. Restore procedure: infra/README.md.
 #
 # Required environment (from /opt/keel/.env):
 #   KEEL_BACKUP_BUCKET   s3 bucket name
@@ -44,6 +44,8 @@ snapshot_sqlite() {
 main() {
   local index_dir="${DATA_DIR}/index/current"
   local archive="${WORK_DIR}/keel-${STAMP}.tar.gz"
+  local members=(chunks.sqlite vectors.npy manifest.json)
+  local log
 
   if [[ ! -d "${index_dir}" ]]; then
     echo "no index at ${index_dir}; nothing to back up" >&2
@@ -52,11 +54,14 @@ main() {
 
   snapshot_sqlite "/app/index/current/chunks.sqlite" "${WORK_DIR}/chunks.sqlite"
   cp "${index_dir}/vectors.npy" "${index_dir}/manifest.json" "${WORK_DIR}/"
-  cp "${DATA_DIR}/logs/audit.jsonl" "${WORK_DIR}/" 2>/dev/null || true
+  for log in audit.jsonl exports.jsonl; do
+    if [[ -f "${DATA_DIR}/logs/${log}" ]]; then
+      cp "${DATA_DIR}/logs/${log}" "${WORK_DIR}/"
+      members+=("${log}")
+    fi
+  done
 
-  tar -czf "${archive}" -C "${WORK_DIR}" \
-    chunks.sqlite vectors.npy manifest.json audit.jsonl 2>/dev/null \
-    || tar -czf "${archive}" -C "${WORK_DIR}" chunks.sqlite vectors.npy manifest.json
+  tar -czf "${archive}" -C "${WORK_DIR}" "${members[@]}"
   sha256sum "${archive}" > "${archive}.sha256"
 
   aws s3 cp "${archive}" "s3://${BUCKET}/keel/${STAMP}/" --only-show-errors
