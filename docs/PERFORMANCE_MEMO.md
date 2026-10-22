@@ -16,7 +16,7 @@ corpus, a quarter after the corpus, a quarantined filing).
 
 | Measure | Result | Target | Status |
 | --- | --- | --- | --- |
-| Right passages found (recall at 25), all questions | 0.86 | 0.85 | met |
+| Right passages found (recall at 25), all questions | 0.86 (0.83 on the stage 10 labels) | 0.85 | met |
 | Comparisons / numeric / trend / sector / single company | 0.92 / 1.00 / 0.87 / 0.71 / 0.73 | | |
 | First right passage near the top (MRR) | 0.96 | 0.60 | met |
 | Claims supported by the cited text (faithfulness) | 0.86 | 0.90 | miss |
@@ -54,7 +54,9 @@ refused without a model call.
   passages of it first. Recall rose from 0.74 to 0.86 after the retrieval
   read the latest annual report first, gave quarterly risk sections only
   their changes, and treated a question about 2 fiscal years as a trend
-  (`docs/BUILD_REPORT.md`, follow-up after stage 22).
+  (`docs/BUILD_REPORT.md`, follow-up after stage 22). The gate passes
+  with 28 grades added for passages the first test labels never judged;
+  on the first labels alone recall is 0.83.
 - **Numbers depend on units and on the source.** Numbers from filing
   tables depend on the units line of each table (index 1.2.0 fixed 564
   such lines). No numeric miss was found: 9 of 9 gold values matched,
