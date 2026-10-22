@@ -240,17 +240,38 @@ def test_no_retry_after_content(index_dir, run_settings) -> None:
     assert audit_lines(run_settings)[-1]["error"] == "provider_unavailable"
 
 
-def test_context_overflow_no_retry_in_stage_7(index_dir, run_settings) -> None:
+def test_context_overflow_halves(index_dir, run_settings, caplog) -> None:
+    """E-C-01: a context error before content halves the context once."""
     provider = mock.MockProvider(
         run_settings.llm.model, fault="context-overflow"
     )
-    events = ask(
-        make(index_dir, run_settings, provider), question(run_settings)
+    sleeps = Sleeps()
+    answerer = make(index_dir, run_settings, provider, sleeps)
+    factor = answerer.calibration.factor
+    events = ask(answerer, question(run_settings))
+    assert provider.requests == 2
+    assert sleeps.waits == []
+    first, second = provider.bundles
+    assert len(second.chunk_ids) < len(first.chunk_ids)
+    assert set(second.chunk_ids) <= set(first.chunk_ids)
+    record = final(events)
+    assert record["outcome"] == "answered"
+    assert record["meta"]["model_requests"] == 2
+    assert len(record["retrieval"]["chunks"]) == len(second.chunk_ids)
+    before = next(e.data for e in events if e.name == "retrieval")
+    halved = record["retrieval"]["token_estimate"]
+    assert halved <= before["token_estimate"] // 2
+    assert answerer.calibration.factor == round(factor * 1.05, 4)
+    assert "context_overflow" in caplog.text
+    # The halved retry is the only one: a second overflow ends the answer.
+    again = mock.MockProvider(
+        run_settings.llm.model, fault="context-overflow:3"
     )
-    assert provider.requests == 1
-    assert next(e.data for e in events if e.name == "error")["code"] == (
-        "context_overflow"
-    )
+    events = ask(make(index_dir, run_settings, again), question(run_settings))
+    assert again.requests == 2
+    error = next(e.data for e in events if e.name == "error")
+    assert error["code"] == "context_overflow"
+    assert final(events)["meta"]["degraded"] is True
 
 
 def test_offline_cache_hit(index_dir, run_settings) -> None:

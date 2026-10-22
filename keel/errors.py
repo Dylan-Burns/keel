@@ -148,8 +148,8 @@ class ProviderRequestError(ProviderError):
 class ContextOverflowError(ProviderError):
     """The prompt is longer than the model accepts (chapter 16.6).
 
-    Stage 11 halves the context budget and retries once; this stage ends
-    the answer with the error.
+    Not retryable as is: the pipeline halves the context, rebuilds the
+    prompt, and retries once (1 of the 2 retries of D-04).
     """
 
     code = "context_overflow"

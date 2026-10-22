@@ -591,3 +591,16 @@ class Calibration:
                     self._factor,
                 )
             return self._factor
+
+    def raise_by(self, fraction: float) -> float:
+        """Raise the factor after a context overflow (chapter 16.6 step 4).
+
+        Args:
+            fraction: The share to add, such as 0.05 for 5%.
+
+        Returns:
+            The factor after the raise.
+        """
+        with self._lock:
+            self._factor = round(self._factor * (1 + fraction), 4)
+            return self._factor

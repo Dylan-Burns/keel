@@ -575,7 +575,9 @@ def test_mock_faults(client, api_settings) -> None:
     names = [name for name, _ in events]
     assert names[:4] == ["meta", "analysis", "retrieval", "error"]
     assert dict(events)["error"]["code"] == "provider_unavailable"
-    assert dict(events)["final"]["meta"]["model_requests"] == 3
+    # 3 requests to the primary model, then 3 to the fallback model.
+    assert dict(events)["final"]["meta"]["model_requests"] == 6
+    assert dict(events)["final"]["meta"]["degraded"] is True
     _, events = stream(client, text, {"X-Keel-Mock": "script_injection"})
     final = dict(events)["final"]
     assert mock.INJECTED_SCRIPT in final["answer"]["direct_answer"]
@@ -624,15 +626,20 @@ def test_read_routes(client, api_settings) -> None:
     health = client.get("/api/health").json()
     assert health["status"] == "ok"
     ready = client.get("/api/ready").json()
-    assert ready == {
-        "ready": True,
-        "index_version": "1.0.0",
-        "checks": {
-            "index_loaded": True,
-            "index_verified": True,
-            "models_loaded": True,
-            "provider_key": True,
-        },
+    assert ready["ready"] is True
+    assert ready["index_version"] == "1.0.0"
+    assert ready["checks"] == {
+        "index_loaded": True,
+        "index_verified": True,
+        "models_loaded": True,
+        "provider_key": True,
+    }
+    assert ready["index_corrupt"] is False
+    assert ready["breaker"] == {"state": "closed", "failures": 0, "retry_in": 0}
+    assert ready["budget"] == {
+        "daily_usd": api_settings.limits.daily_budget_usd,
+        "spent_usd": 0.0,
+        "stopped": False,
     }
     coverage = client.get("/api/coverage", headers=AUTH).json()
     assert [c["ticker"] for c in coverage["companies"]] == [
