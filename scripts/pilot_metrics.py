@@ -100,6 +100,8 @@ class Metrics:
         companies_added: The distinct tickers added by `keel add`, or None.
         files: The audit files read.
         skipped_lines: The lines that were not a JSON object.
+        undated_records: The records left out of every count because
+            their timestamp is missing or not a time.
         sources: Which optional sources were found.
     """
 
@@ -114,6 +116,7 @@ class Metrics:
     companies_added: int | None
     files: tuple[str, ...]
     skipped_lines: int
+    undated_records: int
     sources: dict[str, bool]
 
 
@@ -156,7 +159,8 @@ def iso_week(value: object) -> str | None:
     if isinstance(value, bool):
         return None
     if isinstance(value, (int, float)):
-        moment = datetime.datetime.fromtimestamp(value, tz=datetime.UTC)
+        with contextlib.suppress(OverflowError, OSError, ValueError):
+            moment = datetime.datetime.fromtimestamp(value, tz=datetime.UTC)
     elif isinstance(value, str) and value:
         text = value.strip().replace("Z", "+00:00")
         with contextlib.suppress(ValueError):
@@ -211,7 +215,7 @@ def read_records(
     records: list[dict[str, Any]] = []
     skipped = 0
     for path in files:
-        with path.open(encoding="utf-8") as stream:
+        with path.open(encoding="utf-8", errors="replace") as stream:
             for line in stream:
                 if not line.strip():
                     continue
@@ -419,9 +423,11 @@ def compute(
     named_user = False
     export_source = False
     weeks: set[str] = set()
+    undated = 0
     for record in records:
         week = iso_week(record.get("timestamp"))
         if week is None:
+            undated += 1
             continue
         if is_export(record):
             export_source = True
@@ -480,6 +486,7 @@ def compute(
         companies_added=len(additions) if additions is not None else None,
         files=tuple(files),
         skipped_lines=skipped_lines,
+        undated_records=undated,
         sources={
             "user_field": named_user,
             "feedback_table": votes is not None,
@@ -600,7 +607,8 @@ def to_markdown(metrics: Metrics) -> str:
     lines += [
         "",
         f"Files read: {len(metrics.files)}; lines skipped: "
-        f"{metrics.skipped_lines}.",
+        f"{metrics.skipped_lines}; records without a timestamp: "
+        f"{metrics.undated_records}.",
     ]
     if not metrics.sources["user_field"]:
         lines.append(
@@ -632,7 +640,9 @@ def build_parser() -> argparse.ArgumentParser:
     Returns:
         The parser.
     """
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(
+        description="Pilot metrics from the audit log (chapter 27.6)."
+    )
     parser.add_argument(
         "audit",
         nargs="*",
