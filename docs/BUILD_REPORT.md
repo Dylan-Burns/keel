@@ -342,6 +342,14 @@ Entry format:
 - Cut or deferred: none.
 - Attempts: 1. The first mocked Playwright run failed on the hidden `dt` text inside the request line and on the footer link (the security spec); both fixed before the first commit. 1 live answer for the evidence, about $0.10.
 
+## Follow-up after stage 12: table units and the CI answer gates
+
+- Built: `keel/tables.py` reads a units phrase that starts with a dollar sign (`($ in millions, except per share data)`, 272 lines in the corpus) and keeps a units-only line such as `| ($ in millions)` inside its table group instead of splitting the table (564 such lines in 34 filings; tables rebuilt 20,534 to 19,985, because the header rows rejoin their data rows). The judge sees a `filing:` line per chunk with the company, form, fiscal period, period end, filing date, and section that the answer model sees as attributes (judge prompt 1.1.0). The eval workflow runs `keel eval --subset ci --gate --answers`, so the answer gates run live on the mini corpus (about $0.06 per run; approved by the engineer).
+- Tests: Python 553 passing (new: `test_units_with_a_dollar_sign`, `test_chunk_text_carries_the_filing_line`).
+- Measured (the CI command with answers on the mini corpus, 4 questions): recall@25 1.00, MRR 1.00, faithfulness 1.00, citation precision 1.00, numeric accuracy 1.00, schema validity 1.00, refusal correctness 1.00; spend $0.06. Before the fixes the same run gave faithfulness 0.71 and numeric accuracy 0.50.
+- Deviations from the specification: G-18 leaves the `ci` subset, because the mini corpus excerpt of the JPM 10-K does not hold its gold value; it stays in the full eval. The NVDA mini corpus excerpt gets back the 238 characters of the real fused line that carry `Consolidated Statements of Income(In millions, except per share data)`, which the excerpt trim had cut. The full index needs an incremental rebuild for the table change (the changed filings only).
+- Attempts: 1. The eval workflow on main had failed after stages 10 and 11 with ModelMissingError; stage 12 carried the model download fix, and the eval run on main passed.
+
 ## Gaps
 
 Values that were not available when the build needed them, and what the build did instead.
