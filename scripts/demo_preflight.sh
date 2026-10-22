@@ -395,6 +395,9 @@ check_cache() {
 check_fallbacks() {
   if [[ -s demo/recording.mp4 ]]; then
     record "recording" "pass" "demo/recording.mp4 present; play it once"
+  elif [[ -s demo/recording.webm ]]; then
+    record "recording" "warn" \
+      "draft webm present; convert to recording.mp4"
   else
     record "recording" "warn" "demo/recording.mp4 missing"
   fi
