@@ -68,8 +68,8 @@ RESPONSE_SHARE = 3
 RESPONSE_LABEL = "response"
 _RESPONSE_WORDS = re.compile(
     r"(?i)\b(?:address(?:es|ed|ing)?|mitigat\w*|respond(?:s|ed|ing)?|"
-    r"response|responses|handl(?:e|es|ed|ing)|deal(?:s|ing)? with|"
-    r"doing about|tackl(?:e|es|ing)|counter(?:s|ing)?)\b"
+    r"responses?|handl(?:e|es|ed|ing)|deal(?:s|ing)? with|"
+    r"doing about|tackl(?:e|es|ing))\b"
 )
 
 _FISCAL_YEAR = re.compile(r"(?i)\b(?:fiscal(?:\s+year)?|FY)\s*'?(20\d\d)\b")
@@ -525,7 +525,8 @@ def _company_groups(
 
     A question that asks how the companies respond to their risks splits
     the company quota: a third goes to a response group over
-    `RESPONSE_SECTIONS`, the rest stays with the risk group.
+    `RESPONSE_SECTIONS`, the rest stays with the risk group. A trend plan
+    keeps its period cells and has no response group.
     """
     queries = [data.company_query(ticker, ticker)]
     extra = data.supplement(ticker, ticker)

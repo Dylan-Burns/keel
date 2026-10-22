@@ -48,6 +48,27 @@ A15_FILED_FROM = "2026-02-01"
 A15_FILED_TO = "2026-02-28"
 
 
+def _positive(value: str) -> int:
+    """Parse a whole number of at least 1 for argparse.
+
+    Args:
+        value: The argument text.
+
+    Returns:
+        The number.
+
+    Raises:
+        ArgumentTypeError: The value is not a whole number of at least 1.
+    """
+    try:
+        number = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(f"not a number: {value}") from error
+    if number < 1:
+        raise argparse.ArgumentTypeError(f"must be at least 1: {value}")
+    return number
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser for the `keel` command.
 
@@ -219,7 +240,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     calibrate_parser.add_argument(
         "--sample",
-        type=int,
+        type=_positive,
         default=calibrate.SAMPLE_SIZE,
         help="the chunks in the sample (default: 200, chapter 11.6)",
     )
@@ -1001,8 +1022,11 @@ def run_calibrate(
     if counter is None:
         if settings.anthropic_api_key is None:
             raise errors.ProviderRequestError("ANTHROPIC_API_KEY is not set")
+        # No SDK retries: the calibration is exactly 1 count call.
         client = anthropic.Anthropic(
-            api_key=settings.anthropic_api_key.get_secret_value()
+            api_key=settings.anthropic_api_key.get_secret_value(),
+            max_retries=0,
+            timeout=settings.llm.timeout_seconds,
         )
         counter = calibrate.anthropic_counter(client)
     conn = chunk_store.open_read_only(build / chunk_store.FILE_NAME)

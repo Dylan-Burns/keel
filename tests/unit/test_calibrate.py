@@ -3,6 +3,8 @@
 import pathlib
 import sqlite3
 
+import anthropic
+import httpx2
 import pytest
 
 from keel import calibrate
@@ -155,3 +157,49 @@ def test_calibrate_command_needs_an_index_and_a_key(
     sqlite3.connect(build / "chunks.sqlite").close()
     with pytest.raises(errors.ProviderRequestError):
         cli.run_calibrate(settings, 200, tmp_path)
+
+
+def test_sample_spans_the_whole_store() -> None:
+    # 399 rows over 200: every 2nd row, so the sample reaches the end.
+    chunks = calibrate.sample_chunks(store(399), 200)
+    assert len(chunks) == 199
+    assert chunks[0].chunk_id == "c2"
+    assert chunks[-1].chunk_id == "c398"
+
+
+def test_measure_needs_chunks() -> None:
+    counter = FakeCounter()
+    with pytest.raises(errors.IndexMissingError):
+        calibrate.measure(store(0), counter, "m", factor_before=1.15)
+    with pytest.raises(errors.IndexMissingError):
+        calibrate.measure(store(5), counter, "m", factor_before=1.15, size=0)
+    assert not counter.calls
+
+
+def test_anthropic_counter_maps_errors() -> None:
+    request = httpx2.Request("POST", "https://api.anthropic.com/v1/x")
+    response = httpx2.Response(429, request=request)
+
+    class Messages:
+        def count_tokens(self, **kwargs: object) -> object:
+            del kwargs
+            raise anthropic.RateLimitError(
+                "HTTP 429", response=response, body=None
+            )
+
+    class Client:
+        messages = Messages()
+
+    count = calibrate.anthropic_counter(Client())
+    with pytest.raises(errors.ProviderRateLimitedError):
+        count("m", "text")
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "x"])
+def test_sample_flag_rejects_bad_values(value: str) -> None:
+    with pytest.raises(SystemExit):
+        cli.build_parser().parse_args(["calibrate", "--sample", value])
+    assert (
+        cli.build_parser().parse_args(["calibrate", "--sample", "5"]).sample
+        == 5
+    )
