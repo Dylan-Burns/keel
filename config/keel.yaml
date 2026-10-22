@@ -29,6 +29,7 @@ corpus:
 index:
   dir: index                   # the build writes index/<build_id> and moves the `current` pointer
   release_tag: null            # KEEL_INDEX__RELEASE_TAG=index-v1: bootstrap restores this release archive instead of building
+  url: null                    # KEEL_INDEX__URL: https URL of the index archive; its .sha256 sits beside it
 
 logs:
   dir: logs                    # audit.jsonl, refresh.log, state.sqlite (the watch list, 26.3)

@@ -9,10 +9,11 @@ The zip comes from, in order: the local `corpus.zip`, a zip downloaded by an
 earlier run, `gh release download` of the `corpus.release_tag` asset when
 `GH_TOKEN` is set and `gh` is installed (chapter 29.11), or an https GET of
 `corpus.url`. Without a `current` build, the index comes from the archive of
-the `index.release_tag` release when it is set (an index built off the
-host, because the build needs more memory than a 4 GB host has), else from
-a full build. The GET follows control S-11: https only, a host on the allow
-list (the host of `corpus.url` and the GitHub release asset hosts), every
+the `index.release_tag` release through `gh`, else from an https GET of
+`index.url` and its `.sha256` (an index built off the host, because the
+build needs more memory than a 4 GB host has), else from a full build. The
+GET follows control S-11: https only, a host on the allow list (the host of
+the configured URL and the GitHub release asset hosts), every
 resolved address public, the address of the opened socket public too (DNS
 rebinding), and each redirect target checked again. The URL can carry a
 signature in its query, so logs and errors never hold the query string: a
@@ -244,7 +245,7 @@ def allowed_hosts(url: str | None) -> frozenset[str]:
     """Return the outbound allow list of the bootstrap download.
 
     Args:
-        url: The configured `corpus.url`, or None.
+        url: The configured `corpus.url` or `index.url`, or None.
 
     Returns:
         The host of the URL and the GitHub release asset hosts.
@@ -594,13 +595,24 @@ def _ensure_corpus(
 def _restore_release(
     settings: config.Settings, state: BootstrapState, deps: Dependencies
 ) -> bool:
-    """Restore the index from the `index.release_tag` archive, if set.
+    """Restore the index from a release archive instead of a build.
 
-    The archive comes through `gh release download` (GH_TOKEN and `gh`),
-    like the corpus zip, and passes the checks of `backup.restore_backup`:
-    the sha256 file, the member names, and the manifest checksums. A
-    failure is logged and returns False, so the caller builds instead.
+    The archive comes through `gh release download` of `index.release_tag`
+    (GH_TOKEN and `gh`), else through an https GET of `index.url` and its
+    `.sha256` under control S-11. It passes the checks of
+    `backup.restore_backup`: the sha256 file, the member names, and the
+    manifest checksums. A failure is logged and the next source runs; with
+    no source left the caller builds.
     """
+    return _restore_with_gh(settings, state, deps) or _restore_from_url(
+        settings, state, deps
+    )
+
+
+def _restore_with_gh(
+    settings: config.Settings, state: BootstrapState, deps: Dependencies
+) -> bool:
+    """Restore the `index.release_tag` archive through `gh`, if possible."""
     tag = settings.index.release_tag
     repo = settings.corpus.release_repo
     environ = os.environ if deps.environ is None else deps.environ
@@ -608,13 +620,8 @@ def _restore_release(
     if not (tag and repo and gh and environ.get("GH_TOKEN")):
         return False
     state.enter(Phase.DOWNLOADING, f"gh release download {tag} from {repo}")
-    parent = settings.index.dir.parent
-    staging: pathlib.Path | None = None
-    try:
-        parent.mkdir(parents=True, exist_ok=True)
-        staging = pathlib.Path(
-            tempfile.mkdtemp(prefix=".gh-index-", dir=parent)
-        )
+
+    def fetch(staging: pathlib.Path) -> pathlib.Path:
         deps.run_command(
             [
                 gh,
@@ -632,14 +639,119 @@ def _restore_release(
         archives = sorted(staging.glob(f"*{backup.ARCHIVE_SUFFIX}"))
         if not archives:
             raise errors.BackupError(f"release {tag} holds no Keel archive")
-        state.enter(Phase.INDEXING, f"restoring {archives[-1].name}")
-        backup.restore_backup(
-            archives[-1], settings.index.dir, settings.logs.dir
-        )
+        return archives[-1]
+
+    return _restore_staged(
+        settings, state, f"index release {tag}", ".gh-index-", fetch
+    )
+
+
+def _restore_from_url(
+    settings: config.Settings, state: BootstrapState, deps: Dependencies
+) -> bool:
+    """Restore the archive at `index.url` over https, if it is set."""
+    url = settings.index.url
+    if not url:
+        return False
+    # Only the host reaches the logs: a signed URL holds a secret.
+    host = parse.urlsplit(url).hostname or "no host"
+    state.enter(Phase.DOWNLOADING, f"downloading the index archive from {host}")
+
+    def fetch(staging: pathlib.Path) -> pathlib.Path:
+        archive = staging / archive_name(url)
+        allowed = allowed_hosts(url)
+        for source, target in (
+            (url, archive),
+            (
+                checksum_url(url),
+                archive.with_name(archive.name + backup.CHECKSUM_SUFFIX),
+            ),
+        ):
+            download(
+                source,
+                target,
+                allowed=allowed,
+                resolver=deps.resolver,
+                transport=deps.transport,
+                progress=state.advance,
+            )
+        return archive
+
+    return _restore_staged(
+        settings, state, f"index archive from {host}", ".url-index-", fetch
+    )
+
+
+def archive_name(url: str) -> str:
+    """Return the archive file name in the path of `index.url`.
+
+    Args:
+        url: The https URL of the archive.
+
+    Returns:
+        The last path segment, `keel-<stamp>.tar.gz`.
+
+    Raises:
+        BackupError: The segment is not a Keel archive name.
+    """
+    name = pathlib.PurePosixPath(parse.urlsplit(url).path).name
+    if not (
+        name.startswith(backup.ARCHIVE_PREFIX)
+        and name.endswith(backup.ARCHIVE_SUFFIX)
+    ):
+        raise errors.BackupError("index.url does not name a Keel archive")
+    return name
+
+
+def checksum_url(url: str) -> str:
+    """Return the URL of the `.sha256` file beside the archive.
+
+    The suffix goes on the path, so a query (a signature) stays intact.
+
+    Args:
+        url: The https URL of the archive.
+
+    Returns:
+        The same URL with `.sha256` after the path.
+    """
+    parts = parse.urlsplit(url)
+    return parse.urlunsplit(
+        parts._replace(path=parts.path + backup.CHECKSUM_SUFFIX)
+    )
+
+
+def _restore_staged(
+    settings: config.Settings,
+    state: BootstrapState,
+    source: str,
+    prefix: str,
+    fetch: Callable[[pathlib.Path], pathlib.Path],
+) -> bool:
+    """Fetch an archive into a staging directory and restore it.
+
+    Args:
+        settings: The loaded settings.
+        state: The state to report to.
+        source: Names the source in the logs, without secrets.
+        prefix: The prefix of the staging directory.
+        fetch: Writes the archive and its `.sha256` into the staging
+            directory and returns the archive.
+
+    Returns:
+        True when the index was restored, False after a logged failure.
+    """
+    parent = settings.index.dir.parent
+    staging: pathlib.Path | None = None
+    try:
+        parent.mkdir(parents=True, exist_ok=True)
+        staging = pathlib.Path(tempfile.mkdtemp(prefix=prefix, dir=parent))
+        archive = fetch(staging)
+        state.enter(Phase.INDEXING, f"restoring {archive.name}")
+        backup.restore_backup(archive, settings.index.dir, settings.logs.dir)
     except (errors.KeelError, OSError) as error:
         logger.warning(
-            "index release %s not restored (%s: %s); building instead",
-            tag,
+            "%s not restored (%s: %s); trying the next source",
+            source,
             type(error).__name__,
             error,
         )
