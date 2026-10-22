@@ -1,6 +1,6 @@
 # Build report
 
-Status: next stage 11
+Status: next stage 12
 
 One entry per stage of `docs/28_build_sequence.md`. Claude Code appends to this file after each stage. The panel reads it during the demo code walk.
 
@@ -259,7 +259,7 @@ Entry format:
     - The Playwright config uses 1 worker and a 30 s wait per expected state in live mode only, because every answer runs the real retrieval with the pinned models on the CPU; the CI web e2e job raises `limits.rate_per_minute` for `keel serve`, since the specs ask about 30 questions from 1 address.
     - Commits: the card plans 5 commits for the stage; the web half landed 4 (with its review fix), and the API half 2 plus this report, so the stage has 7.
 - Review: the reviewer subagent found that a fault drill could serve the answer cache, a chunked body bypassed the 16 KB check, a stored record without `meta` or `citations_resolved`, `cache.find` on the event loop, shutdown not awaiting the answer tasks, eviction of a running answer, a rate token spent before the 503, an unused parameter, missing `Raises` sections, a traversal test that never reached the guard, and test imports through other modules. All fixed before the first API commit. Recorded instead of changed: the shared connection (E-F-03) and the proxy address (S-05) above, the commit count, and a failed answer that the client keeps polling as 404 (the pipeline yields `final` on every path except an internal error).
-- Cut or deferred: the trace drawer and the eval page (W-01, W-02) are stage 12; `keel serve --bootstrap` is the Railway stage; the daily provider budget of S-05 is stage 11.
+- Cut or deferred: the trace drawer and the eval page (W-01, W-02) are stage 12; `keel serve --bootstrap` is the Railway stage; the daily provider budget of S-05 is stage 11 (built there).
 - Attempts: 1. The first live Playwright run failed 20 of 32 on the 5 s default wait while 4 workers queued behind the retrieval lock; the live-mode config above fixed it.
 
 ## Stage 10: Eval harness
@@ -292,6 +292,34 @@ Entry format:
 - Cut or deferred: the human rubric of 18.5 (2 raters, 10 questions each) is not scored; the chunk size, context size, section weight, and SimHash ablations of 18.7 are not run (the first needs a rebuild per variant). The judge does not see the wrapper line of a chunk (filing, period end), so a period label that the answer took from it reads as partly supported; a judge prompt 1.1.0 with the wrapper line is the next change, measured by re-judging saved answers. The index rebuild for the sections fix is left to the orchestrator.
 - Attempts: 1. The first full run (before the rebase) took 831 s with 0 model requests; the live run took 1,572 s.
 
+## Stage 11: Reliability and timebox security
+
+- Built: `keel/reliability.py` (the circuit breaker of 16.3: 3 failed requests within 60 s open it for 30 s, then 1 probe that closes or reopens it; the daily budget of 16.10 step 5 summed from the `cost_usd` of the audit records of the current UTC day; the halved context of 16.6 step 3; the index check of 16.7 steps 1 and 2 with the chunk and vector row counts), the fallback path in `keel/answer.py` (Haiku 5.5 after the primary fails for availability before content or while the breaker is open, its own budget of 3 requests, `meta.model` and the audit `model` name the model that answered, `meta.fallback`), the degraded mode with `degraded: true` at the top of the audit record, the budget stop (`limits.daily_budget_usd`: the answer cache, else the retrieved chunks with outcome `budget_stop`), the context-overflow retry (1 of the 2 retries, the lowest-ranked chunks dropped to half the smaller of the budget and the estimate, the calibration factor up 5%, `context_overflow` logged with the estimate and the provider message), a `refused` outcome for the `refusal` stop reason, `/api/ready` with the breaker state word, `budget_stopped`, `index_corrupt`, and HTTP 503 on a corrupt index (every index route answers 503 `index_corrupt`), the authenticated `GET /api/status` (breaker counters, models, spend, budget), the `fallback_model` value of `X-Keel-Mock`. Security: `keel/security.py` (the redacting log formatter on every root handler, uvicorn included, with the secret values of the settings and of every variable ending in `KEY` or `TOKEN`), the refusal of a secret in the config file, the S-04 caps on the context budget, the answer cache directory at mode 700, no uvicorn access log.
+- Tests: Python 468 passing in PR runs (27 new: the 10 card tests, of which `test_stale_index_flag`, `test_two_concurrent_questions`, and `test_port_fallback` existed and were extended, `test_context_overflow_halves` replaces the stage 7 test of the same fault; plus the breaker window and probe release, the fallback request, the budget from the audit log, the row count check, the halved context, the API paths, the `/api/ready` exposure test, and 7 security unit tests). Coverage of `keel/` 97% (`keel/reliability.py` 99%, `keel/security.py` 98%).
+- Measured (the offline drill): the cache was warmed with 3 live `keel ask` runs of the example questions (requests `f6a7d3cd...`, `40eee69d...`, `0297aa49...`; 1 model request each; $0.108, $0.096, $0.111; 31 s, 36 s, 38 s). Then `KEEL_OFFLINE=1 keel serve` with `ANTHROPIC_BASE_URL=http://127.0.0.1:9` (the provider unreachable) and a drill token: `/api/ready` ready, `offline: true`; the 3 examples answered from the cache (`from_cache: true`, `model_requests: 0`, 14, 11, and 15 valid citations, 0.01 to 0.09 s; audit outcome `cached`, cost 0); a fourth question outside the cache got the degraded mode (outcome `offline`, 44 chunks, `degraded: true`, 0 requests). The server log shows no provider connection. The done-when holds.
+- Deviations from the specification:
+    - A breaker failure is 1 failed request (HTTP 429, 529, 5xx, a timeout, a lost connection), not 1 failed question; a rejected request and a context overflow are not counted and free a probe. So 1 question whose 3 primary requests fail opens the breaker, and the next question goes straight to the fallback (test_breaker_opens).
+    - A question can make up to 6 requests before content: 3 to the primary and 3 to the fallback (chapter 16.4 gives the fallback its own budget; D-04's 3 applies per model). The `provider_unavailable` drill now makes 6 requests.
+    - A fallback answer is never written to the answer cache, since the D-29 key names the primary model.
+    - Chapter 16.8 asks for 503 on every failed check; `/api/ready` answers 503 only for a corrupt index, because the stage 9 front-end treats a non-2xx readiness as an unreachable service and shows other failed checks (no index, no key) from the 200 body.
+    - `/api/ready` needs no token, so it carries only the breaker state word and `budget_stopped`; the amounts, the counters, and the model names are on `GET /api/status` behind the token (security review during the stage).
+    - Chapter 16.6 halves the budget; a context below half its budget would not shrink, so the new budget is half the smaller of the budget and the context estimate.
+    - S-14 asks for a hashed client address in the logs; the service logs no client address at all (no access log).
+- Security controls (chapter 15, Timebox and the rest):
+    - S-01: secrets from the environment only (`config.py`, a secret key in the YAML stops the load, `test_secrets_refused_in_config_file`); `.env` in `.gitignore` with `.env.example`; the redacting formatter (`test_log_lines_are_redacted`, `test_redact_patterns_and_values`); no secret in an error (`test_config_error_never_shows_secrets`); the gitleaks pre-commit hook.
+    - S-02: chunk and question wrappers with the guard (`prompt.py`, stage 7), the citation validator, the injection flag in the log and the audit record (`understanding.py`), server-attached SEC URLs (`test_sec_url_only`). Step 5, the 3 adversarial golden cases, is the eval of stage 10.
+    - S-03: DOMPurify allow list and JSX text nodes (stage 9 web, `test_ui_escapes_model_text`), the CSP with `script-src 'self'` (`SecurityHeaders`).
+    - S-04: steps 1 to 3 (stage 9, `test_question_limits`), step 4 the caps (`test_context_caps`).
+    - S-05: the buckets (stage 9, `test_rate_limit`), the daily budget (`test_budget_stop`). Still open from stage 9: the per-peer address behind the Railway proxy.
+    - S-06: the bearer token in constant time and the Principal (stage 9, `test_auth_required`); steps 4 and 5 are production.
+    - S-07: the audit log (stage 7, `test_audit_line`, `test_audit_rotates_daily`).
+    - S-08: `uv.lock`, the pinned revisions, `pip-audit` in CI, `trivy` in the release workflow only (not on PRs).
+    - S-09 (production): the image runs as user `keel`; the read-only mounts, the dropped capabilities, and the memory limit belong to the deploy stage.
+    - S-10: `keel/extractor.py` (stage 1 tests).
+    - S-11 (production): gap. The outbound allow list is `keel/net.py` on the stage 21 branch; not duplicated here.
+- Cut or deferred: 16.7 step 4 (re-read the manifest every 60 s and reload a new build) is not built; a restart picks up a new build. The front-end shows neither the fallback note of 16.4 nor an amber dot for an open breaker; the data is in the final `meta` and `/api/ready` (a web follow-up). 16.9 JSON log lines are not built. `keel warm-cache` stays stage 15; the drill warmed the cache with `keel ask`. The fallback request was not sent live (the mock and a request-shape test cover it: same `output_config.format`, Haiku's `thinking: disabled`).
+- Attempts: 1. Live spend for the stage: 3 answers, $0.32.
+
 ## Gaps
 
 Values that were not available when the build needed them, and what the build did instead.
@@ -299,6 +327,7 @@ Values that were not available when the build needed them, and what the build di
 | Gap | Effect | Resolution |
 | --- | --- | --- |
 | Local `docker build` at stage 0 | The Docker Desktop disk on the laptop is full (other projects), so the build failed at the last copy step after `uv sync --frozen` passed in the builder stage | Resolved after stage 0: the image built locally at 1.5 GB, and `docker run --rm keel:local --version` prints `keel 0.1.0` |
+| S-11 outbound allow list at stage 11 | No module restricts outbound hosts on `main` | `keel/net.py` on the stage 21 branch; stage 11 does not duplicate it |
 
 ## Decisions taken without review
 
