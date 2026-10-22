@@ -654,10 +654,8 @@ class Catalog:
             "ORDER BY filing_id"
         )
         for filing_id, ticker, form, period, year, fiscal, filed, month in rows:
-            if not period or year is None or not filed:
-                continue
-            filings.append(
-                FilingRef(
+            try:
+                ref = FilingRef(
                     ticker=ticker,
                     form=form,
                     period_end_date=datetime.date.fromisoformat(period),
@@ -666,7 +664,12 @@ class Catalog:
                     filing_date=datetime.date.fromisoformat(filed),
                     filing_id=filing_id,
                 )
-            )
+            except (TypeError, ValueError):
+                logger.warning(
+                    "skipping filing %s: bad period facts", filing_id
+                )
+                continue
+            filings.append(ref)
             if month is not None:
                 months[ticker] = int(month)
         quarantined = [

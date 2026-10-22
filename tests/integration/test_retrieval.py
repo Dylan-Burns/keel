@@ -6,12 +6,14 @@ collapse, and the budget run as they do on the real index.
 """
 
 import pathlib
+import sqlite3
 
-import numpy
 import pytest
 
 import conftest
+from keel import cli
 from keel import config
+from keel import context
 from keel import errors
 from keel import retriever
 from keel import understanding
@@ -95,6 +97,9 @@ def test_sector_cap(tmp_path: pathlib.Path, settings: config.Settings) -> None:
     assert set(kept) <= set(tickers[-16:])
     assert len(result.context.chunks) == 48
     assert {f.taken for f in result.context.fills} == {4}
+    # 53 in the first round, the rest of the 80 for the 12 kept.
+    assert result.reranked == 77
+    assert {c.candidate.query for c in result.context.chunks} <= set(range(12))
 
 
 def risk_store(tmp_path: pathlib.Path) -> pathlib.Path:
@@ -178,6 +183,27 @@ def test_empty_context(
     assert result.candidates == 0
     assert result.context.token_estimate == 0
     assert result.gaps[-1] == "PFE: no filing text matched"
+
+
+def test_empty_context_command(
+    tmp_path: pathlib.Path,
+    clean_env: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    del clean_env
+    index_dir = risk_store(tmp_path)
+    code = cli.main(
+        [
+            "--config",
+            str(conftest.CONFIG_FILE),
+            "retrieve",
+            "What risks did Pfizer report in 2019?",
+            "--index",
+            str(index_dir),
+        ]
+    )
+    assert code == 0
+    assert context.NO_CONTEXT_MESSAGE in capsys.readouterr().out
 
 
 def test_out_of_scope_retrieves_nothing(
@@ -276,19 +302,13 @@ def test_comparison_collapse_and_quotas(
     assert fills == {"AAPL": 16, "TSLA": 16, "JPM": 16}
     # The later 10-Q copy stays; the 10-K copy collapses into it.
     assert {c.candidate.form for c in result.context.chunks} == {"10-Q"}
-    assert result.reranked == 81
+    assert result.reranked == 78  # 26 per company, at most 80
     assert result.context.token_estimate <= 32000
 
 
 def test_catalog_from_store(tmp_path: pathlib.Path) -> None:
     index_dir = risk_store(tmp_path)
-    conn = chunk_store.open_read_only(
-        index_dir / "current" / chunk_store.FILE_NAME
-    )
-    conn.close()
-    writable = chunk_store.sqlite3.connect(
-        index_dir / "current" / chunk_store.FILE_NAME
-    )
+    writable = sqlite3.connect(index_dir / "current" / chunk_store.FILE_NAME)
     writable.execute(
         "INSERT INTO quarantine VALUES ('GE_10K_2015-02-27_full.txt', "
         '\'registrant_mismatch\', \'{"cover_registrant": "GE Capital", '
@@ -297,6 +317,12 @@ def test_catalog_from_store(tmp_path: pathlib.Path) -> None:
     writable.execute(
         "INSERT INTO quarantine VALUES ('XX_10K_2020-01-01_full.txt', "
         "'header_error', '{\"field\": \"Filing Date\"}')"
+    )
+    writable.execute(
+        "INSERT INTO filings (filing_id, ticker, company, form, "
+        "period_end_date, filing_date, file_name, file_sha256, "
+        "parser_version, chunker_version) VALUES ('BAD_10K_2024-01-01', "
+        "'BAD', 'Bad', '10-K', 'not a date', '2024-02-01', 'b', '', '1', '1')"
     )
     writable.commit()
     catalog = understanding.Catalog.from_store(writable)
@@ -313,4 +339,5 @@ def test_catalog_from_store(tmp_path: pathlib.Path) -> None:
         "cover registrant 'GE Capital', header company 'General Electric'"
     )
     assert notes["XX"].detail == "header_error: field Filing Date"
-    assert numpy.isfinite(len(catalog.filings))
+    assert len(catalog.filings) == 3
+    assert "BAD" not in catalog.indexed_tickers

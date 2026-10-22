@@ -85,27 +85,27 @@ def test_comparison_quotas() -> None:
 
 
 def test_comparison_token_quota() -> None:
-    # Long chunks stop a company at its token quota in the quota pass; the
-    # pass that moves the unused quota then alternates the groups.
+    # Long chunks stop AAPL at its token quota (6 of 578 tokens) and TSLA
+    # at 22 of 175; the 20 chunks left go by rank: the 18 better TSLA
+    # chunks, then 2 of AAPL.
     pool = [candidate("AAPL", n, tokens=450) for n in range(30)]
-    pool += [candidate("TSLA", n, tokens=100) for n in range(40)]
+    pool += [candidate("TSLA", n, tokens=100, score=0.6) for n in range(40)]
     built = build(pool, groups(["AAPL", "TSLA"], 24, 4000))
     taken = {f.key: f.taken for f in built.fills}
-    assert taken == {"AAPL": 16, "TSLA": 32}
+    assert taken == {"AAPL": 8, "TSLA": 40}
     assert built.token_estimate <= BUDGET.max_tokens
 
 
 def test_quota_redistribution() -> None:
     pool = [candidate("AAPL", n) for n in range(5)]
-    pool += [candidate("TSLA", n) for n in range(40)]
-    pool += [candidate("JPM", n) for n in range(40)]
+    pool += [candidate("TSLA", n, score=0.5 - n / 100) for n in range(40)]
+    pool += [candidate("JPM", n, score=0.495 - n / 100) for n in range(40)]
     built = build(pool, groups(["AAPL", "TSLA", "JPM"], 16))
     taken = {f.key: f.taken for f in built.fills}
     assert taken["AAPL"] == 5
-    # The 11 unused chunks of AAPL go to the companies with candidates.
-    assert taken["TSLA"] + taken["JPM"] == 48 - 5
-    assert taken["TSLA"] > 16
-    assert taken["JPM"] > 16
+    # The 11 unused chunks of AAPL go to the remaining candidates in rank
+    # order; the scores of TSLA and JPM alternate, so they split 6 and 5.
+    assert taken == {"AAPL": 5, "TSLA": 22, "JPM": 21}
 
 
 def test_budget_never_exceeded() -> None:
