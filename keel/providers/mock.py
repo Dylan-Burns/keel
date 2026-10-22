@@ -63,6 +63,8 @@ def _chunk_texts(user: str) -> dict[str, str]:
 def sample_answer(bundle: prompt.PromptBundle) -> dict[str, Any]:
     """Build a valid answer that cites the first chunk of each company.
 
+    With a `<facts>` block, the answer also cites the first fact ID.
+
     Args:
         bundle: The prompt.
 
@@ -99,6 +101,13 @@ def sample_answer(bundle: prompt.PromptBundle) -> dict[str, Any]:
                 "claim": f"{ticker} names risks.",
                 "quote": quote,
             }
+        )
+    for fact_id in bundle.fact_ids[:1]:
+        # A fact line reads `<fact id> | <value> | <unit> | ...`.
+        row = next(r for r in bundle.user.splitlines() if r.startswith(fact_id))
+        value = row.split(" | ")[1]
+        citations.append(
+            {"chunk_id": fact_id, "claim": "A reported value.", "quote": value}
         )
     cited = ", ".join("[" + c["chunk_id"] + "]" for c in citations)
     return {

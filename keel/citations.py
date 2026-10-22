@@ -8,11 +8,17 @@ cited chunk (`quote_mismatch`) and the fiscal labels of the direct answer
 against the context (`period_mismatch`), lowers the confidence when more
 than 30% of the citations were invalid, and resolves each valid citation
 to its filing name, section title, fiscal label, and SEC URL.
+
+From prompt 1.4.0 a citation can also name a fact ID of the `<facts>`
+block (chapter 26.1, step 6). A known fact ID resolves to the filing that
+reported the value, with a link to its EDGAR filing index; an unknown fact
+ID is removed and counted as drift, like a chunk outside the context.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
+from collections.abc import Sequence
 import json
 import re
 from typing import Literal
@@ -20,6 +26,7 @@ from typing import Literal
 import pydantic
 
 from keel import context
+from keel import edgar
 from keel import errors
 
 MAX_NEXT_QUESTIONS = 4
@@ -39,8 +46,13 @@ SECTION_TITLES = {
     "other": "Other",
     "unknown": "Unclassified section",
 }
+FACTS_SECTION = "XBRL company facts"
+SEC_URL_PREFIX = "https://www.sec.gov/"
 CHUNK_ID = re.compile(
     r"^[A-Z0-9][A-Z0-9.\-]*_10[KQ]_\d{4}-\d{2}-\d{2}__[a-z_]+__\d{4,}$"
+)
+FACT_ID = re.compile(
+    r"^facts:[A-Z0-9][A-Z0-9.\-]*:[A-Za-z][A-Za-z0-9_]*:(?:Q[1-4])?FY\d{4}$"
 )
 _MARKER = re.compile(r"\[([^\[\]\n]{1,400})\]")
 _NUMBER = re.compile(r"\d[\d,]*(?:\.\d+)?")
@@ -179,7 +191,7 @@ class ResolvedCitation(_Model):
     """1 valid citation with its source (chapter 14.2).
 
     Attributes:
-        chunk_id: The chunk ID.
+        chunk_id: The chunk ID, or the fact ID of a fact citation.
         claim: The claim.
         quote: The quote.
         ticker: The ticker.
@@ -192,6 +204,7 @@ class ResolvedCitation(_Model):
         truncated: True when the chunk was cut at a row (E-C-03).
         quote_mismatch: True when a number of the quote is not in the chunk.
         valid: Always True; invalid citations are removed.
+        kind: `chunk`, or `fact` for a fact ID of the `<facts>` block.
     """
 
     chunk_id: str
@@ -207,6 +220,7 @@ class ResolvedCitation(_Model):
     truncated: bool
     quote_mismatch: bool
     valid: bool = True
+    kind: Literal["chunk", "fact"] = "chunk"
 
 
 class ValidationReport(_Model):
@@ -285,18 +299,28 @@ def quote_mismatch(quote: str, chunk_text: str) -> bool:
     return not _numbers(quote) <= _numbers(chunk_text)
 
 
-def period_mismatches(answer_text: str, built: context.Context) -> list[str]:
+def period_mismatches(
+    answer_text: str,
+    built: context.Context,
+    facts: Sequence[edgar.FactLine] = (),
+) -> list[str]:
     """List the fiscal labels of the prose that the context does not hold.
 
     Args:
         answer_text: The direct answer.
         built: The context.
+        facts: The fact lines of the prompt; their labels count as held.
 
     Returns:
         The labels, such as `fiscal 2027`, in order of appearance.
     """
     years = set()
     quarters = set()
+    for line in facts:
+        quarter, _, fiscal_year = line.fiscal_label.rpartition("FY")
+        if quarter.strip():
+            quarters.add((quarter.strip(), int(fiscal_year)))
+        years.add(int(fiscal_year))  # as a quarter chunk adds its year
     for chunk in built.chunks:
         c = chunk.candidate
         if c.fiscal_year is None:
@@ -326,7 +350,7 @@ def _strip_markers(text: str, valid: set[str]) -> tuple[str, int]:
     def keep(match: re.Match[str]) -> str:
         nonlocal removed
         ids = [part.strip() for part in re.split(r"[,;]", match.group(1))]
-        if not all(CHUNK_ID.match(i) for i in ids):
+        if not all(CHUNK_ID.match(i) or FACT_ID.match(i) for i in ids):
             return match.group(0)  # not a citation marker
         kept = [i for i in ids if i in valid]
         removed += len(ids) - len(kept)
@@ -351,10 +375,40 @@ def filing_name(candidate: context.Candidate) -> str:
     return f"{candidate.company} {candidate.form} {candidate.fiscal_label}"
 
 
+def resolve_fact(citation: Citation, line: edgar.FactLine) -> ResolvedCitation:
+    """Resolve a fact citation to the filing that reported the value.
+
+    Args:
+        citation: The citation the model wrote.
+        line: The fact line of the cited fact ID.
+
+    Returns:
+        The resolved citation; the link is the EDGAR filing index, kept
+        only on `https://www.sec.gov/` and only when the CIK is known.
+    """
+    url = line.filing_index_url if line.cik else ""
+    return ResolvedCitation(
+        chunk_id=line.fact_id,
+        claim=citation.claim,
+        quote=citation.quote,
+        ticker=line.ticker,
+        filing_name=f"{line.ticker} {line.form} filed {line.filed.isoformat()}",
+        section_title=FACTS_SECTION,
+        fiscal_label=line.fiscal_label,
+        period_end=line.period_end.isoformat(),
+        filing_date=line.filed.isoformat(),
+        sec_url=url if url.startswith(SEC_URL_PREFIX) else None,
+        truncated=False,
+        quote_mismatch=quote_mismatch(citation.quote, line.text()),
+        kind="fact",
+    )
+
+
 def validate(
     answer: Answer,
     built: context.Context,
     sec_urls: Mapping[str, str | None],
+    facts: Mapping[str, edgar.FactLine] | None = None,
 ) -> ValidatedAnswer:
     """Validate the citations of an answer (chapter 12.9).
 
@@ -363,12 +417,15 @@ def validate(
         built: The context of the request.
         sec_urls: The trusted SEC URL per filing ID; an untrusted or
             unknown filing maps to None, and the link is never shown.
+        facts: The fact lines of the `<facts>` block by fact ID; any other
+            fact ID is drift.
 
     Returns:
         The cleaned answer, the resolved citations, and the counts.
     """
+    facts = facts or {}
     chunks = {c.candidate.chunk_id: c for c in built.chunks}
-    valid_ids = set(chunks)
+    valid_ids = set(chunks) | set(facts)
     report = ValidationReport(citations=len(answer.citations))
     kept = [c for c in answer.citations if c.chunk_id in valid_ids]
     report.citation_drift = len(answer.citations) - len(kept)
@@ -389,6 +446,11 @@ def validate(
     report.inline_drift += removed
     resolved = []
     for citation in kept:
+        if citation.chunk_id in facts:
+            fact = resolve_fact(citation, facts[citation.chunk_id])
+            report.quote_mismatch += fact.quote_mismatch
+            resolved.append(fact)
+            continue
         chunk = chunks[citation.chunk_id]
         c = chunk.candidate
         mismatch = quote_mismatch(citation.quote, c.text)
@@ -409,7 +471,9 @@ def validate(
                 quote_mismatch=mismatch,
             )
         )
-    report.period_mismatch = period_mismatches(direct, built)
+    report.period_mismatch = period_mismatches(
+        direct, built, tuple(facts.values())
+    )
     table = answer.comparison_table
     if table is not None:
         rows = []
