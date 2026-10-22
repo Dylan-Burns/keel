@@ -145,16 +145,34 @@ class RerankerConfig(_Section):
     top_n: int = 80
 
 
+MAX_CONTEXT_TOKENS_CAP = 64_000  # control S-04 step 4
+MAX_CHUNKS_CAP = 96
+
+
 class RetrievalConfig(_Section):
-    """The retrieval and context budget settings (chapter 11)."""
+    """The retrieval and context budget settings (chapter 11).
+
+    `max_context_tokens` and `max_chunks` are clamped to 64,000 and 96
+    (control S-04 step 4), so no override can ask for a larger context.
+    """
 
     lexical_k: int = 100
     dense_k: int = 100
     rrf_k: int = 60
-    max_context_tokens: int = 32000
-    max_chunks: int = 48
+    max_context_tokens: int = pydantic.Field(default=32000, ge=1)
+    max_chunks: int = pydantic.Field(default=48, ge=1)
     simhash_max_distance: int = 3
     calibration_factor: float = 1.15
+
+    @pydantic.field_validator("max_context_tokens")
+    @classmethod
+    def _cap_tokens(cls, value: int) -> int:
+        return min(value, MAX_CONTEXT_TOKENS_CAP)
+
+    @pydantic.field_validator("max_chunks")
+    @classmethod
+    def _cap_chunks(cls, value: int) -> int:
+        return min(value, MAX_CHUNKS_CAP)
 
 
 class LlmConfig(_Section):
@@ -345,6 +363,9 @@ def config_path() -> pathlib.Path:
     )
 
 
+SECRET_KEYS = frozenset({"anthropic_api_key", "api_token"})
+
+
 def load_settings(
     path: pathlib.Path | None = None,
     env_file: pathlib.Path | None = DEFAULT_ENV_FILE,
@@ -359,9 +380,17 @@ def load_settings(
         The validated settings.
 
     Raises:
-        ConfigError: The file is unreadable or a value fails validation.
+        ConfigError: The file is unreadable, holds a secret, or a value
+            fails validation.
     """
     data = read_yaml(path or config_path())
+    found = sorted(SECRET_KEYS & {str(k).lower() for k in data})
+    if found:
+        # Control S-01 step 1: secrets come from the environment only.
+        raise errors.ConfigError(
+            f"secrets in the config file: {found}; set them in the "
+            "environment instead"
+        )
     try:
         # `_env_file` is a pydantic-settings init option, not a field.
         options: dict[str, Any] = {**data, "_env_file": env_file}

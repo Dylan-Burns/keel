@@ -36,6 +36,7 @@ from keel import indexer
 from keel import inventory
 from keel import retriever
 from keel import sections
+from keel import security
 from keel import understanding
 from keel.api import app as api_app
 from keel.evaluation import gates
@@ -1274,6 +1275,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     try:
         settings = config.load_settings(args.config)
+        security.install(settings)
         if args.command == "understand":
             return run_understand(settings, args.question, args.corpus)
         if args.command == "ask":

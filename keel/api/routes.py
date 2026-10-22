@@ -261,8 +261,9 @@ async def ready(services: Services, fault: Fault) -> fastapi.Response:
         fault: The mock fault; `index_not_built` reports no index.
 
     Returns:
-        `ready`, the index version, the checks, the breaker state, the
-        fallback model, the daily spend, and the answer cache. HTTP 503
+        `ready`, the index version, the checks, the breaker state as 1
+        word, whether the daily budget stopped the model, and whether the
+        answer cache exists; no amount and no model name. HTTP 503
         with `index_corrupt` when the index failed its checks (16.7); the
         other failed checks keep HTTP 200, so the front-end can show the
         matching banner.
@@ -293,21 +294,47 @@ async def ready(services: Services, fault: Fault) -> fastapi.Response:
         "offline": services.settings.offline,
     }
     if answerer is not None:
-        limit = answerer.budget.limit_usd
-        spent = await asyncio.to_thread(answerer.budget.spent)
+        # Coarse values only: this route needs no token (S-06), so the
+        # spend, the limits, and the model names stay on /api/status.
         body.update(
-            breaker=answerer.breaker.snapshot().as_dict(),
-            fallback_model=answerer.fallback.model
-            if answerer.fallback
-            else None,
-            budget={
-                "daily_usd": limit,
-                "spent_usd": spent,
-                "stopped": spent >= limit,
-            },
+            breaker=answerer.breaker.snapshot().state,
+            budget_stopped=await asyncio.to_thread(answerer.budget.exhausted),
             answer_cache=answerer.cache.directory.is_dir(),
         )
     return responses.JSONResponse(body, status_code=503 if corrupt else 200)
+
+
+@router.get("/status")
+async def service_status(services: Services, caller: Caller) -> dict[str, Any]:
+    """The reliability details behind the token (chapters 16.3, 16.10).
+
+    Args:
+        services: The shared services.
+        caller: The Principal.
+
+    Returns:
+        The breaker counters, the models, and the daily spend and budget.
+
+    Raises:
+        HTTPException: 503 when no index is loaded.
+    """
+    del caller
+    answerer = require_answerer(services)
+    limit = answerer.budget.limit_usd
+    spent = await asyncio.to_thread(answerer.budget.spent)
+    return {
+        "breaker": answerer.breaker.snapshot().as_dict(),
+        "model": answerer.model,
+        "fallback_model": answerer.fallback.model
+        if answerer.fallback
+        else None,
+        "budget": {
+            "daily_usd": limit,
+            "spent_usd": spent,
+            "stopped": spent >= limit,
+        },
+        "offline": services.settings.offline,
+    }
 
 
 def _fiscal_label(year: int | None, period: str | None) -> str:

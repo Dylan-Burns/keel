@@ -23,6 +23,7 @@ from keel import understanding
 logger = logging.getLogger(__name__)
 
 ENTRY_SUFFIX = ".json"
+DIRECTORY_MODE = 0o700
 
 
 def cache_key(
@@ -128,6 +129,8 @@ class AnswerCache:
         entry = {"sha256": _checksum(record), "record": record}
         try:
             self.directory.mkdir(parents=True, exist_ok=True)
+            # Control S-16 step 3: the service user alone writes entries.
+            self.directory.chmod(DIRECTORY_MODE)
             handle, temporary = tempfile.mkstemp(
                 dir=self.directory, prefix=".tmp-", suffix=ENTRY_SUFFIX
             )
