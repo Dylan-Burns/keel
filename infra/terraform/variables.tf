@@ -30,6 +30,7 @@ variable "ssh_key_name" {
 variable "admin_cidr" {
   description = "CIDR allowed to reach SSH, for example your office or VPN egress /32."
   type        = string
+  sensitive   = true
 
   validation {
     condition     = can(cidrnetmask(var.admin_cidr)) && var.admin_cidr != "0.0.0.0/0"

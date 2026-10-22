@@ -1,5 +1,7 @@
 name: deploy
 
+# Not the pilot host any more: D-39 moved the pilot to AWS (deploy-aws.yml).
+# This Railway path stays as the documented alternative of chapter 29.9.
 # Manual, approved deploy of a released version to the Railway pilot host
 # (chapter 29.9). The production environment in GitHub requires a reviewer
 # before the job runs. Railway builds the Dockerfile from the tagged commit.

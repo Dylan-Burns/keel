@@ -95,7 +95,8 @@ no AWS key.
    resources (EC2 in the region, the `keel-pilot-*` bucket, `keel-*` roles and
    instance profiles, the GitHub OIDC provider, SSM). Keep the Terraform state
    outside the repository (`.gitignore` excludes state, plans, and tfvars).
-2. `terraform init && terraform apply` with a `terraform.tfvars` that sets
+2. `terraform init -backend-config=backend.hcl && terraform apply` with a
+   `terraform.tfvars` that sets
    `region`, `admin_cidr`, `ssh_key_name`, and `backup_bucket_name`. The
    outputs give `public_ip`, `instance_id`, `deploy_role_arn`, `backup_bucket`,
    and `hostname` (`<ip with dashes>.sslip.io` when no DNS zone is set; Caddy
@@ -118,6 +119,25 @@ no AWS key.
 To run the same deploy by hand: `aws ssm send-command --document-name
 AWS-RunShellScript` with `curl -fsSL <raw URL of infra/deploy_host.sh at the
 tag> | bash -s <version>`, or SSH as `ubuntu` from the admin CIDR.
+
+## AWS: CI and CD
+
+| Workflow | When | What |
+| --- | --- | --- |
+| `infra.yml` job `terraform` | every pull request and push that touches `infra/` | `fmt`, `validate`, `tflint`, `checkov` (soft fail, SARIF to code scanning) |
+| `infra.yml` job `plan` | the same, plus nightly at 06:17 UTC and on demand | `terraform plan` against the live account through the read-only role `keel-pilot-plan` (GitHub OIDC); the step summary lists the changed resources; on main and nightly a non-empty plan fails the job as drift |
+| `release.yml` | a `v*.*.*` tag from release-please | image to GHCR with SBOM, Trivy scan, provenance; then it starts `deploy-aws.yml` for the version |
+| `deploy-aws.yml` | started by the release, or by hand | waits for the reviewer of the `production` environment, assumes `keel-pilot-deploy` through OIDC, runs `infra/deploy_host.sh` of the tag's commit through SSM, smoke tests HTTPS |
+
+The state sits in `s3://keel-pilot-tfstate-<account>/pilot/terraform.tfstate`
+(versioned, encrypted, native lock file); run `terraform init
+-backend-config=backend.hcl`. GitHub holds no AWS key: the repository
+variables `AWS_PLAN_ROLE_ARN`, `AWS_REGION`, `TF_SSH_KEY_NAME`, and
+`TF_BACKUP_BUCKET`, the secret `TF_ADMIN_CIDR`, and on the `production`
+environment `AWS_DEPLOY_ROLE_ARN`, `KEEL_INSTANCE_ID`, and `KEEL_HOSTNAME`.
+The plan role has `ReadOnlyAccess` with an explicit deny on the backup
+objects; it trusts pull requests of this repository and `main`, and a fork
+gets no OIDC token.
 
 ## Restore (both hosts)
 

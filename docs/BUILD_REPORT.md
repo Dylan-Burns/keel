@@ -685,6 +685,13 @@ Entry format:
 - Credentials: a dedicated `keel` IAM profile scoped to EC2 in `us-east-2`, the `keel-pilot-*` buckets, `keel-*` roles, the GitHub OIDC provider, and SSM, so the pilot stays separate from the engineer's other projects. Terraform state lives outside the repository.
 - Still to do: provision the host, the first release (release-please PR #18), the deploy, and the HTTPS check from a phone (the stage 21 done-when). `deploy-aws.yml` connects over SSH from a GitHub runner while the security group admits SSH only from the admin CIDR; a follow-up moves it to SSM Run Command through a GitHub OIDC role.
 
+## Follow-up after stage 22: AWS CI and CD
+
+- Built: `infra/terraform/ci.tf` (the state bucket `keel-pilot-tfstate-<account>`, versioned, encrypted, public access blocked, `prevent_destroy`; the read-only role `keel-pilot-plan` for GitHub OIDC with `ReadOnlyAccess` and an explicit deny on the backup objects, trusted for pull requests of this repository and `main`); the S3 backend with a native lock file (`backend.hcl`, Terraform 1.10 or later; CI pins 1.17.0, the version that wrote the state); `admin_cidr` is sensitive, so a plan never prints it. `infra.yml` gains the `plan` job (pull requests, pushes to main, nightly at 06:17 UTC, on demand; a non-empty plan on main or nightly fails as drift; forks are skipped) and runs when the workflow itself changes. `release.yml` starts `deploy-aws.yml` for the tag's version after the image job, so every release waits at the approval of the `production` environment. `deploy.yml` (Railway) is marked as the alternative of chapter 29.9.
+- Measured: the local state moved into S3 with `terraform init -migrate-state`; `terraform plan -detailed-exitcode` afterwards exits 0 (no drift); 7 resources added for CI (bucket and its 3 settings, the role, its policy, the read-only attachment).
+- Decisions taken without review: the plan role reads the whole account (`ReadOnlyAccess`), acceptable because the account holds only Keel, with a deny on the backup objects, which hold the audit log. A same-repository pull request runs its own Terraform code under that role during `plan`, so only collaborators can use it; forks get no OIDC token.
+- Attempts: 1.
+
 ## Gaps
 
 Values that were not available when the build needed them, and what the build did instead.
