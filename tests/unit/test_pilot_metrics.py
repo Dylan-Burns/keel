@@ -75,6 +75,8 @@ def _logs(tmp_path: pathlib.Path) -> pathlib.Path:
                 user="ana",
             ),
             "not json",
+            {"request_id": "r0", "timestamp": "never", "cost_usd": 1.0},
+            {"request_id": "r9", "timestamp": 1e300, "cost_usd": 1.0},
         ],
     )
     _write(
@@ -158,6 +160,7 @@ def test_pilot_metrics(logs: pathlib.Path, tmp_path: pathlib.Path) -> None:
     assert (second.memos_exported, second.companies_added) == (1, 1)
     assert metrics.users == 3
     assert metrics.questions == 4
+    assert metrics.undated_records == 2
     assert metrics.outcomes == {"answered": 3, "out_of_scope": 1}
     assert metrics.thumbs_up_rate == pytest.approx(2 / 3)
     assert metrics.companies_added == 2
