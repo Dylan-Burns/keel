@@ -17,8 +17,10 @@ from typing import Any
 
 import httpx
 import pytest
+import test_context
 
 import conftest
+from keel import citations
 from keel import config
 from keel import edgar
 from keel import errors
@@ -698,3 +700,200 @@ def test_cache_write_failure(tmp_path: pathlib.Path) -> None:
     )
     with pytest.raises(errors.EdgarError, match="cannot write"):
         edgar.write_cached(blocker / "sub" / "x.json", document)
+
+
+# --- The facts of a question and test_facts_citation --------------------------
+
+NVDA_WINDOW = (FY2024_START, FY2025_END)
+
+
+def test_collect_facts_from_cache(
+    client: edgar.EdgarClient, facts_config: edgar.FactsConfig
+) -> None:
+    result = edgar.collect_facts(client, facts_config, {"NVDA": NVDA_WINDOW})
+    assert result.source == "cache"
+    assert result.files == 1
+    assert result.errors == ()
+    assert client.requests == 0
+    assert len(result.lines) == edgar.MAX_FACT_LINES
+    by_id = result.by_id()
+    assert by_id["facts:NVDA:Revenues:FY2025"].display_value == "130,497"
+    assert (
+        result.text()
+        .splitlines()[0]
+        .startswith("facts:NVDA:Revenues:FY2025 | 130,497 | USD millions")
+    )
+
+
+def test_collect_facts_from_network(
+    tmp_path: pathlib.Path, facts_config: edgar.FactsConfig
+) -> None:
+    """A missing file is fetched once and cached; the source says so."""
+    shutil.copy(
+        EDGAR_FIXTURES / "company_tickers.json",
+        tmp_path / "company_tickers.json",
+    )
+    body = json.loads(NVDA_FACTS.read_text())["data"]
+    handler = Recorder(lambda request: httpx.Response(200, json=body))
+    with make_client(tmp_path, handler) as c:
+        result = edgar.collect_facts(c, facts_config, {"NVDA": NVDA_WINDOW})
+        again = edgar.collect_facts(c, facts_config, {"NVDA": NVDA_WINDOW})
+    assert result.source == "network"
+    assert again.source == "cache"
+    assert len(handler.requests) == 1
+    assert result.lines == again.lines
+
+
+def test_collect_facts_errors_never_raise(
+    cache_dir: pathlib.Path, facts_config: edgar.FactsConfig
+) -> None:
+    """An unknown ticker or an offline cache miss drops only that company."""
+    with make_client(cache_dir, offline=True) as c:
+        result = edgar.collect_facts(
+            c,
+            facts_config,
+            {"NVDA": NVDA_WINDOW, "ZZZZ": (None, None), "AAPL": (None, None)},
+        )
+    assert [block.ticker for block in result.blocks] == ["NVDA"]
+    assert result.files == 1
+    assert len(result.errors) == 2
+    assert result.errors[0].startswith("ZZZZ: ")
+    assert result.errors[1].startswith("AAPL: offline")
+    with make_client(cache_dir, offline=True) as c:
+        empty = edgar.collect_facts(c, facts_config, {"ZZZZ": (None, None)})
+    assert (empty.source, empty.lines, empty.text()) == ("none", (), "")
+
+
+def _answer(*cited: str) -> citations.Answer:
+    chunk_id = test_context.candidate("NVDA", 0, period="2025-01-26").chunk_id
+    ids = [chunk_id, *cited]
+    return citations.Answer.model_validate(
+        {
+            "direct_answer": (
+                "Revenue was $130,497 million in fiscal 2025, ended January "
+                f"26, 2025 [{cited[0]}], against $60,922 million in fiscal "
+                f"2024 [{', '.join(cited[1:])}]. Demand grew [{chunk_id}]."
+            ),
+            "company_findings": [
+                {
+                    "ticker": "NVDA",
+                    "company": "NVIDIA",
+                    "findings": [
+                        {"point": "Revenue doubled.", "citations": ids}
+                    ],
+                }
+            ],
+            "comparison_table": None,
+            "citations": [
+                {"chunk_id": i, "claim": "Revenue.", "quote": "130,497"}
+                for i in ids
+            ],
+            "coverage": {
+                "companies_used": [],
+                "companies_missing": [],
+                "data_as_of": "2026-02-25",
+            },
+            "gaps": [],
+            "confidence": "high",
+            "confidence_reason": "Reported values.",
+            "next_questions": [],
+            "refusal": None,
+        }
+    )
+
+
+def test_facts_citation(
+    nvda_facts: dict[str, Any], facts_config: edgar.FactsConfig
+) -> None:
+    """A fact ID of the block validates; an unknown fact ID is dropped."""
+    block = edgar.facts_lines(
+        nvda_facts, "NVDA", facts_config, start=FY2024_START, end=FY2025_END
+    )
+    known = "facts:NVDA:Revenues:FY2025"
+    unknown = "facts:NVDA:Revenues:FY2019"
+    built = test_context.build(
+        [test_context.candidate("NVDA", 0, period="2025-01-26")],
+        test_context.groups(["NVDA"], 10),
+        company_order=["NVDA"],
+    )
+    facts = {line.fact_id: line for line in block.lines}
+    result = citations.validate(_answer(known, unknown), built, {}, facts)
+    kept = [c.chunk_id for c in result.answer.citations]
+    assert known in kept
+    assert unknown not in kept
+    assert result.report.citation_drift == 2  # the list and the finding
+    assert result.report.inline_drift == 1
+    assert unknown not in result.answer.direct_answer
+    assert f"[{known}]" in result.answer.direct_answer
+    finding = result.answer.company_findings[0].findings[0]
+    assert known in finding.citations
+    assert not finding.unverified
+    fact = next(c for c in result.citations_resolved if c.kind == "fact")
+    assert fact.chunk_id == known
+    assert fact.sec_url == (
+        "https://www.sec.gov/Archives/edgar/data/1045810/"
+        "000104581026000021/0001045810-26-000021-index.htm"
+    )
+    assert fact.section_title == citations.FACTS_SECTION
+    assert (fact.fiscal_label, fact.period_end) == ("FY2025", "2025-01-26")
+    assert fact.filing_name == "NVDA 10-K filed 2026-02-25"
+    assert not fact.quote_mismatch
+    # fiscal 2024 comes from the facts block, not from a chunk.
+    assert result.report.period_mismatch == []
+    # Without the block, the fact ID is drift like any unknown ID.
+    bare = citations.validate(_answer(known), built, {})
+    assert known not in [c.chunk_id for c in bare.answer.citations]
+    assert bare.report.period_mismatch == ["fiscal 2024"]
+
+
+def test_fact_citation_quote_and_link_checks(
+    nvda_facts: dict[str, Any], facts_config: edgar.FactsConfig
+) -> None:
+    block = edgar.facts_lines(nvda_facts, "NVDA", facts_config)
+    line = block.lines[0]
+    cited = citations.Citation(chunk_id=line.fact_id, claim="x", quote="999")
+    assert citations.resolve_fact(cited, line).quote_mismatch
+    assert citations.resolve_fact(cited, line).sec_url == line.filing_index_url
+    assert citations.FACT_ID.match("facts:BRK-B:Revenues:Q3FY2026")
+    assert not citations.FACT_ID.match("facts:NVDA:Revenues:2025")
+
+
+def test_collect_facts_takes_the_cik_of_the_ticker_map(
+    tmp_path: pathlib.Path, facts_config: edgar.FactsConfig
+) -> None:
+    """A body without `cik` still links its fact citations to EDGAR."""
+    shutil.copy(
+        EDGAR_FIXTURES / "company_tickers.json",
+        tmp_path / "company_tickers.json",
+    )
+    body = json.loads(NVDA_FACTS.read_text())["data"]
+    del body["cik"]
+    handler = Recorder(lambda request: httpx.Response(200, json=body))
+    with make_client(tmp_path, handler) as c:
+        result = edgar.collect_facts(c, facts_config, {"NVDA": NVDA_WINDOW})
+    line = result.lines[0]
+    assert line.cik == NVDA_CIK
+    cited = citations.Citation(chunk_id=line.fact_id, claim="x", quote="1")
+    assert citations.resolve_fact(cited, line).sec_url == line.filing_index_url
+    bare = edgar.facts_lines(body, "NVDA", facts_config)
+    assert bare.cik == ""
+    unknown = citations.resolve_fact(cited, bare.lines[0])
+    assert unknown.sec_url is None
+
+
+def test_quarter_fact_holds_its_fiscal_year(
+    nvda_facts: dict[str, Any], facts_config: edgar.FactsConfig
+) -> None:
+    block = edgar.facts_lines(
+        nvda_facts, "NVDA", facts_config, start=FY2024_START, end=FY2025_END
+    )
+    quarter = next(line for line in block.lines if line.fiscal_label[0] == "Q")
+    year = quarter.fiscal_label.split("FY")[1]
+    built = test_context.build(
+        [test_context.candidate("NVDA", 0, period="2021-01-31")],
+        test_context.groups(["NVDA"], 10),
+        company_order=["NVDA"],
+    )
+    text = f"{quarter.fiscal_label.split()[0]} fiscal {year} and fiscal {year}"
+    assert citations.period_mismatches(text, built, [quarter]) == []
+    assert citations.period_mismatches(text, built) != []

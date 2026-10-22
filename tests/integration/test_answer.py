@@ -10,6 +10,7 @@ they do in `keel ask`.
 import asyncio
 import json
 import pathlib
+import shutil
 
 import pytest
 
@@ -19,6 +20,7 @@ from keel import cache
 from keel import cli
 from keel import config
 from keel import context
+from keel import edgar
 from keel import errors
 from keel import retriever
 from keel.providers import base
@@ -62,6 +64,10 @@ def run_settings(
         update={
             "logs": config.LogsConfig(dir=tmp_path / "logs"),
             "cache": config.CacheConfig(answers_dir=tmp_path / "answers"),
+            # An empty EDGAR cache: no test reads the developer's cache.
+            "edgar": settings.edgar.model_copy(
+                update={"cache_dir": tmp_path / "edgar"}
+            ),
         }
     )
 
@@ -74,11 +80,17 @@ class Sleeps:
         self.waits.append(seconds)
 
 
+def no_facts(analysis) -> edgar.FactsResult:
+    del analysis
+    return edgar.FactsResult()
+
+
 def make(
     index_dir: pathlib.Path,
     run_settings: config.Settings,
     provider: mock.MockProvider | None = None,
     sleeps: Sleeps | None = None,
+    facts_loader: answer.FactsLoader | None = None,
 ) -> answer.Answerer:
     build = index_dir / "current"
     step = retriever.Retriever(
@@ -94,6 +106,9 @@ def make(
         provider or mock.MockProvider(run_settings.llm.model),
         "1.0.0",
         sleep=sleeps or Sleeps(),
+        # No test reaches the SEC: the default loader runs only when a test
+        # calls `load_facts` itself, offline.
+        facts_loader=facts_loader or no_facts,
     )
 
 
@@ -577,3 +592,146 @@ def test_prompt_and_output_mode_must_match(index_dir, run_settings) -> None:
         }
     )
     assert make(index_dir, matched).files.output_mode == "tool"
+
+
+NUMERIC = "What was Apple's revenue in fiscal 2025?"
+EDGAR_FIXTURES = conftest.FIXTURES / "edgar"
+
+
+def nvda_result() -> edgar.FactsResult:
+    """The NVDA facts of the recorded fixture, served as AAPL lines."""
+    data = edgar.read_cached(
+        EDGAR_FIXTURES / "companyfacts" / "CIK0001045810.json"
+    ).data
+    facts_config = edgar.load_facts_config(
+        conftest.REPO_ROOT / "config" / "facts.yaml"
+    )
+    block = edgar.facts_lines(data, "AAPL", facts_config, max_lines=3)
+    return edgar.FactsResult(blocks=(block,), source="cache", files=1)
+
+
+def test_facts_in_the_answer(index_dir, run_settings) -> None:
+    """A numeric question sends <facts>, cites a fact, and audits the count."""
+    seen = []
+
+    def loader(analysis):
+        seen.append(analysis.tickers)
+        return nvda_result()
+
+    provider = mock.MockProvider(run_settings.llm.model)
+    answerer = make(index_dir, run_settings, provider, facts_loader=loader)
+    record = final(ask(answerer, NUMERIC))
+    assert seen == [("AAPL",)]
+    bundle = provider.bundles[0]
+    assert "<facts>" in bundle.user
+    assert len(bundle.fact_ids) == 3
+    assert record["outcome"] == "answered"
+    assert record["meta"]["facts"] == {
+        "lines": 3,
+        "source": "cache",
+        "files": 1,
+        "errors": [],
+    }
+    facts = [c for c in record["citations_resolved"] if c["kind"] == "fact"]
+    assert [c["chunk_id"] for c in facts] == [bundle.fact_ids[0]]
+    assert facts[0]["sec_url"].startswith("https://www.sec.gov/Archives/")
+    assert record["meta"]["flags"]["citation_drift"] == 0
+    line = audit_lines(run_settings)[0]
+    assert line["facts_lines"] == 3
+    assert line["facts_source"] == "cache"
+    assert line["fact_ids"] == list(bundle.fact_ids)
+    assert line["facts_errors"] == []
+    # The cached prefix is the same with and without facts.
+    plain = mock.MockProvider(run_settings.llm.model)
+    ask(make(index_dir, run_settings, plain), question(run_settings))
+    assert plain.bundles[0].system == bundle.system
+    assert "<facts>" not in plain.bundles[0].user
+
+
+def test_facts_never_block_the_answer(index_dir, run_settings) -> None:
+    def broken(analysis):
+        raise RuntimeError("the cache is on fire")
+
+    provider = mock.MockProvider(run_settings.llm.model)
+    answerer = make(index_dir, run_settings, provider, facts_loader=broken)
+    record = final(ask(answerer, NUMERIC))
+    assert record["outcome"] == "answered"
+    assert provider.requests == 1
+    assert "<facts>" not in provider.bundles[0].user
+    assert record["meta"]["facts"]["source"] == "none"
+    assert record["meta"]["facts"]["errors"] == [
+        "RuntimeError: the cache is on fire"
+    ]
+    line = audit_lines(run_settings)[0]
+    assert (line["facts_lines"], line["facts_source"]) == (0, "none")
+
+
+def test_facts_only_for_numeric_questions(index_dir, run_settings) -> None:
+    calls = []
+    answerer = make(
+        index_dir,
+        run_settings,
+        facts_loader=lambda analysis: calls.append(analysis) or nvda_result(),
+    )
+    record = final(ask(answerer, question(run_settings)))
+    assert calls == []
+    assert record["meta"]["facts"]["lines"] == 0
+    older = run_settings.model_copy(
+        update={
+            "llm": run_settings.llm.model_copy(
+                update={"prompt_version": "1.3.0"}
+            )
+        }
+    )
+    final(ask(make(index_dir, older, facts_loader=calls.append), NUMERIC))
+    assert calls == []  # 1.3.0 has no <facts> slot
+
+
+def test_load_facts_reads_the_cache_offline(
+    index_dir, run_settings, tmp_path
+) -> None:
+    """The default loader reads the EDGAR cache; failures become errors."""
+    cache_dir = tmp_path / "edgar"
+    shutil.copytree(EDGAR_FIXTURES, cache_dir)
+    offline = run_settings.model_copy(
+        update={
+            "offline": True,
+            "edgar": run_settings.edgar.model_copy(
+                update={"cache_dir": cache_dir}
+            ),
+        }
+    )
+    answerer = make(index_dir, offline)
+    # The synthetic index has no NVDA, so the analysis names it directly.
+    analysis = answerer.understander.analyze(NUMERIC).model_copy(
+        update={"tickers": ("NVDA",), "windows": {}}
+    )
+    result = answerer.load_facts(analysis)
+    assert result.source == "cache"
+    assert "facts:NVDA:Revenues:FY2025" in result.by_id()
+    client = answerer._edgar
+    assert answerer.load_facts(analysis).lines == result.lines
+    assert answerer._edgar is client  # 1 client keeps the rate limit
+    missing = offline.model_copy(
+        update={
+            "edgar": offline.edgar.model_copy(
+                update={"facts": tmp_path / "absent.yaml"}
+            )
+        }
+    )
+    failed = make(index_dir, missing).load_facts(analysis)
+    assert failed.source == "none"
+    assert len(failed.errors) == 1
+
+
+def test_facts_line_of_ask() -> None:
+    line = cli._facts_line
+    assert line({"lines": 40, "source": "cache", "files": 1, "errors": []}) == (
+        "facts: 40 lines from 1 cached file"
+    )
+    assert line({"lines": 9, "source": "network", "files": 2}) == (
+        "facts: 9 lines from 2 fetched files"
+    )
+    assert line(
+        {"lines": 0, "source": "none", "files": 0, "errors": ["x"]}
+    ) == ("facts: 0 lines; facts error: x")

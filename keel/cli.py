@@ -1019,6 +1019,20 @@ def _meta_line(record: dict[str, Any]) -> str:
     return " | ".join(parts)
 
 
+def _facts_line(facts: dict[str, Any]) -> str:
+    """Describe the facts block as the trace drawer does (chapter 26.1)."""
+    lines, files = facts.get("lines", 0), facts.get("files", 0)
+    source = {"cache": "cached", "network": "fetched"}.get(
+        facts.get("source", "none")
+    )
+    text = f"facts: {lines} lines"
+    if files and source:
+        text += f" from {files} {source} file" + ("s" if files > 1 else "")
+    for problem in facts.get("errors", []):
+        text += f"; facts error: {problem}"
+    return text
+
+
 def _print_answer(record: dict[str, Any], streamed: bool) -> None:
     """Print the findings, the citations, the gaps, and the meta line."""
     result = record.get("answer")
@@ -1039,6 +1053,9 @@ def _print_answer(record: dict[str, Any], streamed: bool) -> None:
         for gap in result["gaps"]:
             print("gap: " + gap)
     print("\n" + _meta_line(record))
+    facts = record["meta"].get("facts") or {}
+    if facts.get("lines") or facts.get("errors"):
+        print(_facts_line(facts))
     flags = record["meta"].get("flags") or {}
     if flags:
         drift = flags.get("citation_drift", 0)
