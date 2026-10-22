@@ -46,6 +46,8 @@ from keel.stores import sqlite_fts
 logger = logging.getLogger(__name__)
 
 CURRENT = "current"
+# Set by a restore (keel.backup); the build it names is never pruned.
+PREVIOUS = "previous"
 MANIFEST = "manifest.json"
 FIRST_VERSION = "1.0.0"
 COMPATIBLE_PROMPT_VERSIONS = ">=1.0.0,<2.0.0"
@@ -549,8 +551,15 @@ def _publish(index_dir: pathlib.Path, staging: pathlib.Path) -> pathlib.Path:
 
 
 def _prune(index_dir: pathlib.Path, keep: Sequence[pathlib.Path]) -> None:
-    """Delete old build directories, keeping the given ones."""
+    """Delete old build directories, keeping the given ones.
+
+    The target of the `previous` pointer of a restore is kept too, so the
+    rollback of infra/README.md never follows a dangling link.
+    """
     kept = {p.resolve() for p in keep}
+    previous = index_dir / PREVIOUS
+    if previous.exists():
+        kept.add(previous.resolve())
     builds = sorted(
         (p for p in index_dir.iterdir() if _BUILD_ID.match(p.name)),
         reverse=True,

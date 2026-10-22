@@ -142,6 +142,35 @@ def test_start_and_stop_runs_a_due_job() -> None:
     finally:
         planner.stop()
     planner.stop()
+    # A stopped scheduler starts again and runs the next due job.
+    ran.clear()
+    clock.now = datetime.datetime(2026, 10, 23, 2, 31, tzinfo=UTC)
+    planner.start()
+    try:
+        assert ran.wait(timeout=10)
+    finally:
+        planner.stop()
+
+
+def test_stop_keeps_a_thread_that_is_still_in_a_job() -> None:
+    release = threading.Event()
+    started = threading.Event()
+
+    def slow() -> None:
+        started.set()
+        release.wait(10)
+
+    clock = FakeClock(datetime.datetime(2026, 10, 22, 2, 29, tzinfo=UTC))
+    planner = scheduler.Scheduler(
+        [scheduler.Job("backup", scheduler.parse_time("02:30"), slow)], clock
+    )
+    clock.now = datetime.datetime(2026, 10, 22, 2, 31, tzinfo=UTC)
+    planner.start()
+    assert started.wait(10)
+    planner.stop(timeout=0.01)
+    planner.start()  # the old thread is alive: no second copy
+    release.set()
+    planner.stop()
 
 
 def test_utc_now_is_aware() -> None:

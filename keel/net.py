@@ -6,17 +6,18 @@ answer the first lookup with a public address and the connect with a
 private one (DNS rebinding), so `check_peer` reads the address of the
 socket that httpx really opened and rejects the response before any body
 byte is read. `redact_url` and `quiet_http_logs` keep the query string of a
-signed URL out of the logs. The bootstrap download uses all 4; the EDGAR
-client of chapter 26 can adopt the same calls.
+signed URL out of the logs, and `install_log_redaction` strips the query
+from the URLs httpx and httpcore log. The bootstrap download uses them; the
+EDGAR client of chapter 26 can adopt the same calls.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from collections.abc import Sequence
-import contextlib
 import ipaddress
 import logging
+import re
+import threading
 from urllib import parse
 
 import httpx
@@ -25,6 +26,8 @@ from keel import errors
 
 # The loggers of httpx and httpcore print the full request URL at INFO.
 HTTP_LOGGERS = ("httpx", "httpcore")
+# NAT64 maps an IPv4 address into IPv6; the embedded address decides.
+_NAT64 = ipaddress.ip_network("64:ff9b::/96")
 
 
 def is_public_address(address: str) -> bool:
@@ -41,6 +44,11 @@ def is_public_address(address: str) -> bool:
         ip = ipaddress.ip_address(address.split("%", 1)[0])
     except ValueError:
         return False
+    if isinstance(ip, ipaddress.IPv6Address):
+        if ip.ipv4_mapped is not None:
+            ip = ip.ipv4_mapped
+        elif ip in _NAT64:
+            ip = ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
     return ip.is_global and not ip.is_multicast
 
 
@@ -128,21 +136,53 @@ def redact_url(url: str | httpx.URL) -> str:
     return f"{parts.scheme}://{host}{parts.path}"
 
 
-@contextlib.contextmanager
-def quiet_http_logs() -> Iterator[None]:
-    """Raise the httpx and httpcore loggers to WARNING inside the block.
+_URL_QUERY = re.compile(r"(\bhttps?://[^\s?#\"'<>]*)[?#][^\s\"'<>]*")
+_install_lock = threading.Lock()
 
-    Their INFO and DEBUG lines carry the full URL, query included.
 
-    Yields:
-        Nothing; the levels come back on exit.
+def redact_text(text: str) -> str:
+    """Remove the query and fragment of every URL in a text.
+
+    Args:
+        text: A log message.
+
+    Returns:
+        The text with each `?query` or `#fragment` of a URL cut off.
     """
-    loggers = [logging.getLogger(name) for name in HTTP_LOGGERS]
-    levels = [item.level for item in loggers]
-    for item in loggers:
-        item.setLevel(max(logging.WARNING, item.level))
-    try:
-        yield
-    finally:
-        for item, level in zip(loggers, levels, strict=True):
-            item.setLevel(level)
+    return _URL_QUERY.sub(r"\1", text)
+
+
+class RedactQueryFilter(logging.Filter):
+    """Strips URL queries from a log record before any handler sees it."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Rewrite the record message without URL queries.
+
+        Args:
+            record: The log record.
+
+        Returns:
+            True: the record is kept, redacted.
+        """
+        message = record.getMessage()
+        redacted = redact_text(message)
+        if redacted != message:
+            record.msg = redacted
+            record.args = None
+        return True
+
+
+def install_log_redaction() -> None:
+    """Add 1 `RedactQueryFilter` to the httpx and httpcore loggers, once.
+
+    Their lines carry the full request URL, query included. A filter, not
+    a level change, so other clients keep their logs and threads cannot
+    restore a level out of order.
+    """
+    with _install_lock:
+        for name in HTTP_LOGGERS:
+            target = logging.getLogger(name)
+            if not any(
+                isinstance(item, RedactQueryFilter) for item in target.filters
+            ):
+                target.addFilter(RedactQueryFilter())
