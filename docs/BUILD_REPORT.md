@@ -412,6 +412,25 @@ Entry format:
 - Commits: the card plans 4 plus this report; 3 `fix` commits carry the security and code reviews, so the stage has 8.
 - Attempts: 1. No live provider spend (the evidence runs with the mock provider).
 
+## Stage 19: Memo export
+
+- Built: `keel/export.py` with `keel export REQUEST_ID --format markdown|docx [--out PATH] [--record PATH]`. The lookup reads a saved result JSON (`--record`, the footer Export JSON or `keel ask --json`), else the audit record of the request ID (its question, index version, prompt version, and model rebuild the D-29 cache key), else the cache entry the request filled (`AnswerCache.find`). The memo: the question as title, the request, model, versions, and data date, the direct answer, the confidence, the findings per company (`(unverified)` marked), the comparison table, the gaps (always shown), the coverage, and numbered sources with filing name, section, fiscal label, period end, filing date, quotes, chunk ID, and the SEC link. The answer text is kept as validated, so every number keeps its fiscal label and period end as written. DOCX through python-docx (the `export` extra, imported on first use). `GET /api/export/{request_id}?format=md|docx` in `keel/api/export_routes.py`, behind the bearer token: the result store first, then the same lookup; 404 while pending or unknown, 400 for another format, 501 without python-docx. `cli.py` gains 1 parser call and 1 handler line.
+- Tests: Python 570 passing in PR runs (19 new: `test_export_markdown`, `test_export_docx`, `test_export_no_sec_link_for_untrusted_url`, `test_export_link_needs_the_sec_host` (4 cases), `test_export_markdown_injection_is_inert`, `test_export_sec_link_is_encoded`, the escaping, empty answer, missing extra, audit and cache lookup, a request that never borrows another request's answer, XML-invalid characters, saved result, and command tests, and 2 API route tests). Coverage of `keel/` 97%, `keel/export.py` 97%.
+- Measured (card evidence): 1 live `keel ask` on the full index with the answer cache and the logs in scratchpad folders: request `8c9cb182f9104a57a06af8e1c1a6177c`, outcome `answered`, 1 model request, 21 resolved citations, 0.117 USD. `uv run keel export 8c9cb182f9104a57a06af8e1c1a6177c --format docx` found the answer through the audit record and the cache key and wrote the memo (21 sources, 40,507 bytes). Reopened with python-docx: 21 numbered sources, 21 hyperlinks, all on `www.sec.gov`, a 6-row comparison table; macOS `textutil` reads the file too. The Markdown memo of the same request has 21 footnotes. Word itself was not opened by the build session.
+- Done when: the engineer opened the exported DOCX and Markdown memos in Word on 2026-10-21; both opened with numbered sources and SEC links.
+- Deviations from the specification:
+    - python-docx has no footnote API, so the DOCX memo carries superscript numbers in the text and numbered endnotes in a `Sources` section; the Markdown memo uses `[^n]` footnotes under `## Sources`.
+    - Footnote numbers follow the first reference in reading order (direct answer, findings, table); a validated citation the text never references gets the next numbers. A finding's `citations` not already in its text are appended as references. 1 footnote per chunk; several quotes of 1 chunk share it.
+    - A marker for a context chunk outside `citations_resolved` takes its source facts from the record's retrieval chunks (no filing date there).
+    - Security review (orchestrator): all model and filing text is escaped as Markdown inline text (every metacharacter, the colon of a scheme, the dot after `www`, a list or heading marker at the start of a field; hyphens mid-text stay) and collapsed to 1 line; a link URL must pass the parser's `www.sec.gov` check, is percent-encoded (safe set `/:?=&%#.-_~`), and is checked again. Folded into the unpushed `feat(export): docx memo` commit.
+    - `make test` (`make sync`) now runs `uv sync --all-extras`, as CI and the CLAUDE.md install command do; plain `uv sync` removed python-docx and the DOCX tests could not import it.
+    - The shared test record lives in `tests/export_samples.py` (next to `conftest.py`) so the unit and integration tests both import it.
+    - The card names only `keel/export.py`; the API route `GET /api/export/{request_id}` (with `md` as an alias of `markdown`) and the `--record` option are additions, small enough for this stage. The route reads the audit record and the result store only, not a scan of every cache entry, to bound the work per request.
+    - Review findings fixed in a `fix(export)` commit: the audit record's cache key returns an entry only when that request filled it or was served from it (outcome `cached`), so a refused request or a request whose entry a later answer replaced never exports another answer; characters XML cannot hold are dropped; the test helpers are annotated. Declined: the reviewer read the diff against a stale `main` (5 newer commits on main), which is a rebase for the orchestrator, not a change.
+    - Commits: the card plans 3; the stage has 5 (the review fix and this report).
+- Cut or deferred: none. A front-end button for the memo route is not built (chapter 27.2 names only `keel/export.py`).
+- Attempts: 1. 1 live answer for the evidence, about 0.12 USD.
+
 ## Gaps
 
 Values that were not available when the build needed them, and what the build did instead.
@@ -437,7 +456,6 @@ Decisions that CLAUDE.md says to ask about, taken in unattended mode. One line e
 - Mixed fiscal years across companies with no time scope are labeled per company by the prompt (1.1.0), not filtered to the latest filing in retrieval, because PFE's latest 10-K has its risk section mostly in `unknown`. Stage 8.
 - The adapter imports `httpx2`, which `pyproject.toml` does not declare: it is the HTTP library of `anthropic` 2.0 and is in `uv.lock`, and the SDK does not wrap its transport errors raised while a stream is read. No dependency changes. Stage 7.
 - The audit record joins the `final` record in `keel/answer.py`, not in `keel/api/sse.py` as chapter 25.1 places it, so the CLI and the JSON answer carry it too; the G-27 preset fills the question without sending it. Stage 12.
-
 - `keel eval` makes model requests only with `--answers` (about 4 USD a run); the default run stays free and leaves the answer gates pending. Stage 10.
 - The eval judge runs `claude-opus-5-5` (the config pin) at effort `medium` with structured output, at about 0.08 USD per answer instead of the 0.02 of chapter 18.4; Opus 5.5 cannot turn thinking off. Stage 10.
 - The live answer eval ran once; 2 harness defects found in it were fixed and checked with a 2-question live run instead of a second full run, and `eval/report.md` explains them in a hand-written section. Stage 10.
@@ -448,6 +466,7 @@ Decisions that CLAUDE.md says to ask about, taken in unattended mode. One line e
 - A company facts file missing from the cache is fetched in the request path when online (30 s timeout); the warm cache of stage 15 is what keeps the demo at 0 requests. Stage 13.
 - The users file stores the sha256 of a 256-bit random token, not a slow key derivation: the tokens are machine-drawn, so a fast hash leaves no guessable space, and no dependency is added. Stage 17.
 - A link to a stored answer opens for any token holder (chapter 27.2) through its own route, while the refresh route stays with the asker and the admins; the viewer does not see who asked. Stage 17.
+- `make sync` runs `uv sync --all-extras`, so the DOCX tests find python-docx (the `export` extra already in `pyproject.toml`); no dependency changes. Stage 19.
 
 ## Placeholders resolved
 
