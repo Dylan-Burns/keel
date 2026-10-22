@@ -19,7 +19,7 @@ scripts/demo_preflight.sh --skip-tests  # the quick run, 30 minutes before the s
 | `keel serve` runs, `/api/health` answers | the script (it starts the service when nothing answers) | | |
 | `/api/ready` is ready with the index version of `index/current` | the script | | |
 | `keel warm-cache` holds 28 entries | the script (reports "pending stage 15" until the command exists) | | |
-| `demo/recording.mp4` and `demo/static/` exist | the script (warnings when absent); play and open them by hand | | |
+| `demo/recording.mp4` and `demo/static/` exist | the script (warnings when absent, and for a draft `demo/recording.webm` without the mp4); play and open them by hand | | |
 | The 3 example questions run live, every citation read once | by hand | | |
 | The offline drill works with the provider host blocked | by hand (drill D-1 below) | | |
 | The 3 answers are printed | by hand | | |
@@ -108,7 +108,8 @@ The recording and the static export are the fallbacks of drills D-3 and D-4 (cha
 - [ ] Nothing secret on screen: no terminal with the environment, no developer tools with the bearer token, no settings page.
 - [ ] Notifications muted and other applications closed before the recording starts.
 - [ ] Save as `demo/recording.mp4`, play it end to end once, and check that the sound is off or clean.
-- [ ] Export the 3 answers as static HTML in `demo/static/`, open each file with the network off, and check that the citations and the coverage statement render.
+- [ ] A draft exists: `demo/recording.webm` (gitignored, 1280x800, no sound), recorded headless by `npm run static-export --prefix web -- URL --record demo/recording.webm` against `KEEL_OFFLINE=1 keel serve`. It shows the 3 example questions answered from the answer cache (`model requests: 0`, flag `from_cache`), a citation opened per answer, and the trace drawer closed and opened once on question 1. It is not the final recording: the demo story says `model requests: 1` on a live answer. Convert it to `demo/recording.mp4`, or better, re-record a live run with the QuickTime screen recording (File, New Screen Recording) at 125% zoom and save it as `demo/recording.mp4`. The pre-flight reports the draft as a warning until the mp4 exists.
+- [ ] Export the 3 answers as static HTML in `demo/static/`, open each file with the network off, and check that the citations and the coverage statement render. The committed export comes from `npm run static-export --prefix web -- URL` (each answer from the warm cache, no script, the CSS inlined, only `www.sec.gov` and relative links, the controls disabled); run it again after `keel warm-cache` on a new index.
 - [ ] Print the 3 answers for a total failure of the laptop.
 - [ ] Run `scripts/demo_preflight.sh --skip-tests` and confirm the recording and static export rows pass.
 - [ ] Record again after any change to the index version, the prompt version, or the model snapshot.

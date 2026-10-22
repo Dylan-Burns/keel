@@ -10,7 +10,9 @@ Stages 0 to 22 are merged. These steps need the engineer and are open:
   `deploy.yml`, approve it, and check `/api/health` over HTTPS from a phone.
 - Stage 16: time the rehearsal against 25 minutes with 5 to spare, and fill
   the log in `docs/REHEARSAL.md`.
-- Chapter 21.1: record `demo/recording.mp4` and write `demo/static/`.
+- Chapter 21.1: record `demo/recording.mp4` (a draft `demo/recording.webm`
+  of the offline answers exists on the build laptop; convert it or re-record).
+  `demo/static/` holds the 3 example answers.
 
 One entry per stage of `docs/28_build_sequence.md`. Claude Code appends to this file after each stage. The panel reads it during the demo code walk.
 
@@ -544,6 +546,14 @@ Entry format:
 - Review: the reviewer subagent found that an idle last week was cut off and could pass the every-week targets (the rows now run to the current week with `--since`), that `--exclude-user` kept the user's votes, that the `legacy` user of the terminal runs inflated the counts (documented exclusion), that the guide claimed the nightly backup copies the pilot store (it copies the index and `audit.jsonl` only), the missing scratch manifest in P-14, a mutable argparse default, a missing `Args:` section, and the README heading of chapter 23.1. All fixed in 2 commits. Declined: the mutable `_Tally` accumulator and the dicts inside the frozen `Metrics` (an internal running count, and plain dicts that `dataclasses.asdict` renders as JSON; no caller mutates them), and squashing the 2 earlier `fix(cli)` commits (the orchestrator gave the branch with those commits; the commit count is recorded above).
 - Cut or deferred: none from the card. The data use page of chapter 27.2 came with stage 21 (`/help`); START_GUIDE section 7 carries the same content for the users.
 - Attempts: 1. No live provider spend.
+
+## Follow-up after stage 22: demo static export
+
+- Built: `web/scripts/static-export.ts` (run as `npm run static-export --prefix web -- URL`, Node 22 type stripping, linted and typed with the rest of `web/`; `scripts/` joins the `web/tsconfig.json` include). With the Playwright of `web/`, it opens the page, clicks each of the 3 example chips, waits for the `complete` or `partial_coverage` state, and writes `demo/static/answer-1.html` to `answer-3.html` plus `index.html`: the rendered DOM with every script, link, iframe, and event attribute removed, the built CSS inlined, every `href` or `src` outside `https://www.sec.gov/` dropped, the controls disabled, and a banner that names the export date and the request line. The token sits only in the session storage of the headless browser; the script writes no header and no storage. `--record FILE` records a 1280x800 video of the 3 questions with a citation opened per answer and the trace drawer closed and opened once. `scripts/demo_preflight.sh` reports a `demo/recording.webm` without the mp4 as the warning "draft webm present; convert to recording.mp4"; `.gitignore` holds `demo/recording.webm`. `docs/REHEARSAL.md` and the README name the commands.
+- Measured: `answer-1.html` 95,016 bytes, `answer-2.html` 86,415, `answer-3.html` 90,893, `index.html` 1,166 (all 3 answers in the `complete` state). Each export has 0 `<script` tags; its links are 59 to 71 `https://www.sec.gov/Archives/` filing links and 1 relative `index.html`; 0 matches for `Bearer`, 0 for the token value of the run, 0 em or en dashes (so `demo/static/` needs no dash exclusion). The only "token" words are UI labels ("Change token", "estimated tokens", "first token"). Rendered from `file://` with no server: the answer, the findings, the comparison table, the citations with their SEC links, the coverage line, and the trace drawer show. Draft video `demo/recording.webm` 11.7 MB (11,715,536 bytes), on the build laptop in the worktree, not committed.
+- Zero model requests: `keel serve --port 8010` ran with `KEEL_OFFLINE=1`, index 1.2.0 of the main checkout (`KEEL_INDEX__DIR`), the 28 committed cache entries, a throwaway `KEEL_API_TOKEN` and a placeholder `ANTHROPIC_API_KEY` from the environment (so the real key was never loaded), and a scratch `KEEL_LOGS__DIR`. The scratch `audit.jsonl` holds 6 records (3 export, 3 recording): `model_requests` sum 0, outcome `cached` for all 6, flag `from_cache` true, prompt 1.4.0. The trace drawer of each answer reads `model requests: 0`.
+- Decisions taken without review: the video is WebM from the Playwright recorder (no ffmpeg on the laptop, no system software installed), so it stays a draft for the engineer to convert or re-record as `demo/recording.mp4`; the draft shows the offline answers (`model requests: 0`), not the live single call of the demo story. The script lives in `web/scripts/` as TypeScript run by Node, so it needs no new dependency. Interactive controls of the export are disabled rather than removed, so the page keeps the layout of the live demo.
+- Attempts: 1. No provider spend.
 
 ## Gaps
 
