@@ -1,6 +1,7 @@
 """The memo export route `GET /api/export/{request_id}` (chapter 27.2)."""
 
 import io
+import json
 import pathlib
 
 import docx
@@ -13,6 +14,7 @@ from keel import audit
 from keel import cache
 from keel import config
 from keel import export
+from keel import users
 from keel.api import app as api_app
 
 pytestmark = pytest.mark.integration
@@ -32,6 +34,7 @@ def services(
             "logs": config.LogsConfig(dir=tmp_path / "logs"),
             "cache": config.CacheConfig(answers_dir=tmp_path / "answers"),
             "server": config.ServerConfig(web_dist=tmp_path / "dist"),
+            "auth": config.AuthConfig(users_file=tmp_path / "users.yaml"),
         }
     )
     built = api_app.Services(local)
@@ -89,3 +92,34 @@ def test_export_route_without_the_extra(
         word = client.get("/api/export/live-1?format=docx", headers=AUTH)
     assert word.status_code == 501
     assert word.json()["detail"]["code"] == "export_unavailable"
+
+
+def test_export_log(services: api_app.Services) -> None:
+    """Each memo the route returns adds 1 line with the caller's name."""
+    token = users.add_user(
+        services.settings.auth.users_file, "alice", "analyst"
+    )
+    services.results.start("live-1")
+    services.results.finish("live-1", samples.make_record("live-1"))
+    log = services.settings.logs.dir / export.LOG_NAME
+    with testclient.TestClient(api_app.create_app(services)) as client:
+        mine = {"Authorization": f"Bearer {token}"}
+        memo = client.get("/api/export/live-1", headers=mine)
+        assert memo.status_code == 200
+        word = client.get("/api/export/live-1?format=docx", headers=AUTH)
+        assert word.status_code == 200
+        # A failed export writes no line.
+        missing = client.get("/api/export/nothing", headers=mine)
+        assert missing.status_code == 404
+        bad = client.get("/api/export/live-1?format=pdf", headers=mine)
+        assert bad.status_code == 400
+    lines = [json.loads(x) for x in log.read_text().splitlines()]
+    assert [(x["request_id"], x["format"], x["user_name"]) for x in lines] == [
+        ("live-1", "markdown", "alice"),
+        ("live-1", "docx", "legacy"),
+    ]
+    assert all(
+        set(x) == {"time", "request_id", "format", "user_name"} for x in lines
+    )
+    assert samples.QUESTION not in log.read_text()
+    assert token not in log.read_text()

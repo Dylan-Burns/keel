@@ -3,7 +3,8 @@
 The route finds the stored answer of a request ID in the result store (10
 minutes), then in the answer cache through the audit record, and returns
 the memo as a Markdown or DOCX download. It sits behind the bearer token
-like every read route.
+like every read route. Each memo it returns adds 1 line with the caller's
+user name to the export log (`<logs.dir>/exports.jsonl`).
 """
 
 from __future__ import annotations
@@ -50,7 +51,6 @@ async def export_memo(
             holds the request ID or the answer is still running, and 501
             when python-docx is not installed.
     """
-    del caller
     fmt = FORMAT_NAMES.get(memo_format.lower())
     if fmt is None:
         raise routes.http_error(400, "bad_format", "the format is md or docx")
@@ -78,6 +78,13 @@ async def export_memo(
         data = await asyncio.to_thread(export.render, memo, fmt)
     except export.ExportError as error:
         raise routes.http_error(501, "export_unavailable", str(error)) from None
+    await asyncio.to_thread(
+        export.log_export,
+        services.settings.logs.dir,
+        request_id,
+        fmt,
+        caller.user.name,
+    )
     name = export.file_name(request_id, fmt)
     headers: dict[str, str] = {
         "Content-Disposition": f'attachment; filename="{name}"',
