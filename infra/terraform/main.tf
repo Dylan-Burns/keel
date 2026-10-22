@@ -129,9 +129,17 @@ data "aws_iam_policy_document" "backup_writer" {
   }
 
   statement {
-    sid       = "WriteBackups"
-    actions   = ["s3:PutObject", "s3:GetObject"]
+    sid       = "ReadBackupsAndBootstrap"
+    actions   = ["s3:GetObject"]
     resources = ["${aws_s3_bucket.backups.arn}/keel/*"]
+  }
+
+  # The host writes only the dated backup folders (keel/<YYYY-...>/), never
+  # keel/bootstrap/ or keel/deploy/, which it reads and runs.
+  statement {
+    sid       = "WriteDatedBackups"
+    actions   = ["s3:PutObject"]
+    resources = ["${aws_s3_bucket.backups.arn}/keel/2*"]
   }
 }
 
