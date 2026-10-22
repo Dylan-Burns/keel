@@ -12,6 +12,7 @@ UNIQUE instead of the chapter 9.2 TEXT PRIMARY KEY.
 from __future__ import annotations
 
 from collections.abc import Iterable
+from collections.abc import Mapping
 from collections.abc import Sequence
 import dataclasses
 import itertools
@@ -44,7 +45,8 @@ CREATE TABLE filings (
   parser_version TEXT NOT NULL,
   chunker_version TEXT NOT NULL,
   xbrl_block_chars INTEGER,
-  warnings TEXT
+  warnings TEXT,
+  source TEXT NOT NULL DEFAULT 'corpus'
 );
 
 CREATE TABLE chunks (
@@ -115,8 +117,11 @@ _CHUNK_COLUMNS = (
 
 _INSERT_FILING = (
     "INSERT INTO filings VALUES "
-    "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 )
+# The source of a filing (chapter 26.2, step 6): `corpus` for the files of
+# the zip, `edgar` for the files that `keel add` fetched.
+DEFAULT_SOURCE = "corpus"
 _INSERT_CHUNK = (
     "INSERT INTO chunks (id, chunk_id, filing_id, ticker, company, cik, form, "
     "fiscal_year, fiscal_period, period_end_date, filing_date, section, "
@@ -225,7 +230,7 @@ def open_read_only(path: pathlib.Path) -> sqlite3.Connection:
 
 
 def _filing_row(
-    filing: base.ParsedFiling, chunker_version: str
+    filing: base.ParsedFiling, chunker_version: str, source: str
 ) -> tuple[object, ...]:
     meta = filing.metadata
     return (
@@ -247,6 +252,7 @@ def _filing_row(
         chunker_version,
         meta.xbrl_block_chars,
         json.dumps(list(filing.warnings)),
+        source,
     )
 
 
@@ -254,6 +260,7 @@ def write_filings(
     conn: sqlite3.Connection,
     filings: Iterable[base.ParsedFiling],
     chunker_version: str,
+    sources: Mapping[str, str] | None = None,
 ) -> int:
     """Insert the indexable filings, in filing-ID order.
 
@@ -261,13 +268,19 @@ def write_filings(
         conn: The open store.
         filings: The parsed filings; quarantined ones are skipped.
         chunker_version: The chunker version of the build.
+        sources: The source per file name (`edgar` for the files of `keel
+            add`); a file without an entry is `corpus`.
 
     Returns:
         The number of rows written.
     """
     rows = sorted(
         (
-            _filing_row(f, chunker_version)
+            _filing_row(
+                f,
+                chunker_version,
+                (sources or {}).get(f.metadata.file_name, DEFAULT_SOURCE),
+            )
             for f in filings
             if not f.quarantined and f.filing_id is not None
         ),

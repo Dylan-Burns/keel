@@ -18,6 +18,7 @@ changed filings reach the embedding model.
 from __future__ import annotations
 
 from collections.abc import Callable
+from collections.abc import Mapping
 from collections.abc import Sequence
 import dataclasses
 import datetime
@@ -347,24 +348,47 @@ def _load_previous(index_dir: pathlib.Path) -> _Previous | None:
     return _Previous(build_dir=build_dir, manifest=manifest, states=states)
 
 
+def manifest_sources(manifest: inventory.Manifest) -> dict[str, str]:
+    """Read the source per file name from the `added` block of a manifest.
+
+    `keel add` records each file it writes under `added` with `source:
+    edgar` (chapter 26.2, step 6); the files of the zip have no entry.
+
+    Args:
+        manifest: The corpus manifest.
+
+    Returns:
+        The source per file name, for the files with an entry.
+    """
+    added = (manifest.model_extra or {}).get("added")
+    if not isinstance(added, dict):
+        return {}
+    return {
+        str(name): str(entry.get("source", "edgar"))
+        for name, entry in added.items()
+        if isinstance(entry, dict)
+    }
+
+
 def _parse(
     settings: config.Settings, corpus_dir: pathlib.Path
-) -> tuple[list[pathlib.Path], parser_corpus.CorpusParse]:
+) -> tuple[list[pathlib.Path], parser_corpus.CorpusParse, dict[str, str]]:
     files = sorted(corpus_dir.glob("*.txt"))
     if not files:
         raise errors.CorpusMissingError(f"no filings in {corpus_dir}")
     manifest_files = None
+    sources: dict[str, str] = {}
     try:
-        manifest_files = inventory.load_manifest(
-            corpus_dir / "manifest.json"
-        ).files
+        manifest = inventory.load_manifest(corpus_dir / "manifest.json")
+        manifest_files = manifest.files
+        sources = manifest_sources(manifest)
     except errors.ManifestMissingError as error:
         logger.warning("%s", error)
     context = base.ParseContext.from_settings(settings, manifest_files)
     parsed = parser_corpus.finish_corpus(
         parser_corpus.parse_files(files, context), context
     )
-    return files, parsed
+    return files, parsed, sources
 
 
 def _can_reuse(
@@ -469,10 +493,13 @@ def _write_store(
     parsed: parser_corpus.CorpusParse,
     chunks: Sequence[chunker.Chunk],
     chunker_version: str,
+    sources: Mapping[str, str],
 ) -> None:
     conn = chunk_store.create(path)
     try:
-        chunk_store.write_filings(conn, parsed.filings, chunker_version)
+        chunk_store.write_filings(
+            conn, parsed.filings, chunker_version, sources
+        )
         chunk_store.write_quarantine(
             conn, [f.quarantine for f in parsed.filings if f.quarantine]
         )
@@ -587,7 +614,7 @@ def build_index(  # pylint: disable=too-many-locals
     logger.info("building %s from %s", staging, corpus_dir)
     try:
         step = time.perf_counter()
-        files, parsed = _parse(settings, corpus_dir)
+        files, parsed, sources = _parse(settings, corpus_dir)
         seconds["parse"] = time.perf_counter() - step
         logger.info("parsed %d files in %.1f s", len(files), seconds["parse"])
         step = time.perf_counter()
@@ -615,6 +642,7 @@ def build_index(  # pylint: disable=too-many-locals
             parsed,
             chunks,
             settings.chunker.version,
+            sources,
         )
         seconds["sqlite"] = time.perf_counter() - step
         step = time.perf_counter()
