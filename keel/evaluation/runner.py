@@ -18,9 +18,11 @@ input scores 0 on every variant. A question that expects a refusal and
 fails an input check counts as a missed refusal: the input error is not
 the out-of-scope response the golden set asks for.
 
-The answer metrics of chapter 18.4 (judge, citations, numbers, schema,
-latency, cost) need the answer path of stage 7; they join this module as
-another step per question, and the gates of `gates.py` already list them.
+With `answers` on, each question then goes through the answer pipeline
+on the context of the hybrid run (1 model request), and the judge reads
+the answer (`answers.py`, `judge.py`): the 8 answer gates of chapter 18.8
+get their values. Without it the run makes no model request and those
+gates stay pending.
 """
 
 from __future__ import annotations
@@ -33,16 +35,22 @@ import datetime
 import logging
 import pathlib
 import sqlite3
+import tempfile
 import time
+from typing import Any
 
+from keel import answer
 from keel import config
 from keel import errors
 from keel import indexer
 from keel import retriever
 from keel import understanding
+from keel.evaluation import answers as answering
 from keel.evaluation import gates
 from keel.evaluation import golden
+from keel.evaluation import judge as judging
 from keel.evaluation import metrics
+from keel.providers import base
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +139,7 @@ class RunInfo:
         prompt_version: The answer prompt version of the config.
         model: The answer model of the config.
         subset: The subset, or empty for all.
+        judge_model: The judge model, or empty when no judge ran.
     """
 
     run_id: str
@@ -142,6 +151,7 @@ class RunInfo:
     prompt_version: str
     model: str
     subset: str = ""
+    judge_model: str = ""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -154,6 +164,7 @@ class EvalRun:
         results: Every question result.
         stale_labels: Questions whose labels come from another index.
         seconds: The wall time of the run.
+        answers: The answer results, empty without the answer step.
     """
 
     info: RunInfo
@@ -161,6 +172,7 @@ class EvalRun:
     results: tuple[QuestionResult, ...]
     stale_labels: tuple[str, ...] = ()
     seconds: float = 0.0
+    answers: tuple[answering.AnswerResult, ...] = ()
 
     def scored(self, variant: str) -> list[QuestionResult]:
         """The results with retrieval metrics of 1 variant.
@@ -219,18 +231,78 @@ class EvalRun:
             return None
         return sum(1 for r in rows if r.outcome == REFUSED) / len(rows)
 
+    def answer_values(self) -> dict[str, float | None]:
+        """The answer metrics of chapter 18.4 and 18.6 over the run.
+
+        Faithfulness and citation precision are means over the judged
+        answers, and None when a judge request failed; coverage over the
+        comparison and sector answers; numeric accuracy over the questions
+        with gold values; schema validity over the answers with a model
+        request; latency and cost over the questions with a model request.
+
+        Returns:
+            The values by gate key, plus the judge cost and latency p50;
+            empty without the answer step.
+        """
+        rows = self.answers
+        if not rows:
+            return {}
+        called = [r for r in rows if r.model_requests > 0]
+        judged = [r.judge for r in rows if r.judge is not None]
+        failures = sum(1 for j in judged if j.error)
+        times = [r.latency_s for r in called if r.latency_s is not None]
+        valid = [r.schema_valid for r in rows if r.schema_valid is not None]
+        refusals = [
+            r.refusal_correct for r in rows if r.refusal_correct is not None
+        ]
+        # A failed judge request leaves an answer unjudged; the 2 judge
+        # gates stay pending rather than average over fewer answers.
+        return {
+            "faithfulness": None
+            if failures
+            else metrics.mean(j.faithfulness for j in judged),
+            "citation_precision": None
+            if failures
+            else metrics.mean(j.citation_precision for j in judged),
+            "judge_failures": float(failures),
+            "coverage_completeness": metrics.mean(
+                r.coverage_complete for r in rows
+            ),
+            "numeric_accuracy": metrics.mean(r.numeric_correct for r in rows),
+            "schema_validity": (sum(valid) / len(valid) if valid else None),
+            "answer_refusal_correctness": (
+                sum(refusals) / len(refusals) if refusals else None
+            ),
+            "latency_p95_s": metrics.percentile(times, 0.95),
+            "latency_p50_s": metrics.percentile(times, 0.5),
+            "mean_cost_usd": metrics.mean(r.cost_usd for r in called),
+            "max_cost_usd": max((r.cost_usd for r in called), default=None),
+            "judge_cost_usd": sum(j.cost_usd for j in judged),
+        }
+
     def gate_values(self) -> dict[str, float | None]:
-        """The values the gates read; the answer metrics stay pending.
+        """The values the gates read; the answer gates need the answer step.
+
+        Refusal correctness takes the answer step's value when it ran (an
+        out-of-scope response and no model request), else the value of the
+        understanding step.
 
         Returns:
             The values by gate key.
         """
         main = self.summary(self.variants[0].name) if self.variants else {}
-        return {
+        values = {
             "recall_at_25": main.get("recall_at_25"),
             "mrr": main.get("mrr"),
             "refusal_correctness": self.refusal_correctness(),
         }
+        found = self.answer_values()
+        for gate in gates.GATES:
+            if gate.key in found:
+                values[gate.key] = found[gate.key]
+        if found.get("answer_refusal_correctness") is not None:
+            values["refusal_correctness"] = found["answer_refusal_correctness"]
+        return values
 
     def gates(self) -> tuple[gates.GateResult, ...]:
         """Evaluate the 10 gates of chapter 18.8.
@@ -249,17 +321,83 @@ class Harness:
         conn: The read-only chunk store.
         understander: The understanding step over the index catalog.
         retrievers: 1 retriever per variant, the main one first.
+        session: The answer pipeline on its event loop, or None without
+            the answer step.
+        replay: The retriever of the answer pipeline, or None.
+        judge: The judge, or None.
     """
 
     conn: sqlite3.Connection
     understander: understanding.Understander
     retrievers: Mapping[Variant, retriever.Retriever]
+    session: answering.AnswerSession | None = None
+    replay: answering.ReplayRetriever | None = None
+    judge: judging.Judge | None = None
+
+
+@dataclasses.dataclass(frozen=True)
+class AnswerSetup:
+    """What the answer step needs besides the index.
+
+    Attributes:
+        provider: The answer provider, or None for the configured one.
+        judge_client: The judge client, or None for `llm.judge_model`
+            through the Anthropic API.
+        judge: False to skip the judge (the code metrics still run).
+    """
+
+    provider: base.LLMProvider | None = None
+    judge_client: judging.JudgeClient | None = None
+    judge: bool = True
+
+
+def _answer_parts(
+    settings: config.Settings,
+    base_step: retriever.Retriever,
+    build: pathlib.Path,
+    setup: AnswerSetup,
+) -> tuple[
+    answering.AnswerSession, answering.ReplayRetriever, judging.Judge | None
+]:
+    manifest = indexer.load_manifest(build)
+    version = settings.llm.prompt_version
+    if not answer.prompt_supported(
+        version, manifest.compatible_prompt_versions
+    ):
+        raise errors.ConfigError(
+            f"prompt version {version} is outside the index range "
+            f"{manifest.compatible_prompt_versions}"
+        )
+    replay = answering.ReplayRetriever.from_retriever(base_step)
+    # The eval answers never enter the demo answer cache (D-29), and no
+    # cached answer stands in for a failed request of the run.
+    scratch = pathlib.Path(tempfile.mkdtemp(prefix="keel-eval-answers-"))
+    answer_settings = settings.model_copy(
+        update={"cache": config.CacheConfig(answers_dir=scratch)}
+    )
+    answerer = answer.Answerer(
+        answer_settings,
+        replay,
+        setup.provider or answer.provider_from_settings(settings),
+        manifest.index_version,
+    )
+    judge = None
+    if setup.judge:
+        prices = config.load_prices(settings.llm.prices)
+        judge = judging.Judge(
+            setup.judge_client
+            or judging.AnthropicJudgeClient.from_settings(settings),
+            judging.load_prompt(settings.llm.prompts_dir),
+            prices.models.get(settings.llm.judge_model),
+        )
+    return answering.AnswerSession(answerer, scratch), replay, judge
 
 
 def open_harness(
     settings: config.Settings,
     index_dir: pathlib.Path | None,
     variants: Sequence[Variant],
+    answers: AnswerSetup | None = None,
 ) -> Harness:
     """Open the index and load the 2 models once for every variant.
 
@@ -267,32 +405,47 @@ def open_harness(
         settings: The loaded settings.
         index_dir: The index directory, or None for `index.dir`.
         variants: The variants, the main one first.
+        answers: The answer step setup, or None without the answer step.
 
     Returns:
         The harness.
 
     Raises:
         IndexMissingError: No published index.
+        ConfigError: The prompt version is outside the index range.
+        ProviderRequestError: The answer step needs `ANTHROPIC_API_KEY`.
     """
-    base = retriever.Retriever.open(settings, index_dir)
+    base_step = retriever.Retriever.open(settings, index_dir)
     retrievers = {
         v: retriever.Retriever(
-            base.conn,
-            base.vectors,
-            base.embedder,
-            base.reranker if v.rerank else None,
+            base_step.conn,
+            base_step.vectors,
+            base_step.embedder,
+            base_step.reranker if v.rerank else None,
             settings,
-            degraded=base.degraded,
+            degraded=base_step.degraded,
             mode=v.mode,
         )
         for v in variants
     }
-    return Harness(
-        conn=base.conn,
+    harness = Harness(
+        conn=base_step.conn,
         understander=understanding.Understander.from_settings(
-            settings, base.catalog
+            settings, base_step.catalog
         ),
         retrievers=retrievers,
+    )
+    if answers is None:
+        return harness
+    build = indexer.current_build(index_dir or settings.index.dir)
+    if build is None:
+        raise errors.IndexMissingError("no index build to answer from")
+    session, replay, judge = _answer_parts(settings, base_step, build, answers)
+    return dataclasses.replace(
+        harness,
+        session=session,
+        replay=replay,
+        judge=judge,
     )
 
 
@@ -372,13 +525,24 @@ def _score(
     )
 
 
+@dataclasses.dataclass(frozen=True)
+class _Outcome:
+    """The retrieval rows of 1 question and what the answer step needs."""
+
+    rows: list[QuestionResult]
+    analysis: understanding.QuestionAnalysis | None = None
+    main: retriever.RetrievalResult | None = None
+
+
 def _run_question(
     question: golden.GoldenQuestion,
     labels: golden.QuestionLabels | None,
     harness: Harness,
-) -> list[QuestionResult]:
+) -> _Outcome:
     if question.answer_only:
-        return [QuestionResult(question.id, question.type, "", ANSWER_ONLY)]
+        return _Outcome(
+            [QuestionResult(question.id, question.type, "", ANSWER_ONLY)]
+        )
     analysis: understanding.QuestionAnalysis | None = None
     try:
         analysis = harness.understander.analyze(question.question)
@@ -390,9 +554,13 @@ def _run_question(
         outcome = (
             REFUSED if analysis is not None and refused else MISSED_REFUSAL
         )
-        return [QuestionResult(question.id, question.type, "", outcome, detail)]
+        return _Outcome(
+            [QuestionResult(question.id, question.type, "", outcome, detail)],
+            analysis,
+        )
     judged = golden.judgments(question, labels, harness.conn)
     results = []
+    main: retriever.RetrievalResult | None = None
     for variant, step in harness.retrievers.items():
         if analysis is None or refused:
             outcome = INPUT_ERROR if analysis is None else WRONG_REFUSAL
@@ -408,10 +576,59 @@ def _run_question(
             )
             continue
         result = step.retrieve(analysis)
+        main = main or result
         results.append(
             _score(question, judged, variant, result, outcome=SCORED)
         )
-    return results
+    return _Outcome(results, analysis, main)
+
+
+@dataclasses.dataclass(frozen=True)
+class _Answered:
+    """The answer record of 1 question and what scoring it needs."""
+
+    question: golden.GoldenQuestion
+    record: dict[str, Any]
+    planted: str | None = None
+    judged: judging.JudgeResult | None = None
+    retrieval_ms: float = 0.0
+
+
+def _answer(
+    question: golden.GoldenQuestion,
+    outcome: _Outcome,
+    harness: Harness,
+) -> _Answered:
+    """Answer 1 question on the hybrid context, then judge the answer."""
+    session, replay = harness.session, harness.replay
+    if session is None or replay is None:
+        return _Answered(question, {})
+    planted: str | None = None
+    if question.answer_only:
+        analysis = harness.understander.analyze(question.question)
+        result = answering.plant(replay.retrieve(analysis))
+        retrieval_ms = result.timings.total_ms
+        first = (
+            result.context.chunks[0].candidate
+            if result.context.chunks
+            else None
+        )
+        if first is not None:
+            planted = answering.planted_chunk_id(first.filing_id, first.section)
+        replay.prepared = result
+    else:
+        replay.prepared = outcome.main
+        retrieval_ms = outcome.main.timings.total_ms if outcome.main else 0.0
+    record = session.ask(question.question)
+    replay.prepared = None
+    judged = None
+    item = judging.judge_input(record) if harness.judge else None
+    if harness.judge is not None and item is not None:
+        texts = judging.chunk_texts(harness.conn, item.chunk_ids)
+        if planted is not None:
+            texts[planted] = answering.PLANTED_TEXT
+        judged = harness.judge.judge(item, texts)
+    return _Answered(question, record, planted, judged, retrieval_ms)
 
 
 def run(
@@ -420,32 +637,61 @@ def run(
     harness: Harness,
     *,
     progress: Callable[[str], None] | None = None,
-) -> list[QuestionResult]:
-    """Run each question through understanding and every variant.
+    logs_dir: pathlib.Path | None = None,
+) -> tuple[list[QuestionResult], list[answering.AnswerResult]]:
+    """Run each question through understanding, every variant, the answer.
 
     Args:
         questions: The golden questions.
         labels: The labels by question ID.
-        harness: The index, the understanding step, and the retrievers.
+        harness: The index, the understanding step, the retrievers, and
+            the answer step when it is on.
         progress: Called with 1 line per question, or None.
+        logs_dir: The audit log directory the answer step reads.
 
     Returns:
-        The results, in question order and then variant order.
+        The retrieval results in question and variant order, and the
+        answer results in question order (empty without the answer step).
     """
     results: list[QuestionResult] = []
+    answered: list[_Answered] = []
     for question in questions:
         started = time.perf_counter()
-        rows = _run_question(question, labels.get(question.id), harness)
-        results += rows
+        outcome = _run_question(question, labels.get(question.id), harness)
+        results += outcome.rows
+        line = ""
+        if harness.session is not None:
+            done = _answer(question, outcome, harness)
+            answered.append(done)
+            line = "; answer " + str(done.record.get("outcome", "none"))
+            faithfulness = done.judged.faithfulness if done.judged else None
+            if faithfulness is not None:
+                line += f", faithfulness {faithfulness:.2f}"
         if progress is not None:
-            main = rows[0]
+            main = outcome.rows[0]
             recall = main.metrics.get("recall_at_25")
             shown = "n/a" if recall is None else f"{recall:.2f}"
             progress(
-                f"{question.id} {main.outcome} recall@25 {shown} "
+                f"{question.id} {main.outcome} recall@25 {shown}{line} "
                 f"({time.perf_counter() - started:.1f} s)"
             )
-    return results
+    if not answered or logs_dir is None:
+        return results, []
+    audit_records = answering.read_audit(
+        logs_dir, [str(a.record.get("request_id", "")) for a in answered]
+    )
+    scored = [
+        answering.score(
+            a.question,
+            a.record,
+            audit_records.get(str(a.record.get("request_id", ""))),
+            a.judged,
+            planted=a.planted,
+            retrieval_ms=a.retrieval_ms,
+        )
+        for a in answered
+    ]
+    return results, scored
 
 
 def stale_labels(
@@ -478,6 +724,7 @@ def evaluate(  # pylint: disable=too-many-arguments
     index_dir: pathlib.Path | None = None,
     variants: Sequence[Variant] = ABLATION,
     progress: Callable[[str], None] | None = None,
+    answers: AnswerSetup | None = None,
 ) -> tuple[EvalRun, tuple[golden.GoldenQuestion, ...]]:
     """Run the golden set end to end (the body of `keel eval`).
 
@@ -489,6 +736,8 @@ def evaluate(  # pylint: disable=too-many-arguments
         index_dir: The index directory, or None for `index.dir`.
         variants: The variants, the main one first.
         progress: Called with 1 line per question, or None.
+        answers: The answer step setup, or None for retrieval only (no
+            model request).
 
     Returns:
         The run and the questions it ran.
@@ -496,6 +745,8 @@ def evaluate(  # pylint: disable=too-many-arguments
     Raises:
         GoldenSetError: The golden set or a label file is not valid.
         IndexMissingError: No published index.
+        ConfigError: The prompt version is outside the index range.
+        ProviderRequestError: The answer step needs `ANTHROPIC_API_KEY`.
     """
     started = time.perf_counter()
     golden_set = golden.load_golden(golden_path)
@@ -508,11 +759,21 @@ def evaluate(  # pylint: disable=too-many-arguments
             f"no index at {directory}/current; run keel index"
         )
     info = run_info(settings, golden_set, build, subset)
-    harness = open_harness(settings, directory, variants)
+    harness = open_harness(settings, directory, variants, answers)
+    if harness.judge is not None:
+        info = dataclasses.replace(info, judge_model=settings.llm.judge_model)
     try:
-        results = run(questions, labels, harness, progress=progress)
+        results, answered = run(
+            questions,
+            labels,
+            harness,
+            progress=progress,
+            logs_dir=settings.logs.dir,
+        )
     finally:
         harness.conn.close()
+        if harness.session is not None:
+            harness.session.close()
     return (
         EvalRun(
             info=info,
@@ -520,6 +781,7 @@ def evaluate(  # pylint: disable=too-many-arguments
             results=tuple(results),
             stale_labels=stale_labels(labels, info.chunks_sha256),
             seconds=time.perf_counter() - started,
+            answers=tuple(answered),
         ),
         questions,
     )

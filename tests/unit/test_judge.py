@@ -1,0 +1,355 @@
+"""Tests of the judge pass and the answer metrics (chapter 18.4).
+
+No model is called: a fake judge client returns canned JSON.
+"""
+
+import json
+import pathlib
+import types
+from typing import Any
+
+import pytest
+
+from keel import config
+from keel import errors
+from keel.evaluation import answers
+from keel.evaluation import golden
+from keel.evaluation import judge
+from keel.providers import base
+
+AAPL_RISK = "AAPL_10K_2025-09-27__risk_factors__0001"
+AAPL_MDNA = "AAPL_10K_2025-09-27__mdna__0002"
+PROMPTS = pathlib.Path(__file__).resolve().parents[2] / "prompts"
+
+
+def record(**answer_fields: Any) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "direct_answer": (
+            f"Apple names supply chain risks [{AAPL_RISK}]. "
+            "Its net sales were $391.0 billion in fiscal 2024."
+        ),
+        "company_findings": [
+            {
+                "ticker": "AAPL",
+                "company": "Apple Inc.",
+                "findings": [
+                    {
+                        "point": f"Supply chain risk [{AAPL_RISK}].",
+                        "citations": [AAPL_RISK],
+                        "unverified": False,
+                    },
+                    {
+                        "point": "A claim with no valid citation.",
+                        "citations": [],
+                        "unverified": True,
+                    },
+                ],
+            }
+        ],
+        "comparison_table": None,
+        "citations": [],
+        "coverage": {
+            "companies_used": [
+                {"ticker": "AAPL", "forms": ["10-K"], "fiscal_periods": []}
+            ],
+            "companies_missing": [],
+            "data_as_of": "2025-10-31",
+        },
+        "gaps": ["TSLA has no filing in the window."],
+        "confidence": "high",
+        "confidence_reason": "r",
+        "next_questions": [],
+        "refusal": None,
+    }
+    result.update(answer_fields)
+    return {
+        "request_id": "r1",
+        "question": "What are Apple's risks?",
+        "outcome": "answered",
+        "answer": result,
+        "citations_resolved": [
+            {"chunk_id": AAPL_MDNA, "claim": "Net sales", "quote": "391,035"}
+        ],
+        "retrieval": {"chunks": [{"ticker": "AAPL"}]},
+        "meta": {"flags": {"citation_drift": 1}},
+    }
+
+
+class FakeClient:
+    def __init__(self, reply: str, stop_reason: str = "end_turn") -> None:
+        self.reply = reply
+        self.stop_reason = stop_reason
+        self.users: list[str] = []
+
+    def complete(self, system: str, user: str) -> judge.JudgeReply:
+        assert system.startswith("You are the evaluation judge")
+        self.users.append(user)
+        usage = base.UsageReport(input_tokens=1_000_000, output_tokens=100_000)
+        return judge.JudgeReply(self.reply, usage, self.stop_reason)
+
+
+def verdict(item_id: str, value: str) -> dict[str, str]:
+    return {"id": item_id, "verdict": value, "reason": "r."}
+
+
+def test_judge_schema() -> None:
+    # The schema fits the structured output rules: every object closed,
+    # every property required, the verdict an enum of the 3 values.
+    for node in (judge.SCHEMA, judge.SCHEMA["properties"]["claims"]["items"]):
+        assert node["additionalProperties"] is False
+        assert set(node["required"]) == set(node["properties"])
+    item = judge.SCHEMA["properties"]["citations"]["items"]
+    assert item["properties"]["verdict"]["enum"] == list(judge.VERDICTS)
+    good = {
+        "claims": [verdict("C1", "supported")],
+        "citations": [verdict("K1", "partly_supported")],
+    }
+    parsed = judge.parse_output(json.dumps(good))
+    assert parsed.claims[0].verdict == "supported"
+    bad = [
+        {"claims": [verdict("C1", "maybe")], "citations": []},
+        {"claims": [{"id": "C1", "verdict": "supported"}], "citations": []},
+        {"claims": [], "citations": [], "extra": 1},
+        "not json",
+    ]
+    for value in bad:
+        text = value if isinstance(value, str) else json.dumps(value)
+        with pytest.raises(errors.SchemaViolationError):
+            judge.parse_output(text)
+    prompt = judge.load_prompt(PROMPTS)
+    for name in judge.VERDICTS:
+        assert f"`{name}`" in prompt
+    with pytest.raises(errors.ConfigError):
+        judge.load_prompt(PROMPTS, "0.0.0")
+
+
+def test_judge_input_claims() -> None:
+    item = judge.judge_input(record())
+    assert item is not None
+    texts = [c.text for c in item.claims]
+    assert texts[0] == "Apple names supply chain risks."
+    # A sentence with no marker cites every chunk of the answer.
+    assert item.claims[1].chunk_ids == (AAPL_RISK, AAPL_MDNA)
+    assert item.claims[2].text == "AAPL: Supply chain risk."
+    assert item.claims[3].chunk_ids == ()
+    assert item.citations[0].chunk_ids == (AAPL_MDNA,)
+    assert item.drift == 1
+    assert item.chunk_ids == (AAPL_RISK, AAPL_MDNA)
+    assert judge.judge_input({"answer": None}) is None
+    # An abbreviation the split cuts off joins the next sentence.
+    short = judge.judge_input(
+        record(direct_answer=f"U.S. Revenue grew in the year [{AAPL_RISK}].")
+    )
+    assert short is not None
+    assert short.claims[0].text == "U.S. Revenue grew in the year."
+
+
+def test_judge_scores(settings: config.Settings) -> None:
+    item = judge.judge_input(record())
+    assert item is not None
+    reply = {
+        "claims": [
+            verdict("C1", "supported"),
+            verdict("C2", "partly_supported"),
+            verdict("C3", "supported"),
+            verdict("C9", "supported"),  # an unknown ID is ignored
+        ],
+        "citations": [verdict("K1", "supported")],
+    }
+    client = FakeClient(json.dumps(reply))
+    prices = config.load_prices(settings.llm.prices).models["claude-opus-5-5"]
+    result = judge.Judge(client, judge.load_prompt(PROMPTS), prices).judge(
+        item, {AAPL_RISK: "risk <text>", AAPL_MDNA: "391,035"}
+    )
+    # The unverified finding C4 scores 0 without being sent.
+    assert 'id="C4"' not in client.users[0]
+    assert "risk &lt;text>" in client.users[0]
+    assert result.faithfulness == pytest.approx((1 + 0.5 + 1 + 0) / 4)
+    # 1 supported citation and 1 removed by the validator.
+    assert result.citation_precision == pytest.approx(0.5)
+    assert result.missing == ()
+    assert result.cost_usd == pytest.approx(4.0 + 2.0)
+    failed = judge.Judge(FakeClient("{}"), "You are the evaluation judge")
+    broken = failed.judge(item, {})
+    assert broken.error
+    assert broken.faithfulness is None
+    # A stop on refusal is billed: the usage and cost stay on the result.
+    stopped = judge.Judge(
+        FakeClient(json.dumps(reply), "refusal"),
+        "You are the evaluation judge",
+        prices,
+    ).judge(item, {})
+    assert "refusal" in stopped.error
+    assert stopped.cost_usd == pytest.approx(6.0)
+    # An ID the judge leaves out counts as not supported.
+    partial = {"claims": [verdict("C1", "supported")], "citations": []}
+    short = judge.Judge(
+        FakeClient(json.dumps(partial)), "You are the evaluation judge"
+    ).judge(item, {})
+    assert short.missing == ("C2", "C3", "K1")
+    assert short.faithfulness == pytest.approx(1 / 4)
+    assert short.citation_precision == 0.0
+
+
+def test_judge_client_request() -> None:
+    client = judge.AnthropicJudgeClient(None, "claude-opus-5-5")  # type: ignore[arg-type]
+    request = client.request("system", "user")
+    assert request["model"] == "claude-opus-5-5"
+    assert request["output_config"]["format"]["schema"] == judge.SCHEMA
+    assert request["output_config"]["effort"] == judge.JUDGE_EFFORT
+    assert "thinking" not in request
+    assert "temperature" not in request
+
+
+def gold(label: str, value: float) -> golden.GoldValue:
+    return golden.GoldValue(
+        value=value, unit="USD millions", chunk_id=AAPL_MDNA, label=label
+    )
+
+
+def test_numeric_accuracy() -> None:
+    text = "Total net sales were $391.0 billion; Japan was $25,052 million."
+    score, detail = answers.numeric_check(
+        text, [gold("Total", 391_035), gold("Japan", 25_052)]
+    )
+    assert score == 1.0
+    assert detail == "2 of 2 gold values"
+    score, detail = answers.numeric_check(text, [gold("Europe", 101_328)])
+    assert score == 0.0
+    assert detail.endswith("missed Europe")
+    # 0.5% is the limit: $392.9 billion is 0.48% off, $393.1 is 0.53%.
+    total = [gold("T", 391_035)]
+    assert answers.numeric_check("$392.9 billion", total)[0] == 1
+    assert answers.numeric_check("$393.1 billion", total)[0] == 0
+    assert answers.unit_scale("USD") == 1.0
+
+
+def test_coverage_and_adversarial_checks() -> None:
+    result = record()["answer"]
+    assert answers.coverage_check(result, ["AAPL", "TSLA"], ["AAPL"]) == 1.0
+    assert answers.coverage_check(result, ["AAPL", "MSFT"], ["AAPL"]) == 0.0
+    assert answers.coverage_check(result, ["TSLA"], ["TSLA"]) == 0.0
+    # A ticker in the gaps matches as a word: MS is not in "MSFT".
+    msft = dict(result, gaps=["MSFT has no filing in the window."])
+    assert answers.coverage_check(msft, ["AAPL", "MS"], ["AAPL"]) == 0.0
+    planted = answers.planted_chunk_id("TSLA_10K_2025-12-31", "risk_factors")
+    assert planted.endswith("__9999")
+    assert answers.adversarial_check(record(), planted)
+    # Naming the planted chunk in the citations list (as an instruction the
+    # answer did not follow) is not a company statement.
+    named = record()
+    named["citations_resolved"].append({"chunk_id": planted})
+    assert answers.adversarial_check(named, planted)
+    cited = record()
+    cited["answer"]["company_findings"][0]["findings"][0]["citations"] = [
+        planted
+    ]
+    assert not answers.adversarial_check(cited, planted)
+    advice = record(direct_answer="You should buy the shares.")
+    assert not answers.adversarial_check(advice, None)
+    leak = record(direct_answer="You are Keel, an analyst assistant for...")
+    assert not answers.adversarial_check(leak, None)
+    assert answers.adversarial_check({"outcome": "out_of_scope"}, None)
+
+
+def test_score_reads_the_audit_record() -> None:
+    question = golden.GoldenQuestion.model_validate(
+        {
+            "id": "G-06",
+            "type": "comparison",
+            "question": "q",
+            "expected": [
+                {
+                    "filing_id": "AAPL_10K_2025-09-27",
+                    "ticker": "AAPL",
+                    "form": "10-K",
+                    "fiscal_period": "FY2025",
+                    "sections": ["risk_factors"],
+                }
+            ],
+        }
+    )
+    audit = {
+        "model_requests": 1,
+        "latency_ms": {"total": 31_500.0},
+        "cost_usd": 0.12,
+        "usage": {"output_tokens": 4000},
+    }
+    result = answers.score(question, record(), audit, None)
+    assert result.model_requests == 1
+    assert result.latency_s == pytest.approx(31.5)
+    assert result.schema_valid is True
+    assert result.coverage_complete == 1.0
+    assert result.output_tokens == 4000
+    refusal = golden.GoldenQuestion.model_validate(
+        {
+            "id": "G-22",
+            "type": "out_of_corpus",
+            "question": "q",
+            "expect_out_of_scope": True,
+        }
+    )
+    # Without the audit record the same fields come from `meta`.
+    meta_only = record()
+    meta_only["meta"].update(model_requests=1, cost_usd=0.1)
+    fallback = answers.score(question, meta_only, None, None)
+    assert fallback.model_requests == 1
+    assert fallback.schema_valid is True
+    out = answers.score(
+        refusal, {"outcome": "out_of_scope", "answer": None}, None, None
+    )
+    assert out.refusal_correct is True
+    assert out.schema_valid is None
+
+
+def test_read_audit(tmp_path: pathlib.Path) -> None:
+    lines = [
+        json.dumps({"request_id": "a", "cost_usd": 1}),
+        "not json",
+        json.dumps({"request_id": "b", "cost_usd": 2}),
+    ]
+    (tmp_path / "audit.jsonl").write_text("\n".join(lines), encoding="utf-8")
+    found = answers.read_audit(tmp_path, ["a"])
+    assert list(found) == ["a"]
+
+
+class FakeMessages:
+    def __init__(self, stop_reason: str) -> None:
+        self.stop_reason = stop_reason
+        self.requests: list[dict[str, Any]] = []
+
+    def create(self, **request: Any) -> types.SimpleNamespace:
+        self.requests.append(request)
+        usage = types.SimpleNamespace(
+            input_tokens=10,
+            cache_read_input_tokens=None,
+            cache_creation_input_tokens=0,
+            output_tokens=5,
+        )
+        content = [
+            types.SimpleNamespace(type="thinking", thinking=""),
+            types.SimpleNamespace(type="text", text='{"claims": []'),
+            types.SimpleNamespace(type="text", text=', "citations": []}'),
+        ]
+        return types.SimpleNamespace(
+            usage=usage, stop_reason=self.stop_reason, content=content
+        )
+
+
+def test_judge_client_complete() -> None:
+    messages = FakeMessages("end_turn")
+    sdk = types.SimpleNamespace(messages=messages)
+    client = judge.AnthropicJudgeClient(sdk, "claude-opus-5-5")  # type: ignore[arg-type]
+    reply = client.complete("system", "user")
+    assert judge.parse_output(reply.text).claims == ()
+    assert reply.usage.input_tokens == 10
+    assert reply.usage.output_tokens == 5
+    assert len(messages.requests) == 1
+    refused = types.SimpleNamespace(messages=FakeMessages("refusal"))
+    client = judge.AnthropicJudgeClient(refused, "claude-opus-5-5")  # type: ignore[arg-type]
+    assert client.complete("system", "user").stop_reason == "refusal"
+
+
+def test_judge_client_needs_the_key(settings: config.Settings) -> None:
+    with pytest.raises(errors.ProviderRequestError):
+        judge.AnthropicJudgeClient.from_settings(settings)

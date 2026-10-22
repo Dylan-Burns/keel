@@ -14,9 +14,13 @@ from collections.abc import Sequence
 import dataclasses
 import json
 import pathlib
+from typing import Any
 
+from keel.evaluation import answers as answering
 from keel.evaluation import gates
 from keel.evaluation import golden
+from keel.evaluation import judge as judging
+from keel.evaluation import metrics
 from keel.evaluation import runner
 
 WEAKEST_SHOWN = 6
@@ -37,14 +41,15 @@ _TYPES = (
     "ambiguous_entity",
     "adversarial",
 )
-_PENDING_SOURCE = {
-    "faithfulness": "judge, pending stage 7",
-    "citation_precision": "judge and drift count, pending stage 7",
-    "coverage_completeness": "coverage statement, pending stage 7",
-    "numeric_accuracy": "answer values, pending stage 7",
-    "schema_validity": "answer schema, pending stage 7",
-    "latency_p95_s": "answer meta, pending stage 7",
-    "mean_cost_usd": "answer meta, pending stage 7",
+WEAKEST_ANSWERS = 3
+_ANSWER_SOURCE = {
+    "faithfulness": "judge, claims of the direct answer and the findings",
+    "citation_precision": "judge, plus the validator drift count",
+    "coverage_completeness": "coverage statement and gaps (code)",
+    "numeric_accuracy": "answer values within 0.5% of the gold (code)",
+    "schema_validity": "answer schema (code)",
+    "latency_p95_s": "audit records, total latency",
+    "mean_cost_usd": "audit records, answer cost",
 }
 
 
@@ -59,21 +64,20 @@ def _table(header: Sequence[str], rows: Sequence[Sequence[str]]) -> list[str]:
     return lines
 
 
-def _source(result: gates.GateResult) -> str:
+def _source(result: gates.GateResult, answered: bool) -> str:
     key = result.gate.key
-    if key in _PENDING_SOURCE:
-        return _PENDING_SOURCE[key]
+    if key in _ANSWER_SOURCE:
+        if not answered:
+            return "pending: run keel eval --answers"
+        return _ANSWER_SOURCE[key]
     if key == "refusal_correctness":
-        return (
-            "understanding step (no retrieval, no call); "
-            "request count at stage 7"
-        )
+        if answered:
+            return "answer step: out-of-scope response and 0 model requests"
+        return "understanding step (no retrieval, no call)"
     return "retrieval, main variant"
 
 
 def _status(result: gates.GateResult) -> str:
-    if result.status == gates.PENDING:
-        return "pending stage 7"
     return result.status
 
 
@@ -90,7 +94,7 @@ def _gates(run: runner.EvalRun) -> list[str]:
                 result.gate.rule,
                 value,
                 _status(result),
-                _source(result),
+                _source(result, bool(run.answers)),
             ]
         )
     verdict = (
@@ -172,6 +176,148 @@ def _refusals(run: runner.EvalRun) -> list[str]:
         "## Out-of-scope questions",
         "",
         *_table(["Question", "Type", "Outcome", "Reason"], rows),
+    ]
+
+
+def _answer_row(
+    label: str, rows: Sequence[answering.AnswerResult]
+) -> list[str]:
+    judged = [r.judge for r in rows if r.judge is not None]
+    called = [r for r in rows if r.model_requests > 0]
+    valid = [r.schema_valid for r in rows if r.schema_valid is not None]
+    times = [r.latency_s for r in called if r.latency_s is not None]
+    return [
+        label,
+        str(len(rows)),
+        str(len(called)),
+        _number(metrics.mean(j.faithfulness for j in judged)),
+        _number(metrics.mean(j.citation_precision for j in judged)),
+        _number(metrics.mean(r.coverage_complete for r in rows)),
+        _number(metrics.mean(r.numeric_correct for r in rows)),
+        _number(sum(valid) / len(valid) if valid else None),
+        _number(metrics.percentile(times, 0.5), 1),
+        _number(metrics.percentile(times, 0.95), 1),
+        _number(metrics.mean(r.cost_usd for r in called), 4),
+    ]
+
+
+def _first_problem(result: answering.AnswerResult) -> str:
+    if result.judge is None:
+        return ""
+    if result.judge.error:
+        return "judge failed: " + result.judge.error
+    for verdict in (
+        *result.judge.claims.values(),
+        *result.judge.citations.values(),
+    ):
+        if verdict.verdict != judging.SUPPORTED:
+            return f"{verdict.id} {verdict.verdict}: {verdict.reason}"
+    return ""
+
+
+def _answers(run: runner.EvalRun) -> list[str]:
+    rows = run.answers
+    if not rows:
+        return []
+    values = run.answer_values()
+    header = ["Type", "Questions", "Questions with a call", "Faithfulness"]
+    header += ["Citation precision", "Coverage", "Numeric", "Schema"]
+    header += ["Latency p50 s", "Latency p95 s", "Mean cost USD"]
+    table = [_answer_row("all", rows)]
+    for kind in (*_TYPES, "out_of_corpus"):
+        kind_rows = [r for r in rows if r.type == kind]
+        if kind_rows:
+            table.append(_answer_row(kind, kind_rows))
+    per = []
+    for r in rows:
+        judged = r.judge
+        checks = []
+        if r.refusal_correct is not None:
+            checks.append(
+                "refusal ok" if r.refusal_correct else "refusal missed"
+            )
+        if r.adversarial_ok is not None:
+            checks.append(
+                "adversarial ok" if r.adversarial_ok else "adversarial failed"
+            )
+        if r.numeric_detail:
+            checks.append(r.numeric_detail)
+        per.append(
+            [
+                r.question_id,
+                r.type,
+                r.outcome,
+                str(r.model_requests),
+                _number(judged.faithfulness if judged else None),
+                _number(judged.citation_precision if judged else None),
+                _number(r.coverage_complete),
+                _number(r.numeric_correct),
+                "; ".join(checks) or "n/a",
+                _number(r.latency_s, 1),
+                _number(r.cost_usd, 4),
+                str(r.output_tokens),
+                str(r.words),
+            ]
+        )
+    weakest = sorted(
+        (r for r in rows if r.judge and r.judge.faithfulness is not None),
+        key=lambda r: (r.judge.faithfulness if r.judge else 0.0, r.question_id),
+    )[:WEAKEST_ANSWERS]
+    weak = [
+        [
+            r.question_id,
+            _number(r.judge.faithfulness if r.judge else None),
+            _number(r.judge.citation_precision if r.judge else None),
+            _first_problem(r),
+        ]
+        for r in weakest
+    ]
+    judge_cost = values.get("judge_cost_usd") or 0.0
+    failures = int(values.get("judge_failures") or 0)
+    max_cost = _number(values.get("max_cost_usd"), 4)
+    answer_cost = sum(r.cost_usd for r in rows)
+    return [
+        "## Answer metrics (chapter 18.4 and 18.6)",
+        "",
+        *_table(header, table),
+        "",
+        "Faithfulness and citation precision score supported 1, partly",
+        "supported 0.5, and not supported 0, averaged per answer and then",
+        "over the answers; an unverified finding scores 0, and each citation",
+        "the validator removed counts as unsupported. Latency and cost come",
+        "from the audit record of each request and cover the questions with",
+        "a model request.",
+        "",
+        f"Spend: answers {answer_cost:.4f} USD, judge {judge_cost:.4f} USD; "
+        f"maximum answer cost {max_cost} USD; judge failures {failures}.",
+        "",
+        "### Per question (answers)",
+        "",
+        *_table(
+            [
+                "Question",
+                "Type",
+                "Outcome",
+                "Requests",
+                "Faithfulness",
+                "Citation precision",
+                "Coverage",
+                "Numeric",
+                "Checks",
+                "Latency s",
+                "Cost USD",
+                "Output tokens",
+                "Words",
+            ],
+            per,
+        ),
+        "",
+        "### Weakest answers",
+        "",
+        *_table(
+            ["Question", "Faithfulness", "Citation precision", "First issue"],
+            weak,
+        ),
     ]
 
 
@@ -276,12 +422,15 @@ def render(
                 ["Index", f"{info.index_version}, build {info.build_id}"],
                 ["Index chunks_sha256", info.chunks_sha256],
                 ["Labels from another index", stale],
+                ["Prompt version", info.prompt_version],
                 [
-                    "Prompt version",
-                    f"{info.prompt_version} (answer metrics pending stage 7)",
+                    "Answer model",
+                    info.model
+                    if run.answers
+                    else f"{info.model} (not called by this run)",
                 ],
-                ["Answer model", f"{info.model} (not called by this run)"],
-                ["Model requests", "0"],
+                ["Judge model", info.judge_model or "none"],
+                ["Model requests", _requests(run)],
                 ["Variants", ", ".join(v.name for v in run.variants)],
                 ["Wall time", f"{run.seconds:.0f} s"],
             ],
@@ -305,8 +454,44 @@ def render(
         "",
         *_per_question(run, by_id),
         "",
+        *_answers(run),
+        "",
     ]
-    return "\n".join(lines)
+    return "\n".join(lines).rstrip("\n") + "\n"
+
+
+def _requests(run: runner.EvalRun) -> str:
+    answers = sum(r.model_requests for r in run.answers)
+    judged = sum(
+        1
+        for r in run.answers
+        if r.judge is not None
+        and (r.judge.usage.output_tokens or r.judge.error)
+    )
+    return f"{answers} answer, {judged} judge"
+
+
+def _answer_json(result: answering.AnswerResult) -> dict[str, Any]:
+    data = {
+        f.name: getattr(result, f.name)
+        for f in dataclasses.fields(result)
+        if f.name not in {"judge", "flags"}
+    }
+    data["flags"] = dict(result.flags)
+    judged = result.judge
+    if judged is not None:
+        data["judge"] = {
+            "faithfulness": judged.faithfulness,
+            "citation_precision": judged.citation_precision,
+            "drift": judged.drift,
+            "missing": list(judged.missing),
+            "cost_usd": judged.cost_usd,
+            "usage": dataclasses.asdict(judged.usage),
+            "error": judged.error,
+            "claims": [v.model_dump() for v in judged.claims.values()],
+            "citations": [v.model_dump() for v in judged.citations.values()],
+        }
+    return data
 
 
 def write(
@@ -342,6 +527,8 @@ def write(
         ],
         "summary": {v.name: run.summary(v.name) for v in run.variants},
         "results": [dataclasses.asdict(r) for r in run.results],
+        "answer_values": run.answer_values(),
+        "answers": [_answer_json(r) for r in run.answers],
     }
     json_path = path.with_suffix(".json")
     json_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
