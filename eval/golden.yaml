@@ -20,7 +20,7 @@
 #   gold: the gold value of a numeric question, read from the named chunk.
 version: 1.0.0
 created: "2026-10-21"
-index_version: 1.0.1
+index_version: 1.2.0
 questions:
   - id: G-01
     type: single_company
@@ -181,7 +181,7 @@ questions:
     expected:
       - {filing_id: NVDA_10K_2025-01-26, ticker: NVDA, form: 10-K, fiscal_period: FY2025, sections: [mdna, financial_statements]}
     gold:
-      - {label: Total revenue, value: 130497, unit: USD millions, chunk_id: NVDA_10K_2025-01-26__financial_statements__0161}
+      - {label: Total revenue, value: 130497, unit: USD millions, chunk_id: NVDA_10K_2025-01-26__financial_statements__0123}
 
   - id: G-16
     type: numeric
@@ -220,7 +220,7 @@ questions:
     expected:
       - {filing_id: JPM_10K_2025-12-31, ticker: JPM, form: 10-K, fiscal_period: FY2025, sections: [mdna, financial_statements]}
     gold:
-      - {label: Net interest income (reported), value: 95443, unit: USD millions, chunk_id: JPM_10K_2025-12-31__financial_statements__0807}
+      - {label: Net interest income (reported), value: 95443, unit: USD millions, chunk_id: JPM_10K_2025-12-31__financial_statements__0805}
 
   - id: G-19
     type: sector

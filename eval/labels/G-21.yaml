@@ -1,8 +1,8 @@
 question_id: G-21
 level: chunk
-index_version: 1.0.1
-build_id: 20261021T231603728106Z
-chunks_sha256: 722b9b5693e4284330cbe36342c8d8679357be7f4cd899cf67c02c65bdb266be
+index_version: 1.2.0
+build_id: 20261022T050249382998Z
+chunks_sha256: be95e3aa90a5857e023f945125193cc6a5e0de6df111119a5b31ff00b2f59737
 created: '2026-10-22'
 pool: hybrid top 30, lexical top 10, and dense top 10 per sub-query, with the reranker; plus the lexical top 10 in the expected filings without a section filter
 sections:
