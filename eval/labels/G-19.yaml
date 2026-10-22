@@ -1,0 +1,879 @@
+question_id: G-19
+level: chunk
+index_version: 1.0.1
+build_id: 20261021T231603728106Z
+chunks_sha256: 722b9b5693e4284330cbe36342c8d8679357be7f4cd899cf67c02c65bdb266be
+created: '2026-10-22'
+pool: hybrid top 30, lexical top 10, and dense top 10 per sub-query, with the reranker; plus the lexical top 10 in the expected filings without a section filter
+sections:
+  - filing_id: PFE_10K_2024-12-31
+    section: risk_factors
+    chunks: 5
+  - filing_id: PFE_10K_2024-12-31
+    section: business
+    chunks: 19
+  - filing_id: PFE_10K_2024-12-31
+    section: legal_proceedings
+    chunks: 5
+  - filing_id: JNJ_10K_2025-12-28
+    section: risk_factors
+    chunks: 22
+  - filing_id: JNJ_10K_2025-12-28
+    section: business
+    chunks: 21
+  - filing_id: JNJ_10K_2025-12-28
+    section: legal_proceedings
+    chunks: 1
+  - filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    chunks: 41
+  - filing_id: MRK_10K_2024-12-31
+    section: business
+    chunks: 83
+  - filing_id: MRK_10K_2024-12-31
+    section: legal_proceedings
+    chunks: 4
+  - filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    chunks: 41
+  - filing_id: LLY_10K_2025-12-31
+    section: business
+    chunks: 98
+  - filing_id: LLY_10K_2025-12-31
+    section: legal_proceedings
+    chunks: 1
+  - filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    chunks: 46
+  - filing_id: ABBV_10K_2024-12-31
+    section: business
+    chunks: 58
+  - filing_id: ABBV_10K_2024-12-31
+    section: legal_proceedings
+    chunks: 1
+chunks:
+  - chunk_id: ABBV_10K_2024-12-31__business__0033
+    grade: 2
+    filing_id: ABBV_10K_2024-12-31
+    section: business
+    note: FDA approval process, cGMP inspections
+  - chunk_id: ABBV_10K_2024-12-31__business__0038
+    grade: 2
+    filing_id: ABBV_10K_2024-12-31
+    section: business
+    note: FCPA, fraud and abuse laws, compliance investment
+  - chunk_id: ABBV_10K_2024-12-31__business__0046
+    grade: 2
+    filing_id: ABBV_10K_2024-12-31
+    section: business
+    note: Japan and emerging market price controls, device regulation
+  - chunk_id: ABBV_10K_2024-12-31__business__0049
+    grade: 1
+    filing_id: ABBV_10K_2024-12-31
+    section: business
+    note: medical device approval process and FDA sanctions
+  - chunk_id: ABBV_10K_2024-12-31__risk_factors__0000
+    grade: 0
+    filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    note: risk factor section boilerplate intro
+  - chunk_id: ABBV_10K_2024-12-31__risk_factors__0001
+    grade: 1
+    filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    note: patent loss, generic approval legislation in passing
+  - chunk_id: ABBV_10K_2024-12-31__risk_factors__0002
+    grade: 1
+    filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    note: patent exclusivity loss, cross-references
+  - chunk_id: ABBV_10K_2024-12-31__risk_factors__0004
+    grade: 2
+    filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    note: ANDA and IPR patent challenges, compulsory licenses, defense
+  - chunk_id: ABBV_10K_2024-12-31__risk_factors__0006
+    grade: 1
+    filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    note: R&D risk, approvals only in passing
+  - chunk_id: ABBV_10K_2024-12-31__risk_factors__0008
+    grade: 2
+    filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    note: cost containment, legislative pricing pressure, Medicare Medicaid
+  - chunk_id: ABBV_10K_2024-12-31__risk_factors__0009
+    grade: 2
+    filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    note: IRA price setting, Imbruvica Vraylar Linzess selected
+  - chunk_id: ABBV_10K_2024-12-31__risk_factors__0010
+    grade: 2
+    filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    note: IRA Part D redesign, penalties, European price cuts
+  - chunk_id: ABBV_10K_2024-12-31__risk_factors__0013
+    grade: 1
+    filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    note: biologics regulation mentioned in passing
+  - chunk_id: ABBV_10K_2024-12-31__risk_factors__0014
+    grade: 0
+    filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    note: biologics manufacturing and competition
+  - chunk_id: ABBV_10K_2024-12-31__risk_factors__0015
+    grade: 1
+    filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    note: manufacturing complexity, regulation in passing
+  - chunk_id: ABBV_10K_2024-12-31__risk_factors__0017
+    grade: 1
+    filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    note: supplier regulatory noncompliance in passing
+  - chunk_id: ABBV_10K_2024-12-31__risk_factors__0018
+    grade: 2
+    filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    note: post-approval safety, labeling changes, regulator actions
+  - chunk_id: ABBV_10K_2024-12-31__risk_factors__0019
+    grade: 1
+    filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    note: safety guidelines, product liability, little regulation
+  - chunk_id: ABBV_10K_2024-12-31__risk_factors__0020
+    grade: 0
+    filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    note: empty table fragment
+  - chunk_id: ABBV_10K_2024-12-31__risk_factors__0021
+    grade: 2
+    filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    note: costly regulation, approvals, healthcare reform
+  - chunk_id: ABBV_10K_2024-12-31__risk_factors__0022
+    grade: 2
+    filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    note: post-approval compliance, regulatory actions, benefit program laws
+  - chunk_id: ABBV_10K_2024-12-31__risk_factors__0023
+    grade: 2
+    filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    note: anti-kickback, false claims, pricing laws, sanctions
+  - chunk_id: ABBV_10K_2024-12-31__risk_factors__0025
+    grade: 1
+    filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    note: international regulatory list incl FCPA, pricing restrictions
+  - chunk_id: ABBV_10K_2024-12-31__risk_factors__0026
+    grade: 1
+    filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    note: commercialization, FDA compliance in passing
+  - chunk_id: ABBV_10K_2024-12-31__risk_factors__0027
+    grade: 0
+    filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    note: fragment on acquisitions
+  - chunk_id: ABBV_10K_2024-12-31__risk_factors__0029
+    grade: 0
+    filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    note: distributors and debt, not regulatory
+  - chunk_id: ABBV_10K_2024-12-31__risk_factors__0030
+    grade: 0
+    filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    note: debt and financing risk
+  - chunk_id: ABBV_10K_2024-12-31__risk_factors__0033
+    grade: 0
+    filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    note: AI and intangible impairment
+  - chunk_id: ABBV_10K_2024-12-31__risk_factors__0034
+    grade: 0
+    filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    note: impairment and personnel
+  - chunk_id: ABBV_10K_2024-12-31__risk_factors__0035
+    grade: 0
+    filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    note: personnel and counterfeit, not regulatory
+  - chunk_id: ABBV_10K_2024-12-31__risk_factors__0037
+    grade: 0
+    filing_id: ABBV_10K_2024-12-31
+    section: risk_factors
+    note: counterfeit fragment, no regulatory substance
+  - chunk_id: JNJ_10K_2022-01-02__business__0011
+    grade: 1
+    filing_id: JNJ_10K_2022-01-02
+    section: business
+    note: older 10-K, FDA enforcement powers
+  - chunk_id: JNJ_10K_2022-01-02__business__0014
+    grade: 1
+    filing_id: JNJ_10K_2022-01-02
+    section: business
+    note: older 10-K, scrutiny and regulatory approvals
+  - chunk_id: JNJ_10K_2022-01-02__risk_factors__0005
+    grade: 0
+    filing_id: JNJ_10K_2022-01-02
+    section: risk_factors
+    note: older 10-K, COVID vaccine uncertainties
+  - chunk_id: JNJ_10K_2022-01-02__risk_factors__0008
+    grade: 1
+    filing_id: JNJ_10K_2022-01-02
+    section: risk_factors
+    note: older 10-K, regulatory scrutiny and cGMP
+  - chunk_id: JNJ_10K_2023-01-01__business__0010
+    grade: 1
+    filing_id: JNJ_10K_2023-01-01
+    section: business
+    note: older 10-K, regulation and FDA enforcement
+  - chunk_id: JNJ_10K_2023-01-01__business__0011
+    grade: 1
+    filing_id: JNJ_10K_2023-01-01
+    section: business
+    note: older 10-K, FDA enforcement and fraud laws
+  - chunk_id: JNJ_10K_2023-01-01__risk_factors__0005
+    grade: 0
+    filing_id: JNJ_10K_2023-01-01
+    section: risk_factors
+    note: older 10-K, vaccine development uncertainties
+  - chunk_id: JNJ_10K_2023-01-01__risk_factors__0006
+    grade: 1
+    filing_id: JNJ_10K_2023-01-01
+    section: risk_factors
+    note: older 10-K, IRA and price controls
+  - chunk_id: JNJ_10K_2023-01-01__risk_factors__0008
+    grade: 1
+    filing_id: JNJ_10K_2023-01-01
+    section: risk_factors
+    note: older 10-K, regulatory scrutiny and cGMP
+  - chunk_id: JNJ_10K_2023-01-01__risk_factors__0011
+    grade: 1
+    filing_id: JNJ_10K_2023-01-01
+    section: risk_factors
+    note: older 10-K, ANDA BPCIA patent challenges
+  - chunk_id: JNJ_10K_2023-12-31__business__0009
+    grade: 1
+    filing_id: JNJ_10K_2023-12-31
+    section: business
+    note: older 10-K, FDA and privacy regulation
+  - chunk_id: JNJ_10K_2023-12-31__business__0010
+    grade: 1
+    filing_id: JNJ_10K_2023-12-31
+    section: business
+    note: older 10-K, FDA enforcement and AI regulation
+  - chunk_id: JNJ_10K_2023-12-31__risk_factors__0010
+    grade: 1
+    filing_id: JNJ_10K_2023-12-31
+    section: risk_factors
+    note: older 10-K, ANDA BPCIA patent challenges
+  - chunk_id: JNJ_10K_2023-12-31__risk_factors__0011
+    grade: 0
+    filing_id: JNJ_10K_2023-12-31
+    section: risk_factors
+    note: older 10-K, R&D development risk
+  - chunk_id: JNJ_10K_2024-12-29__business__0008
+    grade: 1
+    filing_id: JNJ_10K_2024-12-29
+    section: business
+    note: older 10-K, regulation section opening
+  - chunk_id: JNJ_10K_2024-12-29__business__0010
+    grade: 1
+    filing_id: JNJ_10K_2024-12-29
+    section: business
+    note: older 10-K, FDA enforcement and fraud laws
+  - chunk_id: JNJ_10K_2024-12-29__risk_factors__0007
+    grade: 1
+    filing_id: JNJ_10K_2024-12-29
+    section: risk_factors
+    note: older 10-K, regulatory scrutiny and compliance
+  - chunk_id: JNJ_10K_2024-12-29__risk_factors__0010
+    grade: 0
+    filing_id: JNJ_10K_2024-12-29
+    section: risk_factors
+    note: older 10-K, patent challenges, R&D heading
+  - chunk_id: JNJ_10K_2024-12-29__risk_factors__0011
+    grade: 1
+    filing_id: JNJ_10K_2024-12-29
+    section: risk_factors
+    note: older 10-K, FDA budget delays approvals
+  - chunk_id: JNJ_10K_2024-12-29__risk_factors__0015
+    grade: 0
+    filing_id: JNJ_10K_2024-12-29
+    section: risk_factors
+    note: older 10-K, global ops list, little regulation
+  - chunk_id: JNJ_10K_2025-12-28__business__0010
+    grade: 2
+    filing_id: JNJ_10K_2025-12-28
+    section: business
+    note: regulation section, FDA, increasing stringent enforcement
+  - chunk_id: JNJ_10K_2025-12-28__business__0011
+    grade: 2
+    filing_id: JNJ_10K_2025-12-28
+    section: business
+    note: FDA enforcement powers, AI and privacy regulation
+  - chunk_id: JNJ_10K_2025-12-28__business__0012
+    grade: 2
+    filing_id: JNJ_10K_2025-12-28
+    section: business
+    note: FDA sanctions, fraud and abuse, transparency, PBM laws
+  - chunk_id: JNJ_10K_2025-12-28__risk_factors__0001
+    grade: 1
+    filing_id: JNJ_10K_2025-12-28
+    section: risk_factors
+    note: manufacturing disruption, regulatory action in passing
+  - chunk_id: JNJ_10K_2025-12-28__risk_factors__0004
+    grade: 2
+    filing_id: JNJ_10K_2025-12-28
+    section: risk_factors
+    note: healthcare reform, IRA government pricing from 2026
+  - chunk_id: JNJ_10K_2025-12-28__risk_factors__0007
+    grade: 2
+    filing_id: JNJ_10K_2025-12-28
+    section: risk_factors
+    note: regulatory scrutiny, cGMP, FDCA, false claims, Medicaid
+  - chunk_id: JNJ_10K_2025-12-28__risk_factors__0010
+    grade: 1
+    filing_id: JNJ_10K_2025-12-28
+    section: risk_factors
+    note: patent challenges, regulatory approval only in passing
+  - chunk_id: JNJ_10K_2025-12-28__risk_factors__0011
+    grade: 1
+    filing_id: JNJ_10K_2025-12-28
+    section: risk_factors
+    note: FDA budget cuts may delay approvals, passing
+  - chunk_id: JNJ_10K_2025-12-28__risk_factors__0014
+    grade: 2
+    filing_id: JNJ_10K_2025-12-28
+    section: risk_factors
+    note: FCPA, Bribery Act enforcement, exclusion risk
+  - chunk_id: JNJ_10K_2025-12-28__risk_factors__0016
+    grade: 0
+    filing_id: JNJ_10K_2025-12-28
+    section: risk_factors
+    note: credit rating and Orthopaedics separation
+  - chunk_id: JNJ_10Q_2023-10-01__unknown__0014
+    grade: 1
+    filing_id: JNJ_10Q_2023-10-01
+    section: unknown
+    note: 10-Q cautionary list, regulatory and legal risks
+  - chunk_id: LLY_10K_2025-12-31__business__0011
+    grade: 1
+    filing_id: LLY_10K_2025-12-31
+    section: business
+    note: Lilly Direct, cross-reference to compliance risk
+  - chunk_id: LLY_10K_2025-12-31__business__0015
+    grade: 2
+    filing_id: LLY_10K_2025-12-31
+    section: business
+    note: FDA biosimilar policy, compounding regulatory risk
+  - chunk_id: LLY_10K_2025-12-31__business__0072
+    grade: 2
+    filing_id: LLY_10K_2025-12-31
+    section: business
+    note: FDA regulation, oversight risks, post-approval compliance
+  - chunk_id: LLY_10K_2025-12-31__business__0073
+    grade: 2
+    filing_id: LLY_10K_2025-12-31
+    section: business
+    note: FDA post-marketing, promotion rules, foreign regulators, cGMP
+  - chunk_id: LLY_10K_2025-12-31__business__0074
+    grade: 2
+    filing_id: LLY_10K_2025-12-31
+    section: business
+    note: cGMP compliance, quality systems investment, compounding
+  - chunk_id: LLY_10K_2025-12-31__risk_factors__0000
+    grade: 0
+    filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    note: risk factor intro and R&D risk
+  - chunk_id: LLY_10K_2025-12-31__risk_factors__0001
+    grade: 2
+    filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    note: regulatory approval hurdles and inconsistency
+  - chunk_id: LLY_10K_2025-12-31__risk_factors__0002
+    grade: 1
+    filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    note: pipeline risk, FTC merger scrutiny in passing
+  - chunk_id: LLY_10K_2025-12-31__risk_factors__0003
+    grade: 0
+    filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    note: business development and competition
+  - chunk_id: LLY_10K_2025-12-31__risk_factors__0004
+    grade: 1
+    filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    note: competition, biosimilar regulation at end
+  - chunk_id: LLY_10K_2025-12-31__risk_factors__0005
+    grade: 2
+    filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    note: biosimilar regulation, compounding, actions against illegal sales
+  - chunk_id: LLY_10K_2025-12-31__risk_factors__0007
+    grade: 2
+    filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    note: US pricing policy, MFN alignment, regulatory priorities
+  - chunk_id: LLY_10K_2025-12-31__risk_factors__0010
+    grade: 2
+    filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    note: post-approval safety, label changes, recalls
+  - chunk_id: LLY_10K_2025-12-31__risk_factors__0011
+    grade: 1
+    filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    note: product concentration, regulatory proceedings in passing
+  - chunk_id: LLY_10K_2025-12-31__risk_factors__0013
+    grade: 2
+    filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    note: PBM legislation and enforcement affecting pricing
+  - chunk_id: LLY_10K_2025-12-31__risk_factors__0020
+    grade: 0
+    filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    note: cybersecurity
+  - chunk_id: LLY_10K_2025-12-31__risk_factors__0022
+    grade: 1
+    filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    note: data privacy regulation, not pharma specific
+  - chunk_id: LLY_10K_2025-12-31__risk_factors__0023
+    grade: 0
+    filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    note: cyber insurance and supply chain
+  - chunk_id: LLY_10K_2025-12-31__risk_factors__0025
+    grade: 1
+    filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    note: China suppliers, approvals and tariffs in passing
+  - chunk_id: LLY_10K_2025-12-31__risk_factors__0026
+    grade: 0
+    filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    note: manufacturing capacity and outsourcing
+  - chunk_id: LLY_10K_2025-12-31__risk_factors__0027
+    grade: 1
+    filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    note: outsourcing risk, BIOSECURE Act in passing
+  - chunk_id: LLY_10K_2025-12-31__risk_factors__0028
+    grade: 1
+    filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    note: tariffs, third-party inspections affecting approvals
+  - chunk_id: LLY_10K_2025-12-31__risk_factors__0029
+    grade: 0
+    filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    note: AI use risks
+  - chunk_id: LLY_10K_2025-12-31__risk_factors__0030
+    grade: 1
+    filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    note: AI regulation, government cost pressure in passing
+  - chunk_id: LLY_10K_2025-12-31__risk_factors__0031
+    grade: 1
+    filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    note: tariffs and trade regulation
+  - chunk_id: LLY_10K_2025-12-31__risk_factors__0032
+    grade: 2
+    filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    note: tariffs, government cost-containment, rebates, clawbacks
+  - chunk_id: LLY_10K_2025-12-31__risk_factors__0034
+    grade: 2
+    filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    note: litigation, government investigations, regulatory enforcement
+  - chunk_id: LLY_10K_2025-12-31__risk_factors__0035
+    grade: 2
+    filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    note: government enforcement, investigations on pricing and marketing
+  - chunk_id: LLY_10K_2025-12-31__risk_factors__0036
+    grade: 2
+    filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    note: regulatory compliance problems, marketing and pricing scrutiny
+  - chunk_id: LLY_10K_2025-12-31__risk_factors__0037
+    grade: 2
+    filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    note: investigations, cGMP enforcement, evolving regulatory changes
+  - chunk_id: LLY_10K_2025-12-31__risk_factors__0038
+    grade: 2
+    filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    note: DTC ad restrictions, FDA oversight, voucher program
+  - chunk_id: LLY_10K_2025-12-31__risk_factors__0039
+    grade: 1
+    filing_id: LLY_10K_2025-12-31
+    section: risk_factors
+    note: sustainability regulation compliance costs
+  - chunk_id: MRK_10K_2024-12-31__business__0032
+    grade: 2
+    filing_id: MRK_10K_2024-12-31
+    section: business
+    note: regulation section, FDA requirements, EU directives
+  - chunk_id: MRK_10K_2024-12-31__business__0033
+    grade: 2
+    filing_id: MRK_10K_2024-12-31
+    section: business
+    note: EU post-authorization rules, company policies compliant
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0000
+    grade: 0
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: section heading only
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0001
+    grade: 1
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: summary risk list, pricing and patents headings
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0003
+    grade: 1
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: summary list of regulatory risk headings
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0004
+    grade: 0
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: boilerplate intro and cyber AI summary bullets
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0008
+    grade: 0
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: key product dependence, R&D
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0009
+    grade: 1
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: R&D highly regulated, approval in passing
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0010
+    grade: 1
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: approval failure bullet within R&D risk
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0012
+    grade: 2
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: government pricing in EU, Japan, China
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0013
+    grade: 2
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: cost containment, 340B, generic-encouraging legislation
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0014
+    grade: 1
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: generic competition, generic legislation proposals
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0015
+    grade: 1
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: global operations list incl regulatory requirements
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0016
+    grade: 1
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: climate regulatory measures in passing
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0017
+    grade: 1
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: climate regulation compliance costs
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0018
+    grade: 1
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: ESG and sustainability reporting regulation
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0019
+    grade: 1
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: manufacturing delays, cGMP in passing
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0021
+    grade: 2
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: China health reform, VBP and NRDL price cuts
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0023
+    grade: 1
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: safety concerns and third-party obligations brief
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0024
+    grade: 0
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: animal health risks
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0025
+    grade: 1
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: biologics and vaccine regulation within manufacturing risk
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0026
+    grade: 2
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: IRA price setting, Januvia and Janumet selected
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0028
+    grade: 2
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: FDA policy changes, approval and extensive regulation
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0029
+    grade: 2
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: approval requirements, post-approval developments
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0030
+    grade: 2
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: safety scrutiny by FDA EMA, government actions, laws
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0031
+    grade: 2
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: 'laws: health reform, FCPA, pricing, privacy, transparency'
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0033
+    grade: 2
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: legal matters incl FCPA, pricing investigations, recalls
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0036
+    grade: 0
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: cyber, AI, social media
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0037
+    grade: 0
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: social media and forward-looking boilerplate
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0038
+    grade: 0
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: forward-looking statement boilerplate
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0039
+    grade: 1
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: cautionary factor list incl pricing laws, FDA delays
+  - chunk_id: MRK_10K_2024-12-31__risk_factors__0040
+    grade: 0
+    filing_id: MRK_10K_2024-12-31
+    section: risk_factors
+    note: cautionary list tail, privacy tax accounting
+  - chunk_id: PFE_10K_2022-12-31__risk_factors__0000
+    grade: 1
+    filing_id: PFE_10K_2022-12-31
+    section: risk_factors
+    note: older 10-K, FCPA, privacy, foreign approvals
+  - chunk_id: PFE_10K_2022-12-31__risk_factors__0011
+    grade: 1
+    filing_id: PFE_10K_2022-12-31
+    section: risk_factors
+    note: older 10-K, managed care and government formularies
+  - chunk_id: PFE_10K_2022-12-31__risk_factors__0015
+    grade: 0
+    filing_id: PFE_10K_2022-12-31
+    section: risk_factors
+    note: older 10-K, product concentration
+  - chunk_id: PFE_10K_2022-12-31__risk_factors__0023
+    grade: 0
+    filing_id: PFE_10K_2022-12-31
+    section: risk_factors
+    note: older 10-K, counterfeits not regulation
+  - chunk_id: PFE_10K_2022-12-31__risk_factors__0024
+    grade: 1
+    filing_id: PFE_10K_2022-12-31
+    section: risk_factors
+    note: older 10-K, pricing regulation and IRA
+  - chunk_id: PFE_10K_2022-12-31__risk_factors__0025
+    grade: 1
+    filing_id: PFE_10K_2022-12-31
+    section: risk_factors
+    note: older 10-K, foreign price regulation, US reform
+  - chunk_id: PFE_10K_2022-12-31__risk_factors__0026
+    grade: 1
+    filing_id: PFE_10K_2022-12-31
+    section: risk_factors
+    note: older 10-K, US legislative and policy actions
+  - chunk_id: PFE_10K_2022-12-31__risk_factors__0027
+    grade: 1
+    filing_id: PFE_10K_2022-12-31
+    section: risk_factors
+    note: older 10-K, regulatory approval uncertainty
+  - chunk_id: PFE_10K_2022-12-31__risk_factors__0028
+    grade: 1
+    filing_id: PFE_10K_2022-12-31
+    section: risk_factors
+    note: older 10-K, approval and post-approval data
+  - chunk_id: PFE_10K_2022-12-31__risk_factors__0042
+    grade: 0
+    filing_id: PFE_10K_2022-12-31
+    section: risk_factors
+    note: older 10-K, COVID operations
+  - chunk_id: PFE_10K_2022-12-31__risk_factors__0046
+    grade: 0
+    filing_id: PFE_10K_2022-12-31
+    section: risk_factors
+    note: older 10-K, COVID product list
+  - chunk_id: PFE_10K_2022-12-31__unknown__0023
+    grade: 1
+    filing_id: PFE_10K_2022-12-31
+    section: unknown
+    note: older 10-K cautionary list
+  - chunk_id: PFE_10K_2023-12-31__risk_factors__0001
+    grade: 1
+    filing_id: PFE_10K_2023-12-31
+    section: risk_factors
+    note: older 10-K, EU regulation and pharmacovigilance
+  - chunk_id: PFE_10K_2023-12-31__risk_factors__0014
+    grade: 1
+    filing_id: PFE_10K_2023-12-31
+    section: risk_factors
+    note: older 10-K, managed care and government formularies
+  - chunk_id: PFE_10K_2023-12-31__risk_factors__0019
+    grade: 0
+    filing_id: PFE_10K_2023-12-31
+    section: risk_factors
+    note: older 10-K, customers and R&D
+  - chunk_id: PFE_10K_2023-12-31__risk_factors__0023
+    grade: 1
+    filing_id: PFE_10K_2023-12-31
+    section: risk_factors
+    note: older 10-K, manufacturing regulatory inspections
+  - chunk_id: PFE_10K_2023-12-31__risk_factors__0026
+    grade: 0
+    filing_id: PFE_10K_2023-12-31
+    section: risk_factors
+    note: older 10-K, counterfeits not regulation
+  - chunk_id: PFE_10K_2023-12-31__risk_factors__0028
+    grade: 1
+    filing_id: PFE_10K_2023-12-31
+    section: risk_factors
+    note: older 10-K, IRA negotiation, Eliquis, state laws
+  - chunk_id: PFE_10K_2023-12-31__risk_factors__0031
+    grade: 1
+    filing_id: PFE_10K_2023-12-31
+    section: risk_factors
+    note: older 10-K, reimbursement and approval risks
+  - chunk_id: PFE_10K_2023-12-31__risk_factors__0032
+    grade: 1
+    filing_id: PFE_10K_2023-12-31
+    section: risk_factors
+    note: older 10-K, regulatory approval and post-approval
+  - chunk_id: PFE_10K_2023-12-31__risk_factors__0033
+    grade: 1
+    filing_id: PFE_10K_2023-12-31
+    section: risk_factors
+    note: older 10-K, post-approval requirements
+  - chunk_id: PFE_10K_2023-12-31__risk_factors__0037
+    grade: 1
+    filing_id: PFE_10K_2023-12-31
+    section: risk_factors
+    note: older 10-K, government inquiries, CIA with OIG
+  - chunk_id: PFE_10K_2023-12-31__risk_factors__0049
+    grade: 0
+    filing_id: PFE_10K_2023-12-31
+    section: risk_factors
+    note: older 10-K, COVID product uncertainties
+  - chunk_id: PFE_10K_2023-12-31__risk_factors__0052
+    grade: 0
+    filing_id: PFE_10K_2023-12-31
+    section: risk_factors
+    note: older 10-K, COVID product list
+  - chunk_id: PFE_10K_2023-12-31__unknown__0025
+    grade: 1
+    filing_id: PFE_10K_2023-12-31
+    section: unknown
+    note: older 10-K cautionary list
+  - chunk_id: PFE_10K_2024-12-31__unknown__0025
+    grade: 1
+    filing_id: PFE_10K_2024-12-31
+    section: unknown
+    note: forward-looking factor list, not core risk section
+  - chunk_id: PFE_10K_2024-12-31__unknown__0071
+    grade: 2
+    filing_id: PFE_10K_2024-12-31
+    section: unknown
+    note: EU pharma legislation reform, possible adverse impact
+  - chunk_id: PFE_10Q_2022-04-03__mdna__0064
+    grade: 1
+    filing_id: PFE_10Q_2022-04-03
+    section: mdna
+    note: 10-Q cautionary list, regulatory approval risks
+  - chunk_id: PFE_10Q_2022-04-03__mdna__0066
+    grade: 1
+    filing_id: PFE_10Q_2022-04-03
+    section: mdna
+    note: 10-Q cautionary list, regulation and pricing laws
+  - chunk_id: PFE_10Q_2022-07-03__mdna__0083
+    grade: 1
+    filing_id: PFE_10Q_2022-07-03
+    section: mdna
+    note: 10-Q cautionary list, regulatory approval risks
+  - chunk_id: PFE_10Q_2022-07-03__mdna__0085
+    grade: 1
+    filing_id: PFE_10Q_2022-07-03
+    section: mdna
+    note: 10-Q cautionary list, regulation and pricing laws
+  - chunk_id: PFE_10Q_2022-10-02__mdna__0082
+    grade: 1
+    filing_id: PFE_10Q_2022-10-02
+    section: mdna
+    note: 10-Q cautionary list, regulatory approval risks
+  - chunk_id: PFE_10Q_2023-10-01__mdna__0080
+    grade: 1
+    filing_id: PFE_10Q_2023-10-01
+    section: mdna
+    note: 10-Q cautionary list, regulatory approval risks
+  - chunk_id: PFE_10Q_2024-03-31__mdna__0064
+    grade: 1
+    filing_id: PFE_10Q_2024-03-31
+    section: mdna
+    note: 10-Q cautionary list, regulatory approval risks
+  - chunk_id: PFE_10Q_2024-06-30__mdna__0078
+    grade: 1
+    filing_id: PFE_10Q_2024-06-30
+    section: mdna
+    note: 10-Q cautionary list, regulatory approval risks
+  - chunk_id: PFE_10Q_2024-06-30__mdna__0081
+    grade: 1
+    filing_id: PFE_10Q_2024-06-30
+    section: mdna
+    note: 10-Q cautionary list, pricing legislation, IRA
+  - chunk_id: PFE_10Q_2024-09-29__mdna__0079
+    grade: 1
+    filing_id: PFE_10Q_2024-09-29
+    section: mdna
+    note: 10-Q cautionary list, regulatory approval risks
+  - chunk_id: PFE_10Q_2025-06-29__mdna__0075
+    grade: 1
+    filing_id: PFE_10Q_2025-06-29
+    section: mdna
+    note: 10-Q cautionary list, regulatory approval risks
+  - chunk_id: PFE_10Q_2025-09-28__mdna__0079
+    grade: 1
+    filing_id: PFE_10Q_2025-09-28
+    section: mdna
+    note: 10-Q cautionary list, regulatory approval risks

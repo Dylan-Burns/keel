@@ -1,0 +1,1012 @@
+question_id: G-21
+level: chunk
+index_version: 1.0.1
+build_id: 20261021T231603728106Z
+chunks_sha256: 722b9b5693e4284330cbe36342c8d8679357be7f4cd899cf67c02c65bdb266be
+created: '2026-10-22'
+pool: hybrid top 30, lexical top 10, and dense top 10 per sub-query, with the reranker; plus the lexical top 10 in the expected filings without a section filter
+sections:
+  - filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    chunks: 36
+  - filing_id: MSFT_10K_2025-06-30
+    section: risk_factors
+    chunks: 35
+  - filing_id: GOOG_10K_2025-12-31
+    section: risk_factors
+    chunks: 47
+  - filing_id: AMZN_10K_2025-12-31
+    section: risk_factors
+    chunks: 31
+  - filing_id: META_10K_2025-12-31
+    section: risk_factors
+    chunks: 107
+  - filing_id: NVDA_10K_2025-01-26
+    section: risk_factors
+    chunks: 57
+chunks:
+  - chunk_id: AAPL_10K_2022-09-24__risk_factors__0012
+    grade: 0
+    filing_id: AAPL_10K_2022-09-24
+    section: risk_factors
+    note: product defects, no AI
+  - chunk_id: AAPL_10K_2022-09-24__risk_factors__0021
+    grade: 0
+    filing_id: AAPL_10K_2022-09-24
+    section: risk_factors
+    note: old investments and retail, no AI
+  - chunk_id: AAPL_10K_2022-09-24__risk_factors__0026
+    grade: 0
+    filing_id: AAPL_10K_2022-09-24
+    section: risk_factors
+    note: ESG and DMA, no AI
+  - chunk_id: AAPL_10K_2023-09-30__risk_factors__0019
+    grade: 0
+    filing_id: AAPL_10K_2023-09-30
+    section: risk_factors
+    note: cybersecurity, no AI
+  - chunk_id: AAPL_10K_2023-09-30__risk_factors__0020
+    grade: 0
+    filing_id: AAPL_10K_2023-09-30
+    section: risk_factors
+    note: investments and retail, no AI
+  - chunk_id: AAPL_10K_2023-09-30__risk_factors__0023
+    grade: 0
+    filing_id: AAPL_10K_2023-09-30
+    section: risk_factors
+    note: older 10-K, AI only in laws list
+  - chunk_id: AAPL_10K_2023-09-30__risk_factors__0025
+    grade: 0
+    filing_id: AAPL_10K_2023-09-30
+    section: risk_factors
+    note: ESG and App Store, no AI
+  - chunk_id: AAPL_10K_2023-09-30__risk_factors__0028
+    grade: 0
+    filing_id: AAPL_10K_2023-09-30
+    section: risk_factors
+    note: privacy data and margins, no AI
+  - chunk_id: AAPL_10K_2024-09-28__risk_factors__0009
+    grade: 0
+    filing_id: AAPL_10K_2024-09-28
+    section: risk_factors
+    note: supply chain, no AI
+  - chunk_id: AAPL_10K_2024-09-28__risk_factors__0011
+    grade: 1
+    filing_id: AAPL_10K_2024-09-28
+    section: risk_factors
+    note: 'older 10-K: AI features safety risk'
+  - chunk_id: AAPL_10K_2024-09-28__risk_factors__0019
+    grade: 0
+    filing_id: AAPL_10K_2024-09-28
+    section: risk_factors
+    note: cybersecurity, no AI
+  - chunk_id: AAPL_10K_2024-09-28__risk_factors__0020
+    grade: 0
+    filing_id: AAPL_10K_2024-09-28
+    section: risk_factors
+    note: security and investments, no AI
+  - chunk_id: AAPL_10K_2024-09-28__risk_factors__0021
+    grade: 0
+    filing_id: AAPL_10K_2024-09-28
+    section: risk_factors
+    note: investments and legal proceedings, no AI
+  - chunk_id: AAPL_10K_2024-09-28__risk_factors__0023
+    grade: 0
+    filing_id: AAPL_10K_2024-09-28
+    section: risk_factors
+    note: old laws list, AI in passing
+  - chunk_id: AAPL_10K_2024-09-28__risk_factors__0024
+    grade: 1
+    filing_id: AAPL_10K_2024-09-28
+    section: risk_factors
+    note: 'older 10-K: AI legal and ethical considerations'
+  - chunk_id: AAPL_10K_2024-09-28__risk_factors__0025
+    grade: 0
+    filing_id: AAPL_10K_2024-09-28
+    section: risk_factors
+    note: ESG, no AI
+  - chunk_id: AAPL_10K_2024-09-28__risk_factors__0027
+    grade: 0
+    filing_id: AAPL_10K_2024-09-28
+    section: risk_factors
+    note: antitrust, no AI
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0000
+    grade: 0
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: intro and macro risk, no AI
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0008
+    grade: 0
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: product transitions and supply, no AI
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0009
+    grade: 0
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: supply chain, no AI
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0011
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: AI features increase safety risks, harmful or inaccurate content
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0018
+    grade: 0
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: data security, no AI
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0019
+    grade: 0
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: cybersecurity, no AI
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0020
+    grade: 0
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: investments and legal proceedings, no AI
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0021
+    grade: 1
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: IP claims risk, AI exacerbates, passing
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0023
+    grade: 1
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: laws list includes machine learning and AI
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0024
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: AI legal, regulatory and ethical considerations increase risks
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0025
+    grade: 0
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: stakeholder and regulatory scrutiny, no AI
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0026
+    grade: 0
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: DMA and antitrust, no AI
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0029
+    grade: 1
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: privacy risk, AI increases data disclosure risk in passing
+  - chunk_id: AAPL_10Q_2023-12-30__risk_factors__0001
+    grade: 0
+    filing_id: AAPL_10Q_2023-12-30
+    section: risk_factors
+    note: DMA and antitrust, no AI
+  - chunk_id: AAPL_10Q_2024-03-30__risk_factors__0001
+    grade: 0
+    filing_id: AAPL_10Q_2024-03-30
+    section: risk_factors
+    note: DMA and antitrust, no AI
+  - chunk_id: AAPL_10Q_2024-12-28__risk_factors__0000
+    grade: 0
+    filing_id: AAPL_10Q_2024-12-28
+    section: risk_factors
+    note: 10-Q laws list, AI in passing
+  - chunk_id: AAPL_10Q_2024-12-28__risk_factors__0003
+    grade: 0
+    filing_id: AAPL_10Q_2024-12-28
+    section: risk_factors
+    note: DMA and antitrust, no AI
+  - chunk_id: AMZN_10K_2022-12-31__risk_factors__0022
+    grade: 0
+    filing_id: AMZN_10K_2022-12-31
+    section: risk_factors
+    note: old stock volatility, AI in regulation list
+  - chunk_id: AMZN_10K_2022-12-31__risk_factors__0023
+    grade: 0
+    filing_id: AMZN_10K_2022-12-31
+    section: risk_factors
+    note: old regulation, AI in passing
+  - chunk_id: AMZN_10K_2023-12-31__risk_factors__0011
+    grade: 1
+    filing_id: AMZN_10K_2023-12-31
+    section: risk_factors
+    note: 'older 10-K: AI ethics perception factor'
+  - chunk_id: AMZN_10K_2024-12-31__risk_factors__0000
+    grade: 0
+    filing_id: AMZN_10K_2024-12-31
+    section: risk_factors
+    note: intro and competition, no AI
+  - chunk_id: AMZN_10K_2024-12-31__risk_factors__0011
+    grade: 1
+    filing_id: AMZN_10K_2024-12-31
+    section: risk_factors
+    note: 'older 10-K: AI adoption and AI perception factors'
+  - chunk_id: AMZN_10K_2024-12-31__risk_factors__0017
+    grade: 1
+    filing_id: AMZN_10K_2024-12-31
+    section: risk_factors
+    note: 'older 10-K: GPU supply for AI infrastructure'
+  - chunk_id: AMZN_10K_2024-12-31__risk_factors__0024
+    grade: 0
+    filing_id: AMZN_10K_2024-12-31
+    section: risk_factors
+    note: regulation investigations, no AI
+  - chunk_id: AMZN_10K_2024-12-31__risk_factors__0025
+    grade: 0
+    filing_id: AMZN_10K_2024-12-31
+    section: risk_factors
+    note: litigation list, AI in passing
+  - chunk_id: AMZN_10K_2025-12-31__risk_factors__0000
+    grade: 0
+    filing_id: AMZN_10K_2025-12-31
+    section: risk_factors
+    note: intro and competition, no AI
+  - chunk_id: AMZN_10K_2025-12-31__risk_factors__0001
+    grade: 1
+    filing_id: AMZN_10K_2025-12-31
+    section: risk_factors
+    note: competition, AI increases competition in passing
+  - chunk_id: AMZN_10K_2025-12-31__risk_factors__0002
+    grade: 2
+    filing_id: AMZN_10K_2025-12-31
+    section: risk_factors
+    note: AI investments may not meet expectations, write-down risk
+  - chunk_id: AMZN_10K_2025-12-31__risk_factors__0009
+    grade: 1
+    filing_id: AMZN_10K_2025-12-31
+    section: risk_factors
+    note: expansion strain, AI adoption in passing
+  - chunk_id: AMZN_10K_2025-12-31__risk_factors__0011
+    grade: 1
+    filing_id: AMZN_10K_2025-12-31
+    section: risk_factors
+    note: 'fluctuation list: AI adoption and AI perception'
+  - chunk_id: AMZN_10K_2025-12-31__risk_factors__0012
+    grade: 0
+    filing_id: AMZN_10K_2025-12-31
+    section: risk_factors
+    note: fluctuation factors list, no AI
+  - chunk_id: AMZN_10K_2025-12-31__risk_factors__0014
+    grade: 1
+    filing_id: AMZN_10K_2025-12-31
+    section: risk_factors
+    note: security risk, third-party AI tech in passing
+  - chunk_id: AMZN_10K_2025-12-31__risk_factors__0015
+    grade: 1
+    filing_id: AMZN_10K_2025-12-31
+    section: risk_factors
+    note: security risk, AI mentioned in passing
+  - chunk_id: AMZN_10K_2025-12-31__risk_factors__0017
+    grade: 2
+    filing_id: AMZN_10K_2025-12-31
+    section: risk_factors
+    note: GPU supply constraints limit AI development
+  - chunk_id: AMZN_10K_2025-12-31__risk_factors__0018
+    grade: 1
+    filing_id: AMZN_10K_2025-12-31
+    section: risk_factors
+    note: 'fragment: AI chip supply constraints, rest commercial agreements'
+  - chunk_id: AMZN_10K_2025-12-31__risk_factors__0024
+    grade: 1
+    filing_id: AMZN_10K_2025-12-31
+    section: risk_factors
+    note: regulation list includes AI technologies
+  - chunk_id: AMZN_10K_2025-12-31__risk_factors__0025
+    grade: 1
+    filing_id: AMZN_10K_2025-12-31
+    section: risk_factors
+    note: unclear how laws apply to AI, passing
+  - chunk_id: AMZN_10Q_2022-06-30__risk_factors__0000
+    grade: 0
+    filing_id: AMZN_10Q_2022-06-30
+    section: risk_factors
+    note: intro and competition, no AI
+  - chunk_id: AMZN_10Q_2022-09-30__risk_factors__0012
+    grade: 0
+    filing_id: AMZN_10Q_2022-09-30
+    section: risk_factors
+    note: fluctuation list and fulfillment, no AI
+  - chunk_id: AMZN_10Q_2022-09-30__risk_factors__0023
+    grade: 0
+    filing_id: AMZN_10Q_2022-09-30
+    section: risk_factors
+    note: old regulation list, AI in passing
+  - chunk_id: AMZN_10Q_2023-09-30__risk_factors__0012
+    grade: 0
+    filing_id: AMZN_10Q_2023-09-30
+    section: risk_factors
+    note: fluctuation list and fulfillment, no AI
+  - chunk_id: AMZN_10Q_2024-09-30__risk_factors__0011
+    grade: 1
+    filing_id: AMZN_10Q_2024-09-30
+    section: risk_factors
+    note: '10-Q: AI ethics perception factor'
+  - chunk_id: AMZN_10Q_2024-09-30__risk_factors__0023
+    grade: 0
+    filing_id: AMZN_10Q_2024-09-30
+    section: risk_factors
+    note: 10-Q regulation list, AI in passing
+  - chunk_id: AMZN_10Q_2024-09-30__risk_factors__0025
+    grade: 0
+    filing_id: AMZN_10Q_2024-09-30
+    section: risk_factors
+    note: litigation list, AI in passing
+  - chunk_id: AMZN_10Q_2025-09-30__risk_factors__0011
+    grade: 1
+    filing_id: AMZN_10Q_2025-09-30
+    section: risk_factors
+    note: '10-Q: AI ethics perception factor'
+  - chunk_id: AMZN_10Q_2025-09-30__risk_factors__0017
+    grade: 1
+    filing_id: AMZN_10Q_2025-09-30
+    section: risk_factors
+    note: '10-Q: GPU supply for AI infrastructure'
+  - chunk_id: AMZN_10Q_2025-09-30__risk_factors__0023
+    grade: 0
+    filing_id: AMZN_10Q_2025-09-30
+    section: risk_factors
+    note: 10-Q regulation list, AI in passing
+  - chunk_id: GOOG_10K_2022-12-31__risk_factors__0000
+    grade: 0
+    filing_id: GOOG_10K_2022-12-31
+    section: risk_factors
+    note: advertising risk, no AI
+  - chunk_id: GOOG_10K_2022-12-31__risk_factors__0002
+    grade: 1
+    filing_id: GOOG_10K_2022-12-31
+    section: risk_factors
+    note: 'old 10-K: AI investments may not be viable'
+  - chunk_id: GOOG_10K_2022-12-31__risk_factors__0003
+    grade: 0
+    filing_id: GOOG_10K_2022-12-31
+    section: risk_factors
+    note: old cloud and hardware, no AI
+  - chunk_id: GOOG_10K_2022-12-31__risk_factors__0007
+    grade: 0
+    filing_id: GOOG_10K_2022-12-31
+    section: risk_factors
+    note: brands and supply chain, no AI
+  - chunk_id: GOOG_10K_2022-12-31__risk_factors__0014
+    grade: 0
+    filing_id: GOOG_10K_2022-12-31
+    section: risk_factors
+    note: old 10-K, privacy, no AI
+  - chunk_id: GOOG_10K_2023-12-31__risk_factors__0000
+    grade: 0
+    filing_id: GOOG_10K_2023-12-31
+    section: risk_factors
+    note: advertising risk, no AI
+  - chunk_id: GOOG_10K_2023-12-31__risk_factors__0003
+    grade: 1
+    filing_id: GOOG_10K_2023-12-31
+    section: risk_factors
+    note: 'older 10-K: AI investments may not return capital'
+  - chunk_id: GOOG_10K_2023-12-31__risk_factors__0008
+    grade: 0
+    filing_id: GOOG_10K_2023-12-31
+    section: risk_factors
+    note: brands and supply chain, no AI
+  - chunk_id: GOOG_10K_2023-12-31__risk_factors__0012
+    grade: 0
+    filing_id: GOOG_10K_2023-12-31
+    section: risk_factors
+    note: international ops, no AI
+  - chunk_id: GOOG_10K_2023-12-31__risk_factors__0014
+    grade: 0
+    filing_id: GOOG_10K_2023-12-31
+    section: risk_factors
+    note: old 10-K devices risk, AI heading only
+  - chunk_id: GOOG_10K_2023-12-31__risk_factors__0015
+    grade: 1
+    filing_id: GOOG_10K_2023-12-31
+    section: risk_factors
+    note: 'older 10-K: AI development and use risks'
+  - chunk_id: GOOG_10K_2023-12-31__risk_factors__0016
+    grade: 1
+    filing_id: GOOG_10K_2023-12-31
+    section: risk_factors
+    note: 'older 10-K: AI-centric security threats'
+  - chunk_id: GOOG_10K_2024-12-31__risk_factors__0000
+    grade: 0
+    filing_id: GOOG_10K_2024-12-31
+    section: risk_factors
+    note: advertising risk, no AI
+  - chunk_id: GOOG_10K_2024-12-31__risk_factors__0004
+    grade: 0
+    filing_id: GOOG_10K_2024-12-31
+    section: risk_factors
+    note: old cloud investment, AI platforms only named
+  - chunk_id: GOOG_10K_2024-12-31__risk_factors__0008
+    grade: 0
+    filing_id: GOOG_10K_2024-12-31
+    section: risk_factors
+    note: brands and supply chain, no AI
+  - chunk_id: GOOG_10K_2024-12-31__risk_factors__0012
+    grade: 0
+    filing_id: GOOG_10K_2024-12-31
+    section: risk_factors
+    note: data centers and international, no AI
+  - chunk_id: GOOG_10K_2024-12-31__risk_factors__0015
+    grade: 1
+    filing_id: GOOG_10K_2024-12-31
+    section: risk_factors
+    note: 'older 10-K: AI risk heading and first sentence'
+  - chunk_id: GOOG_10K_2024-12-31__risk_factors__0016
+    grade: 1
+    filing_id: GOOG_10K_2024-12-31
+    section: risk_factors
+    note: 'older 10-K: AI liability and ethics risk'
+  - chunk_id: GOOG_10K_2024-12-31__risk_factors__0043
+    grade: 0
+    filing_id: GOOG_10K_2024-12-31
+    section: risk_factors
+    note: acquisitions and personnel, no AI
+  - chunk_id: GOOG_10K_2025-12-31__risk_factors__0000
+    grade: 2
+    filing_id: GOOG_10K_2025-12-31
+    section: risk_factors
+    note: AI reshaping advertising, competitive adaptation risk
+  - chunk_id: GOOG_10K_2025-12-31__risk_factors__0003
+    grade: 2
+    filing_id: GOOG_10K_2025-12-31
+    section: risk_factors
+    note: AI platforms, TPU infrastructure costs, AI ethical challenges
+  - chunk_id: GOOG_10K_2025-12-31__risk_factors__0004
+    grade: 2
+    filing_id: GOOG_10K_2025-12-31
+    section: risk_factors
+    note: AI ethical challenges, AI competition, TPU investment
+  - chunk_id: GOOG_10K_2025-12-31__risk_factors__0005
+    grade: 2
+    filing_id: GOOG_10K_2025-12-31
+    section: risk_factors
+    note: AI competition, infrastructure costs, third-party equipment
+  - chunk_id: GOOG_10K_2025-12-31__risk_factors__0008
+    grade: 1
+    filing_id: GOOG_10K_2025-12-31
+    section: risk_factors
+    note: IP protection of AI innovations, passing
+  - chunk_id: GOOG_10K_2025-12-31__risk_factors__0009
+    grade: 0
+    filing_id: GOOG_10K_2025-12-31
+    section: risk_factors
+    note: brands and supply chain, no AI
+  - chunk_id: GOOG_10K_2025-12-31__risk_factors__0012
+    grade: 0
+    filing_id: GOOG_10K_2025-12-31
+    section: risk_factors
+    note: IT systems interruption, no AI
+  - chunk_id: GOOG_10K_2025-12-31__risk_factors__0013
+    grade: 0
+    filing_id: GOOG_10K_2025-12-31
+    section: risk_factors
+    note: system failures and international ops, no AI
+  - chunk_id: GOOG_10K_2025-12-31__risk_factors__0015
+    grade: 0
+    filing_id: GOOG_10K_2025-12-31
+    section: risk_factors
+    note: currency, financing, investments, no AI
+  - chunk_id: GOOG_10K_2025-12-31__risk_factors__0016
+    grade: 2
+    filing_id: GOOG_10K_2025-12-31
+    section: risk_factors
+    note: AI harmful content, inaccuracies, liability, regulation
+  - chunk_id: GOOG_10K_2025-12-31__risk_factors__0020
+    grade: 2
+    filing_id: GOOG_10K_2025-12-31
+    section: risk_factors
+    note: AI-centric security threats and AI-enabled attacks
+  - chunk_id: GOOG_10K_2025-12-31__risk_factors__0033
+    grade: 2
+    filing_id: GOOG_10K_2025-12-31
+    section: risk_factors
+    note: AI data protection regulation and disclosure risk
+  - chunk_id: GOOG_10K_2025-12-31__risk_factors__0045
+    grade: 1
+    filing_id: GOOG_10K_2025-12-31
+    section: risk_factors
+    note: personnel risk, AI talent competition in passing
+  - chunk_id: GOOG_10Q_2022-09-30__risk_factors__0000
+    grade: 0
+    filing_id: GOOG_10Q_2022-09-30
+    section: risk_factors
+    note: 10-Q laws intro, no AI
+  - chunk_id: GOOG_10Q_2024-03-31__risk_factors__0000
+    grade: 0
+    filing_id: GOOG_10Q_2024-03-31
+    section: risk_factors
+    note: advertising risk, no AI
+  - chunk_id: GOOG_10Q_2024-06-30__risk_factors__0000
+    grade: 0
+    filing_id: GOOG_10Q_2024-06-30
+    section: risk_factors
+    note: advertising risk, no AI
+  - chunk_id: GOOG_10Q_2024-09-30__risk_factors__0000
+    grade: 0
+    filing_id: GOOG_10Q_2024-09-30
+    section: risk_factors
+    note: antitrust litigation, no AI
+  - chunk_id: GOOG_10Q_2025-09-30__risk_factors__0000
+    grade: 0
+    filing_id: GOOG_10Q_2025-09-30
+    section: risk_factors
+    note: 10-Q risk factors intro, no AI
+  - chunk_id: META_10K_2024-12-31__risk_factors__0086
+    grade: 0
+    filing_id: META_10K_2024-12-31
+    section: risk_factors
+    note: payments and security, no AI
+  - chunk_id: META_10K_2024-12-31__risk_factors__0087
+    grade: 0
+    filing_id: META_10K_2024-12-31
+    section: risk_factors
+    note: security breaches, no AI
+  - chunk_id: META_10K_2025-12-31__risk_factors__0000
+    grade: 0
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: risk factors intro, no AI
+  - chunk_id: META_10K_2025-12-31__risk_factors__0001
+    grade: 1
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: summary list, mentions EU AI Act in passing
+  - chunk_id: META_10K_2025-12-31__risk_factors__0019
+    grade: 2
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: 'core AI initiatives risk: harmful content, regulation, investment'
+  - chunk_id: META_10K_2025-12-31__risk_factors__0020
+    grade: 2
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: AI scrutiny, EU AI Act, AI competition, data access
+  - chunk_id: META_10K_2025-12-31__risk_factors__0021
+    grade: 2
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: AI infrastructure dependence, third-party misuse, AI regulation
+  - chunk_id: META_10K_2025-12-31__risk_factors__0024
+    grade: 1
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: metaverse risk, AI innovations in passing
+  - chunk_id: META_10K_2025-12-31__risk_factors__0029
+    grade: 2
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: competition in AI and frontier models
+  - chunk_id: META_10K_2025-12-31__risk_factors__0039
+    grade: 2
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: AI investments reduce margin and profitability
+  - chunk_id: META_10K_2025-12-31__risk_factors__0089
+    grade: 0
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: content laws and payments, no AI
+  - chunk_id: META_10K_2025-12-31__risk_factors__0091
+    grade: 0
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: security breaches, no AI content
+  - chunk_id: META_10K_2025-12-31__risk_factors__0092
+    grade: 1
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: security risk, one sentence on AI vulnerabilities
+  - chunk_id: META_10K_2025-12-31__risk_factors__0093
+    grade: 2
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: 'AI security risks: prompt injection, agents, model weights'
+  - chunk_id: META_10K_2025-12-31__risk_factors__0096
+    grade: 1
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: platform integrity and software, AI in passing
+  - chunk_id: META_10Q_2024-03-31__risk_factors__0018
+    grade: 1
+    filing_id: META_10Q_2024-03-31
+    section: risk_factors
+    note: '10-Q: AI initiatives risk'
+  - chunk_id: META_10Q_2024-06-30__risk_factors__0018
+    grade: 1
+    filing_id: META_10Q_2024-06-30
+    section: risk_factors
+    note: '10-Q: AI initiatives risk'
+  - chunk_id: META_10Q_2024-06-30__risk_factors__0020
+    grade: 1
+    filing_id: META_10Q_2024-06-30
+    section: risk_factors
+    note: '10-Q: AI infrastructure and third-party misuse'
+  - chunk_id: META_10Q_2024-06-30__risk_factors__0085
+    grade: 0
+    filing_id: META_10Q_2024-06-30
+    section: risk_factors
+    note: security breaches, no AI
+  - chunk_id: META_10Q_2024-09-30__risk_factors__0018
+    grade: 1
+    filing_id: META_10Q_2024-09-30
+    section: risk_factors
+    note: '10-Q: AI initiatives risk'
+  - chunk_id: META_10Q_2024-09-30__risk_factors__0036
+    grade: 1
+    filing_id: META_10Q_2024-09-30
+    section: risk_factors
+    note: '10-Q: AI investments reduce margin'
+  - chunk_id: META_10Q_2025-03-31__risk_factors__0019
+    grade: 1
+    filing_id: META_10Q_2025-03-31
+    section: risk_factors
+    note: '10-Q: AI initiatives risk heading'
+  - chunk_id: META_10Q_2025-03-31__risk_factors__0020
+    grade: 1
+    filing_id: META_10Q_2025-03-31
+    section: risk_factors
+    note: '10-Q: AI risks and EU AI Act'
+  - chunk_id: META_10Q_2025-03-31__risk_factors__0089
+    grade: 0
+    filing_id: META_10Q_2025-03-31
+    section: risk_factors
+    note: payments and security, no AI
+  - chunk_id: META_10Q_2025-06-30__risk_factors__0001
+    grade: 0
+    filing_id: META_10Q_2025-06-30
+    section: risk_factors
+    note: 10-Q summary list, EU AI Act in passing
+  - chunk_id: META_10Q_2025-06-30__risk_factors__0019
+    grade: 1
+    filing_id: META_10Q_2025-06-30
+    section: risk_factors
+    note: '10-Q: AI initiatives risk heading'
+  - chunk_id: META_10Q_2025-06-30__risk_factors__0020
+    grade: 1
+    filing_id: META_10Q_2025-06-30
+    section: risk_factors
+    note: '10-Q: AI risks and EU AI Act'
+  - chunk_id: META_10Q_2025-06-30__risk_factors__0041
+    grade: 1
+    filing_id: META_10Q_2025-06-30
+    section: risk_factors
+    note: '10-Q: AI drives infrastructure capacity needs'
+  - chunk_id: META_10Q_2025-06-30__risk_factors__0091
+    grade: 0
+    filing_id: META_10Q_2025-06-30
+    section: risk_factors
+    note: security breaches, no AI
+  - chunk_id: META_10Q_2025-09-30__risk_factors__0019
+    grade: 1
+    filing_id: META_10Q_2025-09-30
+    section: risk_factors
+    note: '10-Q: AI initiatives risk'
+  - chunk_id: META_10Q_2025-09-30__risk_factors__0021
+    grade: 1
+    filing_id: META_10Q_2025-09-30
+    section: risk_factors
+    note: '10-Q: AI infrastructure and third-party misuse'
+  - chunk_id: META_10Q_2025-09-30__risk_factors__0091
+    grade: 0
+    filing_id: META_10Q_2025-09-30
+    section: risk_factors
+    note: security breaches, no AI
+  - chunk_id: META_10Q_2025-09-30__risk_factors__0092
+    grade: 0
+    filing_id: META_10Q_2025-09-30
+    section: risk_factors
+    note: 10-Q security, AI only one passing sentence
+  - chunk_id: MSFT_10K_2022-06-30__risk_factors__0029
+    grade: 0
+    filing_id: MSFT_10K_2022-06-30
+    section: risk_factors
+    note: claims and government contracts, no AI
+  - chunk_id: MSFT_10K_2023-06-30__risk_factors__0016
+    grade: 1
+    filing_id: MSFT_10K_2023-06-30
+    section: risk_factors
+    note: 'older 10-K: AI flawed outputs risk'
+  - chunk_id: MSFT_10K_2023-06-30__risk_factors__0026
+    grade: 0
+    filing_id: MSFT_10K_2023-06-30
+    section: risk_factors
+    note: old claims list, AI services in passing
+  - chunk_id: MSFT_10K_2024-06-30__risk_factors__0000
+    grade: 0
+    filing_id: MSFT_10K_2024-06-30
+    section: risk_factors
+    note: old competition intro, no AI
+  - chunk_id: MSFT_10K_2024-06-30__risk_factors__0018
+    grade: 1
+    filing_id: MSFT_10K_2024-06-30
+    section: risk_factors
+    note: 'older 10-K: AI risks incl EU AI Act'
+  - chunk_id: MSFT_10K_2025-06-30__risk_factors__0017
+    grade: 2
+    filing_id: MSFT_10K_2025-06-30
+    section: risk_factors
+    note: AI flawed outputs, liability, regulation, responsible AI
+  - chunk_id: MSFT_10Q_2022-03-31__risk_factors__0019
+    grade: 1
+    filing_id: MSFT_10Q_2022-03-31
+    section: risk_factors
+    note: 'old 10-Q: AI flawed algorithms, ethics risk'
+  - chunk_id: MSFT_10Q_2022-12-31__risk_factors__0000
+    grade: 0
+    filing_id: MSFT_10Q_2022-12-31
+    section: risk_factors
+    note: competition intro, no AI
+  - chunk_id: MSFT_10Q_2022-12-31__risk_factors__0021
+    grade: 1
+    filing_id: MSFT_10Q_2022-12-31
+    section: risk_factors
+    note: '10-Q: AI flawed outputs risk'
+  - chunk_id: MSFT_10Q_2023-03-31__risk_factors__0015
+    grade: 1
+    filing_id: MSFT_10Q_2023-03-31
+    section: risk_factors
+    note: '10-Q: AI flawed outputs risk'
+  - chunk_id: MSFT_10Q_2023-09-30__risk_factors__0016
+    grade: 1
+    filing_id: MSFT_10Q_2023-09-30
+    section: risk_factors
+    note: '10-Q: AI flawed outputs risk'
+  - chunk_id: MSFT_10Q_2023-09-30__risk_factors__0026
+    grade: 1
+    filing_id: MSFT_10Q_2023-09-30
+    section: risk_factors
+    note: '10-Q: EU AI Act may raise costs'
+  - chunk_id: MSFT_10Q_2023-12-31__risk_factors__0016
+    grade: 1
+    filing_id: MSFT_10Q_2023-12-31
+    section: risk_factors
+    note: '10-Q: AI flawed outputs risk'
+  - chunk_id: MSFT_10Q_2024-03-31__risk_factors__0017
+    grade: 1
+    filing_id: MSFT_10Q_2024-03-31
+    section: risk_factors
+    note: '10-Q: AI flawed outputs risk'
+  - chunk_id: MSFT_10Q_2024-09-30__risk_factors__0017
+    grade: 1
+    filing_id: MSFT_10Q_2024-09-30
+    section: risk_factors
+    note: '10-Q: AI products misuse and AI risk intro'
+  - chunk_id: MSFT_10Q_2024-09-30__risk_factors__0018
+    grade: 1
+    filing_id: MSFT_10Q_2024-09-30
+    section: risk_factors
+    note: '10-Q: AI risks incl EU AI Act'
+  - chunk_id: MSFT_10Q_2024-09-30__risk_factors__0034
+    grade: 0
+    filing_id: MSFT_10Q_2024-09-30
+    section: risk_factors
+    note: catastrophic and geopolitical, no AI
+  - chunk_id: MSFT_10Q_2024-12-31__risk_factors__0000
+    grade: 0
+    filing_id: MSFT_10Q_2024-12-31
+    section: risk_factors
+    note: competition intro, no AI
+  - chunk_id: MSFT_10Q_2024-12-31__risk_factors__0018
+    grade: 1
+    filing_id: MSFT_10Q_2024-12-31
+    section: risk_factors
+    note: '10-Q: AI risks incl EU AI Act'
+  - chunk_id: MSFT_10Q_2024-12-31__risk_factors__0028
+    grade: 0
+    filing_id: MSFT_10Q_2024-12-31
+    section: risk_factors
+    note: laws and claims, AI services in passing
+  - chunk_id: MSFT_10Q_2025-03-31__risk_factors__0017
+    grade: 1
+    filing_id: MSFT_10Q_2025-03-31
+    section: risk_factors
+    note: '10-Q: AI products misuse, AI heading'
+  - chunk_id: MSFT_10Q_2025-03-31__risk_factors__0018
+    grade: 1
+    filing_id: MSFT_10Q_2025-03-31
+    section: risk_factors
+    note: '10-Q: AI risks incl EU AI Act'
+  - chunk_id: MSFT_10Q_2025-03-31__risk_factors__0028
+    grade: 0
+    filing_id: MSFT_10Q_2025-03-31
+    section: risk_factors
+    note: laws and claims, AI services in passing
+  - chunk_id: MSFT_10Q_2025-09-30__risk_factors__0017
+    grade: 1
+    filing_id: MSFT_10Q_2025-09-30
+    section: risk_factors
+    note: '10-Q: AI flawed outputs risk'
+  - chunk_id: MSFT_10Q_2025-09-30__risk_factors__0030
+    grade: 1
+    filing_id: MSFT_10Q_2025-09-30
+    section: risk_factors
+    note: '10-Q: reputational risk from responsible AI failures'
+  - chunk_id: MSFT_10Q_2025-12-31__risk_factors__0002
+    grade: 1
+    filing_id: MSFT_10Q_2025-12-31
+    section: risk_factors
+    note: '10-Q: AI competition and infrastructure costs'
+  - chunk_id: MSFT_10Q_2025-12-31__risk_factors__0017
+    grade: 1
+    filing_id: MSFT_10Q_2025-12-31
+    section: risk_factors
+    note: '10-Q: AI products misuse and AI risk intro'
+  - chunk_id: MSFT_10Q_2025-12-31__risk_factors__0018
+    grade: 1
+    filing_id: MSFT_10Q_2025-12-31
+    section: risk_factors
+    note: '10-Q: AI outputs, liability, regulation'
+  - chunk_id: MSFT_10Q_2025-12-31__risk_factors__0031
+    grade: 0
+    filing_id: MSFT_10Q_2025-12-31
+    section: risk_factors
+    note: economic and catastrophic risks, no AI
+  - chunk_id: MSFT_10Q_2025-12-31__risk_factors__0032
+    grade: 0
+    filing_id: MSFT_10Q_2025-12-31
+    section: risk_factors
+    note: catastrophic events, no AI
+  - chunk_id: NVDA_10K_2022-01-30__risk_factors__0000
+    grade: 0
+    filing_id: NVDA_10K_2022-01-30
+    section: risk_factors
+    note: old intro, no AI
+  - chunk_id: NVDA_10K_2022-01-30__risk_factors__0009
+    grade: 0
+    filing_id: NVDA_10K_2022-01-30
+    section: risk_factors
+    note: product defects, no AI
+  - chunk_id: NVDA_10K_2022-01-30__risk_factors__0028
+    grade: 1
+    filing_id: NVDA_10K_2022-01-30
+    section: risk_factors
+    note: 'old 10-K: responsible AI risk'
+  - chunk_id: NVDA_10K_2023-01-29__risk_factors__0000
+    grade: 0
+    filing_id: NVDA_10K_2023-01-29
+    section: risk_factors
+    note: old intro summary, no AI
+  - chunk_id: NVDA_10K_2023-01-29__risk_factors__0001
+    grade: 0
+    filing_id: NVDA_10K_2023-01-29
+    section: risk_factors
+    note: old summary list, no AI
+  - chunk_id: NVDA_10K_2023-01-29__risk_factors__0002
+    grade: 0
+    filing_id: NVDA_10K_2023-01-29
+    section: risk_factors
+    note: old summary list, AI only as heading
+  - chunk_id: NVDA_10K_2023-01-29__risk_factors__0011
+    grade: 0
+    filing_id: NVDA_10K_2023-01-29
+    section: risk_factors
+    note: suppliers, no AI
+  - chunk_id: NVDA_10K_2023-01-29__risk_factors__0016
+    grade: 0
+    filing_id: NVDA_10K_2023-01-29
+    section: risk_factors
+    note: international ops and cyber, no AI
+  - chunk_id: NVDA_10K_2023-01-29__risk_factors__0035
+    grade: 1
+    filing_id: NVDA_10K_2023-01-29
+    section: risk_factors
+    note: 'older 10-K: responsible AI risk'
+  - chunk_id: NVDA_10K_2023-01-29__risk_factors__0036
+    grade: 1
+    filing_id: NVDA_10K_2023-01-29
+    section: risk_factors
+    note: 'older 10-K: responsible AI and AI regulation'
+  - chunk_id: NVDA_10K_2024-01-28__risk_factors__0000
+    grade: 0
+    filing_id: NVDA_10K_2024-01-28
+    section: risk_factors
+    note: old intro summary, no AI
+  - chunk_id: NVDA_10K_2024-01-28__risk_factors__0001
+    grade: 0
+    filing_id: NVDA_10K_2024-01-28
+    section: risk_factors
+    note: old summary list, AI only as heading
+  - chunk_id: NVDA_10K_2024-01-28__risk_factors__0003
+    grade: 0
+    filing_id: NVDA_10K_2024-01-28
+    section: risk_factors
+    note: old success criteria, AI cloud only named
+  - chunk_id: NVDA_10K_2024-01-28__risk_factors__0045
+    grade: 1
+    filing_id: NVDA_10K_2024-01-28
+    section: risk_factors
+    note: 'older 10-K: responsible AI risk'
+  - chunk_id: NVDA_10K_2025-01-26__risk_factors__0000
+    grade: 0
+    filing_id: NVDA_10K_2025-01-26
+    section: risk_factors
+    note: intro and summary list, no AI
+  - chunk_id: NVDA_10K_2025-01-26__risk_factors__0001
+    grade: 1
+    filing_id: NVDA_10K_2025-01-26
+    section: risk_factors
+    note: summary list, responsible AI risk heading
+  - chunk_id: NVDA_10K_2025-01-26__risk_factors__0004
+    grade: 1
+    filing_id: NVDA_10K_2025-01-26
+    section: risk_factors
+    note: competition, AI cloud services in passing
+  - chunk_id: NVDA_10K_2025-01-26__risk_factors__0015
+    grade: 0
+    filing_id: NVDA_10K_2025-01-26
+    section: risk_factors
+    note: financial markets and investments, no AI
+  - chunk_id: NVDA_10K_2025-01-26__risk_factors__0016
+    grade: 1
+    filing_id: NVDA_10K_2025-01-26
+    section: risk_factors
+    note: international ops, China export controls in passing
+  - chunk_id: NVDA_10K_2025-01-26__risk_factors__0024
+    grade: 0
+    filing_id: NVDA_10K_2025-01-26
+    section: risk_factors
+    note: climate change, no AI
+  - chunk_id: NVDA_10K_2025-01-26__risk_factors__0046
+    grade: 2
+    filing_id: NVDA_10K_2025-01-26
+    section: risk_factors
+    note: responsible use of AI risk heading and intro
+  - chunk_id: NVDA_10K_2025-01-26__risk_factors__0047
+    grade: 2
+    filing_id: NVDA_10K_2025-01-26
+    section: risk_factors
+    note: responsible AI, AI regulation incl EU, reputational harm
+  - chunk_id: NVDA_10Q_2023-04-30__mdna__0001
+    grade: 0
+    filing_id: NVDA_10Q_2023-04-30
+    section: mdna
+    note: MD&A boilerplate overview
+  - chunk_id: NVDA_10Q_2023-04-30__risk_factors__0000
+    grade: 0
+    filing_id: NVDA_10Q_2023-04-30
+    section: risk_factors
+    note: 10-Q intro, no AI
+  - chunk_id: NVDA_10Q_2023-04-30__risk_factors__0018
+    grade: 0
+    filing_id: NVDA_10Q_2023-04-30
+    section: risk_factors
+    note: climate and customers, no AI
+  - chunk_id: NVDA_10Q_2023-07-30__risk_factors__0000
+    grade: 0
+    filing_id: NVDA_10Q_2023-07-30
+    section: risk_factors
+    note: 10-Q intro, no AI
+  - chunk_id: NVDA_10Q_2023-07-30__risk_factors__0012
+    grade: 0
+    filing_id: NVDA_10Q_2023-07-30
+    section: risk_factors
+    note: international ops, no AI
+  - chunk_id: NVDA_10Q_2023-10-29__risk_factors__0000
+    grade: 0
+    filing_id: NVDA_10Q_2023-10-29
+    section: risk_factors
+    note: 10-Q intro and supply, no AI
+  - chunk_id: NVDA_10Q_2023-10-29__risk_factors__0008
+    grade: 0
+    filing_id: NVDA_10Q_2023-10-29
+    section: risk_factors
+    note: international ops, no AI
+  - chunk_id: NVDA_10Q_2023-10-29__risk_factors__0025
+    grade: 1
+    filing_id: NVDA_10Q_2023-10-29
+    section: risk_factors
+    note: '10-Q: export controls and responsible AI risk'
+  - chunk_id: NVDA_10Q_2024-07-28__risk_factors__0000
+    grade: 0
+    filing_id: NVDA_10Q_2024-07-28
+    section: risk_factors
+    note: 10-Q intro and supply, no AI
+  - chunk_id: NVDA_10Q_2024-10-27__risk_factors__0000
+    grade: 0
+    filing_id: NVDA_10Q_2024-10-27
+    section: risk_factors
+    note: 10-Q intro and supply, no AI
+  - chunk_id: NVDA_10Q_2025-10-26__mdna__0001
+    grade: 0
+    filing_id: NVDA_10Q_2025-10-26
+    section: mdna
+    note: MD&A boilerplate overview

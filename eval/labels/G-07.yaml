@@ -1,0 +1,15 @@
+question_id: G-07
+level: section
+index_version: 1.0.1
+build_id: 20261021T231603728106Z
+chunks_sha256: 722b9b5693e4284330cbe36342c8d8679357be7f4cd899cf67c02c65bdb266be
+created: '2026-10-22'
+pool: ''
+sections:
+  - filing_id: KO_10K_2024-12-31
+    section: risk_factors
+    chunks: 47
+  - filing_id: PEP_10K_2025-12-27
+    section: risk_factors
+    chunks: 34
+chunks: []

@@ -1,0 +1,195 @@
+question_id: G-03
+level: chunk
+index_version: 1.0.1
+build_id: 20261021T231603728106Z
+chunks_sha256: 722b9b5693e4284330cbe36342c8d8679357be7f4cd899cf67c02c65bdb266be
+created: '2026-10-22'
+pool: hybrid top 30, lexical top 10, and dense top 10 per sub-query, with the reranker; plus the lexical top 10 in the expected filings without a section filter
+sections:
+  - filing_id: TSLA_10K_2025-12-31
+    section: legal_proceedings
+    chunks: 1
+  - filing_id: TSLA_10Q_2025-09-30
+    section: legal_proceedings
+    chunks: 0
+chunks:
+  - chunk_id: TSLA_10K_2022-12-31__legal_proceedings__0000
+    grade: 1
+    filing_id: TSLA_10K_2022-12-31
+    section: legal_proceedings
+    note: older 10-K, German battery fine and California waste probe
+  - chunk_id: TSLA_10K_2022-12-31__risk_factors__0036
+    grade: 0
+    filing_id: TSLA_10K_2022-12-31
+    section: risk_factors
+    note: generic privacy risk factor, older filing
+  - chunk_id: TSLA_10K_2022-12-31__risk_factors__0037
+    grade: 1
+    filing_id: TSLA_10K_2022-12-31
+    section: risk_factors
+    note: older 10-K, SEC 2018 settlement details
+  - chunk_id: TSLA_10K_2022-12-31__risk_factors__0038
+    grade: 0
+    filing_id: TSLA_10K_2022-12-31
+    section: risk_factors
+    note: direct sales regulation risk, generic
+  - chunk_id: TSLA_10K_2023-12-31__business__0013
+    grade: 0
+    filing_id: TSLA_10K_2023-12-31
+    section: business
+    note: vehicle regulation overview, not proceedings
+  - chunk_id: TSLA_10K_2023-12-31__legal_proceedings__0000
+    grade: 1
+    filing_id: TSLA_10K_2023-12-31
+    section: legal_proceedings
+    note: older 10-K, California waste investigation described
+  - chunk_id: TSLA_10K_2023-12-31__risk_factors__0035
+    grade: 0
+    filing_id: TSLA_10K_2023-12-31
+    section: risk_factors
+    note: generic privacy risk factor, older filing
+  - chunk_id: TSLA_10K_2024-12-31__legal_proceedings__0000
+    grade: 1
+    filing_id: TSLA_10K_2024-12-31
+    section: legal_proceedings
+    note: older 10-K Item 3 cross-reference only
+  - chunk_id: TSLA_10K_2024-12-31__risk_factors__0035
+    grade: 0
+    filing_id: TSLA_10K_2024-12-31
+    section: risk_factors
+    note: generic privacy risk factor, older filing
+  - chunk_id: TSLA_10K_2025-12-31__business__0014
+    grade: 0
+    filing_id: TSLA_10K_2025-12-31
+    section: business
+    note: vehicle regulation overview, not proceedings
+  - chunk_id: TSLA_10K_2025-12-31__controls__0000
+    grade: 0
+    filing_id: TSLA_10K_2025-12-31
+    section: controls
+    note: disclosure controls, unrelated
+  - chunk_id: TSLA_10K_2025-12-31__financial_statements__0147
+    grade: 2
+    filing_id: TSLA_10K_2025-12-31
+    section: financial_statements
+    note: Note 13 start, 2018 CEO award Delaware litigation
+  - chunk_id: TSLA_10K_2025-12-31__financial_statements__0157
+    grade: 2
+    filing_id: TSLA_10K_2025-12-31
+    section: financial_statements
+    note: Note 13, government investigations and data breach class action
+  - chunk_id: TSLA_10K_2025-12-31__legal_proceedings__0000
+    grade: 2
+    filing_id: TSLA_10K_2025-12-31
+    section: legal_proceedings
+    note: Item 3 statement pointing to Note 13 in expected 10-K
+  - chunk_id: TSLA_10K_2025-12-31__risk_factors__0036
+    grade: 1
+    filing_id: TSLA_10K_2025-12-31
+    section: risk_factors
+    note: expected 10-K, generic government investigations risk, cites Note 13
+  - chunk_id: TSLA_10K_2025-12-31__unknown__0010
+    grade: 1
+    filing_id: TSLA_10K_2025-12-31
+    section: unknown
+    note: expected 10-K table of contents heading list
+  - chunk_id: TSLA_10Q_2022-03-31__legal_proceedings__0000
+    grade: 1
+    filing_id: TSLA_10Q_2022-03-31
+    section: legal_proceedings
+    note: older 10-Q, German fine, EPA payment, waste probe
+  - chunk_id: TSLA_10Q_2022-03-31__legal_proceedings__0001
+    grade: 1
+    filing_id: TSLA_10Q_2022-03-31
+    section: legal_proceedings
+    note: older 10-Q, California waste investigation
+  - chunk_id: TSLA_10Q_2022-03-31__risk_factors__0041
+    grade: 0
+    filing_id: TSLA_10Q_2022-03-31
+    section: risk_factors
+    note: direct sales regulation risk, generic
+  - chunk_id: TSLA_10Q_2022-06-30__risk_factors__0039
+    grade: 0
+    filing_id: TSLA_10Q_2022-06-30
+    section: risk_factors
+    note: older filing, generic privacy and investigation risk
+  - chunk_id: TSLA_10Q_2022-06-30__risk_factors__0040
+    grade: 1
+    filing_id: TSLA_10Q_2022-06-30
+    section: risk_factors
+    note: older 10-Q, SEC 2018 settlement details
+  - chunk_id: TSLA_10Q_2022-09-30__legal_proceedings__0000
+    grade: 1
+    filing_id: TSLA_10Q_2022-09-30
+    section: legal_proceedings
+    note: older 10-Q, German fine and California waste probe
+  - chunk_id: TSLA_10Q_2022-09-30__risk_factors__0038
+    grade: 0
+    filing_id: TSLA_10Q_2022-09-30
+    section: risk_factors
+    note: generic privacy risk factor, older filing
+  - chunk_id: TSLA_10Q_2022-09-30__risk_factors__0039
+    grade: 1
+    filing_id: TSLA_10Q_2022-09-30
+    section: risk_factors
+    note: older 10-Q, mentions 2018 SEC settlement
+  - chunk_id: TSLA_10Q_2022-09-30__risk_factors__0040
+    grade: 1
+    filing_id: TSLA_10Q_2022-09-30
+    section: risk_factors
+    note: older 10-Q, SEC settlement and dealer lawsuits
+  - chunk_id: TSLA_10Q_2023-03-31__legal_proceedings__0000
+    grade: 1
+    filing_id: TSLA_10Q_2023-03-31
+    section: legal_proceedings
+    note: older 10-Q, California waste investigation
+  - chunk_id: TSLA_10Q_2023-06-30__legal_proceedings__0000
+    grade: 1
+    filing_id: TSLA_10Q_2023-06-30
+    section: legal_proceedings
+    note: older 10-Q, California waste investigation
+  - chunk_id: TSLA_10Q_2023-09-30__legal_proceedings__0000
+    grade: 1
+    filing_id: TSLA_10Q_2023-09-30
+    section: legal_proceedings
+    note: older 10-Q, California waste investigation
+  - chunk_id: TSLA_10Q_2023-09-30__unknown__0011
+    grade: 0
+    filing_id: TSLA_10Q_2023-09-30
+    section: unknown
+    note: older 10-Q table of contents
+  - chunk_id: TSLA_10Q_2024-03-31__legal_proceedings__0000
+    grade: 1
+    filing_id: TSLA_10Q_2024-03-31
+    section: legal_proceedings
+    note: older 10-Q, waste investigation settled for 1.5M
+  - chunk_id: TSLA_10Q_2025-03-31__unknown__0011
+    grade: 0
+    filing_id: TSLA_10Q_2025-03-31
+    section: unknown
+    note: older 10-Q table of contents
+  - chunk_id: TSLA_10Q_2025-06-30__unknown__0011
+    grade: 0
+    filing_id: TSLA_10Q_2025-06-30
+    section: unknown
+    note: older 10-Q table of contents
+  - chunk_id: TSLA_10Q_2025-09-30__controls__0000
+    grade: 2
+    filing_id: TSLA_10Q_2025-09-30
+    section: controls
+    note: contains Part II Item 1 statement pointing to Note 10
+  - chunk_id: TSLA_10Q_2025-09-30__financial_statements__0070
+    grade: 2
+    filing_id: TSLA_10Q_2025-09-30
+    section: financial_statements
+    note: Note 10 legal proceedings, 2018 CEO award litigation
+  - chunk_id: TSLA_10Q_2025-09-30__financial_statements__0080
+    grade: 2
+    filing_id: TSLA_10Q_2025-09-30
+    section: financial_statements
+    note: Note 10, data misappropriation class action and investigations
+  - chunk_id: TSLA_10Q_2025-09-30__unknown__0011
+    grade: 1
+    filing_id: TSLA_10Q_2025-09-30
+    section: unknown
+    note: expected 10-Q table of contents heading list

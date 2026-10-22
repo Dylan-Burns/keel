@@ -1,0 +1,381 @@
+question_id: G-09
+level: chunk
+index_version: 1.0.1
+build_id: 20261021T231603728106Z
+chunks_sha256: 722b9b5693e4284330cbe36342c8d8679357be7f4cd899cf67c02c65bdb266be
+created: '2026-10-22'
+pool: hybrid top 30, lexical top 10, and dense top 10 per sub-query, with the reranker; plus the lexical top 10 in the expected filings without a section filter
+sections:
+  - filing_id: GOOG_10K_2025-12-31
+    section: risk_factors
+    chunks: 47
+  - filing_id: GOOG_10K_2025-12-31
+    section: mdna
+    chunks: 46
+  - filing_id: META_10K_2025-12-31
+    section: risk_factors
+    chunks: 107
+  - filing_id: META_10K_2025-12-31
+    section: mdna
+    chunks: 68
+chunks:
+  - chunk_id: GOOG_10K_2022-12-31__mdna__0014
+    grade: 0
+    filing_id: GOOG_10K_2022-12-31
+    section: mdna
+    note: older revenue table, no risk angle
+  - chunk_id: GOOG_10K_2022-12-31__risk_factors__0000
+    grade: 1
+    filing_id: GOOG_10K_2022-12-31
+    section: risk_factors
+    note: 'older 10-K: ad dependence and macro ad spending risk'
+  - chunk_id: GOOG_10K_2022-12-31__risk_factors__0002
+    grade: 1
+    filing_id: GOOG_10K_2022-12-31
+    section: risk_factors
+    note: 'older 10-K: competitors attracting advertisers'
+  - chunk_id: GOOG_10K_2022-12-31__risk_factors__0003
+    grade: 0
+    filing_id: GOOG_10K_2022-12-31
+    section: risk_factors
+    note: 'older 10-K: devices and cloud investment risk'
+  - chunk_id: GOOG_10K_2022-12-31__risk_factors__0004
+    grade: 1
+    filing_id: GOOG_10K_2022-12-31
+    section: risk_factors
+    note: 'older 10-K: advertiser spending deceleration hits growth'
+  - chunk_id: GOOG_10K_2022-12-31__risk_factors__0011
+    grade: 0
+    filing_id: GOOG_10K_2022-12-31
+    section: risk_factors
+    note: 'older 10-K: international operations risk'
+  - chunk_id: GOOG_10K_2022-12-31__risk_factors__0035
+    grade: 0
+    filing_id: GOOG_10K_2022-12-31
+    section: risk_factors
+    note: 'older 10-K: COVID and stock price risks'
+  - chunk_id: GOOG_10K_2023-12-31__mdna__0015
+    grade: 0
+    filing_id: GOOG_10K_2023-12-31
+    section: mdna
+    note: older revenue table, no risk angle
+  - chunk_id: GOOG_10K_2023-12-31__risk_factors__0000
+    grade: 1
+    filing_id: GOOG_10K_2023-12-31
+    section: risk_factors
+    note: 'older 10-K: ad dependence and cookie privacy risk'
+  - chunk_id: GOOG_10K_2023-12-31__risk_factors__0003
+    grade: 1
+    filing_id: GOOG_10K_2023-12-31
+    section: risk_factors
+    note: 'older 10-K: competitors attracting advertisers'
+  - chunk_id: GOOG_10K_2023-12-31__risk_factors__0005
+    grade: 1
+    filing_id: GOOG_10K_2023-12-31
+    section: risk_factors
+    note: 'older 10-K: advertiser spending deceleration hits growth'
+  - chunk_id: GOOG_10K_2023-12-31__risk_factors__0012
+    grade: 0
+    filing_id: GOOG_10K_2023-12-31
+    section: risk_factors
+    note: 'older 10-K: international operations risk'
+  - chunk_id: GOOG_10K_2023-12-31__risk_factors__0014
+    grade: 0
+    filing_id: GOOG_10K_2023-12-31
+    section: risk_factors
+    note: 'older 10-K: device platforms and AI risk'
+  - chunk_id: GOOG_10K_2024-12-31__mdna__0014
+    grade: 0
+    filing_id: GOOG_10K_2024-12-31
+    section: mdna
+    note: older revenue table, no risk angle
+  - chunk_id: GOOG_10K_2024-12-31__risk_factors__0000
+    grade: 1
+    filing_id: GOOG_10K_2024-12-31
+    section: risk_factors
+    note: 'older 10-K: ad dependence and cookie privacy risk'
+  - chunk_id: GOOG_10K_2024-12-31__risk_factors__0004
+    grade: 0
+    filing_id: GOOG_10K_2024-12-31
+    section: risk_factors
+    note: 'older 10-K: devices and cloud investment risk'
+  - chunk_id: GOOG_10K_2024-12-31__risk_factors__0008
+    grade: 0
+    filing_id: GOOG_10K_2024-12-31
+    section: risk_factors
+    note: 'older 10-K: brand and supply chain risk'
+  - chunk_id: GOOG_10K_2024-12-31__risk_factors__0012
+    grade: 0
+    filing_id: GOOG_10K_2024-12-31
+    section: risk_factors
+    note: 'older 10-K: data center outages, international intro'
+  - chunk_id: GOOG_10K_2024-12-31__risk_factors__0013
+    grade: 0
+    filing_id: GOOG_10K_2024-12-31
+    section: risk_factors
+    note: 'older 10-K: international operations risk'
+  - chunk_id: GOOG_10K_2024-12-31__risk_factors__0015
+    grade: 0
+    filing_id: GOOG_10K_2024-12-31
+    section: risk_factors
+    note: 'older 10-K: device platforms and AI risk'
+  - chunk_id: GOOG_10K_2025-12-31__mdna__0013
+    grade: 1
+    filing_id: GOOG_10K_2025-12-31
+    section: mdna
+    note: ad revenue table, results without risk angle
+  - chunk_id: GOOG_10K_2025-12-31__risk_factors__0000
+    grade: 2
+    filing_id: GOOG_10K_2025-12-31
+    section: risk_factors
+    note: ad dependence over 70 pct, ad blocking, privacy, AI shift
+  - chunk_id: GOOG_10K_2025-12-31__risk_factors__0001
+    grade: 2
+    filing_id: GOOG_10K_2025-12-31
+    section: risk_factors
+    note: ad blocking and macro conditions hit ad demand
+  - chunk_id: GOOG_10K_2025-12-31__risk_factors__0009
+    grade: 1
+    filing_id: GOOG_10K_2025-12-31
+    section: risk_factors
+    note: brand risk, advertiser practices in passing
+  - chunk_id: GOOG_10K_2025-12-31__risk_factors__0013
+    grade: 1
+    filing_id: GOOG_10K_2025-12-31
+    section: risk_factors
+    note: service outages and international intro, generic
+  - chunk_id: GOOG_10K_2025-12-31__risk_factors__0014
+    grade: 1
+    filing_id: GOOG_10K_2025-12-31
+    section: risk_factors
+    note: international operations risk, not advertising specific
+  - chunk_id: GOOG_10K_2025-12-31__risk_factors__0015
+    grade: 1
+    filing_id: GOOG_10K_2025-12-31
+    section: risk_factors
+    note: FX, financing, investment risk, not advertising
+  - chunk_id: GOOG_10K_2025-12-31__risk_factors__0018
+    grade: 1
+    filing_id: GOOG_10K_2025-12-31
+    section: risk_factors
+    note: problematic content, ad fraud mention in passing
+  - chunk_id: GOOG_10K_2025-12-31__unknown__0010
+    grade: 0
+    filing_id: GOOG_10K_2025-12-31
+    section: unknown
+    note: forward-looking statement boilerplate
+  - chunk_id: GOOG_10Q_2023-03-31__mdna__0011
+    grade: 0
+    filing_id: GOOG_10Q_2023-03-31
+    section: mdna
+    note: 10-Q revenue table, no risk angle
+  - chunk_id: GOOG_10Q_2024-03-31__mdna__0010
+    grade: 0
+    filing_id: GOOG_10Q_2024-03-31
+    section: mdna
+    note: 10-Q revenue table, no risk angle
+  - chunk_id: GOOG_10Q_2024-03-31__risk_factors__0000
+    grade: 1
+    filing_id: GOOG_10Q_2024-03-31
+    section: risk_factors
+    note: '10-Q: ad dependence and cookie phase-out risk'
+  - chunk_id: GOOG_10Q_2024-06-30__risk_factors__0000
+    grade: 1
+    filing_id: GOOG_10Q_2024-06-30
+    section: risk_factors
+    note: '10-Q: ad dependence and cookie user choice risk'
+  - chunk_id: GOOG_10Q_2024-06-30__risk_factors__0001
+    grade: 1
+    filing_id: GOOG_10Q_2024-06-30
+    section: risk_factors
+    note: '10-Q: ad blocking and macro ad demand'
+  - chunk_id: GOOG_10Q_2025-03-31__mdna__0010
+    grade: 0
+    filing_id: GOOG_10Q_2025-03-31
+    section: mdna
+    note: 10-Q revenue table, no risk angle
+  - chunk_id: META_10K_2024-12-31__risk_factors__0015
+    grade: 1
+    filing_id: META_10K_2024-12-31
+    section: risk_factors
+    note: 'older 10-K: iOS signal loss hurt ad revenue'
+  - chunk_id: META_10K_2024-12-31__risk_factors__0031
+    grade: 1
+    filing_id: META_10K_2024-12-31
+    section: risk_factors
+    note: 'older 10-K: competition reduces ad impressions'
+  - chunk_id: META_10K_2024-12-31__risk_factors__0032
+    grade: 1
+    filing_id: META_10K_2024-12-31
+    section: risk_factors
+    note: 'older 10-K: ad factors in quarterly fluctuations'
+  - chunk_id: META_10K_2024-12-31__risk_factors__0086
+    grade: 0
+    filing_id: META_10K_2024-12-31
+    section: risk_factors
+    note: 'older 10-K: payments regulation and security'
+  - chunk_id: META_10K_2024-12-31__risk_factors__0087
+    grade: 0
+    filing_id: META_10K_2024-12-31
+    section: risk_factors
+    note: 'older 10-K: security breach risk'
+  - chunk_id: META_10K_2025-12-31__risk_factors__0000
+    grade: 1
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: generic risk factors introduction
+  - chunk_id: META_10K_2025-12-31__risk_factors__0001
+    grade: 2
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: 'summary risks: marketer spending, data signal loss, ad restrictions'
+  - chunk_id: META_10K_2025-12-31__risk_factors__0002
+    grade: 1
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: user engagement risk, ad impressions only indirectly
+  - chunk_id: META_10K_2025-12-31__risk_factors__0009
+    grade: 2
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: 'ad revenue risk factors: ROI, pricing, platform policies, regulation'
+  - chunk_id: META_10K_2025-12-31__risk_factors__0010
+    grade: 2
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: measurement tools and ad market share loss
+  - chunk_id: META_10K_2025-12-31__risk_factors__0016
+    grade: 2
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: Apple and Google platform changes limit ad targeting
+  - chunk_id: META_10K_2025-12-31__risk_factors__0019
+    grade: 1
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: AI initiatives risk, ad tools in passing
+  - chunk_id: META_10K_2025-12-31__risk_factors__0023
+    grade: 2
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: ad load changes, Reels monetizes at lower rate
+  - chunk_id: META_10K_2025-12-31__risk_factors__0029
+    grade: 2
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: competition with companies selling advertising to businesses
+  - chunk_id: META_10K_2025-12-31__risk_factors__0033
+    grade: 2
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: competition cuts ad impressions, fluctuation factors start
+  - chunk_id: META_10K_2025-12-31__risk_factors__0034
+    grade: 2
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: ad pricing, spending, ad blocking in fluctuation factors
+  - chunk_id: META_10K_2025-12-31__risk_factors__0043
+    grade: 1
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: infrastructure risk, not advertising
+  - chunk_id: META_10K_2025-12-31__risk_factors__0056
+    grade: 1
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: inventory and litigation risk, not advertising
+  - chunk_id: META_10K_2025-12-31__risk_factors__0069
+    grade: 2
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: government actions cutting China and Turkey ad revenue
+  - chunk_id: META_10K_2025-12-31__risk_factors__0089
+    grade: 1
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: content regulation and payments, not advertising
+  - chunk_id: META_10K_2025-12-31__risk_factors__0091
+    grade: 1
+    filing_id: META_10K_2025-12-31
+    section: risk_factors
+    note: security breach risk, ads only in passing
+  - chunk_id: META_10K_2025-12-31__unknown__0015
+    grade: 0
+    filing_id: META_10K_2025-12-31
+    section: unknown
+    note: forward-looking statement boilerplate
+  - chunk_id: META_10Q_2024-03-31__risk_factors__0031
+    grade: 1
+    filing_id: META_10Q_2024-03-31
+    section: risk_factors
+    note: '10-Q: competition reduces ad impressions'
+  - chunk_id: META_10Q_2024-06-30__risk_factors__0001
+    grade: 1
+    filing_id: META_10Q_2024-06-30
+    section: risk_factors
+    note: '10-Q: summary risks on marketers and signals'
+  - chunk_id: META_10Q_2024-06-30__risk_factors__0009
+    grade: 1
+    filing_id: META_10Q_2024-06-30
+    section: risk_factors
+    note: '10-Q: ad revenue risk factors list'
+  - chunk_id: META_10Q_2024-06-30__risk_factors__0027
+    grade: 1
+    filing_id: META_10Q_2024-06-30
+    section: risk_factors
+    note: '10-Q: competition with ad sellers'
+  - chunk_id: META_10Q_2024-06-30__risk_factors__0032
+    grade: 1
+    filing_id: META_10Q_2024-06-30
+    section: risk_factors
+    note: '10-Q: ad factors in quarterly fluctuations'
+  - chunk_id: META_10Q_2024-09-30__risk_factors__0009
+    grade: 1
+    filing_id: META_10Q_2024-09-30
+    section: risk_factors
+    note: '10-Q: ad revenue risk factors list'
+  - chunk_id: META_10Q_2024-09-30__risk_factors__0017
+    grade: 1
+    filing_id: META_10Q_2024-09-30
+    section: risk_factors
+    note: '10-Q: mobile OS and monetization risk'
+  - chunk_id: META_10Q_2024-09-30__risk_factors__0027
+    grade: 1
+    filing_id: META_10Q_2024-09-30
+    section: risk_factors
+    note: '10-Q: competition with ad sellers'
+  - chunk_id: META_10Q_2024-09-30__risk_factors__0031
+    grade: 1
+    filing_id: META_10Q_2024-09-30
+    section: risk_factors
+    note: '10-Q: competition reduces ad impressions'
+  - chunk_id: META_10Q_2025-03-31__risk_factors__0089
+    grade: 0
+    filing_id: META_10Q_2025-03-31
+    section: risk_factors
+    note: '10-Q: payments regulation and security'
+  - chunk_id: META_10Q_2025-06-30__risk_factors__0001
+    grade: 1
+    filing_id: META_10Q_2025-06-30
+    section: risk_factors
+    note: '10-Q: summary risks on marketers and signals'
+  - chunk_id: META_10Q_2025-06-30__risk_factors__0034
+    grade: 1
+    filing_id: META_10Q_2025-06-30
+    section: risk_factors
+    note: '10-Q: ad factors in quarterly fluctuations'
+  - chunk_id: META_10Q_2025-09-30__risk_factors__0032
+    grade: 1
+    filing_id: META_10Q_2025-09-30
+    section: risk_factors
+    note: '10-Q: competition factors, ad impressions'
+  - chunk_id: META_10Q_2025-09-30__risk_factors__0034
+    grade: 1
+    filing_id: META_10Q_2025-09-30
+    section: risk_factors
+    note: '10-Q: ad factors in quarterly fluctuations'
+  - chunk_id: META_10Q_2025-09-30__risk_factors__0091
+    grade: 0
+    filing_id: META_10Q_2025-09-30
+    section: risk_factors
+    note: '10-Q: security breach risk'

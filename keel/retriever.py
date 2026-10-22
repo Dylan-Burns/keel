@@ -57,6 +57,10 @@ TREND_MIN_QUOTA = 2
 TREND_10K_MIN_QUOTA = 4
 DEGRADED_RETRIEVAL = "degraded_retrieval"
 RERANKER_UNAVAILABLE = "reranker_unavailable"
+HYBRID = "hybrid"
+LEXICAL = "lexical"
+DENSE = "dense"
+MODES = (HYBRID, LEXICAL, DENSE)
 RISK_SECTION = "risk_factors"
 UNKNOWN_SECTION = "unknown"
 # A risk question that also asks how the companies respond reserves a third
@@ -924,6 +928,10 @@ class Timings:
     total_ms: float
 
 
+# The result has a field named `context`, which hides the module there.
+_Candidate = context.Candidate
+
+
 @dataclasses.dataclass(frozen=True)
 class RetrievalResult:
     """The result of 1 retrieval.
@@ -937,6 +945,8 @@ class RetrievalResult:
         gaps: The coverage limits for the gaps of the answer.
         degraded: `degraded_retrieval` and `reranker_unavailable` notes.
         timings: The time per step.
+        ranked: The candidates after the collapse, best first (the label
+            helper and the eval read them).
     """
 
     plan: Plan
@@ -947,6 +957,7 @@ class RetrievalResult:
     gaps: tuple[str, ...]
     degraded: tuple[str, ...]
     timings: Timings
+    ranked: tuple[_Candidate, ...] = ()
 
 
 @dataclasses.dataclass
@@ -1006,6 +1017,11 @@ class Retriever:
         reranker: The reranker, or None to rank by the fused score.
         settings: The loaded settings.
         degraded: The notes of the models that did not load.
+        mode: `hybrid`, or `lexical` or `dense` alone for the ablation of
+            chapter 18.7.
+
+    Raises:
+        ConfigError: An unknown mode.
     """
 
     def __init__(  # pylint: disable=too-many-arguments
@@ -1017,7 +1033,11 @@ class Retriever:
         settings: config.Settings,
         *,
         degraded: Sequence[str] = (),
+        mode: str = HYBRID,
     ) -> None:
+        if mode not in MODES:
+            raise errors.ConfigError(f"unknown retrieval mode {mode!r}")
+        self.mode = mode
         self.conn = conn
         self.vectors = vectors
         self.embedder = embedder if vectors is not None else None
@@ -1114,7 +1134,7 @@ class Retriever:
 
     def _lexical(self, sub: SubQuery) -> list[int]:
         expression = sqlite_fts.match_expression(sub.terms)
-        if not expression:
+        if not expression or self.mode == DENSE:
             return []
         where, params = sub.filter.where()
         rows = self.conn.execute(
@@ -1128,7 +1148,11 @@ class Retriever:
         return [int(row[0]) for row in rows]
 
     def _dense(self, sub: SubQuery) -> list[int]:
-        if self.embedder is None or self.vectors is None:
+        if (
+            self.embedder is None
+            or self.vectors is None
+            or self.mode == LEXICAL
+        ):
             return []
         where, params = sub.filter.where()
         rows = [
@@ -1389,4 +1413,5 @@ class Retriever:
                 rerank_ms=round(clock.rerank * 1000, 1),
                 total_ms=round((time.perf_counter() - started) * 1000, 1),
             ),
+            ranked=tuple(sorted(kept, key=lambda c: c.rank_key)),
         )

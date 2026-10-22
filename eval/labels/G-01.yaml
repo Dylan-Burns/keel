@@ -1,0 +1,172 @@
+question_id: G-01
+level: chunk
+index_version: 1.0.1
+build_id: 20261021T231603728106Z
+chunks_sha256: 722b9b5693e4284330cbe36342c8d8679357be7f4cd899cf67c02c65bdb266be
+created: '2026-10-22'
+pool: hybrid top 30, lexical top 10, and dense top 10 per sub-query, with the reranker; plus the lexical top 10 in the expected filings without a section filter
+sections:
+  - filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    chunks: 36
+chunks:
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0000
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: Section intro then macroeconomic conditions risk stated
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0001
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: Economic conditions effects and geopolitical, trade disruption risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0002
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: Tariffs and international trade restriction risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0004
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: Natural disasters, pandemics, business interruption risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0005
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: Business interruption losses and competitive markets risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0007
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: Intense competition risk and product transition risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0008
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: Product introduction risk and outsourced manufacturing dependence
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0009
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: Supply chain control and single-source component risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0010
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: Component supply shortages and design defect risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0011
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: Product defects, AI safety, inventory write-down risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0012
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: Inventory obsolescence and third-party IP licensing risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0013
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: Third-party IP licensing and developer support risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0014
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: Developer support and digital content licensing risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0015
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: Content access risk and key personnel retention risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0016
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: Workforce, culture, and carrier/reseller dependence risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0017
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: Reseller dependence and IT system failure risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0018
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: Confidential data loss and malicious attack risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0019
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: Cybersecurity attack risk and acquisition strategy risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0020
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: New business strategy risk and legal proceedings risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0021
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: Patent claims and litigation outcome risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0023
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: Complex changing laws and regulations risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0024
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: Export/import regulation and stakeholder expectations risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0025
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: ESG statements risk and regulatory scrutiny of tech industry
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0026
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: EU DMA compliance and antitrust litigation risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0027
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: App Store investigations and Google search revenue risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0029
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: Privacy and data protection compliance risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0030
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: Online safety laws and gross margin volatility risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0031
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: Single product concentration and foreign exchange risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0032
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: Hedging limits, investment portfolio and credit risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0033
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: Receivables credit risk and tax law change risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0035
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: Stock price decline if expectations unmet
+  - chunk_id: AAPL_10K_2025-09-27__unknown__0015
+    grade: 0
+    filing_id: AAPL_10K_2025-09-27
+    section: unknown
+    note: Forward-looking statements disclaimer boilerplate
