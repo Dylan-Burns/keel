@@ -1,6 +1,16 @@
 # Build report
 
-Status: next stage 22
+Status: complete 2026-10-22
+
+Stages 0 to 22 are merged. These steps need the engineer and are open:
+
+- Stage 21: choose the pilot host (Railway had a security incident), create
+  the `production` environment with its secret and variable, publish the
+  `index-v1` release archive (Option A), cut the first release, run
+  `deploy.yml`, approve it, and check `/api/health` over HTTPS from a phone.
+- Stage 16: time the rehearsal against 25 minutes with 5 to spare, and fill
+  the log in `docs/REHEARSAL.md`.
+- Chapter 21.1: record `demo/recording.mp4` and write `demo/static/`.
 
 One entry per stage of `docs/28_build_sequence.md`. Claude Code appends to this file after each stage. The panel reads it during the demo code walk.
 
