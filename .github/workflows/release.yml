@@ -1,8 +1,9 @@
 name: release
 
 # On a version tag: build the image, generate an SBOM, scan it, attest its
-# provenance, and publish it to GHCR. Nothing deploys from here; deploy.yml is
-# a separate, approved step.
+# provenance, and publish it to GHCR. Then it starts deploy-aws.yml for the
+# version, which waits for the engineer's approval in the production
+# environment before anything reaches the host (D-39).
 on:
   push:
     tags: ["v*.*.*"]
@@ -80,3 +81,20 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: sbom.spdx.json
+
+  request-deploy:
+    needs: image
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: start the approved deploy of this version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          version="${TAG#v}"
+          gh workflow run deploy-aws.yml --repo "${REPO}" --ref main -f version="${version}"
+          echo "deploy-aws.yml started for ${version}; it waits for approval in production" >> "${GITHUB_STEP_SUMMARY}"
