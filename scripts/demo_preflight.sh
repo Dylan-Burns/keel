@@ -38,6 +38,8 @@ CHECK_DETAILS=()
 
 #######################################
 # Record 1 check result and print it as it happens.
+# Globals:
+#   CHECK_NAMES, CHECK_STATUSES, CHECK_DETAILS (appended)
 # Arguments:
 #   The check name, the status (pass, warn, or fail), the detail.
 #######################################
@@ -60,6 +62,8 @@ usage() {
 
 #######################################
 # Read the command-line flags into the globals.
+# Globals:
+#   SKIP_TESTS, NO_START, PORT, BASE_URL (set)
 # Arguments:
 #   The script arguments.
 #######################################
@@ -83,10 +87,13 @@ parse_args() {
 
 #######################################
 # Item 1: `make test` (ruff, mypy, pylint, pytest with coverage).
+# Globals:
+#   SKIP_TESTS, LOG_DIR
 #######################################
 check_tests() {
   if [[ "${SKIP_TESTS}" -eq 1 ]]; then
-    record "make test" "warn" "skipped (--skip-tests); run it once before the demo"
+    record "make test" "warn" \
+      "skipped (--skip-tests); run it once before the demo"
     return
   fi
   local log="${LOG_DIR}/preflight_make_test.log"
@@ -101,6 +108,26 @@ check_tests() {
 }
 
 #######################################
+# Print 1 jq result of a JSON text, or nothing when the text is not JSON.
+# Arguments:
+#   The jq filter, the JSON text.
+# Outputs:
+#   The raw jq output on stdout.
+#######################################
+json_get() {
+  jq -r "$1" <<< "$2" 2> /dev/null || true
+}
+
+#######################################
+# Return 0 when the text is a JSON object.
+# Arguments:
+#   The text.
+#######################################
+is_object() {
+  jq -e 'type == "object"' <<< "$1" > /dev/null 2>&1
+}
+
+#######################################
 # Item 2: `keel doctor`, plus its clock row as its own line.
 #######################################
 check_doctor() {
@@ -112,9 +139,12 @@ check_doctor() {
       return
     fi
   fi
+  # $s is a jq variable, not a shell one.
+  # shellcheck disable=SC2016
+  local names='[.[] | select(.status == $s) | .name] | join(", ")'
   local fails warns
-  fails="$(jq -r '[.[] | select(.status == "fail") | .name] | join(", ")' <<< "${json}")"
-  warns="$(jq -r '[.[] | select(.status == "warn") | .name] | join(", ")' <<< "${json}")"
+  fails="$(jq -r --arg s fail "${names}" <<< "${json}" 2> /dev/null || true)"
+  warns="$(jq -r --arg s warn "${names}" <<< "${json}" 2> /dev/null || true)"
   if [[ -n "${fails}" ]]; then
     record "keel doctor" "fail" "failed: ${fails}"
   elif [[ -n "${warns}" ]]; then
@@ -124,8 +154,9 @@ check_doctor() {
   fi
   # The clock against the newest corpus filing (E-F-12): doctor computes it.
   local clock_status clock_detail
-  clock_status="$(jq -r '.[] | select(.name == "clock") | .status' <<< "${json}")"
-  clock_detail="$(jq -r '.[] | select(.name == "clock") | .detail' <<< "${json}")"
+  local clock='.[] | select(.name == "clock")'
+  clock_status="$(json_get "${clock} | .status" "${json}")"
+  clock_detail="$(json_get "${clock} | .detail" "${json}")"
   case "${clock_status}" in
     ok) record "clock" "pass" "${clock_detail}" ;;
     "") record "clock" "warn" "doctor reported no clock row" ;;
@@ -149,19 +180,45 @@ check_disk() {
 }
 
 #######################################
-# Return 0 when /api/health answers on BASE_URL.
+# Return 0 when a Keel /api/health answers at the URL.
+# Arguments:
+#   The base URL.
 #######################################
 healthy() {
-  curl --silent --fail --max-time 3 "${BASE_URL}/api/health" > /dev/null 2>&1
+  local body
+  body="$(curl --silent --fail --max-time 3 "$1/api/health" 2> /dev/null)" \
+    || return 1
+  [[ "$(json_get '.status' "${body}")" == "ok" ]]
+}
+
+#######################################
+# Find a running Keel on PORT to PORT+10, the range `keel serve` moves
+# through when a port is busy.
+# Globals:
+#   PORT, BASE_URL (set when found)
+# Returns:
+#   0 when found, else 1.
+#######################################
+find_running() {
+  local port
+  for ((port = PORT; port <= PORT + 10; port++)); do
+    if healthy "http://127.0.0.1:${port}"; then
+      BASE_URL="http://127.0.0.1:${port}"
+      return 0
+    fi
+  done
+  return 1
 }
 
 #######################################
 # Start `keel serve` in the background unless it already answers, and wait
 # for /api/health. A busy port moves the service up to 10 ports higher, so
 # the URL comes from the startup line of the log.
+# Globals:
+#   NO_START, PORT, LOG_DIR, BASE_URL (set)
 #######################################
 check_serve() {
-  if healthy; then
+  if find_running; then
     record "keel serve" "pass" "already running at ${BASE_URL}"
     return
   fi
@@ -180,8 +237,9 @@ check_serve() {
     if [[ -n "${url}" ]]; then
       BASE_URL="${url}"
     fi
-    if healthy; then
-      record "keel serve" "pass" "started at ${BASE_URL}, PID ${pid}, log ${log}"
+    if healthy "${BASE_URL}"; then
+      record "keel serve" "pass" \
+        "started at ${BASE_URL}, PID ${pid}, log ${log}"
       return
     fi
     if ! kill -0 "${pid}" 2> /dev/null; then
@@ -191,21 +249,25 @@ check_serve() {
     sleep 2
     waited=$((waited + 2))
   done
-  record "keel serve" "fail" "no /api/health after ${SERVE_WAIT_SECONDS} s; see ${log}"
+  record "keel serve" "fail" \
+    "no /api/health after ${SERVE_WAIT_SECONDS} s; see ${log}"
 }
 
 #######################################
 # /api/health: the process runs and reports its version.
+# Globals:
+#   BASE_URL
 #######################################
 check_health() {
   local body
-  if ! body="$(curl --silent --fail --max-time 5 "${BASE_URL}/api/health")"; then
+  if ! body="$(curl --silent --fail --max-time 5 "${BASE_URL}/api/health")" \
+    || ! is_object "${body}"; then
     record "/api/health" "fail" "no answer at ${BASE_URL}"
     return
   fi
   local status version
-  status="$(jq -r '.status // empty' <<< "${body}")"
-  version="$(jq -r '.version // empty' <<< "${body}")"
+  status="$(json_get '.status // empty' "${body}")"
+  version="$(json_get '.version // empty' "${body}")"
   if [[ "${status}" == "ok" ]]; then
     record "/api/health" "pass" "status ok, keel ${version}"
   else
@@ -215,11 +277,13 @@ check_health() {
 
 #######################################
 # Item 3: /api/ready reports ready with the version of index/current.
+# Globals:
+#   BASE_URL, INDEX_VERSION (set)
 #######################################
 check_ready() {
-  local expected=""
-  if [[ -f index/current/manifest.json ]]; then
-    expected="$(jq -r '.index_version // empty' index/current/manifest.json)"
+  local expected="" manifest="index/current/manifest.json"
+  if [[ -f "${manifest}" ]]; then
+    expected="$(json_get '.index_version // empty' "$(cat "${manifest}")")"
   fi
   local body
   # HTTP 503 means index_corrupt; the body still says why.
@@ -228,14 +292,18 @@ check_ready() {
     record "/api/ready" "fail" "no answer at ${BASE_URL}"
     return
   fi
-  local ready
-  ready="$(jq -r '.ready' <<< "${body}")"
-  INDEX_VERSION="$(jq -r '.index_version // empty' <<< "${body}")"
-  local failed
-  failed="$(jq -r '[.checks // {} | to_entries[] | select(.value != true) | .key]
-    | join(", ")' <<< "${body}")"
+  if ! is_object "${body}"; then
+    record "/api/ready" "fail" "not a Keel response at ${BASE_URL}"
+    return
+  fi
+  local ready failed
+  ready="$(json_get '.ready' "${body}")"
+  INDEX_VERSION="$(json_get '.index_version // empty' "${body}")"
+  failed="$(json_get '[.checks // {} | to_entries[]
+    | select(.value != true) | .key] | join(", ")' "${body}")"
   if [[ "${ready}" != "true" ]]; then
-    record "/api/ready" "fail" "ready false; failed checks: ${failed:-none named}"
+    record "/api/ready" "fail" \
+      "ready false; failed checks: ${failed:-none named}"
   elif [[ -n "${expected}" && "${INDEX_VERSION}" != "${expected}" ]]; then
     record "/api/ready" "fail" \
       "index ${INDEX_VERSION}, expected ${expected} from index/current"
@@ -285,24 +353,35 @@ PY
 #######################################
 # Item 4: the answer cache holds the 28 golden questions. `keel warm-cache`
 # lands in stage 15; before it exists the check reports that.
+# Globals:
+#   INDEX_VERSION, LOG_DIR
 #######################################
 check_cache() {
   if ! uv run keel --help 2> /dev/null | grep -q -E '^ +warm-cache '; then
-    record "answer cache" "warn" "pending stage 15 (keel warm-cache is absent)"
+    record "answer cache" "warn" \
+      "pending stage 15 (keel warm-cache is absent)"
     return
   fi
   if [[ -z "${INDEX_VERSION}" ]]; then
     record "answer cache" "fail" "no index version to compute the cache keys"
     return
   fi
-  local counts
-  if ! counts="$(count_cached "${INDEX_VERSION}" 2> /dev/null)"; then
-    record "answer cache" "fail" "the count failed"
+  local counts log="${LOG_DIR}/preflight_cache.log"
+  if ! counts="$(count_cached "${INDEX_VERSION}" 2> "${log}")"; then
+    record "answer cache" "fail" "the count failed; see ${log}"
     return
   fi
-  local found total
-  read -r found total <<< "${counts}"
-  if [[ "${found}" -ge "${GOLDEN_QUESTIONS}" ]]; then
+  local found="" total=""
+  read -r found total <<< "${counts}" || true
+  if [[ ! "${found}" =~ ^[0-9]+$ || ! "${total}" =~ ^[0-9]+$ ]]; then
+    record "answer cache" "fail" "unexpected count output; see ${log}"
+    return
+  fi
+  if [[ "${total}" -ne "${GOLDEN_QUESTIONS}" ]]; then
+    record "answer cache" "warn" \
+      "the golden set has ${total} questions, the checklist expects 28"
+  fi
+  if [[ "${found}" -ge "${total}" && "${total}" -gt 0 ]]; then
     record "answer cache" "pass" "${found} of ${total} golden questions cached"
   else
     record "answer cache" "fail" \
@@ -364,6 +443,13 @@ summarize() {
   return 0
 }
 
+#######################################
+# Run every check from the repository root and print the summary.
+# Globals:
+#   LOG_DIR (set)
+# Arguments:
+#   The script arguments.
+#######################################
 main() {
   parse_args "$@"
   cd "$(dirname "$0")/.."
