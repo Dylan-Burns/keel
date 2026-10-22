@@ -716,13 +716,12 @@ def test_users_token_shown_once(client, api_settings, admin, caplog) -> None:
         headers=admin,
     )
     assert bad.status_code == 422
-    assert (
-        client.delete("/api/admin/users/dave", headers=admin).status_code == 204
-    )
-    assert client.get("/api/history", headers=bearer(token)).status_code == 401
-    assert (
-        client.delete("/api/admin/users/dave", headers=admin).status_code == 404
-    )
+    removed = client.delete("/api/admin/users/dave", headers=admin)
+    assert removed.status_code == 204
+    revoked = client.get("/api/history", headers=bearer(token))
+    assert revoked.status_code == 401
+    missing = client.delete("/api/admin/users/dave", headers=admin)
+    assert missing.status_code == 404
     own = client.delete("/api/admin/users/carol", headers=admin)
     assert own.status_code == 409
     assert own.json()["detail"]["code"] == "self_delete"
@@ -772,11 +771,10 @@ def test_watch_routes(client, tokens, admin) -> None:
     assert bad.status_code == 422
     gone = client.delete("/api/watch/ZTS?user=alice", headers=admin)
     assert gone.status_code == 204
-    assert (
-        client.delete("/api/watch/ZTS?user=alice", headers=admin).status_code
-        == 404
-    )
-    assert client.delete("/api/watch/BRK.B", headers=admin).status_code == 204
+    again = client.delete("/api/watch/ZTS?user=alice", headers=admin)
+    assert again.status_code == 404
+    mine = client.delete("/api/watch/BRK.B", headers=admin)
+    assert mine.status_code == 204
 
 
 def test_debug_routes_make_no_model_request(client, services, tokens) -> None:
