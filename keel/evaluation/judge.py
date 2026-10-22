@@ -46,6 +46,10 @@ JUDGE_MAX_TOKENS = 16_000
 MIN_SENTENCE = 15
 STOPPED = frozenset({"refusal", "max_tokens"})
 NO_VERDICT = "The judge returned no verdict for this item."
+NOT_ABOUT_KEEL = (
+    "The judge marked this item about_keel, but it cites filing text, so "
+    "it is judged as a filing claim."
+)
 SUPPORTED: Final = "supported"
 PARTLY: Final = "partly_supported"
 NOT_SUPPORTED: Final = "not_supported"
@@ -60,6 +64,9 @@ Verdict = Literal[
 _MARKER = re.compile(r"\[([^\[\]\n]{1,400})\]")
 _CHUNK_ID = re.compile(
     r"^[A-Z0-9][A-Z0-9.\-]*_10[KQ]_\d{4}-\d{2}-\d{2}__[a-z_]+__\d{4,}$"
+)
+_JUDGE_TAG = re.compile(
+    r"<(\s*/?\s*(?:question|chunks?|claims?|citations?)\b)", re.IGNORECASE
 )
 _SENTENCE = re.compile(r"(?<=[.!?])\s+(?=[A-Z(\[\"'])")
 
@@ -119,15 +126,6 @@ class JudgeOutput(_Model):
     claims: tuple[ItemVerdict, ...]
     citations: tuple[ItemVerdict, ...]
 
-    @pydantic.field_validator("citations")
-    @classmethod
-    def _citations_judge_a_chunk(
-        cls, value: tuple[ItemVerdict, ...]
-    ) -> tuple[ItemVerdict, ...]:
-        if any(v.verdict == ABOUT_KEEL for v in value):
-            raise ValueError("a citation cannot be about_keel")
-        return value
-
 
 def parse_output(text: str) -> JudgeOutput:
     """Parse and validate the judge JSON.
@@ -157,11 +155,14 @@ class Claim:
         id: `C1`, `C2`, ... for claims, `K1`, ... for citations.
         text: The claim (with the quote for a citation).
         chunk_ids: The cited chunks; empty for an unverified finding.
+        unmarked: True for a sentence of the direct answer with no
+            citation marker, the only claim that may be `about_keel`.
     """
 
     id: str
     text: str
     chunk_ids: tuple[str, ...]
+    unmarked: bool = False
 
 
 @dataclasses.dataclass(frozen=True)
@@ -233,8 +234,15 @@ def judge_input(record: Mapping[str, Any]) -> JudgeInput | None:
     claims: list[Claim] = []
     for sentence in _sentences(str(answer.get("direct_answer", ""))):
         text = _plain(sentence)
-        cites = _markers(sentence) or tuple(every)
-        claims.append(Claim(f"C{len(claims) + 1}", text, cites))
+        marked = _markers(sentence)
+        claims.append(
+            Claim(
+                f"C{len(claims) + 1}",
+                text,
+                marked or tuple(every),
+                unmarked=not marked,
+            )
+        )
     for finding in _findings(answer):
         cites = () if finding.get("unverified") else finding["citations"]
         text = _finding_text(finding)
@@ -299,6 +307,16 @@ def _escape(text: str) -> str:
     return text.replace("<", "&lt;")
 
 
+def _escape_judge_tags(text: str) -> str:
+    """Escape the judge wrapper tags only, in text already guarded.
+
+    The body of a rendered chunk passed `context.guard_untrusted` for the
+    tags of the answer prompt; this adds the tags of the judge message, so
+    the rest of the body stays byte for byte what the answer model read.
+    """
+    return _JUDGE_TAG.sub(r"&lt;\1", text)
+
+
 def render_user(
     item: JudgeInput, chunks: Mapping[str, str], judged: Sequence[Claim]
 ) -> str:
@@ -338,16 +356,17 @@ def _chunk_element(chunk_id: str, text: str) -> str:
 
     A text that is already the `<chunk>` element of this ID as the answer
     prompt rendered it (`context.render_chunk`) keeps its opening tag with
-    the attributes the answer model read; only its body passes the judge
-    escape. Any other text (a store chunk with its `filing:` line, a fact
-    line) gets a bare element.
+    the attributes the answer model read; its body escapes only the judge
+    wrapper tags, so the rest is what the answer model read. Any other
+    text (a store chunk with its `filing:` line, a fact line) gets a bare
+    element.
     """
     opening = f'<chunk id="{html.escape(chunk_id, quote=True)}" '
     closing = "\n</chunk>"
     if text.startswith(opening) and text.endswith(closing) and "\n" in text:
         head, body = text[: -len(closing)].split("\n", 1)
         if head.endswith(">"):
-            return f"{head}\n{_escape(body)}{closing}"
+            return f"{head}\n{_escape_judge_tags(body)}{closing}"
     return f'<chunk id="{chunk_id}">\n{_escape(text)}\n</chunk>'
 
 
@@ -642,7 +661,11 @@ class Judge:
                 cost_usd=cost,
                 error=str(error),
             )
-        claims = _verdicts(output.claims, [c.id for c in judged])
+        claims = _verdicts(
+            output.claims,
+            [c.id for c in judged],
+            frozenset(c.id for c in judged if c.unmarked),
+        )
         citations = _verdicts(output.citations, [c.id for c in item.citations])
         missing = [
             v.id
@@ -660,12 +683,25 @@ class Judge:
 
 
 def _verdicts(
-    found: Sequence[ItemVerdict], ids: Sequence[str]
+    found: Sequence[ItemVerdict],
+    ids: Sequence[str],
+    keel_ids: frozenset[str] = frozenset(),
 ) -> dict[str, ItemVerdict]:
-    """Keep the verdicts of the given IDs; an ID without one is unsupported."""
+    """Keep the verdicts of the given IDs; an ID without one is unsupported.
+
+    Only an ID of `keel_ids` (an unmarked sentence of the direct answer)
+    keeps `about_keel`; on a finding, a marked sentence, or a citation it
+    becomes `not_supported`, so it cannot leave the count.
+    """
     by_id = {v.id: v for v in found if v.id in ids}
-    return {
-        i: by_id.get(i)
-        or ItemVerdict(id=i, verdict=NOT_SUPPORTED, reason=NO_VERDICT)
-        for i in ids
-    }
+    kept: dict[str, ItemVerdict] = {}
+    for i in ids:
+        verdict = by_id.get(i) or ItemVerdict(
+            id=i, verdict=NOT_SUPPORTED, reason=NO_VERDICT
+        )
+        if verdict.verdict == ABOUT_KEEL and i not in keel_ids:
+            verdict = ItemVerdict(
+                id=i, verdict=NOT_SUPPORTED, reason=NOT_ABOUT_KEEL
+            )
+        kept[i] = verdict
+    return kept
