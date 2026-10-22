@@ -334,11 +334,12 @@ def runner_of(services: state.Services) -> jobs.JobRunner:
     Raises:
         HTTPException: 503 `jobs_unavailable`.
     """
-    if services.jobs is None:
+    runner = services.jobs
+    if not isinstance(runner, jobs.JobRunner):
         raise routes.http_error(
             503, "jobs_unavailable", "the job runner is not running"
         )
-    return services.jobs
+    return runner
 
 
 def _store_error(error: errors.StateStoreError) -> fastapi.HTTPException:
