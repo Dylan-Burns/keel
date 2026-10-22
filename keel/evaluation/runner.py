@@ -625,6 +625,9 @@ def _answer(
     item = judging.judge_input(record) if harness.judge else None
     if harness.judge is not None and item is not None:
         texts = judging.chunk_texts(harness.conn, item.chunk_ids)
+        texts.update(
+            (i, session.facts[i]) for i in item.chunk_ids if i in session.facts
+        )
         if planted is not None:
             texts[planted] = answering.PLANTED_TEXT
         judged = harness.judge.judge(item, texts)
