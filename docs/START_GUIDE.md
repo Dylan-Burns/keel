@@ -14,7 +14,7 @@ The command prints the token once. Keel stores only its sha256 hash in the users
 
 ## 2. Sign in
 
-Open the pilot address the engineer sends you (the HTTPS subdomain of the Railway deploy; `http://localhost:8000` on the engineer's laptop). Paste the token into **Access token** at the top right and click **Save**. The token stays in this browser tab only (session storage) and is gone when you close the tab. **Token rejected** means a typo or a removed user.
+Open the pilot address the engineer sends you (`https://d1otueg71oygkx.cloudfront.net`, the CloudFront address of the AWS host; `http://localhost:8000` on the engineer's laptop). Paste the token into **Access token** at the top right and click **Save**. The token stays in this browser tab only (session storage) and is gone when you close the tab. **Token rejected** means a typo or a removed user.
 
 ## 3. Ask
 

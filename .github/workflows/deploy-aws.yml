@@ -29,7 +29,7 @@ jobs:
     timeout-minutes: 60
     environment:
       name: production
-      url: https://${{ vars.KEEL_HOSTNAME }}
+      url: ${{ vars.KEEL_PUBLIC_URL }}
     steps:
       - name: check the version input
         env:
@@ -99,7 +99,10 @@ jobs:
       - name: smoke test over HTTPS
         env:
           HOST: ${{ vars.KEEL_HOSTNAME }}
+          PUBLIC_URL: ${{ vars.KEEL_PUBLIC_URL }}
           VERSION: ${{ inputs.version }}
         run: |
+          # The host itself (Caddy), then the public CloudFront address.
           curl -fsS "https://${HOST}/api/health" | grep -q "\"${VERSION}\""
-          curl -fsS "https://${HOST}/api/ready"
+          curl -fsS "${PUBLIC_URL}/api/health" | grep -q "\"${VERSION}\""
+          curl -fsS "${PUBLIC_URL}/api/ready"
