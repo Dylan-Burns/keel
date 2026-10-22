@@ -207,6 +207,8 @@ ADMIN_ROUTES = (
     ("get", "/api/admin/backups", None),
     ("get", "/api/admin/backups/keel-2026-10-22T023000Z.tar.gz", None),
     ("get", "/api/admin/audit", None),
+    ("post", "/api/watch", {"tickers": ["ZTS"]}),
+    ("delete", "/api/watch/ZTS", None),
 )
 
 
@@ -740,6 +742,98 @@ def test_system_report(client, services, admin) -> None:
     assert body["budget"]["spent_usd"] == 0
     assert body["active_job"] is None
     assert body["bootstrap"] is None
+
+
+def test_watch_routes(client, tokens, admin) -> None:
+    alice = bearer(tokens["alice"])
+    assert client.get("/api/watch", headers=alice).json()["items"] == []
+    added = client.post(
+        "/api/watch", json={"tickers": ["zts", "brk-b"]}, headers=admin
+    )
+    assert added.status_code == 200
+    assert added.json() == {
+        "user": "carol",
+        "added": ["ZTS", "BRK.B"],
+        "unchanged": [],
+    }
+    again = client.post(
+        "/api/watch", json={"tickers": ["ZTS"], "user": "alice"}, headers=admin
+    )
+    assert again.json()["added"] == ["ZTS"]
+    seen = client.get("/api/watch", headers=alice).json()
+    assert seen["tickers"] == ["BRK.B", "ZTS"]
+    # An analyst sees their own rows by name, others' rows without one.
+    users_seen = {(i["ticker"], i["user"], i["mine"]) for i in seen["items"]}
+    assert ("ZTS", "alice", True) in users_seen
+    assert ("ZTS", None, False) in users_seen
+    every = client.get("/api/watch", headers=admin).json()
+    assert {i["user"] for i in every["items"]} == {"alice", "carol"}
+    bad = client.post("/api/watch", json={"tickers": ["$$$"]}, headers=admin)
+    assert bad.status_code == 422
+    gone = client.delete("/api/watch/ZTS?user=alice", headers=admin)
+    assert gone.status_code == 204
+    assert (
+        client.delete("/api/watch/ZTS?user=alice", headers=admin).status_code
+        == 404
+    )
+    assert client.delete("/api/watch/BRK.B", headers=admin).status_code == 204
+
+
+def test_debug_routes_make_no_model_request(client, services, tokens) -> None:
+    alice = bearer(tokens["alice"])
+    provider = services.answerer.provider
+    question = "What are NVIDIA's risk factors?"
+    understood = client.post(
+        "/api/debug/understand", json={"question": question}, headers=alice
+    )
+    assert understood.status_code == 200
+    assert "NVDA" in understood.json()["tickers"]
+    retrieved = client.post(
+        "/api/debug/retrieve", json={"question": question}, headers=alice
+    )
+    assert retrieved.status_code == 200
+    body = retrieved.json()
+    assert body["tickers"] == ["NVDA"]
+    summary = body["retrieval"]
+    assert summary["sub_queries"]
+    assert summary["context"]["chunks"] == len(summary["context"]["items"]) > 0
+    assert set(summary["timings_ms"]) == {"lexical", "dense", "rerank", "total"}
+    outside = client.post(
+        "/api/debug/retrieve",
+        json={"question": "What are the risk factors of Zoetis?"},
+        headers=alice,
+    )
+    assert outside.json()["out_of_scope"] is True
+    assert outside.json()["retrieval"] is None
+    short = client.post(
+        "/api/debug/understand", json={"question": "a"}, headers=alice
+    )
+    assert short.status_code == 400
+    assert (
+        client.post(
+            "/api/debug/understand", json={"question": question}
+        ).status_code
+        == 401
+    )
+    # D-02: no model request at retrieval time.
+    assert provider.requests == 0
+
+
+def test_debug_rate_limit(client, services, tokens) -> None:
+    alice = bearer(tokens["alice"])
+    services.limiter.limits = ((1.0, 1e-9), (1.0, 1e-9))
+    first = client.post(
+        "/api/debug/understand",
+        json={"question": "Apple risks?"},
+        headers=alice,
+    )
+    assert first.status_code == 200
+    second = client.post(
+        "/api/debug/understand",
+        json={"question": "Apple risks?"},
+        headers=alice,
+    )
+    assert second.status_code == 429
 
 
 def test_nightly_jobs_and_admin_jobs_share_the_slot(
