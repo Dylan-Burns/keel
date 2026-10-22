@@ -38,6 +38,7 @@ def logs_dir(tmp_path: pathlib.Path) -> pathlib.Path:
     logs = tmp_path / "logs"
     logs.mkdir()
     (logs / "audit.jsonl").write_text('{"request_id": "r1"}\n')
+    (logs / "exports.jsonl").write_text('{"request_id": "r1"}\n')
     conn = sqlite3.connect(logs / "feedback.sqlite")
     conn.execute("CREATE TABLE feedback (request_id TEXT, vote INTEGER)")
     conn.execute("INSERT INTO feedback VALUES ('r1', 1)")
@@ -67,6 +68,7 @@ def test_backup_archive_checksum(
         "chunks.sqlite",
         "vectors.npy",
         "audit.jsonl",
+        "exports.jsonl",
         "feedback.sqlite",
     )
     manifest = indexer.load_manifest(index_dir / indexer.CURRENT)
@@ -148,6 +150,7 @@ def test_restore_swaps_current_and_previous(
         '{"request_id": "r1"}\n'
     )
     assert (result.extra_dir / "feedback.sqlite").is_file()
+    assert (result.extra_dir / "exports.jsonl").is_file()
     assert (logs_dir / "audit.jsonl").is_file()
     embedder = conftest.FakeEmbedder()
     rebuilt = indexer.build_index(
@@ -165,6 +168,7 @@ def test_restore_without_a_current_build(
 ) -> None:
     (logs_dir / "audit.jsonl").unlink()
     (logs_dir / "feedback.sqlite").unlink()
+    (logs_dir / "exports.jsonl").unlink()
     archive = backup.create_backup(index_dir, logs_dir, tmp_path / "b").archive
     fresh = tmp_path / "fresh-index"
 

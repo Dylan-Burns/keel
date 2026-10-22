@@ -8,6 +8,7 @@ A backup writes `keel-<stamp>.tar.gz` and `keel-<stamp>.tar.gz.sha256` (the
     chunks.sqlite    the chunk store with FTS5
     vectors.npy      the dense vectors
     audit.jsonl      the audit log: the rotated days, then today
+    exports.jsonl    the memo export log of the pilot metrics
     <name>.sqlite    any SQLite file in the logs directory (the feedback
                      table of chapter 27), as an online-backup snapshot
 
@@ -58,6 +59,8 @@ ARCHIVE_PREFIX = "keel-"
 ARCHIVE_SUFFIX = ".tar.gz"
 CHECKSUM_SUFFIX = ".sha256"
 AUDIT_LOG = "audit.jsonl"
+# The memo export log (keel/export.py LOG_NAME), read by the pilot metrics.
+EXPORT_LOG = "exports.jsonl"
 RESTORE_DIR = "restore"
 PREVIOUS = indexer.PREVIOUS
 INDEX_FILES = (chunk_store.FILE_NAME, numpy_dense.FILE_NAME)
@@ -213,8 +216,13 @@ def _stage(
                 with open(part, "rb") as source:
                     shutil.copyfileobj(source, joined)
         members.append(AUDIT_LOG)
+    # The export log only grows too, so a copy is a consistent prefix.
+    exports = logs_dir / EXPORT_LOG
+    if exports.is_file():
+        shutil.copyfile(exports, work / EXPORT_LOG)
+        members.append(EXPORT_LOG)
     if logs_dir.is_dir():
-        reserved = {*REQUIRED_MEMBERS, AUDIT_LOG}
+        reserved = {*REQUIRED_MEMBERS, AUDIT_LOG, EXPORT_LOG}
         for database in sorted(logs_dir.glob("*.sqlite")):
             if (
                 _MEMBER_NAME.match(database.name)
