@@ -143,6 +143,17 @@ jobs:
         if: steps.api.outputs.present == 'true'
         with:
           enable-cache: true
+      - name: cache the pinned Hugging Face models
+        if: steps.api.outputs.present == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-models-${{ hashFiles('config/keel.yaml') }}
+      - name: download the pinned models
+        if: steps.api.outputs.present == 'true'
+        run: |
+          uv sync --frozen
+          uv run keel doctor --download-models
       - name: start keel serve with the mock provider
         if: steps.api.outputs.present == 'true'
         env:

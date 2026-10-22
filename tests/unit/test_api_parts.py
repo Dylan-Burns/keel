@@ -93,7 +93,7 @@ def test_channel_pings_and_closes() -> None:
         task = asyncio.create_task(produce())
         async for item in channel.frames():
             frames.append(item)
-        await task
+        await asyncio.gather(task)
         return frames
 
     frames = asyncio.run(run())
