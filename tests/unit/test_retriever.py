@@ -4,6 +4,7 @@ The corpus facts are a hand-written catalog; no index and no model loads.
 """
 
 import datetime
+import sqlite3
 from typing import Any
 
 import pytest
@@ -314,6 +315,77 @@ def test_superseded_filter_clause() -> None:
     assert "NOT" not in retriever.Filter(tickers=("AAPL",)).where()[0]
     strict = retriever.Filter(sections=("risk_factors",), unknown=False)
     assert "unknown" not in strict.where()[0]
+    # Run against rows: the standing sections of the earlier filing go,
+    # its MD&A and every row of the latest 10-K stay.
+    conn = sqlite3.connect(":memory:")
+    conn.execute(
+        "CREATE TABLE chunks (chunk_id TEXT, ticker TEXT, filing_id TEXT, "
+        "section TEXT, period_end_date TEXT)"
+    )
+    rows = [
+        (f"{filing}__{section}", "AAPL", filing, section, "2025-01-01")
+        for filing in ("AAPL_10K_2024-12-31", "AAPL_10K_2025-09-27")
+        for section in ("risk_factors", "business", "mdna", "unknown")
+    ]
+    conn.executemany("INSERT INTO chunks VALUES (?, ?, ?, ?, ?)", rows)
+    wide = retriever.Filter(
+        tickers=("AAPL",),
+        sections=("risk_factors", "business", "mdna"),
+        superseded=("AAPL_10K_2024-12-31",),
+    )
+    clause, params = wide.where()
+    kept = {
+        row[0]
+        for row in conn.execute(
+            # The clause holds fixed column names; the values are parameters.
+            "SELECT c.chunk_id FROM chunks AS c WHERE " + clause,  # noqa: S608
+            params,
+        )
+    }
+    assert kept == {
+        "AAPL_10K_2024-12-31__mdna",
+        "AAPL_10K_2024-12-31__unknown",
+        "AAPL_10K_2025-09-27__risk_factors",
+        "AAPL_10K_2025-09-27__business",
+        "AAPL_10K_2025-09-27__mdna",
+        "AAPL_10K_2025-09-27__unknown",
+    }
+    conn.close()
+
+
+def test_pick_for_rerank() -> None:
+    def group(name: str, size: int) -> list[context.Candidate]:
+        return [
+            candidate(chunk_id=f"{name}{k:02d}", fused=1 / (61 + k))
+            for k in range(size)
+        ]
+
+    small, large, mid = group("s", 1), group("l", 60), group("m", 20)
+    # 3 shares of 26; the small group uses 1, the 25 left go to the
+    # others in equal parts until the limit.
+    chosen = retriever.pick_for_rerank([small, large, mid], 80)
+    assert len(chosen) == 80
+    names = [c.chunk_id[0] for c in chosen]
+    assert names.count("s") == 1
+    assert names.count("m") == 20
+    assert names.count("l") == 59
+    # Each group gives its best candidates first.
+    assert [c.chunk_id for c in chosen if c.chunk_id[0] == "l"][:3] == [
+        "l00",
+        "l01",
+        "l02",
+    ]
+    # Without fill the shares stay equal (the sector cap's first round).
+    equal = retriever.pick_for_rerank([small, large, mid], 80, fill=False)
+    names = [c.chunk_id[0] for c in equal]
+    assert (names.count("s"), names.count("l"), names.count("m")) == (
+        1,
+        26,
+        20,
+    )
+    # Never more than the candidates or the limit.
+    assert len(retriever.pick_for_rerank([small, mid], 80)) == 21
+    assert len(retriever.pick_for_rerank([large, large], 30)) == 30
 
 
 def test_risk_trend_10q_cells(

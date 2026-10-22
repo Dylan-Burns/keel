@@ -536,9 +536,11 @@ class _PlanInput:
     def latest_first(self) -> bool:
         """True when the plan reads the latest 10-K first.
 
-        This holds for a company or comparison question with no time
-        scope. A sector plan keeps 1 sub-query per company, so its first
-        rerank round still scores every company of a large group.
+        This holds for every plan with company groups and no time scope
+        (single company, numeric, and comparison) except a sector plan,
+        which keeps 1 sub-query per company, so its first rerank round
+        still scores every company of a large group. A trend plan has its
+        own period cells.
         """
         return (
             self.analysis.time_scope.kind == "none"
@@ -567,9 +569,13 @@ class _PlanInput:
         use move to the 10-K cells instead of filling with MD&A or
         unclassified chunks.
         """
-        if cell.form == "10-Q" and is_risk_question(self.analysis):
+        if self.risk_delta_cell(cell):
             return (RISK_SECTION,)
         return self.sections
+
+    def risk_delta_cell(self, cell: understanding.FilingRef) -> bool:
+        """True for a 10-Q cell of a risk question (risk changes only)."""
+        return cell.form == "10-Q" and is_risk_question(self.analysis)
 
     def latest_query(self, ticker: str, group: str) -> SubQuery | None:
         """The sub-query over the latest 10-K of a question with no scope.
@@ -693,7 +699,7 @@ def _trend_plan(
                     filter=Filter(
                         filing_ids=(str(cell.filing_id),),
                         sections=data.cell_sections(cell),
-                        unknown=data.cell_sections(cell) == data.sections,
+                        unknown=not data.risk_delta_cell(cell),
                     ),
                 )
             )
@@ -1140,6 +1146,46 @@ def rerank_share(top_n: int, sub_queries: int) -> int:
     return max(1, top_n // max(1, sub_queries))
 
 
+def pick_for_rerank(
+    groups: Sequence[Sequence[context.Candidate]],
+    limit: int,
+    *,
+    fill: bool = True,
+) -> list[context.Candidate]:
+    """Choose the candidates the reranker scores (D-10).
+
+    Each group (the unscored candidates of 1 sub-query) gives its top
+    `rerank_share` candidates by weighted fused score. With `fill`, the
+    pairs a small group leaves unused go to the groups with candidates
+    left, in the same equal split, until `limit`; when fewer pairs remain
+    than groups, the earlier groups get them.
+
+    Args:
+        groups: The candidates per sub-query, in sub-query order.
+        limit: The most pairs to score.
+        fill: Move the unused pairs; False keeps equal shares, as the
+            first round of the sector cap needs.
+
+    Returns:
+        The chosen candidates, at most `limit`.
+    """
+    ordered = [
+        sorted(g, key=lambda c: (-c.fused * c.weight, c.chunk_id))
+        for g in groups
+    ]
+    share = rerank_share(limit, len(ordered))
+    chosen = [c for g in ordered for c in g[:share]][:limit]
+    rest = [g[share:] for g in ordered if len(g) > share]
+    while fill and len(chosen) < limit and rest:
+        more = rerank_share(limit - len(chosen), len(rest))
+        for group in rest:
+            chosen += group[:more]
+            del group[:more]
+        chosen = chosen[:limit]
+        rest = [g for g in rest if g]
+    return chosen
+
+
 # --- The retriever ------------------------------------------------------------
 
 
@@ -1459,22 +1505,7 @@ class Retriever:
             for c in candidates:
                 if c.rerank is None:
                     by_query.setdefault(c.query, []).append(c)
-            share = rerank_share(limit, len(by_query))
-            for group in by_query.values():
-                group.sort(key=lambda c: (-c.fused * c.weight, c.chunk_id))
-                chosen += group[:share]
-            chosen = chosen[:limit]
-            # A sub-query with fewer candidates than its share leaves
-            # pairs unused; they go to the sub-queries with candidates
-            # left, in the same equal split, up to the limit.
-            rest = [g[share:] for g in by_query.values() if len(g) > share]
-            while fill and len(chosen) < limit and rest:
-                more = rerank_share(limit - len(chosen), len(rest))
-                for group in rest:
-                    chosen += group[:more]
-                    del group[:more]
-                chosen = chosen[:limit]
-                rest = [g for g in rest if g]
+            chosen = pick_for_rerank(list(by_query.values()), limit, fill=fill)
         started = time.perf_counter()
         scores = (
             self.reranker.score(

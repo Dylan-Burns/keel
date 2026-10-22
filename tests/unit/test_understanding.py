@@ -303,6 +303,14 @@ def test_type_trend_from_years(step: understanding.Understander) -> None:
     assert analysis.time_scope.kind == "multiple"
     assert analysis.primary_type == "trend"
     assert "single_company" in analysis.types
+    # A comparison over 2 years keeps comparison first; the plan then
+    # uses company groups with period cells (chapter 11.3).
+    both = step.analyze(
+        "Compare Apple's revenue in fiscal 2024 with Microsoft's in "
+        "fiscal 2025."
+    )
+    assert both.primary_type == "comparison"
+    assert "trend" in both.types
     # 1 fiscal year is no trend.
     single = step.analyze("What was Pfizer's revenue in fiscal 2024?")
     assert "trend" not in single.types
