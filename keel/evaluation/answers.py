@@ -29,6 +29,7 @@ from typing import Any
 
 from keel import answer
 from keel import context
+from keel import edgar
 from keel import retriever
 from keel import understanding
 from keel.evaluation import golden
@@ -221,6 +222,25 @@ async def _final(answerer: answer.Answerer, question: str) -> dict[str, Any]:
     return record
 
 
+def fact_text(line: edgar.FactLine) -> str:
+    """The source text of 1 fact citation for the judge.
+
+    A fact ID is not a chunk of the chunk store, so the judge reads the
+    fact line the answer model saw in the `<facts>` block.
+
+    Args:
+        line: The fact line.
+
+    Returns:
+        A `filing:` line in the format of the chunk texts, then the line.
+    """
+    return (
+        f"filing: {line.ticker}, {line.form}, fiscal {line.fiscal_label}, "
+        f"period end {line.period_end.isoformat()}, filed "
+        f"{line.filed.isoformat()}, section XBRL company facts\n{line.text()}"
+    )
+
+
 class AnswerSession:
     """Ask the golden questions on 1 event loop.
 
@@ -232,6 +252,10 @@ class AnswerSession:
         answerer: The answer pipeline.
         scratch: The answer cache directory of the run, removed on close,
             or None.
+
+    Attributes:
+        facts: The source text by fact ID of the facts block of the last
+            question, for the judge.
     """
 
     def __init__(
@@ -241,6 +265,19 @@ class AnswerSession:
         self.scratch = scratch
         self.factor = answerer.calibration.factor
         self.loop = asyncio.new_event_loop()
+        self.facts: dict[str, str] = {}
+        loader = answerer.facts_loader
+
+        def capture(
+            analysis: understanding.QuestionAnalysis,
+        ) -> edgar.FactsResult:
+            result = loader(analysis)
+            self.facts.update(
+                (line.fact_id, fact_text(line)) for line in result.lines
+            )
+            return result
+
+        answerer.facts_loader = capture
 
     def ask(self, question: str) -> dict[str, Any]:
         """Answer 1 question and return the `final` record.
@@ -257,6 +294,7 @@ class AnswerSession:
             input error).
         """
         self.answerer.calibration = context.Calibration(self.factor)
+        self.facts = {}
         return self.loop.run_until_complete(_final(self.answerer, question))
 
     def close(self) -> None:
