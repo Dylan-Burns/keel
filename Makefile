@@ -10,7 +10,7 @@ web-e2e:
 	npm run test:e2e --prefix web
 
 sync:
-	uv sync
+	uv sync --all-extras
 
 inventory: sync
 	uv run keel inventory
