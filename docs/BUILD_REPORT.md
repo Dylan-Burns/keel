@@ -760,6 +760,11 @@ Entry format:
 - Decisions taken without review: the role comes from a 403 probe of the jobs route, the cheapest admin route, since no endpoint names the caller's role outside the history; the Companies and Debug pages are open to every role (the watch list read and the debug routes are), the others are admin-only. The pages live at `/companies`, `/jobs`, `/users`, `/system`, and `/debug`, not under an `/admin` prefix, so the watch list path reads the same for every role. The add-job e2e uses ZTS, whose 10-K and 10-Q responses are recorded in the repository.
 - Attempts: 1.
 
+## Follow-up after stage 22: demo preparation removed from the repository
+
+- Removed at the engineer's request (the repository is public): the demo runbook (chapter 21), the demo additions from the recruiter guidance (chapter 25), the questions for the panel (chapter 5), the 4-hour build plan (chapter 20), `docs/REHEARSAL.md`, `docs/PUSHBACK.md`, `docs/CODE_WALK.md`, `scripts/demo_preflight.sh`, and the static exports in `demo/static/` (now gitignored; `npm run static-export` still writes them). The README links to them are gone. Earlier mentions in this report and in `docs/STAGES.yaml` stay as the record of the build.
+- Kept: the code, the tests, the product and architecture chapters, `docs/START_GUIDE.md`, `docs/API_ADMIN.md`, the performance memo, the prompt log, and `demo/answer_cache/`, which the offline mode needs. The files stay in the git history of the public repository; the engineer chose to keep the repository public.
+
 ## Gaps
 
 Values that were not available when the build needed them, and what the build did instead.
