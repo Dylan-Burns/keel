@@ -5,8 +5,8 @@ stage 3 adds `keel chunk` and `keel parse --sections-report`; stage 4 adds
 `keel index`; stage 5 adds `keel understand`; stage 6 adds `keel retrieve`;
 stage 7 adds `keel ask`; stage 8 adds `keel calibrate`; stage 9 adds
 `keel serve`; stage 10 adds `keel eval`; stage 13 adds `keel facts`; stage
-14 adds `keel add`; stage 20 adds `keel watch` and `keel refresh`. Later
-stages add the commands that CLAUDE.md lists (warm-cache and the rest).
+14 adds `keel add`; stage 15 adds `keel warm-cache`; stage 20 adds `keel watch`
+and `keel refresh`. Later stages add the commands that CLAUDE.md lists.
 """
 
 import argparse
@@ -45,6 +45,7 @@ from keel import sections
 from keel import security
 from keel import understanding
 from keel import users
+from keel import warm_cache
 from keel.api import app as api_app
 from keel.evaluation import gates
 from keel.evaluation import report as eval_report
@@ -467,11 +468,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="run the golden set and write the eval report",
     )
 
-    commands.add_parser(
-        "facts",
-        parents=[_facts_arguments()],
-        help="print the company facts lines of 1 ticker (debug)",
-    )
+    for name, parent, text in (
+        ("facts", _facts_arguments(), "print the facts lines of 1 ticker"),
+        ("warm-cache", warm_cache.add_arguments(), warm_cache.HELP),
+    ):
+        commands.add_parser(name, parents=[parent], help=text)
 
     commands.add_parser(
         "add",
@@ -1685,9 +1686,11 @@ def run_users(settings: config.Settings, args: argparse.Namespace) -> int:
 def _dispatch_measure(
     settings: config.Settings, args: argparse.Namespace
 ) -> int:
-    """Run `keel calibrate` or `keel eval` with its arguments."""
+    """Run `keel calibrate`, `keel eval`, or `keel warm-cache`."""
     if args.command == "calibrate":
         return run_calibrate(settings, args.sample, args.index)
+    if args.command == "warm-cache":
+        return warm_cache.run(settings, args)
     return run_eval(settings, args)
 
 
@@ -1776,7 +1779,7 @@ def _dispatch(settings: config.Settings, args: argparse.Namespace) -> int:
             incremental=args.incremental,
         ),
     }
-    if args.command in ("calibrate", "eval"):
+    if args.command in ("calibrate", "eval", "warm-cache"):
         return _dispatch_measure(settings, args)
     if args.command == "users":
         return run_users(settings, args)

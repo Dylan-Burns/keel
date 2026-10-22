@@ -182,6 +182,8 @@ def test_ticker_to_cik_share_class_spelling(
     assert "BRK.B" in tickers
     assert 3 not in tickers
     assert len(tickers) == 7
+    # The corpus writes the share class root.
+    assert tickers.cik("BRK") == "0001067983"
 
 
 def test_ticker_to_cik_unknown_names_lookup(

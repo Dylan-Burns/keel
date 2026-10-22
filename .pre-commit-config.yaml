@@ -65,7 +65,7 @@ repos:
         entry: '\xe2\x80[\x93\x94]'
         language: pygrep
         types: [text]
-        exclude: ^(corpus/|tests/fixtures/(mini_corpus|snippets)/|uv\.lock$|web/package-lock\.json$)
+        exclude: ^(corpus/|demo/answer_cache/|tests/fixtures/(mini_corpus|snippets)/|uv\.lock$|web/package-lock\.json$)
       - id: mypy
         name: mypy strict on keel
         entry: uv run mypy keel
