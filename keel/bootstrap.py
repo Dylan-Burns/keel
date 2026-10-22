@@ -712,31 +712,3 @@ def run_bootstrap(
         raise
     state.finish(Phase.READY, "corpus and index ready", None)
     return state.snapshot()
-
-
-def start_background(
-    settings: config.Settings,
-    state: BootstrapState,
-    deps: Dependencies | None = None,
-) -> threading.Thread:
-    """Run the bootstrap in a daemon thread, for `keel serve --bootstrap`.
-
-    The server starts first and answers `/api/health` at once; `/api/ready`
-    reads `state.snapshot()` while the thread works.
-
-    Args:
-        settings: The loaded settings.
-        state: The state the thread reports to.
-        deps: The outside world; None uses the real one.
-
-    Returns:
-        The started thread.
-    """
-    thread = threading.Thread(
-        target=run_bootstrap,
-        args=(settings, state, deps),
-        name="keel-bootstrap",
-        daemon=True,
-    )
-    thread.start()
-    return thread

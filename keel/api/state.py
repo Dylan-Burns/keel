@@ -282,8 +282,11 @@ class Services:  # pylint: disable=too-many-instance-attributes
         if not self.provider_key:
             logger.warning("ANTHROPIC_API_KEY is not set: degraded mode only")
             provider = MissingKeyProvider(settings.llm.model)
+        previous = self.answerer
         try:
-            opened = answer.Answerer.open(settings, provider=provider)
+            opened = answer.Answerer.open(
+                settings, provider=provider, load_models=previous is None
+            )
         except (errors.IndexMissingError, errors.IndexCorruptError) as error:
             if self.answerer is None:
                 self.index_error = str(error)
@@ -297,12 +300,18 @@ class Services:  # pylint: disable=too-many-instance-attributes
             manifest = reliability.check_index(build)
         except (errors.IndexMissingError, errors.IndexCorruptError) as error:
             logger.error("index check failed: %s", error)
-            if self.answerer is not None:
+            if previous is not None:
                 # A reload keeps the verified build it serves.
                 return
             self.index_error = str(error)
         else:
             self.index_error = None
+        if previous is not None:
+            # A reload reuses the loaded models, so the memory does not
+            # double, and keeps the breaker, so an open breaker stays open.
+            opened.retriever.embedder = previous.retriever.embedder
+            opened.retriever.reranker = previous.retriever.reranker
+            opened.breaker = previous.breaker
         self.manifest = manifest
         self.index_verified = manifest is not None
         self.answerer = opened

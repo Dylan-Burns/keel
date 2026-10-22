@@ -400,3 +400,28 @@ def test_restore_refuses_a_directory_named_current(
     with pytest.raises(errors.IndexWriteError, match="not a symlink"):
         backup.restore_backup(archive, plain, logs_dir)
     assert sorted(p.name for p in plain.iterdir()) == [indexer.CURRENT]
+
+
+def test_backup_keeps_the_rotated_audit_days_private(
+    index_dir: pathlib.Path, logs_dir: pathlib.Path, tmp_path: pathlib.Path
+) -> None:
+    """The archive joins the rotated days and today, and is 0600."""
+    (logs_dir / "audit-2026-10-20.jsonl").write_text('{"request_id": "r0"}\n')
+    (logs_dir / "audit-2026-10-21.jsonl").write_text('{"request_id": "rx"}\n')
+    result = backup.create_backup(index_dir, logs_dir, tmp_path / "b")
+
+    with tarfile.open(result.archive, "r:gz") as tar:
+        member = tar.extractfile("audit.jsonl")
+        assert member is not None
+        lines = member.read().decode().splitlines()
+    assert [line.split('"')[3] for line in lines] == ["r0", "rx", "r1"]
+    assert result.archive.stat().st_mode & 0o777 == 0o600
+    assert result.checksum_file.stat().st_mode & 0o777 == 0o600
+
+    restored = backup.restore_backup(
+        result.archive, tmp_path / "fresh", tmp_path / "fresh-logs"
+    )
+    assert restored.extra_dir is not None
+    assert restored.extra_dir.stat().st_mode & 0o777 == 0o700
+    audit = restored.extra_dir / "audit.jsonl"
+    assert audit.stat().st_mode & 0o777 == 0o600
