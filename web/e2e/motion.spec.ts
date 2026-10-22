@@ -13,7 +13,7 @@ async function content(page: Page): Promise<string> {
 /** Elements of the answer and the panel that are mid-animation. */
 function moving(page: Page): Promise<string[]> {
   return page.evaluate(() => {
-    const roots = ['answer-container', 'right-panel'].map(id =>
+    const roots = ['answer-container', 'right-panel', 'trace-drawer'].map(id =>
       document.querySelector(`[data-testid="${id}"]`),
     );
     const found: string[] = [];
@@ -59,4 +59,22 @@ test('test_ui_reduced_motion: the complete state appears at once with the same c
   );
   await expect.poll(() => moving(page)).toEqual([]);
   expect(await content(page)).toBe(reduced);
+});
+
+test('the trace drawer reduced twin: the drawer and the request line land still', async ({
+  page,
+}) => {
+  await page.emulateMedia({reducedMotion: 'reduce'});
+  await openKeel(page);
+  await askExample2(page);
+  const drawer = page.getByTestId('trace-drawer');
+  await expect(drawer).toBeVisible();
+  // No spring and no pulse: nothing in the drawer moves when it appears.
+  expect(await moving(page)).toEqual([]);
+  const line = drawer.getByTestId('model-requests');
+  await expect(line).toHaveText('model requests: 1');
+  const row = drawer.getByTestId('model-requests-row');
+  expect(await row.evaluate(el => getComputedStyle(el).transform)).toMatch(
+    /^(none|)$/,
+  );
 });

@@ -10,6 +10,7 @@ import {
   pickTransition,
   retrieval,
   stateChange,
+  traceDrawer,
 } from './presets';
 
 const MOMENTS = [
@@ -21,6 +22,8 @@ const MOMENTS = [
   'complete',
   'banner',
   'outOfScope',
+  'traceDrawer',
+  'evalPage',
 ] as const;
 
 function variantPairs(): [string, MotionPreset][] {
@@ -101,5 +104,22 @@ describe('motion presets (chapter 14.8)', () => {
     expect(pick(pageLoad.region, null)).toBe(pageLoad.region.full);
     expect(pickTransition(countUp, true)).toBe(countUp.reduced);
     expect(pickTransition(countUp, null)).toBe(countUp.full);
+  });
+
+  it('springs the trace drawer up and pulses the request line once', () => {
+    const visible = traceDrawer.drawer.full['visible'] as {
+      transition: {type: string};
+    };
+    expect(visible.transition.type).toBe('spring');
+    const pulse = traceDrawer.pulse.full['visible'] as {
+      scale: number[];
+      transition: {repeat?: number};
+    };
+    expect(pulse.scale.at(-1)).toBe(1);
+    expect(pulse.transition.repeat).toBeUndefined();
+    expect(traceDrawer.pulse.reduced['visible']).toEqual({
+      scale: 1,
+      transition: {duration: 0},
+    });
   });
 });

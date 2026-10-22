@@ -40,4 +40,13 @@ test('example question 1 streams, lights the steps in order, and opens a citatio
   );
   await expect(page.getByTestId('request-id')).toContainText('request ');
   await expect(page.getByTestId('cost-badge')).toBeVisible();
+
+  // The trace drawer springs up under the answer with the single call (W-01).
+  const drawer = page.getByTestId('trace-drawer');
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByTestId('model-requests')).toHaveText(
+    'model requests: 1',
+  );
+  await expect(drawer).toContainText('prompt');
+  await expect(drawer).toContainText('first token');
 });

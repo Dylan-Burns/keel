@@ -182,13 +182,89 @@ export interface ResponseMeta {
   readonly flags: ResponseFlags;
 }
 
+/** The metadata filter of 1 sub-query in the audit record (chapter 11.2). */
+export interface AuditFilter {
+  readonly label: string;
+  readonly tickers: string[];
+  readonly sections: string[];
+  /** The number of filings the filter names (0 for no filing filter). */
+  readonly filings: number;
+  /** [ticker, start, end] period end windows. */
+  readonly windows: string[][];
+}
+
+/** The candidates of 1 company before and after the near-duplicate collapse. */
+export interface AuditCompanyCandidates {
+  readonly ticker: string;
+  readonly before: number;
+  readonly after: number;
+}
+
+/** The candidate counts of the retrieval in the audit record. */
+export interface AuditCandidates {
+  readonly gathered: number;
+  readonly collapsed: number;
+  readonly reranked: number;
+  readonly per_company: AuditCompanyCandidates[];
+}
+
+/** How 1 quota group filled, such as `JPM: 11 of 16`. */
+export interface AuditQuotaFill {
+  readonly label: string;
+  readonly taken: number;
+  readonly quota: number;
+  readonly candidates: number;
+  readonly tokens: number;
+}
+
+/** The flags of the audit record. */
+export interface AuditFlags {
+  readonly injection_suspect?: boolean;
+  readonly schema_violation?: boolean;
+  readonly confidence_lowered?: boolean;
+  readonly degraded?: boolean;
+  readonly from_cache?: boolean;
+}
+
 /**
- * The audit record of 1 answer (chapter 15 S-07, chapter 25.1). Stage 12
- * renders it in the trace drawer; until then the client only carries it.
+ * The audit record of 1 answer (chapter 15 S-07, chapter 25.1): the line of
+ * `logs/audit.jsonl` that the `final` event carries, rendered by the trace
+ * drawer. Every field but `model_requests` is optional, so an older record
+ * or a record of another stage still renders; the facts fields arrive with
+ * the company facts of chapter 26.1.
  */
 export interface AuditRecord {
   readonly model_requests: number;
-  readonly [field: string]: unknown;
+  /** The requests that failed before any content and were retried (D-04). */
+  readonly failed_before_content?: number;
+  readonly request_id?: string;
+  readonly tickers?: string[];
+  readonly question_type?: string | null;
+  readonly time_scope?: string | null;
+  readonly filters?: AuditFilter[];
+  readonly candidates?: AuditCandidates | null;
+  readonly quota_fills?: AuditQuotaFill[];
+  readonly chunk_count?: number;
+  readonly token_estimate?: number;
+  readonly prompt_hash?: string;
+  readonly prompt_version?: string;
+  readonly index_version?: string;
+  readonly model?: string;
+  readonly usage?: Partial<Usage> & {readonly cache_write_tokens?: number};
+  readonly cost_usd?: number;
+  readonly latency_ms?: Partial<LatencyMs> | null;
+  readonly citation_drift?: number;
+  readonly inline_drift?: number;
+  readonly unverified?: number;
+  readonly flags?: AuditFlags;
+  readonly outcome?: string;
+  readonly error?: string | null;
+  /** The facts lines of the prompt (chapter 26.1), when present. */
+  readonly facts_lines?: number;
+  /** Where the facts came from, such as `cache` or `live`. */
+  readonly facts_source?: string | null;
+  /** The fact IDs of the facts block. */
+  readonly fact_ids?: string[];
 }
 
 /**
@@ -202,7 +278,7 @@ export interface AskResponse {
   readonly answer: Answer;
   readonly citations_resolved: ResolvedCitation[];
   readonly meta: ResponseMeta;
-  /** The audit record; the `final` event carries it from stage 12. */
+  /** The audit record of the answer, rendered by the trace drawer (W-01). */
   readonly audit?: AuditRecord | null;
 }
 
@@ -302,4 +378,31 @@ export interface ChunkResponse {
   readonly filing_name: string;
   readonly sec_url: string | null;
   readonly text: string;
+}
+
+/** 1 markdown file of the eval page (`markdown` is null when absent). */
+export interface EvalDocument {
+  readonly source: string;
+  readonly markdown: string | null;
+  readonly truncated: boolean;
+}
+
+/** 1 regression gate of chapter 18.8, read from the eval report. */
+export interface EvalGate {
+  readonly name: string;
+  readonly comparator: '>=' | '<=';
+  readonly threshold: number;
+  readonly threshold_text: string;
+  readonly value: number | null;
+  readonly value_text: string;
+  readonly status: string | null;
+  /** Whether the value meets the gate; null while the value is pending. */
+  readonly passed: boolean | null;
+}
+
+/** `GET /api/eval` (chapter 25.2). */
+export interface EvalResponse {
+  readonly report: EvalDocument;
+  readonly prompt_log: EvalDocument;
+  readonly gates: EvalGate[];
 }

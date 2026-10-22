@@ -1,4 +1,9 @@
-import {MotionConfig, motion, useReducedMotion} from 'motion/react';
+import {
+  AnimatePresence,
+  MotionConfig,
+  motion,
+  useReducedMotion,
+} from 'motion/react';
 import type {JSX} from 'react';
 import {useCallback, useState} from 'react';
 
@@ -18,6 +23,7 @@ import {RightPanel} from './components/RightPanel';
 import {StaleIndexBanner} from './components/StaleIndexBanner';
 import {TokenField} from './components/TokenField';
 import {TopBar} from './components/TopBar';
+import {TraceDrawer} from './components/TraceDrawer';
 import {answerToJson, answerToMarkdown} from './lib/answerExport';
 import type {Example} from './lib/examples';
 import {EXAMPLES} from './lib/examples';
@@ -252,6 +258,14 @@ export function App(): JSX.Element {
                 </button>
               )}
             </motion.div>
+            <AnimatePresence>
+              {run?.final?.audit && (
+                <TraceDrawer
+                  key={run.final.request_id}
+                  audit={run.final.audit}
+                />
+              )}
+            </AnimatePresence>
           </main>
           <RightPanel
             run={run}

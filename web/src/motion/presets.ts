@@ -2,8 +2,8 @@
  * Motion presets for every animated moment of chapter 14.8. Components import
  * these and never define an inline transition. There is 1 named export per
  * moment of the table; each part of a moment has a `reduced` twin that shows
- * the final state at once. The trace drawer (W-01) and the eval page (W-02)
- * presets arrive with those views in stage 12.
+ * the final state at once, including the trace drawer (W-01) and the eval
+ * page (W-02).
  *
  * Rules (14.8): every animation takes 300 ms or less, except the count up
  * (600 ms) and the chunk stagger (30 ms per chunk, 48 chunks at most). An
@@ -242,6 +242,62 @@ export const outOfScope = {
       visible: {opacity: 1, transition: {duration: 0.3}},
     },
     reduced: STILL,
+  },
+} as const satisfies Record<string, MotionPreset>;
+
+/**
+ * Trace drawer (W-01): the drawer slides up with a spring inside
+ * `AnimatePresence`, and the line `model requests: 1` draws attention with 1
+ * scale pulse, once per answer (the line is in the DOM before it pulses).
+ */
+export const traceDrawer = {
+  drawer: {
+    full: {
+      hidden: {opacity: 0, y: 24},
+      visible: {
+        opacity: 1,
+        y: 0,
+        transition: {type: 'spring', stiffness: 300, damping: 25},
+      },
+      exit: {opacity: 0, y: 24, transition: {duration: 0.2}},
+    },
+    reduced: {
+      hidden: {opacity: 1, y: 0},
+      visible: {opacity: 1, y: 0, transition: {duration: 0}},
+      exit: {opacity: 1, y: 0, transition: {duration: 0}},
+    },
+  },
+  pulse: {
+    full: {
+      hidden: {scale: 1},
+      visible: {
+        scale: [1, 1.12, 1],
+        transition: {duration: 0.3, delay: 0.2, ease: 'easeOut'},
+      },
+    },
+    reduced: {
+      hidden: {scale: 1},
+      visible: {scale: 1, transition: {duration: 0}},
+    },
+  },
+} as const satisfies Record<string, MotionPreset>;
+
+/**
+ * Eval page (W-02): the metric bars grow to their values on first view; the
+ * number is in the DOM before the bar moves, and a value below its gate turns
+ * red at the end of the grow.
+ */
+export const evalPage = {
+  bars: stagger(0.05),
+  bar: {
+    full: {
+      hidden: {scaleX: 0},
+      visible: {scaleX: 1, transition: {duration: 0.3, ease: 'easeOut'}},
+    },
+    reduced: {
+      hidden: {scaleX: 1},
+      visible: {scaleX: 1, transition: {duration: 0}},
+    },
   },
 } as const satisfies Record<string, MotionPreset>;
 
