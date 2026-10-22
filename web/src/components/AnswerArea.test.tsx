@@ -40,6 +40,22 @@ describe('AnswerArea', () => {
     expect(screen.getByTestId('answer-cursor')).toBeInTheDocument();
   });
 
+  it('a partial answer after an error keeps its text and stops the cursor', () => {
+    render(
+      <AnswerArea
+        run={runOf(RESPONSE_2, 6)}
+        streaming={false}
+        askEnabled
+        onSelectCitation={vi.fn()}
+        onAsk={vi.fn()}
+      />,
+    );
+    const answer = screen.getByTestId('answer-markdown');
+    expect(answer.textContent).not.toBe('');
+    expect(answer).toHaveAttribute('aria-busy', 'false');
+    expect(screen.queryByTestId('answer-cursor')).toBeNull();
+  });
+
   it('the final event keeps the streamed answer element and its blocks', () => {
     const props = {
       askEnabled: false,

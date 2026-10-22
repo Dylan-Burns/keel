@@ -63,10 +63,7 @@ export function AnswerArea({
       </div>
       <div className="panel-body space-y-4">
         {(answer !== null || run.deltas.length > 0) && (
-          <AnswerMarkdown
-            markdown={answerText(run)}
-            streaming={answer === null}
-          />
+          <AnswerMarkdown markdown={answerText(run)} streaming={streaming} />
         )}
         {answer === null && run.deltas.length === 0 && (
           <p className="font-mono text-xs text-muted" role="status">
