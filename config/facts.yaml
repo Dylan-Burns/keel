@@ -1,0 +1,58 @@
+# The company facts concepts of the <facts> block (chapter 26.1, step 3).
+# Each concept lists its XBRL names (taxonomy:Name) in priority order,
+# because companies tag the same number under different names. For each
+# period the first name with a value wins. `unit` is the XBRL unit to read.
+# A company with no match for a concept yields no line for it (26.4).
+concepts:
+  revenue:
+    label: Revenue
+    unit: USD
+    names:
+      - us-gaap:Revenues
+      - us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax
+      - us-gaap:RevenueFromContractWithCustomerIncludingAssessedTax
+      - us-gaap:SalesRevenueNet
+      - us-gaap:SalesRevenueGoodsNet
+  net_income:
+    label: Net income
+    unit: USD
+    names:
+      - us-gaap:NetIncomeLoss
+      - us-gaap:ProfitLoss
+      - us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic
+  diluted_eps:
+    label: Diluted EPS
+    unit: USD/shares
+    names:
+      - us-gaap:EarningsPerShareDiluted
+      - us-gaap:EarningsPerShareBasicAndDiluted
+  operating_income:
+    label: Operating income
+    unit: USD
+    names:
+      - us-gaap:OperatingIncomeLoss
+  total_assets:
+    label: Total assets
+    unit: USD
+    names:
+      - us-gaap:Assets
+  cash:
+    label: Cash and cash equivalents
+    unit: USD
+    names:
+      - us-gaap:CashAndCashEquivalentsAtCarryingValue
+      - us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents
+      - us-gaap:Cash
+  shares_outstanding:
+    label: Shares outstanding
+    unit: shares
+    names:
+      - dei:EntityCommonStockSharesOutstanding
+      - us-gaap:CommonStockSharesOutstanding
+  long_term_debt:
+    label: Long-term debt
+    unit: USD
+    names:
+      - us-gaap:LongTermDebtNoncurrent
+      - us-gaap:LongTermDebt
+      - us-gaap:LongTermDebtAndCapitalLeaseObligations
