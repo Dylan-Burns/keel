@@ -27,6 +27,7 @@ from keel import config
 from keel import doctor
 from keel import errors
 from keel import indexer
+from keel import reliability
 from keel import retriever
 from keel.api import app as api_app
 from keel.api import routes
@@ -742,6 +743,11 @@ def test_two_concurrent_questions(services, api_settings) -> None:
     assert (
         responses[0].json()["request_id"] != responses[1].json()["request_id"]
     )
+    # 1 request each, 2 audit lines, and the shared breaker stays closed.
+    assert [r.json()["meta"]["model_requests"] for r in responses] == [1, 1]
+    audit = (api_settings.logs.dir / "audit.jsonl").read_text().splitlines()
+    assert len(audit) == 2
+    assert services.answerer.breaker.snapshot().state == "closed"
 
 
 def test_stale_index_flag(tmp_path) -> None:
@@ -759,6 +765,42 @@ def test_stale_index_flag(tmp_path) -> None:
     assert routes.corpus_check(corpus, None)[0] is None
 
 
+def test_stale_index_served_with_flag(
+    api_settings, index_dir, tmp_path, monkeypatch
+) -> None:
+    """E-F-02: a new corpus file flags the index; the index still serves."""
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    (corpus / "A.txt").write_text("filing a")
+    digest = indexer.corpus_sha256([indexer.file_sha256(corpus / "A.txt")])
+    (corpus / "B.txt").write_text("filing b")
+    settings = api_settings.model_copy(
+        update={
+            "corpus": api_settings.corpus.model_copy(update={"dir": corpus})
+        }
+    )
+    opened = make_answerer(settings, index_dir)
+    monkeypatch.setattr(
+        answer.Answerer, "open", classmethod(lambda cls, s, **kw: opened)
+    )
+    monkeypatch.setattr(
+        reliability,
+        "check_index",
+        lambda path: indexer.Manifest.model_construct(corpus_sha256=digest),
+    )
+    services = api_app.Services(settings)
+    with testclient.TestClient(api_app.create_app(services)) as test_client:
+        status = test_client.get("/api/index/status", headers=AUTH).json()
+        ready = test_client.get("/api/ready")
+        response = test_client.post(
+            "/api/ask", json={"question": question(settings)}, headers=AUTH
+        )
+    assert status["corpus_checksum_match"] is False
+    assert ready.status_code == 200
+    assert response.status_code == 200
+    assert response.json()["outcome"] == "answered"
+
+
 def test_port_fallback() -> None:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as taken:
         taken.bind(("127.0.0.1", 0))
@@ -766,6 +808,8 @@ def test_port_fallback() -> None:
         port = taken.getsockname()[1]
         chosen = api_app.pick_port("127.0.0.1", port)
     assert port < chosen <= port + 10
+    # A free port is kept.
+    assert api_app.pick_port("127.0.0.1", chosen) == chosen
 
 
 def test_port_fallback_all_busy(monkeypatch) -> None:
