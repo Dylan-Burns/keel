@@ -1,7 +1,7 @@
 import {fireEvent, render, screen, waitFor} from '@testing-library/react';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
-import {TOKEN_KEY} from './api/client';
+import {RERUN_QUESTION_KEY, TOKEN_KEY} from './api/client';
 import {App} from './App';
 import {
   COVERAGE,
@@ -52,23 +52,41 @@ describe('App', () => {
     expect(await screen.findByText('index 1.0.0')).toBeInTheDocument();
   });
 
-  it('asks a question from the re-run link once, then copies its share link', async () => {
+  it('never sends a question from the URL', async () => {
     window.sessionStorage.setItem(TOKEN_KEY, 't');
-    window.history.replaceState(null, '', '/?rerun=Q%20again%3F');
+    window.history.replaceState(null, '', '/?rerun=Spend%20money%3F&q=x');
+    const fetchMock = serveAll();
+    render(<App />);
+    expect(await screen.findByText('index 1.0.0')).toBeInTheDocument();
+    await new Promise(resolve => setTimeout(resolve, 200));
+    const paths = fetchMock.mock.calls.map(([path]) => path);
+    expect(paths).not.toContain('/api/ask');
+    expect(screen.getByRole('textbox', {name: 'Question'})).toHaveValue('');
+  });
+
+  it('prefills the Re-run question without asking, then shares the answer', async () => {
+    window.sessionStorage.setItem(TOKEN_KEY, 't');
+    window.sessionStorage.setItem(RERUN_QUESTION_KEY, 'Q again?');
     const fetchMock = serveAll();
     const writeText = vi.fn(() => Promise.resolve());
     // The spread loses the prototype getter `onLine`, so set it.
     vi.stubGlobal('navigator', {onLine: true, clipboard: {writeText}});
     render(<App />);
+    const box = screen.getByRole('textbox', {name: 'Question'});
+    expect(box).toHaveValue('Q again?');
+    expect(window.sessionStorage.getItem(RERUN_QUESTION_KEY)).toBeNull();
+    expect(await screen.findByText('index 1.0.0')).toBeInTheDocument();
+    const isAsk = ([path]: unknown[]): boolean => path === '/api/ask';
+    expect(fetchMock.mock.calls.filter(isAsk)).toHaveLength(0);
     const share = screen.getByTestId('share-link');
     expect(share).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', {name: 'Ask'}));
     await waitFor(() => expect(share).toBeEnabled());
-    const asks = fetchMock.mock.calls.filter(([path]) => path === '/api/ask');
+    const asks = fetchMock.mock.calls.filter(isAsk);
     expect(asks).toHaveLength(1);
     expect(JSON.parse(String(asks[0]?.[1]?.body))).toEqual({
       question: 'Q again?',
     });
-    expect(window.location.search).toBe('');
     fireEvent.click(share);
     await waitFor(() =>
       expect(writeText).toHaveBeenCalledWith(

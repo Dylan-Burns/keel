@@ -25,6 +25,24 @@ export const TOKEN_KEY = 'keel.token';
 /** The session storage key of the request ID of an answer in flight. */
 export const PENDING_REQUEST_KEY = 'keel.pending_request_id';
 
+/**
+ * The session storage key of a question the history page hands to the
+ * question page to ask again (chapter 27.2). Session storage, unlike a URL,
+ * cannot be set by a link from another site, and the page only prefills it.
+ */
+export const RERUN_QUESTION_KEY = 'keel.rerun_question';
+
+/**
+ * Takes the question of the history Re-run button, once.
+ *
+ * @return The question, or null; the stored value is removed.
+ */
+export function takeRerunQuestion(): string | null {
+  const value = readSession(RERUN_QUESTION_KEY);
+  writeSession(RERUN_QUESTION_KEY, null);
+  return value === null || value.trim() === '' ? null : value;
+}
+
 /** The session storage key of the question of the answer in flight. */
 export const PENDING_QUESTION_KEY = 'keel.pending_question';
 

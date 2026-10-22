@@ -7,7 +7,7 @@ import {
 } from '@testing-library/react';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
-import {TOKEN_KEY} from '../api/client';
+import {RERUN_QUESTION_KEY, TOKEN_KEY} from '../api/client';
 import type {HistoryResponse} from '../api/types';
 import {HISTORY, HISTORY_ADMIN, QUESTION_1} from '../testing/fixtures';
 import {HistoryPage} from './HistoryPage';
@@ -66,7 +66,7 @@ describe('HistoryPage', () => {
     expect(within(oldest).getByTestId('history-copy-link')).toBeDisabled();
   });
 
-  it('asks a question again through the re-run link', async () => {
+  it('hands the question to the question page through session storage', async () => {
     window.sessionStorage.setItem(TOKEN_KEY, 'token');
     serve({own: HISTORY});
     render(<HistoryPage />);
@@ -74,9 +74,8 @@ describe('HistoryPage', () => {
     fireEvent.click(
       within(items[1] as HTMLElement).getByTestId('history-rerun'),
     );
-    expect(assign).toHaveBeenCalledWith(
-      `/?rerun=${encodeURIComponent(QUESTION_1)}`,
-    );
+    expect(assign).toHaveBeenCalledWith('/');
+    expect(window.sessionStorage.getItem(RERUN_QUESTION_KEY)).toBe(QUESTION_1);
   });
 
   it('copies the shareable link of an answer', async () => {

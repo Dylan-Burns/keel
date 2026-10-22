@@ -5,9 +5,9 @@ import {
   useReducedMotion,
 } from 'motion/react';
 import type {JSX} from 'react';
-import {useCallback, useEffect, useRef, useState} from 'react';
+import {useCallback, useState} from 'react';
 
-import {fetchChunk} from './api/client';
+import {fetchChunk, takeRerunQuestion} from './api/client';
 import {AnswerArea} from './components/AnswerArea';
 import {CoverageSummary} from './components/CoverageSummary';
 import {Footer} from './components/Footer';
@@ -28,7 +28,7 @@ import {TraceDrawer} from './components/TraceDrawer';
 import {answerToJson, answerToMarkdown} from './lib/answerExport';
 import type {Example} from './lib/examples';
 import {EXAMPLES} from './lib/examples';
-import {rerunQuestion, sharedRequestId, shareUrl} from './lib/links';
+import {sharedRequestId, shareUrl} from './lib/links';
 import {pageLoad, pick, pickTransition, stateChange} from './motion/presets';
 import {baseState, canAsk, currentRun, hasOverlay, health} from './state';
 import {useKeel} from './useKeel';
@@ -56,10 +56,9 @@ function download(name: string, text: string): void {
  */
 export function App(): JSX.Element {
   const {state, hasToken, shared, ask, saveToken, reload} = useKeel();
-  // A question to ask again from the history page (`/?rerun=...`), once.
-  const [initialRerun] = useState(() => rerunQuestion(window.location.search));
-  const rerunRef = useRef(initialRerun);
-  const [question, setQuestion] = useState(initialRerun ?? '');
+  // The history page's Re-run prefills the question; the user presses Ask.
+  // Nothing from the URL is ever sent on its own.
+  const [question, setQuestion] = useState(() => takeRerunQuestion() ?? '');
   const sharedId = sharedRequestId(window.location.pathname);
   const [selected, setSelected] = useState<SelectedChunk | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -85,16 +84,6 @@ export function App(): JSX.Element {
     },
     [ask],
   );
-  const serviceReady = state.service.ready !== null;
-  useEffect(() => {
-    const text = rerunRef.current;
-    if (text === null || !hasToken || !serviceReady || !askEnabled) {
-      return;
-    }
-    rerunRef.current = null;
-    window.history.replaceState(null, '', '/');
-    onAsk(text);
-  }, [hasToken, serviceReady, askEnabled, onAsk]);
   const onPick = (example: Example): void => {
     setQuestion(example.question);
     onAsk(example.question);
