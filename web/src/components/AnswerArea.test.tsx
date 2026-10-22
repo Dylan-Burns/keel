@@ -20,11 +20,10 @@ describe('AnswerArea', () => {
       'data-order',
       'understanding,retrieval',
     );
-    expect(screen.queryByTestId('streamed-answer')).toBeNull();
     expect(screen.queryByTestId('answer-markdown')).toBeNull();
   });
 
-  it('streaming: shows the deltas as text with the cursor', () => {
+  it('streaming: renders the deltas as answer blocks with the cursor', () => {
     render(
       <AnswerArea
         run={runOf(RESPONSE_2, 5)}
@@ -34,10 +33,30 @@ describe('AnswerArea', () => {
         onAsk={vi.fn()}
       />,
     );
-    expect(screen.getByTestId('streamed-answer')).toHaveAttribute(
-      'data-deltas',
-      '2',
+    const answer = screen.getByTestId('answer-markdown');
+    expect(answer).toHaveAttribute('data-streaming', 'true');
+    expect(Number(answer.getAttribute('data-blocks'))).toBeGreaterThan(0);
+    expect(answer.textContent).not.toBe('');
+    expect(screen.getByTestId('answer-cursor')).toBeInTheDocument();
+  });
+
+  it('the final event keeps the streamed answer element and its blocks', () => {
+    const props = {
+      askEnabled: false,
+      onSelectCitation: vi.fn(),
+      onAsk: vi.fn(),
+    };
+    const {rerender} = render(
+      <AnswerArea run={runOf(RESPONSE_2, 6)} streaming {...props} />,
     );
+    const answer = screen.getByTestId('answer-markdown');
+    const first = screen.getAllByTestId('answer-block')[0];
+    rerender(
+      <AnswerArea run={runOf(RESPONSE_2)} streaming={false} {...props} />,
+    );
+    expect(screen.getByTestId('answer-markdown')).toBe(answer);
+    expect(screen.getAllByTestId('answer-block')[0]).toBe(first);
+    expect(answer).toHaveAttribute('data-streaming', 'false');
   });
 
   it('complete: shows the answer, confidence, coverage, findings, table, gaps, next questions', () => {

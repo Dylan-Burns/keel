@@ -1,6 +1,11 @@
 import {describe, expect, it} from 'vitest';
 
-import {isSecUrl, renderMarkdown, sanitizeHtml} from './markdown';
+import {
+  isSecUrl,
+  markdownBlocks,
+  renderMarkdown,
+  sanitizeHtml,
+} from './markdown';
 
 function dom(html: string): HTMLElement {
   const div = document.createElement('div');
@@ -97,5 +102,25 @@ describe('isSecUrl', () => {
     expect(isSecUrl('https://data.sec.gov/x')).toBe(false);
     expect(isSecUrl('not a url')).toBe(false);
     expect(isSecUrl(null)).toBe(false);
+  });
+});
+
+describe('markdownBlocks', () => {
+  it('splits the top-level blocks and keeps a loose list whole', () => {
+    expect(
+      markdownBlocks('Intro **bold**\n\n- a\n\n- b\n\n| h |\n| - |\n| c |\n'),
+    ).toHaveLength(3);
+  });
+
+  it('keeps a growing last block in the same position', () => {
+    const before = markdownBlocks('One.\n\nTwo and');
+    const after = markdownBlocks('One.\n\nTwo and more text');
+    expect(before).toHaveLength(2);
+    expect(after).toHaveLength(2);
+    expect(after[0]).toBe(before[0]);
+  });
+
+  it('returns no block for blank text', () => {
+    expect(markdownBlocks('  \n\n ')).toEqual([]);
   });
 });
