@@ -77,7 +77,15 @@ REFERENCE_CUES = (
     "and",
     "or",
     "in",
+    "see also",
+    "as well as",
+    "throughout",
 )
+# The line split of chapter 7 (R4) moves an inline reference such as `see
+# the Item 1A. Risk Factors section` to a new line, so an article can sit
+# between the cue and the label; the cue check drops it first (stage 10,
+# the PFE 10-Ks).
+REFERENCE_ARTICLES = ("the", "this", "our")
 TRAILING_CUES = re.compile(r"\b(?:of this|above|below|herein)\b", re.I)
 _NORM = re.compile(r"[^a-z0-9 ]+")
 _SPACES = re.compile(r"\s+")
@@ -476,6 +484,10 @@ def _has_reference_cue(text: str, start: int) -> bool:
     if prose_line and before[-1] in ",(\"'":
         return True
     words = normalize_title(before[-REFERENCE_WINDOW:])
+    for article in REFERENCE_ARTICLES:
+        if words.endswith(" " + article):
+            words = words[: -len(article) - 1]
+            break
     return any(
         words.endswith(" " + cue) or words == cue for cue in REFERENCE_CUES
     )

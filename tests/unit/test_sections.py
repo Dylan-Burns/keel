@@ -96,6 +96,42 @@ def test_cross_reference_rejected() -> None:
     assert candidate.reason == "reference_cue"
 
 
+def test_cross_reference_after_line_split() -> None:
+    # The PFE FY2024 10-K shape: R4 puts each inline reference on its own
+    # line after an article, so `see the` or a sentence cut mid-way ends
+    # the line before the label (the stage 10 finding).
+    prose = "For a discussion of the risks of our major products, " * 2
+    text = (
+        "PART I\nITEM 1. | BUSINESS\n"
+        + body()
+        + "\n"
+        + prose
+        + "see the\nItem 1A. Risk Factors\u2014Concentration section.\n"
+        + body()
+        + "\nSee the\nItem 1A. Risk Factors\u2014Pricing section.\n"
+        + body()
+        + "\n"
+        + prose
+        + "discussed throughout this\nItem 1A. Risk Factors.\n"
+        + body()
+        + "\nITEM 1A. | RISK FACTORS\n"
+        + body()
+    )
+    found = sections.classify(text, "10-K")
+    kinds = [(c.item, c.kind) for c in found]
+    assert kinds == [
+        ("1", "heading"),
+        ("1A", "cross_reference"),
+        ("1A", "cross_reference"),
+        ("1A", "cross_reference"),
+        ("1A", "heading"),
+    ]
+    result = sections.detect(text, "10-K")
+    risk = result.of("risk_factors")
+    assert len(risk) == 1
+    assert text[risk[0].start :].startswith("ITEM 1A. | RISK FACTORS")
+
+
 def test_trailing_cue_and_unknown_item() -> None:
     text = "Item 1A. Risk Factors of this report.\nItem 99. Other\n" + body()
     found = sections.classify(text, "10-K")
