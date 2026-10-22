@@ -100,6 +100,7 @@ edgar:
   user_agent: "Dylan Burns dylanburns1524@gmail.com"  # as the SEC requires
   cache_dir: cache/edgar
   min_request_interval_seconds: 0.2
+  facts: config/facts.yaml     # the 8 company facts concepts and their XBRL names (chapter 26.1)
 
 demo:
   example_questions:

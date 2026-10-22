@@ -170,3 +170,23 @@ class AnswerCacheError(KeelError):
 
 class GoldenSetError(KeelError):
     """The golden set or a label file is absent or not valid (chapter 18)."""
+
+
+class EdgarError(KeelError):
+    """A SEC EDGAR fetch or lookup fails (chapter 26)."""
+
+
+class OutboundBlockedError(EdgarError):
+    """An outbound URL fails the allow list of control S-11."""
+
+
+class EdgarFetchError(EdgarError):
+    """An EDGAR request fails or returns a body that is not JSON."""
+
+
+class EdgarCacheMissError(EdgarError):
+    """An offline EDGAR client has no cached copy of a document."""
+
+
+class UnknownTickerError(EdgarError):
+    """The SEC ticker map has no entry for a ticker (chapter 26.2)."""
