@@ -3,8 +3,8 @@
 Stage 1 ships `keel inventory` and `keel doctor`; stage 2 adds `keel parse`;
 stage 3 adds `keel chunk` and `keel parse --sections-report`; stage 4 adds
 `keel index`; stage 5 adds `keel understand`; stage 6 adds `keel retrieve`;
-stage 7 adds `keel ask`. Later stages add the commands that CLAUDE.md
-lists (serve, eval, and the rest).
+stage 7 adds `keel ask`; stage 8 adds `keel calibrate`. Later stages add the
+commands that CLAUDE.md lists (serve, eval, and the rest).
 """
 
 import argparse
@@ -18,8 +18,11 @@ import sys
 import time
 from typing import Any
 
+import anthropic
+
 import keel
 from keel import answer
+from keel import calibrate
 from keel import chunker
 from keel import config
 from keel import context
@@ -204,6 +207,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="serve the answer cache when it holds the question",
     )
     ask_parser.add_argument(
+        "--index",
+        type=pathlib.Path,
+        default=None,
+        help="the index directory with `current` (default: index.dir)",
+    )
+
+    calibrate_parser = commands.add_parser(
+        "calibrate",
+        help="measure the token calibration factor with 1 count call",
+    )
+    calibrate_parser.add_argument(
+        "--sample",
+        type=int,
+        default=calibrate.SAMPLE_SIZE,
+        help="the chunks in the sample (default: 200, chapter 11.6)",
+    )
+    calibrate_parser.add_argument(
         "--index",
         type=pathlib.Path,
         default=None,
@@ -948,6 +968,69 @@ def run_ask(
     return asyncio.run(_ask(answerer, question, as_json, cached))
 
 
+def run_calibrate(
+    settings: config.Settings,
+    size: int,
+    index_dir: pathlib.Path | None,
+    counter: calibrate.TokenCounter | None = None,
+) -> int:
+    """Run `keel calibrate`: 1 token count call over a chunk sample.
+
+    The command prints the measured factor; the engineer writes it into
+    `retrieval.calibration_factor` (chapter 11.6 step 2).
+
+    Args:
+        settings: The loaded settings.
+        size: The sample size.
+        index_dir: The index directory, or None for `index.dir`.
+        counter: The token counter, or None for the Anthropic endpoint.
+
+    Returns:
+        0.
+
+    Raises:
+        IndexMissingError: No published index.
+        ProviderRequestError: `ANTHROPIC_API_KEY` is not set.
+    """
+    directory = index_dir or settings.index.dir
+    build = indexer.current_build(directory)
+    if build is None:
+        raise errors.IndexMissingError(
+            f"no index at {directory}/current; run keel index"
+        )
+    if counter is None:
+        if settings.anthropic_api_key is None:
+            raise errors.ProviderRequestError("ANTHROPIC_API_KEY is not set")
+        client = anthropic.Anthropic(
+            api_key=settings.anthropic_api_key.get_secret_value()
+        )
+        counter = calibrate.anthropic_counter(client)
+    conn = chunk_store.open_read_only(build / chunk_store.FILE_NAME)
+    try:
+        result = calibrate.measure(
+            conn,
+            counter,
+            settings.llm.model,
+            factor_before=settings.retrieval.calibration_factor,
+            size=size,
+        )
+    finally:
+        conn.close()
+    before = settings.retrieval.calibration_factor
+    drift = (result.counted_tokens - result.estimate_before) / max(
+        1, result.estimate_before
+    )
+    print(f"model: {settings.llm.model}; sample: {result.chunks} chunks")
+    print(f"embedding tokens: {result.embedding_tokens:,}")
+    print(f"counted tokens: {result.counted_tokens:,}")
+    print(
+        f"estimate with factor {before}: {result.estimate_before:,} "
+        f"({drift:+.1%} against the count)"
+    )
+    print(f"calibration factor: {result.factor}")
+    return 0
+
+
 def run_doctor(settings: config.Settings, download: bool, as_json: bool) -> int:
     """Run `keel doctor`.
 
@@ -997,6 +1080,8 @@ def _dispatch(settings: config.Settings, args: argparse.Namespace) -> int:
             out_dir=args.out,
             incremental=args.incremental,
         )
+    if args.command == "calibrate":
+        return run_calibrate(settings, args.sample, args.index)
     return run_doctor(settings, args.download_models, args.json)
 
 

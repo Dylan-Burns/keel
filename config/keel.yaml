@@ -64,7 +64,7 @@ retrieval:
   max_context_tokens: 32000
   max_chunks: 48
   simhash_max_distance: 3
-  calibration_factor: 1.15
+  calibration_factor: 1.91      # keel calibrate, stage 8: 200 chunks, 109,680 counted tokens (default 1.15)
 
 llm:
   provider: anthropic
