@@ -19,7 +19,7 @@ corpus, a quarter after the corpus, a quarantined filing).
 | Measure | Result | Target | Status |
 | --- | --- | --- | --- |
 | Right passages found (recall at 25), all questions | 0.86 (0.83 on the stage 10 labels) | 0.85 | met |
-| Comparisons / numeric / trend / sector / single company | 0.92 / 1.00 / 0.87 / 0.71 / 0.73 | | |
+| Recall at 25 by type: comparisons / numeric / trend / sector / single company | 0.92 / 1.00 / 0.87 / 0.71 / 0.73 | | |
 | First right passage near the top (MRR) | 0.96 | 0.60 | met |
 | Claims supported by the cited text (faithfulness) | 0.926 (prompt 1.5.1; 0.895 with prompt 1.4.0 in eval-20261022T123820Z) | 0.90 | met |
 | Citations that support their claim | 1.00 (0.998) | 0.90 | met |
@@ -33,10 +33,10 @@ corpus, a quarter after the corpus, a quarantined filing).
 
 Narrative questions: risk comparisons across companies (recall 0.92, and every comparison
 answer states the coverage of each company), regulatory scans of a sector, and
-how a company's outlook changed over time. Every claim cites a passage that
-opens on the SEC filing, and the server removes any citation outside the
-retrieved text (0 in the run, 0 unverified findings, 0 misquotes:
-the validator flags in `eval/report.json`). Questions out of scope are
+how a company's outlook changed over time. Every finding cites a passage
+that opens on the SEC filing, and the server removes any citation outside
+the retrieved text (0 in eval-20261022T111922Z and in eval-20261022T145423Z,
+0 unverified findings, 0 misquotes: the validator flags of each run). Questions out of scope are
 refused without a model call.
 
 ## 3. What is weak, with evidence
