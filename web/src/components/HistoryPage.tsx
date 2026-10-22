@@ -10,7 +10,7 @@ import {
   writeSession,
 } from '../api/client';
 import type {HistoryResponse, HistoryScope} from '../api/types';
-import {sharePath, shareUrl} from '../lib/links';
+import {copyText, sharePath, shareUrl} from '../lib/links';
 import {TokenField} from './TokenField';
 
 /** The load state of the page. */
@@ -35,7 +35,8 @@ function when(timestamp: string): string {
  * The history page at `/history` (chapter 27.2): the questions of the
  * signed-in user, newest first, from the audit log. Each row opens the
  * stored answer at its shareable link, copies the link, or puts the
- * question back in the question box (Re-run), where the user presses Ask. An admin can switch to every user's questions.
+ * question back in the question box (Re-run), where the user presses Ask.
+ * An admin can switch to every user's questions.
  *
  * @return The page.
  */
@@ -81,8 +82,7 @@ export function HistoryPage(): JSX.Element {
     setScope(next);
   };
   const onCopy = (requestId: string): void => {
-    navigator.clipboard
-      .writeText(shareUrl(requestId))
+    copyText(shareUrl(requestId))
       .then(() => setCopied(requestId))
       .catch(() => setCopied(null));
   };

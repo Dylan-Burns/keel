@@ -1,4 +1,0 @@
-# Keel pilot users (chapter 27.2). Token hashes only; `keel users add` writes this file.
-# KEEL_API_TOKEN stays valid as the admin user `legacy`. Never commit a real user's hash
-# to a public repository; the pilot keeps this file on the volume (auth.users_file).
-users: []
