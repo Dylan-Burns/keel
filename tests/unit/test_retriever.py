@@ -209,6 +209,16 @@ def test_latest_filing_weight() -> None:
     assert retriever.later_comparatives([original]) == frozenset()
 
 
+def test_company_counts() -> None:
+    aapl = candidate()
+    jpm = candidate(
+        chunk_id="JPM_10K_2025-12-31__risk_factors__0001", ticker="JPM"
+    )
+    counts = retriever.company_counts([aapl, jpm, aapl], [aapl, jpm])
+    assert counts == (("AAPL", 2, 1), ("JPM", 1, 1))
+    assert retriever.company_counts([], []) == ()
+
+
 def test_simhash_collapse() -> None:
     earlier = candidate(
         chunk_id="AAPL_10Q_2025-06-28__risk_factors__0001",

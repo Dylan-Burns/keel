@@ -963,3 +963,73 @@ def test_eval_page_without_report(api_settings, index_dir, tmp_path) -> None:
     assert page["report"]["markdown"] is None
     assert page["prompt_log"]["markdown"] is None
     assert page["gates"] == []
+
+
+def test_final_event_audit(client, api_settings) -> None:
+    _, events = stream(client, question(api_settings))
+    final = dict(events)["final"]
+    record = final["audit"]
+    # The record of the drawer is the line of the audit log (S-07, 25.1).
+    log = api_settings.logs.dir / "audit.jsonl"
+    lines = [json.loads(line) for line in log.read_text().splitlines()]
+    assert lines[-1] == record
+    assert record["request_id"] == final["request_id"]
+    assert record["model_requests"] == 1
+    assert record["failed_before_content"] == 0
+    assert record["tickers"] == ["AAPL", "TSLA", "JPM"]
+    assert record["question_type"] == final["analysis"]["primary_type"]
+    meta = final["meta"]
+    for key in ("prompt_hash", "prompt_version", "index_version", "model"):
+        assert record[key] == meta[key]
+    assert record["usage"] == meta["usage"]
+    assert record["latency_ms"] == meta["latency_ms"]
+    assert record["cost_usd"] == meta["cost_usd"]
+    assert record["citation_drift"] == 0
+    assert record["flags"]["from_cache"] is False
+    assert record["flags"]["degraded"] is False
+    chunks = final["retrieval"]["chunks"]
+    assert record["chunk_count"] == len(chunks)
+    assert record["chunk_ids"] == [c["chunk_id"] for c in chunks]
+    assert record["token_estimate"] == final["retrieval"]["token_estimate"]
+    assert record["filters"]
+    assert all(f["tickers"] for f in record["filters"])
+    candidates = record["candidates"]
+    per_company = {c["ticker"]: c for c in candidates["per_company"]}
+    assert set(per_company) == {"AAPL", "TSLA", "JPM"}
+    assert all(c["before"] >= c["after"] for c in per_company.values())
+    assert (
+        sum(c["before"] - c["after"] for c in per_company.values())
+        == candidates["collapsed"]
+    )
+    fills = record["quota_fills"]
+    assert fills
+    assert sum(f["taken"] for f in fills) == len(chunks)
+    assert all(f["taken"] <= f["quota"] for f in fills)
+    assert "prompt" not in record
+    assert "system" not in record
+
+
+def test_final_event_audit_retry(client, api_settings) -> None:
+    text = question(api_settings)
+    _, events = stream(client, text, {"X-Keel-Mock": "529-before-content"})
+    record = dict(events)["final"]["audit"]
+    assert record["model_requests"] == 2
+    assert record["failed_before_content"] == 1
+    assert record["outcome"] == "answered"
+    _, events = stream(client, text, {"X-Keel-Mock": "provider_unavailable"})
+    record = dict(events)["final"]["audit"]
+    # 3 requests to the primary, then 3 to the fallback (stage 11, D-04).
+    assert record["model_requests"] == 6
+    assert record["failed_before_content"] == 6
+    assert record["flags"]["degraded"] is True
+    assert record["error"] == "provider_unavailable"
+    response = client.post(
+        "/api/ask",
+        json={"question": "What is the weather in Paris tomorrow?"},
+        headers=AUTH,
+    )
+    record = response.json()["audit"]
+    assert record["model_requests"] == 0
+    assert record["filters"] == []
+    assert record["candidates"] is None
+    assert record["chunk_count"] == 0
