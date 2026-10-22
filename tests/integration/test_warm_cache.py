@@ -116,8 +116,8 @@ def golden_path(tmp_path: pathlib.Path) -> pathlib.Path:
     return path
 
 
-async def _no_wait(seconds: float) -> None:
-    del seconds
+async def _no_wait(_seconds: float) -> None:
+    """Skip the pause between EDGAR requests."""
 
 
 def make(

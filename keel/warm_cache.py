@@ -143,7 +143,6 @@ def prefetch_facts(
     no_lines: list[str] = []
     failed: list[str] = []
     for ticker in tickers:
-        before = client.requests
         try:
             cik = client.cik(ticker)
             before = client.requests
