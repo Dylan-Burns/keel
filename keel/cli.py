@@ -1354,6 +1354,9 @@ def run_add(
             fails.
         IndexMissingError: The index has no current build.
         IndexWriteError: The incremental build cannot be published.
+        ManifestMissingError: The corpus has no usable manifest.
+        ConfigError: The dictionary cannot take the company.
+        HeaderError: A header value from EDGAR is unusable.
     """
     directory = corpus_dir or settings.corpus.dir
     if corpus_dir is None:

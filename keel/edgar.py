@@ -333,6 +333,28 @@ class FilingRef(_Model):
     report_date: datetime.date
     primary_document: str
 
+    @pydantic.field_validator("cik")
+    @classmethod
+    def _check_cik(cls, value: str) -> str:
+        if not value.isdigit() or len(value) != 10:
+            raise ValueError(f"not a 10-digit CIK: {value!r}")
+        return value
+
+    @pydantic.field_validator("accession")
+    @classmethod
+    def _check_accession(cls, value: str) -> str:
+        if not ACCESSION.match(value):
+            raise ValueError(f"not an accession number: {value!r}")
+        return value
+
+    @pydantic.field_validator("primary_document")
+    @classmethod
+    def _check_document(cls, value: str) -> str:
+        # The name joins a URL and a cache path, so no `/` or `..` passes.
+        if not DOCUMENT_NAME.match(value) or ".." in value:
+            raise ValueError(f"not a document name: {value!r}")
+        return value
+
     @property
     def url(self) -> str:
         """The https URL of the primary document on www.sec.gov.
@@ -354,7 +376,8 @@ def filings_of(
 
     Only the forms named count: a `10-K/A` is not a `10-K`. A row with a
     malformed accession number, document name, or date is skipped with a
-    warning, because the values name a URL and a cache file.
+    warning, because the values name a URL and a cache file (the
+    `FilingRef` validators check them).
 
     Args:
         submissions: The submissions JSON (`CachedDocument.data`).
@@ -365,7 +388,8 @@ def filings_of(
         a tie).
 
     Raises:
-        EdgarError: The body has no `filings.recent` arrays or no CIK.
+        EdgarError: The body has no `filings.recent` arrays of 1 length,
+            or no CIK.
     """
     try:
         cik = cik10(submissions["cik"])
@@ -384,17 +408,11 @@ def filings_of(
         raise errors.EdgarError(
             "the submissions body has no filings.recent arrays"
         ) from error
+    if len({len(column) for column in columns}) != 1:
+        raise errors.EdgarError("the filings.recent arrays differ in length")
     found: list[FilingRef] = []
-    for form, accession, filed, report, document in zip(*columns, strict=False):
+    for form, accession, filed, report, document in zip(*columns, strict=True):
         if form not in forms:
-            continue
-        if not (
-            ACCESSION.match(str(accession))
-            and DOCUMENT_NAME.match(str(document))
-        ):
-            logger.warning(
-                "skipping a %s row: %s %r", form, accession, document
-            )
             continue
         try:
             found.append(
@@ -408,9 +426,9 @@ def filings_of(
                 )
             )
         except (TypeError, ValueError):
-            logger.warning(
-                "skipping a %s row with a bad date: %s", form, accession
-            )
+            # pydantic.ValidationError is a ValueError: a malformed
+            # accession number or document name never names a path.
+            logger.warning("skipping a bad %s row: %s", form, accession)
     found.sort(key=lambda ref: (ref.filing_date, ref.accession), reverse=True)
     return found
 
