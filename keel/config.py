@@ -257,12 +257,27 @@ class DemoConfig(_Section):
 
 
 class SchedulerConfig(_Section):
-    """The in-app scheduler for the nightly refresh and backup."""
+    """The in-app scheduler for the nightly refresh and backup.
+
+    Attributes:
+        enabled: Run the scheduler inside `keel serve`.
+        refresh_at: The UTC time of the nightly refresh, `HH:MM`.
+        backup_at: The UTC time of the nightly backup, `HH:MM`.
+        backup_bucket: The S3-compatible bucket of the archives, or None.
+        backup_dir: The local directory of the archives.
+        backup_keep: The local archives kept; older ones are removed.
+    """
 
     enabled: bool = False
-    refresh_at: str = "02:00"
-    backup_at: str = "02:30"
+    refresh_at: str = pydantic.Field(
+        default="02:00", pattern=r"^([01]\d|2[0-3]):[0-5]\d$"
+    )
+    backup_at: str = pydantic.Field(
+        default="02:30", pattern=r"^([01]\d|2[0-3]):[0-5]\d$"
+    )
     backup_bucket: str | None = None
+    backup_dir: pathlib.Path = pathlib.Path("backups")
+    backup_keep: int = pydantic.Field(default=7, ge=1)
 
 
 class DeployConfig(_Section):
