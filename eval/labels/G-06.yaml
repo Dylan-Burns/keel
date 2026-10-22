@@ -1,0 +1,553 @@
+question_id: G-06
+level: chunk
+index_version: 1.0.1
+build_id: 20261021T231603728106Z
+chunks_sha256: 722b9b5693e4284330cbe36342c8d8679357be7f4cd899cf67c02c65bdb266be
+created: '2026-10-22'
+pool: hybrid top 30, lexical top 10, and dense top 10 per sub-query, with the reranker; plus the lexical top 10 in the expected filings without a section filter
+sections:
+  - filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    chunks: 36
+  - filing_id: TSLA_10K_2025-12-31
+    section: risk_factors
+    chunks: 43
+  - filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    chunks: 91
+chunks:
+  - chunk_id: AAPL_10K_2022-09-24__risk_factors__0000
+    grade: 1
+    filing_id: AAPL_10K_2022-09-24
+    section: risk_factors
+    note: older AAPL 10-K, macroeconomic risk
+  - chunk_id: AAPL_10K_2022-09-24__risk_factors__0001
+    grade: 1
+    filing_id: AAPL_10K_2022-09-24
+    section: risk_factors
+    note: older AAPL 10-K, macro and COVID risk
+  - chunk_id: AAPL_10K_2022-09-24__risk_factors__0006
+    grade: 1
+    filing_id: AAPL_10K_2022-09-24
+    section: risk_factors
+    note: older AAPL 10-K, competition risk
+  - chunk_id: AAPL_10K_2022-09-24__risk_factors__0007
+    grade: 1
+    filing_id: AAPL_10K_2022-09-24
+    section: risk_factors
+    note: older AAPL 10-K, competition risk
+  - chunk_id: AAPL_10K_2022-09-24__risk_factors__0021
+    grade: 1
+    filing_id: AAPL_10K_2022-09-24
+    section: risk_factors
+    note: older AAPL 10-K, acquisitions and retail risk
+  - chunk_id: AAPL_10K_2023-09-30__risk_factors__0001
+    grade: 1
+    filing_id: AAPL_10K_2023-09-30
+    section: risk_factors
+    note: older AAPL 10-K, economic and geopolitical risk
+  - chunk_id: AAPL_10K_2023-09-30__risk_factors__0004
+    grade: 1
+    filing_id: AAPL_10K_2023-09-30
+    section: risk_factors
+    note: older AAPL 10-K, competition and pandemic risk
+  - chunk_id: AAPL_10K_2023-09-30__risk_factors__0005
+    grade: 1
+    filing_id: AAPL_10K_2023-09-30
+    section: risk_factors
+    note: older AAPL 10-K, competition and IP risk
+  - chunk_id: AAPL_10K_2023-09-30__risk_factors__0006
+    grade: 1
+    filing_id: AAPL_10K_2023-09-30
+    section: risk_factors
+    note: older AAPL 10-K, competition and transitions
+  - chunk_id: AAPL_10K_2023-09-30__risk_factors__0007
+    grade: 1
+    filing_id: AAPL_10K_2023-09-30
+    section: risk_factors
+    note: older AAPL 10-K, outsourcing partner risk
+  - chunk_id: AAPL_10K_2023-09-30__risk_factors__0020
+    grade: 1
+    filing_id: AAPL_10K_2023-09-30
+    section: risk_factors
+    note: older AAPL 10-K, acquisitions and legal risk
+  - chunk_id: AAPL_10K_2023-09-30__risk_factors__0023
+    grade: 1
+    filing_id: AAPL_10K_2023-09-30
+    section: risk_factors
+    note: older AAPL 10-K, laws and regulations risk
+  - chunk_id: AAPL_10K_2023-09-30__risk_factors__0024
+    grade: 1
+    filing_id: AAPL_10K_2023-09-30
+    section: risk_factors
+    note: older AAPL 10-K, regulatory and ESG risk
+  - chunk_id: AAPL_10K_2024-09-28__risk_factors__0000
+    grade: 1
+    filing_id: AAPL_10K_2024-09-28
+    section: risk_factors
+    note: older AAPL 10-K, macroeconomic risk
+  - chunk_id: AAPL_10K_2024-09-28__risk_factors__0001
+    grade: 1
+    filing_id: AAPL_10K_2024-09-28
+    section: risk_factors
+    note: older AAPL 10-K, economic and geopolitical risk
+  - chunk_id: AAPL_10K_2024-09-28__risk_factors__0005
+    grade: 1
+    filing_id: AAPL_10K_2024-09-28
+    section: risk_factors
+    note: older AAPL 10-K, competition and IP risk
+  - chunk_id: AAPL_10K_2024-09-28__risk_factors__0007
+    grade: 1
+    filing_id: AAPL_10K_2024-09-28
+    section: risk_factors
+    note: older AAPL 10-K, product transition and outsourcing
+  - chunk_id: AAPL_10K_2024-09-28__risk_factors__0009
+    grade: 1
+    filing_id: AAPL_10K_2024-09-28
+    section: risk_factors
+    note: older AAPL 10-K, component supply risk
+  - chunk_id: AAPL_10K_2024-09-28__risk_factors__0021
+    grade: 1
+    filing_id: AAPL_10K_2024-09-28
+    section: risk_factors
+    note: older AAPL 10-K, acquisitions and legal risk
+  - chunk_id: AAPL_10K_2024-09-28__risk_factors__0023
+    grade: 1
+    filing_id: AAPL_10K_2024-09-28
+    section: risk_factors
+    note: older AAPL 10-K, complex laws and regulations risk
+  - chunk_id: AAPL_10K_2024-09-28__risk_factors__0025
+    grade: 1
+    filing_id: AAPL_10K_2024-09-28
+    section: risk_factors
+    note: older AAPL 10-K, import bans and ESG risk
+  - chunk_id: AAPL_10K_2024-09-28__risk_factors__0027
+    grade: 1
+    filing_id: AAPL_10K_2024-09-28
+    section: risk_factors
+    note: older AAPL 10-K, antitrust litigation risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0000
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: AAPL intro plus macroeconomic conditions risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0001
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: AAPL economic and geopolitical disruption risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0005
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: AAPL business interruption and competition risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0007
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: AAPL competition and product transition risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0008
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: AAPL product transitions and outsourcing partner risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0009
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: AAPL supply chain and single-source component risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0011
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: AAPL product quality, AI safety, inventory write-down risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0016
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: AAPL workforce and reseller dependence risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0017
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: AAPL IT failures and data security risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0020
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: AAPL new ventures and legal proceedings risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0023
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: AAPL complex changing laws and regulations risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0024
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: AAPL regulatory change, import bans, AI rules risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0025
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: AAPL stakeholder expectations and regulatory scrutiny risk
+  - chunk_id: AAPL_10K_2025-09-27__risk_factors__0030
+    grade: 2
+    filing_id: AAPL_10K_2025-09-27
+    section: risk_factors
+    note: AAPL online safety laws and gross margin pressure
+  - chunk_id: AAPL_10Q_2025-03-29__risk_factors__0006
+    grade: 1
+    filing_id: AAPL_10Q_2025-03-29
+    section: risk_factors
+    note: AAPL 10-Q, stakeholder expectations risk
+  - chunk_id: JPM_10K_2025-12-31__financial_statements__0013
+    grade: 0
+    filing_id: JPM_10K_2025-12-31
+    section: financial_statements
+    note: MD&A intro, forward-looking boilerplate
+  - chunk_id: JPM_10K_2025-12-31__financial_statements__0032
+    grade: 0
+    filing_id: JPM_10K_2025-12-31
+    section: financial_statements
+    note: MD&A outlook, forward-looking boilerplate
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0000
+    grade: 2
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: 'JPM summary of principal risks: legal, regulatory, political, market'
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0001
+    grade: 2
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: 'JPM summary: credit, liquidity, capital, operational risks'
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0003
+    grade: 1
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: JPM table fragment, country risk mention only
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0006
+    grade: 2
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: JPM regulatory differences and less regulated competitors
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0009
+    grade: 2
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: JPM legal risk from litigation and enforcement
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0011
+    grade: 0
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: empty table fragment, page number only
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0015
+    grade: 0
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: empty table fragment, page number only
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0019
+    grade: 0
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: empty table fragment, page number only
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0020
+    grade: 2
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: JPM political and geopolitical uncertainty risk
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0021
+    grade: 2
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: JPM geopolitical outcomes and market risk
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0024
+    grade: 2
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: JPM economic conditions hurting consumer and wholesale earnings
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0026
+    grade: 0
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: empty table fragment, page number only
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0027
+    grade: 2
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: JPM sector credit losses and commercial real estate risk
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0030
+    grade: 0
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: empty table fragment, page number only
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0034
+    grade: 1
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: JPM table fragment, credit risk heading only
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0036
+    grade: 2
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: JPM consumer credit and private credit risk
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0037
+    grade: 2
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: JPM liquidity risk factors
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0042
+    grade: 0
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: empty table fragment, page number only
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0046
+    grade: 0
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: empty table fragment, page number only
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0047
+    grade: 2
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: JPM operational system and third-party failure risk
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0052
+    grade: 2
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: JPM cybersecurity risks, AI and quantum threats
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0057
+    grade: 1
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: JPM fragment, consequence list tail and staffing heading
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0060
+    grade: 2
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: JPM personal information and identity fraud risk
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0064
+    grade: 2
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: JPM data management deficiencies risk
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0066
+    grade: 1
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: JPM table fragment, few words on systems
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0067
+    grade: 2
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: JPM vendor oversight and risk framework lapses
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0070
+    grade: 0
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: empty table fragment, page number only
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0071
+    grade: 2
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: JPM model approval and financial reporting control risk
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0074
+    grade: 1
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: JPM table fragment, too little substance
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0075
+    grade: 2
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: JPM competition from fintech and new technologies
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0076
+    grade: 2
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: JPM competition and AI technology risk
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0078
+    grade: 1
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: JPM table fragment, AI heading words only
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0079
+    grade: 2
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: JPM AI competition and climate change risks
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0081
+    grade: 2
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: JPM reputational risk
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0082
+    grade: 1
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: JPM table fragment, reputation heading words only
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0086
+    grade: 0
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: empty table fragment, page number only
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0087
+    grade: 2
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: JPM emerging markets country risk
+  - chunk_id: JPM_10K_2025-12-31__risk_factors__0089
+    grade: 0
+    filing_id: JPM_10K_2025-12-31
+    section: risk_factors
+    note: empty table fragment, page number only
+  - chunk_id: TSLA_10K_2022-12-31__risk_factors__0000
+    grade: 1
+    filing_id: TSLA_10K_2022-12-31
+    section: risk_factors
+    note: older TSLA 10-K, COVID macro risk
+  - chunk_id: TSLA_10K_2022-12-31__risk_factors__0010
+    grade: 1
+    filing_id: TSLA_10K_2022-12-31
+    section: risk_factors
+    note: older TSLA 10-K, competition and battery risk
+  - chunk_id: TSLA_10K_2022-12-31__risk_factors__0015
+    grade: 1
+    filing_id: TSLA_10K_2022-12-31
+    section: risk_factors
+    note: older TSLA 10-K, financing program risk
+  - chunk_id: TSLA_10K_2022-12-31__risk_factors__0018
+    grade: 1
+    filing_id: TSLA_10K_2022-12-31
+    section: risk_factors
+    note: older TSLA 10-K, key employee risk
+  - chunk_id: TSLA_10K_2022-12-31__risk_factors__0041
+    grade: 1
+    filing_id: TSLA_10K_2022-12-31
+    section: risk_factors
+    note: older TSLA 10-K, guidance and Musk share pledge
+  - chunk_id: TSLA_10K_2023-12-31__risk_factors__0000
+    grade: 1
+    filing_id: TSLA_10K_2023-12-31
+    section: risk_factors
+    note: older TSLA 10-K, production ramp risk
+  - chunk_id: TSLA_10K_2023-12-31__risk_factors__0009
+    grade: 1
+    filing_id: TSLA_10K_2023-12-31
+    section: risk_factors
+    note: older TSLA 10-K, competition and battery risk
+  - chunk_id: TSLA_10K_2024-12-31__risk_factors__0000
+    grade: 1
+    filing_id: TSLA_10K_2024-12-31
+    section: risk_factors
+    note: older TSLA 10-K, production ramp risk
+  - chunk_id: TSLA_10K_2024-12-31__risk_factors__0008
+    grade: 1
+    filing_id: TSLA_10K_2024-12-31
+    section: risk_factors
+    note: older TSLA 10-K, interest rates and competition
+  - chunk_id: TSLA_10K_2024-12-31__risk_factors__0009
+    grade: 1
+    filing_id: TSLA_10K_2024-12-31
+    section: risk_factors
+    note: older TSLA 10-K, battery cell and competition risk
+  - chunk_id: TSLA_10K_2024-12-31__risk_factors__0018
+    grade: 1
+    filing_id: TSLA_10K_2024-12-31
+    section: risk_factors
+    note: older TSLA 10-K, Musk and cyber risk
+  - chunk_id: TSLA_10K_2024-12-31__risk_factors__0039
+    grade: 1
+    filing_id: TSLA_10K_2024-12-31
+    section: risk_factors
+    note: older TSLA 10-K, guidance and Musk share pledge
+  - chunk_id: TSLA_10K_2025-12-31__risk_factors__0000
+    grade: 2
+    filing_id: TSLA_10K_2025-12-31
+    section: risk_factors
+    note: TSLA production ramp and manufacturing cost risk
+  - chunk_id: TSLA_10K_2025-12-31__risk_factors__0008
+    grade: 2
+    filing_id: TSLA_10K_2025-12-31
+    section: risk_factors
+    note: TSLA EV demand and macroeconomic risk
+  - chunk_id: TSLA_10K_2025-12-31__risk_factors__0009
+    grade: 2
+    filing_id: TSLA_10K_2025-12-31
+    section: risk_factors
+    note: TSLA Robotaxi adoption and competition risk
+  - chunk_id: TSLA_10K_2025-12-31__risk_factors__0018
+    grade: 2
+    filing_id: TSLA_10K_2025-12-31
+    section: risk_factors
+    note: TSLA key personnel and Musk dependence risk
+  - chunk_id: TSLA_10K_2025-12-31__risk_factors__0019
+    grade: 2
+    filing_id: TSLA_10K_2025-12-31
+    section: risk_factors
+    note: TSLA dependence on Musk and cyber-attack risk
+  - chunk_id: TSLA_10K_2025-12-31__risk_factors__0034
+    grade: 2
+    filing_id: TSLA_10K_2025-12-31
+    section: risk_factors
+    note: TSLA autonomy regulation and privacy law risk
+  - chunk_id: TSLA_10K_2025-12-31__risk_factors__0040
+    grade: 2
+    filing_id: TSLA_10K_2025-12-31
+    section: risk_factors
+    note: TSLA guidance and CEO award misalignment risk
+  - chunk_id: TSLA_10Q_2022-03-31__risk_factors__0000
+    grade: 1
+    filing_id: TSLA_10Q_2022-03-31
+    section: risk_factors
+    note: TSLA 10-Q, COVID macro risk
+  - chunk_id: TSLA_10Q_2022-03-31__risk_factors__0011
+    grade: 1
+    filing_id: TSLA_10Q_2022-03-31
+    section: risk_factors
+    note: TSLA 10-Q, competition and battery risk
+  - chunk_id: TSLA_10Q_2022-03-31__risk_factors__0038
+    grade: 1
+    filing_id: TSLA_10Q_2022-03-31
+    section: risk_factors
+    note: TSLA 10-Q, energy regulation and privacy risk
+  - chunk_id: TSLA_10Q_2022-09-30__risk_factors__0000
+    grade: 1
+    filing_id: TSLA_10Q_2022-09-30
+    section: risk_factors
+    note: TSLA 10-Q, COVID macro risk
+  - chunk_id: TSLA_10Q_2022-09-30__risk_factors__0011
+    grade: 1
+    filing_id: TSLA_10Q_2022-09-30
+    section: risk_factors
+    note: TSLA 10-Q, competition and battery risk
+  - chunk_id: TSLA_10Q_2022-09-30__risk_factors__0019
+    grade: 1
+    filing_id: TSLA_10Q_2022-09-30
+    section: risk_factors
+    note: TSLA 10-Q, key employee risk
+  - chunk_id: TSLA_10Q_2022-09-30__risk_factors__0029
+    grade: 1
+    filing_id: TSLA_10Q_2022-09-30
+    section: risk_factors
+    note: TSLA 10-Q, digital asset volatility risk
+  - chunk_id: TSLA_10Q_2023-03-31__legal_proceedings__0000
+    grade: 0
+    filing_id: TSLA_10Q_2023-03-31
+    section: legal_proceedings
+    note: TSLA 10-Q legal proceedings, risk cross-reference only
+  - chunk_id: TSLA_10Q_2025-03-31__risk_factors__0000
+    grade: 1
+    filing_id: TSLA_10Q_2025-03-31
+    section: risk_factors
+    note: TSLA 10-Q, international operations and tariff risk
+  - chunk_id: TSLA_10Q_2025-06-30__risk_factors__0000
+    grade: 1
+    filing_id: TSLA_10Q_2025-06-30
+    section: risk_factors
+    note: TSLA 10-Q, EV incentive repeal risk
+  - chunk_id: TSLA_10Q_2025-09-30__risk_factors__0000
+    grade: 1
+    filing_id: TSLA_10Q_2025-09-30
+    section: risk_factors
+    note: TSLA 10-Q cross-reference to prior risk factors only

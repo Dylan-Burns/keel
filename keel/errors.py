@@ -166,3 +166,7 @@ class AuditWriteError(KeelError):
 
 class AnswerCacheError(KeelError):
     """An answer cache entry is unreadable or fails its checksum."""
+
+
+class GoldenSetError(KeelError):
+    """The golden set or a label file is absent or not valid (chapter 18)."""

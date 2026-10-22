@@ -1,0 +1,172 @@
+question_id: G-16
+level: chunk
+index_version: 1.0.1
+build_id: 20261021T231603728106Z
+chunks_sha256: 722b9b5693e4284330cbe36342c8d8679357be7f4cd899cf67c02c65bdb266be
+created: '2026-10-22'
+pool: hybrid top 30, lexical top 10, and dense top 10 per sub-query, with the reranker; plus the lexical top 10 in the expected filings without a section filter
+sections:
+  - filing_id: AAPL_10K_2024-09-28
+    section: mdna
+    chunks: 16
+chunks:
+  - chunk_id: AAPL_10K_2024-09-28__financial_statements__0003
+    grade: 1
+    filing_id: AAPL_10K_2024-09-28
+    section: financial_statements
+    note: income statement, total net sales only
+  - chunk_id: AAPL_10K_2024-09-28__financial_statements__0004
+    grade: 0
+    filing_id: AAPL_10K_2024-09-28
+    section: financial_statements
+    note: diluted share count fragment
+  - chunk_id: AAPL_10K_2024-09-28__financial_statements__0019
+    grade: 0
+    filing_id: AAPL_10K_2024-09-28
+    section: financial_statements
+    note: cash paid for income taxes
+  - chunk_id: AAPL_10K_2024-09-28__financial_statements__0024
+    grade: 1
+    filing_id: AAPL_10K_2024-09-28
+    section: financial_statements
+    note: revenue note by product category, total net sales
+  - chunk_id: AAPL_10K_2024-09-28__financial_statements__0025
+    grade: 1
+    filing_id: AAPL_10K_2024-09-28
+    section: financial_statements
+    note: passing reference to segment revenue proportions
+  - chunk_id: AAPL_10K_2024-09-28__financial_statements__0076
+    grade: 1
+    filing_id: AAPL_10K_2024-09-28
+    section: financial_statements
+    note: segment definitions and table intro, no figures
+  - chunk_id: AAPL_10K_2024-09-28__financial_statements__0077
+    grade: 2
+    filing_id: AAPL_10K_2024-09-28
+    section: financial_statements
+    note: segment note table with FY2024 net sales per segment
+  - chunk_id: AAPL_10K_2024-09-28__financial_statements__0079
+    grade: 1
+    filing_id: AAPL_10K_2024-09-28
+    section: financial_statements
+    note: segment operating income reconciliation, no segment net sales
+  - chunk_id: AAPL_10K_2024-09-28__financial_statements__0081
+    grade: 1
+    filing_id: AAPL_10K_2024-09-28
+    section: financial_statements
+    note: geographic net sales U.S./China/other, not full segments
+  - chunk_id: AAPL_10K_2024-09-28__mdna__0000
+    grade: 0
+    filing_id: AAPL_10K_2024-09-28
+    section: mdna
+    note: MD&A intro, product announcements, fiscal period
+  - chunk_id: AAPL_10K_2024-09-28__mdna__0001
+    grade: 1
+    filing_id: AAPL_10K_2024-09-28
+    section: mdna
+    note: segment table intro sentence without figures
+  - chunk_id: AAPL_10K_2024-09-28__mdna__0002
+    grade: 2
+    filing_id: AAPL_10K_2024-09-28
+    section: mdna
+    note: FY2024 net sales by reportable segment table, all gold values
+  - chunk_id: AAPL_10K_2024-09-28__mdna__0003
+    grade: 1
+    filing_id: AAPL_10K_2024-09-28
+    section: mdna
+    note: segment net sales change discussion without figures
+  - chunk_id: AAPL_10K_2024-09-28__mdna__0004
+    grade: 1
+    filing_id: AAPL_10K_2024-09-28
+    section: mdna
+    note: FY2024 net sales by product category, total only
+  - chunk_id: AAPL_10K_2024-09-28__mdna__0005
+    grade: 0
+    filing_id: AAPL_10K_2024-09-28
+    section: mdna
+    note: product category narrative, gross margin heading
+  - chunk_id: AAPL_10K_2024-09-28__mdna__0006
+    grade: 0
+    filing_id: AAPL_10K_2024-09-28
+    section: mdna
+    note: gross margin table
+  - chunk_id: AAPL_10K_2024-09-28__mdna__0007
+    grade: 0
+    filing_id: AAPL_10K_2024-09-28
+    section: mdna
+    note: gross margin discussion
+  - chunk_id: AAPL_10K_2024-09-28__mdna__0008
+    grade: 0
+    filing_id: AAPL_10K_2024-09-28
+    section: mdna
+    note: operating expenses table
+  - chunk_id: AAPL_10K_2024-09-28__mdna__0009
+    grade: 0
+    filing_id: AAPL_10K_2024-09-28
+    section: mdna
+    note: R&D, SG&A, tax discussion
+  - chunk_id: AAPL_10Q_2023-12-30__mdna__0003
+    grade: 1
+    filing_id: AAPL_10Q_2023-12-30
+    section: mdna
+    note: Q1 FY2024 quarterly segment net sales, non-expected filing
+  - chunk_id: AAPL_10Q_2023-12-30__mdna__0006
+    grade: 0
+    filing_id: AAPL_10Q_2023-12-30
+    section: mdna
+    note: 10-Q quarterly net sales by category
+  - chunk_id: AAPL_10Q_2023-12-30__mdna__0010
+    grade: 0
+    filing_id: AAPL_10Q_2023-12-30
+    section: mdna
+    note: 10-Q operating expenses
+  - chunk_id: AAPL_10Q_2024-03-30__financial_statements__0042
+    grade: 1
+    filing_id: AAPL_10Q_2024-03-30
+    section: financial_statements
+    note: Q2 FY2024 segment note, non-expected filing
+  - chunk_id: AAPL_10Q_2024-03-30__mdna__0003
+    grade: 1
+    filing_id: AAPL_10Q_2024-03-30
+    section: mdna
+    note: Q2 FY2024 segment net sales, non-expected filing
+  - chunk_id: AAPL_10Q_2024-03-30__mdna__0006
+    grade: 0
+    filing_id: AAPL_10Q_2024-03-30
+    section: mdna
+    note: 10-Q net sales by category
+  - chunk_id: AAPL_10Q_2024-03-30__mdna__0010
+    grade: 0
+    filing_id: AAPL_10Q_2024-03-30
+    section: mdna
+    note: 10-Q operating expenses
+  - chunk_id: AAPL_10Q_2024-03-30__mdna__0012
+    grade: 0
+    filing_id: AAPL_10Q_2024-03-30
+    section: mdna
+    note: 10-Q income tax table
+  - chunk_id: AAPL_10Q_2024-06-29__financial_statements__0042
+    grade: 1
+    filing_id: AAPL_10Q_2024-06-29
+    section: financial_statements
+    note: Q3 FY2024 segment note, non-expected filing
+  - chunk_id: AAPL_10Q_2024-06-29__mdna__0003
+    grade: 1
+    filing_id: AAPL_10Q_2024-06-29
+    section: mdna
+    note: Q3 FY2024 segment net sales, non-expected filing
+  - chunk_id: AAPL_10Q_2024-06-29__mdna__0006
+    grade: 0
+    filing_id: AAPL_10Q_2024-06-29
+    section: mdna
+    note: 10-Q net sales by category
+  - chunk_id: AAPL_10Q_2024-06-29__mdna__0010
+    grade: 0
+    filing_id: AAPL_10Q_2024-06-29
+    section: mdna
+    note: 10-Q operating expenses
+  - chunk_id: AAPL_10Q_2024-06-29__mdna__0012
+    grade: 0
+    filing_id: AAPL_10Q_2024-06-29
+    section: mdna
+    note: 10-Q income tax table

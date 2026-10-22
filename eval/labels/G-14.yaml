@@ -1,0 +1,18 @@
+question_id: G-14
+level: section
+index_version: 1.0.1
+build_id: 20261021T231603728106Z
+chunks_sha256: 722b9b5693e4284330cbe36342c8d8679357be7f4cd899cf67c02c65bdb266be
+created: '2026-10-22'
+pool: ''
+sections:
+  - filing_id: UNH_10K_2022-12-31
+    section: risk_factors
+    chunks: 33
+  - filing_id: UNH_10K_2023-12-31
+    section: risk_factors
+    chunks: 34
+  - filing_id: UNH_10K_2024-12-31
+    section: risk_factors
+    chunks: 34
+chunks: []
