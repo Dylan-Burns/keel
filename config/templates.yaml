@@ -1,0 +1,35 @@
+# Question templates (chapter 27.2): the 5 buttons of the web picker.
+# `{companies}` takes company names, tickers, or a comp set such as
+# "my software comps"; `{period}` takes a time scope such as "fiscal 2024"
+# or "the last two years". `default_period` fills an empty period.
+public_comparables:
+  label: Public comparables
+  text: >-
+    Compare revenue growth, operating margin, and the main risk factors of
+    {companies} for {period}.
+  default_period: the latest fiscal year
+risk_benchmark:
+  label: Risk benchmark
+  text: >-
+    What are the primary risk factors facing {companies} in {period}, and
+    how do they compare?
+  default_period: the latest fiscal year
+portfolio_review:
+  label: Portfolio review
+  text: >-
+    How have revenue, margins, and the outlook of {companies} changed over
+    {period}?
+  default_period: the last two years
+regulatory_scan:
+  label: Regulatory scan
+  text: >-
+    What regulatory risks do {companies} report for {period}, and how are
+    they addressing them?
+  default_period: the latest fiscal year
+memo_paragraph:
+  label: Memo paragraph
+  text: >-
+    Summarize the business, the revenue trend, and the key risks of
+    {companies} for {period} as one paragraph for an investment committee
+    memo.
+  default_period: the latest fiscal year

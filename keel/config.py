@@ -204,6 +204,13 @@ class AuthConfig(_Section):
     users_file: pathlib.Path = pathlib.Path("config/users.yaml")
 
 
+class PilotConfig(_Section):
+    """The pilot store and the question templates (chapter 27.2)."""
+
+    db: pathlib.Path = pathlib.Path("logs/pilot.sqlite")
+    templates: pathlib.Path = pathlib.Path("config/templates.yaml")
+
+
 class LimitsConfig(_Section):
     """The question limits, the rate limits, and the budget."""
 
@@ -277,6 +284,7 @@ class Settings(pydantic_settings.BaseSettings):
     llm: LlmConfig
     limits: LimitsConfig = LimitsConfig()
     auth: AuthConfig = AuthConfig()
+    pilot: PilotConfig = PilotConfig()
     edgar: EdgarConfig
     demo: DemoConfig = DemoConfig()
     scheduler: SchedulerConfig = SchedulerConfig()

@@ -38,6 +38,7 @@ from keel import export
 from keel import extractor
 from keel import indexer
 from keel import inventory
+from keel import pilot_cli
 from keel import refresh
 from keel import retriever
 from keel import sections
@@ -237,8 +238,16 @@ def _eval_arguments() -> argparse.ArgumentParser:
     return eval_parser
 
 
-def _add_users_parser(users_parser: argparse.ArgumentParser) -> None:
-    """Add `keel users add NAME --role R`, `remove NAME`, and `list`."""
+def _add_users_parser(
+    users_parser: argparse.ArgumentParser,
+    add_command: Callable[..., argparse.ArgumentParser],
+) -> None:
+    """Add `keel users add NAME --role R`, `remove NAME`, and `list`.
+
+    The pilot commands of `keel.pilot_cli` (comp sets, feedback, and
+    templates) join the commands through `add_command` here too.
+    """
+    pilot_cli.add_parsers(add_command)
     users_commands = users_parser.add_subparsers(
         dest="users_command", metavar="action", required=True
     )
@@ -465,7 +474,8 @@ def build_parser() -> argparse.ArgumentParser:
     _add_users_parser(
         commands.add_parser(
             "users", help="the pilot users and their tokens (chapter 27.2)"
-        )
+        ),
+        commands.add_parser,
     )
 
     _add_refresh_commands(commands)
@@ -1767,6 +1777,11 @@ def _dispatch(settings: config.Settings, args: argparse.Namespace) -> int:
         return _dispatch_measure(settings, args)
     if args.command == "users":
         return run_users(settings, args)
+    if args.command in pilot_cli.COMMANDS:
+        code, lines = pilot_cli.run(settings, args)
+        for line in lines:
+            print(line)
+        return code
     handler = handlers.get(args.command)
     if handler is not None:
         return handler()
