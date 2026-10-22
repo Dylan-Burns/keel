@@ -12,9 +12,15 @@ export interface TraceDrawerProps {
 }
 
 /** 1 line of the trace: a label and its value, in pipeline order. */
-interface TraceLine {
+export interface TraceLine {
   readonly label: string;
   readonly value: string;
+}
+
+/** The trace lines before and after the request line. */
+export interface TraceLines {
+  readonly before: TraceLine[];
+  readonly after: TraceLine[];
 }
 
 const NUMBER = new Intl.NumberFormat('en-US');
@@ -62,10 +68,7 @@ export function requestLine(audit: AuditRecord): string {
  * @param audit The audit record.
  * @return The lines before and after the request line.
  */
-export function traceLines(audit: AuditRecord): {
-  readonly before: TraceLine[];
-  readonly after: TraceLine[];
-} {
+export function traceLines(audit: AuditRecord): TraceLines {
   const before: TraceLine[] = [];
   const after: TraceLine[] = [];
   const tickers = audit.tickers ?? [];

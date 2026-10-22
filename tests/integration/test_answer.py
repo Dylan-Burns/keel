@@ -321,6 +321,13 @@ def test_cache_after_failure_and_on_request(index_dir, run_settings) -> None:
     assert line["model_requests"] == 3
     assert line["outcome"] == "cached"
     assert line["error"] == "provider_rate_limited"
+    # The trace names the cached context, not the retrieval of the failure.
+    assert line["failed_before_content"] == 3
+    assert line["filters"] == []
+    assert line["tickers"] == record["analysis"]["tickers"]
+    cached_ids = [c["chunk_id"] for c in record["retrieval"]["chunks"]]
+    assert line["chunk_ids"] == cached_ids
+    assert line["chunk_count"] == len(cached_ids)
     provider = mock.MockProvider(run_settings.llm.model)
     events = ask(
         make(index_dir, run_settings, provider),
@@ -329,6 +336,17 @@ def test_cache_after_failure_and_on_request(index_dir, run_settings) -> None:
     )
     assert final(events)["meta"]["from_cache"] is True
     assert provider.requests == 0
+
+
+def test_cache_entry_without_audit(index_dir, run_settings) -> None:
+    provider = mock.MockProvider(run_settings.llm.model)
+    provider.name = "real"  # a non-mock provider writes the cache
+    answerer = make(index_dir, run_settings, provider)
+    record = final(ask(answerer, question(run_settings)))
+    assert record["audit"]["model_requests"] == 1
+    entry = answerer.cache.get(answerer.cache_key(question(run_settings)))
+    assert entry is not None
+    assert "audit" not in entry
 
 
 def test_mock_answers_never_cached(index_dir, run_settings) -> None:

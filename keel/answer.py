@@ -493,6 +493,10 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             latency_ms={"total": self._elapsed(run)},
         )
         record.update(request_id=run.request_id, meta=meta)
+        # The cached record holds the context the answer used; a fresh
+        # retrieval before a provider failure does not describe it.
+        run.result = None
+        run.bundle = None
         record["audit"] = self._audit(run, record)
         yield Event("final", record)
         yield Event("done", {})
@@ -762,7 +766,9 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         primary = run.model == self.model
         answered = validated is not None and record.data["answer"]
         if real and primary and answered:
-            self.cache.put(self.cache_key(run.question), record.data)
+            # The audit record belongs to this request, not to the entry.
+            entry = {k: v for k, v in record.data.items() if k != "audit"}
+            self.cache.put(self.cache_key(run.question), entry)
         yield Event("done", {})
 
     def _validate(self, run: _Run) -> citations.ValidatedAnswer | None:
@@ -927,16 +933,31 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             ]
         flags = meta.get("flags", {})
         analysis = run.analysis
+        trace = _retrieval_trace(run.result)
+        stored = (record or {}).get("analysis") or {}
+        if run.result is None and record is not None:
+            chunks = (record.get("retrieval") or {}).get("chunks") or []
+            chunk_ids = chunk_ids or [c["chunk_id"] for c in chunks]
+            trace["chunk_count"] = len(chunks)
+            trace["token_estimate"] = (record.get("retrieval") or {}).get(
+                "token_estimate", 0
+            )
         entry: dict[str, Any] = {
             "request_id": run.request_id,
             "timestamp": datetime.datetime.now(tz=datetime.UTC).isoformat(
                 timespec="seconds"
             ),
             "question": run.question,
-            "tickers": list(analysis.tickers) if analysis else [],
-            "question_type": analysis.primary_type if analysis else None,
-            "time_scope": analysis.time_scope.kind if analysis else None,
-            **_retrieval_trace(run.result),
+            "tickers": list(analysis.tickers)
+            if analysis
+            else list(stored.get("tickers", [])),
+            "question_type": analysis.primary_type
+            if analysis
+            else stored.get("primary_type"),
+            "time_scope": analysis.time_scope.kind
+            if analysis
+            else (stored.get("time_scope") or {}).get("kind"),
+            **trace,
             "outcome": run.outcome,
             "chunk_ids": chunk_ids,
             "prompt_hash": self.files.prompt_hash,

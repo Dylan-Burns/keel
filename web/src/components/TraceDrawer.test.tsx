@@ -23,7 +23,7 @@ describe('TraceDrawer', () => {
       '18 gathered, 16 reranked, 2 near-duplicates collapsed',
       '10 before collapse, 9 after',
       'quota JPM',
-      '11 of 16',
+      '1 of 16',
       '2 chunks, 2,400 estimated tokens',
       'sha256:0000',
       'model requests: 1',

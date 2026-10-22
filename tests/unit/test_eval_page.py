@@ -1,5 +1,6 @@
 """The eval page data of chapter 25.2: the documents and the gates."""
 
+import os
 import pathlib
 
 import pytest
@@ -22,6 +23,8 @@ def test_read_document_unreadable(tmp_path: pathlib.Path) -> None:
     folder = tmp_path / "report.md"
     folder.mkdir()
     assert eval_page.read_document(folder, "x").markdown is None
+    if os.geteuid() == 0:  # root reads a file with mode 0
+        return
     blocked = tmp_path / "blocked.md"
     blocked.write_text("text")
     blocked.chmod(0)
@@ -48,6 +51,28 @@ def test_parse_gates_edge_rows() -> None:
     assert [g.name for g in gates] == ["Schema validity", "Cost"]
     assert gates[0].passed is True
     assert gates[0].status is None
-    assert gates[1].comparator == "<="
+    assert gates[1].comparator == "<"
     assert gates[1].threshold == 1000.0
     assert gates[1].passed is False
+
+
+def test_parse_gates_chapter_wording() -> None:
+    text = (
+        "| Gate | Threshold | Value |\n"
+        "| --- | --- | --- |\n"
+        "| Recall at 25 | 0.85 or more | 0.85 |\n"
+        "| Latency p95 | 40 seconds or less | 41 s |\n"
+        "| Mean cost per question | $0.25 or less | $0.20 |\n"
+        "| Strict | > 0.5 | 0.5 |\n"
+        "| Strict below | < 2 | 1 |\n"
+    )
+    gates = {g.name: g for g in eval_page.parse_gates(text)}
+    assert gates["Recall at 25"].comparator == ">="
+    assert gates["Recall at 25"].passed is True
+    assert gates["Latency p95"].comparator == "<="
+    assert gates["Latency p95"].passed is False
+    assert gates["Mean cost per question"].comparator == "<="
+    assert gates["Mean cost per question"].passed is True
+    assert gates["Strict"].comparator == ">"
+    assert gates["Strict"].passed is False
+    assert gates["Strict below"].passed is True

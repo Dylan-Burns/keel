@@ -11,6 +11,7 @@ the metric bars. A missing file is an empty state, never an error.
 from __future__ import annotations
 
 import logging
+import operator
 import pathlib
 import re
 
@@ -22,7 +23,14 @@ MAX_BYTES = 2 * 1024 * 1024  # a report larger than this is cut
 REPORT_LABEL = "eval/report.md"
 PROMPT_LOG_LABEL = "docs/PROMPT_LOG.md"
 _NUMBER = re.compile(r"[-+]?\d+(?:\.\d+)?")
-_COMPARATOR = re.compile(r"^\s*(>=|<=|>|<|=)")
+_COMPARATOR = re.compile(r"^\s*(>=|<=|>|<)")
+_AT_MOST = re.compile(r"\b(or less|at most|or lower|or below)\b", re.IGNORECASE)
+_COMPARE = {
+    ">=": operator.ge,
+    "<=": operator.le,
+    ">": operator.gt,
+    "<": operator.lt,
+}
 
 
 class EvalDocument(pydantic.BaseModel):
@@ -44,7 +52,10 @@ class Gate(pydantic.BaseModel):
 
     Attributes:
         name: The gate name, such as `Recall at 25`.
-        comparator: `>=` or `<=` (a value passes when it compares true).
+        comparator: `>=`, `<=`, `>`, or `<` (a value passes when it
+            compares true). A leading symbol names it; without one, the
+            words of chapter 18.8 do ("40 seconds or less" is `<=`), and
+            a bare number or "or more" is `>=`.
         threshold: The threshold number.
         threshold_text: The threshold cell as the report writes it.
         value: The measured value, or None while pending.
@@ -121,15 +132,18 @@ def _gate(row: dict[str, str]) -> Gate | None:
     if threshold is None or not name:
         return None
     found = _COMPARATOR.match(threshold_text)
-    comparator = "<=" if found and found.group(1) in {"<=", "<"} else ">="
+    if found:
+        comparator = found.group(1)
+    elif _AT_MOST.search(threshold_text):
+        comparator = "<="
+    else:
+        comparator = ">="
     value_text = row.get("value", "")
     value = _number(value_text)
     status = row.get("status") or None
     passed = None
     if value is not None:
-        passed = (
-            value >= threshold if comparator == ">=" else value <= threshold
-        )
+        passed = bool(_COMPARE[comparator](value, threshold))
     return Gate(
         name=name,
         comparator=comparator,

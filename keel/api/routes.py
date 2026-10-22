@@ -553,7 +553,7 @@ async def index_status(
 
 
 @router.get("/eval")
-async def eval_report(services: Services, caller: Caller) -> dict[str, Any]:
+async def eval_report(services: Services, caller: Caller) -> eval_page.EvalPage:
     """The eval page data (W-02): the report, the prompt log, the gates.
 
     The markdown goes out as text and the front-end renders it through the
@@ -569,10 +569,9 @@ async def eval_report(services: Services, caller: Caller) -> dict[str, Any]:
     """
     del caller
     server = services.settings.server
-    page = await asyncio.to_thread(
+    return await asyncio.to_thread(
         eval_page.load, server.eval_report, server.prompt_log
     )
-    return page.model_dump()
 
 
 @router.post("/feedback")

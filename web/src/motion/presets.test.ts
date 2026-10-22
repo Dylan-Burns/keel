@@ -108,14 +108,18 @@ describe('motion presets (chapter 14.8)', () => {
 
   it('springs the trace drawer up and pulses the request line once', () => {
     const visible = traceDrawer.drawer.full['visible'] as {
-      transition: {type: string};
+      transition: {type: string; visualDuration: number};
     };
     expect(visible.transition.type).toBe('spring');
+    expect(visible.transition.visualDuration).toBeLessThanOrEqual(0.3);
     const pulse = traceDrawer.pulse.full['visible'] as {
       scale: number[];
-      transition: {repeat?: number};
+      transition: {repeat?: number; duration: number; delay: number};
     };
     expect(pulse.scale.at(-1)).toBe(1);
+    expect(
+      pulse.transition.delay + pulse.transition.duration,
+    ).toBeLessThanOrEqual(0.3 + 1e-9);
     expect(pulse.transition.repeat).toBeUndefined();
     expect(traceDrawer.pulse.reduced['visible']).toEqual({
       scale: 1,
