@@ -53,7 +53,7 @@ curl -s -X POST http://localhost:8000/api/ask \
 
 The stream sends `meta`, `analysis`, `retrieval`, `answer_delta`, `findings`, `final` (with the audit record), and `done` (chapter 14.3). From the terminal: `uv run keel ask "question"`, or `--json` for the full record.
 
-## The 3 example questions
+## The 3 example questions and what to look at in each answer
 
 | Question | What to look at |
 | --- | --- |
