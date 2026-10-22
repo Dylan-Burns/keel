@@ -41,6 +41,7 @@ from keel import retriever
 from keel import sections
 from keel import security
 from keel import understanding
+from keel import users
 from keel.api import app as api_app
 from keel.evaluation import gates
 from keel.evaluation import report as eval_report
@@ -213,6 +214,21 @@ def _eval_arguments() -> argparse.ArgumentParser:
         help="with --answers, skip the judge (the code metrics still run)",
     )
     return eval_parser
+
+
+def _add_users_parser(users_parser: argparse.ArgumentParser) -> None:
+    """Add `keel users add NAME --role R` and `keel users list`."""
+    users_commands = users_parser.add_subparsers(
+        dest="users_command", metavar="action", required=True
+    )
+    add_user_parser = users_commands.add_parser(
+        "add", help="add a user and print the new token once"
+    )
+    add_user_parser.add_argument("name", help="the user name, lowercase")
+    add_user_parser.add_argument(
+        "--role", required=True, choices=users.ROLES, help="the role"
+    )
+    users_commands.add_parser("list", help="list the users and their roles")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -419,6 +435,12 @@ def build_parser() -> argparse.ArgumentParser:
         "add",
         parents=[_add_arguments()],
         help="add the latest 10-K and 10-Q of 1 company from EDGAR",
+    )
+
+    _add_users_parser(
+        commands.add_parser(
+            "users", help="the pilot users and their tokens (chapter 27.2)"
+        )
     )
 
     doctor_parser = commands.add_parser(
@@ -1432,6 +1454,33 @@ def run_doctor(settings: config.Settings, download: bool, as_json: bool) -> int:
     return 1 if any(r.status == doctor.FAIL for r in results) else 0
 
 
+def run_users(settings: config.Settings, args: argparse.Namespace) -> int:
+    """Run `keel users add` or `keel users list`.
+
+    Args:
+        settings: The loaded settings, with `auth.users_file`.
+        args: The parsed arguments.
+
+    Returns:
+        0.
+
+    Raises:
+        ConfigError: The users file is invalid, or the name exists.
+    """
+    path = settings.auth.users_file
+    if args.users_command == "add":
+        token = users.add_user(path, args.name, args.role)
+        print(f"added {args.name} ({args.role}) to {path}")
+        print("token (shown once; the file keeps only its sha256):")
+        print(token)
+        return 0
+    entries = users.load_file(path).users
+    for entry in entries:
+        print(f"{entry.name}\t{entry.role}")
+    print(f"{users.LEGACY_USER}\tadmin (KEEL_API_TOKEN, when set)")
+    return 0
+
+
 def _dispatch_measure(
     settings: config.Settings, args: argparse.Namespace
 ) -> int:
@@ -1510,6 +1559,8 @@ def _dispatch(settings: config.Settings, args: argparse.Namespace) -> int:
     }
     if args.command in ("calibrate", "eval"):
         return _dispatch_measure(settings, args)
+    if args.command == "users":
+        return run_users(settings, args)
     handler = handlers.get(args.command)
     if handler is not None:
         return handler()

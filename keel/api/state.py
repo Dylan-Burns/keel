@@ -22,6 +22,7 @@ from keel import errors
 from keel import indexer
 from keel import prompt
 from keel import reliability
+from keel.api import auth
 from keel.api import ratelimit
 from keel.providers import base
 
@@ -201,6 +202,7 @@ class Services:  # pylint: disable=too-many-instance-attributes
             clock=clock,
         )
         self.tasks: set[asyncio.Task[Any]] = set()
+        self.users = auth.directory_of(settings)
 
     @property
     def is_mock(self) -> bool:

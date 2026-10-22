@@ -20,14 +20,13 @@ from keel.providers import mock
 pytestmark = pytest.mark.unit
 
 
-def test_token_matches() -> None:
-    assert auth.token_matches("Bearer s3cret", "s3cret")
-    assert auth.token_matches("bearer s3cret", "s3cret")
-    assert not auth.token_matches("Bearer other", "s3cret")
-    assert not auth.token_matches("Basic s3cret", "s3cret")
-    assert not auth.token_matches("s3cret", "s3cret")
-    assert not auth.token_matches(None, "s3cret")
-    assert not auth.token_matches("Bearer ", "")
+def test_bearer_token() -> None:
+    assert auth.bearer_token("Bearer s3cret") == "s3cret"
+    assert auth.bearer_token("bearer  s3cret ") == "s3cret"
+    assert auth.bearer_token("Basic s3cret") is None
+    assert auth.bearer_token("s3cret") is None
+    assert auth.bearer_token(None) is None
+    assert auth.bearer_token("Bearer ") is None
 
 
 def test_authenticate(settings: config.Settings) -> None:

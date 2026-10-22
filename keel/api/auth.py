@@ -1,20 +1,21 @@
 """The bearer token check and the Principal (chapter 15, control S-06).
 
 Every `/api/` route except health and ready needs `Authorization: Bearer
-<token>`. The token is compared in constant time with `KEEL_API_TOKEN`.
-A request that passes gets a `Principal`; in this release the Principal
-permits every ticker and source, and phase 1 of the roadmap replaces the
-shared token with OpenID Connect.
+<token>`. The token is compared in constant time with the token hashes of
+the users file (chapter 27.2) and with `KEEL_API_TOKEN`, which stays the
+admin user `legacy`. A request that passes gets a `Principal` that names
+the user and the role; the Principal permits every ticker and source, and
+phase 1 of the roadmap replaces the tokens with OpenID Connect.
 """
 
 from __future__ import annotations
 
 import dataclasses
-import hmac
 
 import fastapi
 
 from keel import config
+from keel import users
 
 BEARER = "bearer"
 DEFAULT_TENANT = "default"
@@ -28,11 +29,18 @@ class Principal:
         tenant_id: The tenant.
         allowed_tickers: The tickers the caller may read; None permits all.
         allowed_sources: The sources the caller may read.
+        user: The user of the token; `legacy` for `KEEL_API_TOKEN`.
     """
 
     tenant_id: str = DEFAULT_TENANT
     allowed_tickers: frozenset[str] | None = None
     allowed_sources: frozenset[str] = frozenset({"edgar"})
+    user: users.User = users.LEGACY
+
+    @property
+    def is_admin(self) -> bool:
+        """True when the user has the admin role."""
+        return self.user.is_admin
 
 
 def unauthorized(message: str) -> fastapi.HTTPException:
@@ -51,42 +59,63 @@ def unauthorized(message: str) -> fastapi.HTTPException:
     )
 
 
-def token_matches(header: str | None, expected: str) -> bool:
-    """Check an Authorization header against the token in constant time.
+def bearer_token(header: str | None) -> str | None:
+    """The token of a `Bearer` Authorization header.
 
     Args:
         header: The `Authorization` header value, or None.
-        expected: The configured token.
 
     Returns:
-        True when the header is `Bearer <expected>`.
+        The token, or None for another scheme or an empty value.
     """
-    if not header or not expected:
-        return False
+    if not header:
+        return None
     scheme, _, token = header.partition(" ")
-    if scheme.lower() != BEARER:
-        return False
-    return hmac.compare_digest(
-        token.strip().encode("utf-8"), expected.encode("utf-8")
+    if scheme.lower() != BEARER or not token.strip():
+        return None
+    return token.strip()
+
+
+def directory_of(settings: config.Settings) -> users.UserDirectory:
+    """The user directory of the settings.
+
+    Args:
+        settings: The loaded settings.
+
+    Returns:
+        The users file of `auth.users_file` plus `KEEL_API_TOKEN`.
+    """
+    legacy = (
+        settings.api_token.get_secret_value() if settings.api_token else None
     )
+    return users.UserDirectory(settings.auth.users_file, legacy)
 
 
-def authenticate(settings: config.Settings, header: str | None) -> Principal:
+def authenticate(
+    settings: config.Settings,
+    header: str | None,
+    directory: users.UserDirectory | None = None,
+) -> Principal:
     """Check the bearer token and build the Principal of the request.
 
     Args:
-        settings: The loaded settings, with `api_token`.
+        settings: The loaded settings, with `api_token` and `auth`.
         header: The `Authorization` header value, or None.
+        directory: The users, or None to read them from the settings.
 
     Returns:
-        The Principal.
+        The Principal with the user of the token.
 
     Raises:
         HTTPException: HTTP 401 when the token is absent or wrong, or when
-            `KEEL_API_TOKEN` is not set (no request passes without it).
+            neither `KEEL_API_TOKEN` nor a user is configured (no request
+            passes without one).
     """
-    if settings.api_token is None:
-        raise unauthorized("the service has no KEEL_API_TOKEN set")
-    if not token_matches(header, settings.api_token.get_secret_value()):
+    known = directory or directory_of(settings)
+    if not known.configured:
+        raise unauthorized("the service has no KEEL_API_TOKEN and no users")
+    token = bearer_token(header)
+    user = known.find(token) if token else None
+    if user is None:
         raise unauthorized("a valid bearer token is required")
-    return Principal()
+    return Principal(user=user)
