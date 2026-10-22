@@ -265,6 +265,10 @@ class EvalRun:
             if failures
             else metrics.mean(j.citation_precision for j in judged),
             "judge_failures": float(failures),
+            # The sample of the 2 judge gates (chapter 18.8 minimum).
+            "judged_answers": float(
+                sum(1 for j in judged if j.faithfulness is not None)
+            ),
             "coverage_completeness": metrics.mean(
                 r.coverage_complete for r in rows
             ),
@@ -307,10 +311,18 @@ class EvalRun:
     def gates(self) -> tuple[gates.GateResult, ...]:
         """Evaluate the 10 gates of chapter 18.8.
 
+        The 2 judge gates carry the number of judged answers, so a run
+        that judged fewer than `gates.MIN_JUDGED_ANSWERS` answers (the CI
+        subset) reports them as pending instead of gating on a sample of 1.
+
         Returns:
             1 result per gate.
         """
-        return gates.evaluate(self.gate_values())
+        judged = self.answer_values().get("judged_answers")
+        return gates.evaluate(
+            self.gate_values(),
+            judged=None if judged is None else int(judged),
+        )
 
 
 @dataclasses.dataclass(frozen=True)

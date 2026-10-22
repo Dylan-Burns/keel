@@ -1511,7 +1511,7 @@ def run_eval(settings: config.Settings, args: argparse.Namespace) -> int:
     results = run.gates()
     for result in results:
         value = "n/a" if result.value is None else f"{result.value:.2f}"
-        print(f"  {result.gate.name}: {value} ({result.status})")
+        print(f"  {result.gate.name}: {value} ({result.status_text})")
     if run.answers:
         values = run.answer_values()
         spend = sum(r.cost_usd for r in run.answers)

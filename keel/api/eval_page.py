@@ -142,7 +142,9 @@ def _gate(row: dict[str, str]) -> Gate | None:
     value = _number(value_text)
     status = row.get("status") or None
     passed = None
-    if value is not None:
+    # A pending gate (no value, or a value on too small a sample) has no
+    # verdict, even when the report prints its value.
+    if value is not None and not (status or "").startswith("pending"):
         passed = bool(_COMPARE[comparator](value, threshold))
     return Gate(
         name=name,

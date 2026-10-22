@@ -78,12 +78,31 @@ def _source(result: gates.GateResult, answered: bool) -> str:
 
 
 def _status(result: gates.GateResult) -> str:
-    return result.status
+    return result.status_text
+
+
+def _sample_note(results: Sequence[gates.GateResult]) -> str:
+    """The verdict sentence for gates pending on the minimum sample."""
+    thin = [r for r in results if r.undersampled]
+    if not thin:
+        return ""
+    names = " and ".join(r.gate.name.lower() for r in thin)
+    count = thin[0].sample
+    noun = "answer" if count == 1 else "answers"
+    verb = "are" if len(thin) > 1 else "is"
+    return (
+        f" {names.capitalize()} {verb} pending:"
+        f" the judge scored {count} {noun}, and a judge gate"
+        f" needs at least {gates.MIN_JUDGED_ANSWERS} (the minimum sample"
+        " rule of chapter 18.8), so the value is reported and does not"
+        " block. The full golden set run gates it."
+    )
 
 
 def _gates(run: runner.EvalRun) -> list[str]:
     rows = []
-    for result in run.gates():
+    results = run.gates()
+    for result in results:
         unit = result.gate.unit
         value = _number(result.value)
         if result.value is not None and unit:
@@ -98,16 +117,15 @@ def _gates(run: runner.EvalRun) -> list[str]:
             ]
         )
     verdict = (
-        "blocked: a gate failed"
-        if gates.blocked(run.gates())
-        else "no gate failed"
+        "blocked: a gate failed" if gates.blocked(results) else "no gate failed"
     )
     return [
         "## Regression gates",
         "",
         *_table(["Gate", "Threshold", "Value", "Status", "Source"], rows),
         "",
-        f"Verdict: {verdict}. A pending gate does not block on its own.",
+        f"Verdict: {verdict}. A pending gate does not block on its own."
+        + _sample_note(results),
     ]
 
 
@@ -522,6 +540,7 @@ def write(
                 "threshold": r.gate.threshold,
                 "value": r.value,
                 "status": r.status,
+                "sample": r.sample,
             }
             for r in run.gates()
         ],
