@@ -7,7 +7,6 @@ import {ComparisonTable} from './ComparisonTable';
 import {CoverageIndicator} from './CoverageIndicator';
 import {FindingsGroup} from './FindingsGroup';
 import {ProgressSteps} from './ProgressSteps';
-import {StreamedText} from './StreamedText';
 
 /** Props of AnswerArea. */
 export interface AnswerAreaProps {
@@ -52,10 +51,11 @@ export function AnswerArea({
       data-testid="answer-area"
     >
       <ProgressSteps run={run} streaming={streaming} />
-      {answer === null ? (
-        run.deltas.length > 0 && <StreamedText deltas={run.deltas} />
-      ) : (
-        <AnswerMarkdown markdown={answerText(run)} />
+      {(answer !== null || run.deltas.length > 0) && (
+        <AnswerMarkdown
+          markdown={answerText(run)}
+          streaming={answer === null}
+        />
       )}
       {answer !== null && (
         <div className="flex flex-wrap items-center gap-2 text-xs">

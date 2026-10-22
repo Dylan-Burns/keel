@@ -132,14 +132,17 @@ export const retrieval = {
 } as const satisfies Record<string, MotionPreset>;
 
 /**
- * Stream: each `answer_delta` appends its text with a 120 ms opacity fade
- * (the text is in the DOM first), and the cursor blinks.
+ * Stream: the answer grows 1 markdown block (a paragraph, a list, a table) at
+ * a time. Each block fades in once, in 160 ms with no offset, when it first
+ * appears; later deltas grow the last block in place with no new fade, so
+ * nothing flickers or jumps. The text is in the DOM before the fade starts,
+ * and the cursor blinks.
  */
 export const stream = {
-  delta: {
+  section: {
     full: {
       hidden: {opacity: 0},
-      visible: {opacity: 1, transition: {duration: 0.12}},
+      visible: {opacity: 1, transition: {duration: 0.16, ease: 'easeOut'}},
     },
     reduced: STILL,
   },
@@ -302,8 +305,10 @@ export const evalPage = {
 } as const satisfies Record<string, MotionPreset>;
 
 /**
- * State change: the `layout` prop on the answer container keeps the question
- * area in place when the answer area changes height.
+ * State change: a `layout="position"` animation on the answer container keeps
+ * the question area in place when the answer area changes height. Position
+ * only: a size layout animation scales the container, which squashed the
+ * streaming text on every new block.
  */
 export const stateChange: TransitionPreset = {
   full: {layout: {duration: 0.3, ease: 'easeOut'}},

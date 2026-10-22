@@ -212,7 +212,7 @@ export function App(): JSX.Element {
               <TemplatePicker enabled={hasToken} onFill={setQuestion} />
             </motion.div>
             <motion.div
-              layout
+              layout="position"
               transition={pickTransition(stateChange, reduced)}
               className="space-y-4"
               data-testid="answer-container"

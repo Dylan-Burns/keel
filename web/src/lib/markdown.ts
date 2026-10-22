@@ -130,3 +130,19 @@ export function sanitizeHtml(html: string): string {
 export function renderMarkdown(markdown: string): string {
   return sanitizeHtml(markdownParser.parse(markdown, {async: false}));
 }
+
+/**
+ * Splits answer markdown into its top-level blocks (paragraphs, lists,
+ * tables, headings) as the `marked` lexer reads them. The answer area renders
+ * 1 element per block, so a block that is complete keeps its DOM node while
+ * later text streams into the last block.
+ *
+ * @param markdown The model text, complete or still streaming.
+ * @return The source text of each block, blank space dropped.
+ */
+export function markdownBlocks(markdown: string): string[] {
+  return markdownParser
+    .lexer(markdown)
+    .filter(token => token.type !== 'space' && token.raw.trim() !== '')
+    .map(token => token.raw);
+}
