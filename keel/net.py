@@ -5,10 +5,10 @@ link-local, reserved, or multicast address before a request. A host can
 answer the first lookup with a public address and the connect with a
 private one (DNS rebinding), so `check_peer` reads the address of the
 socket that httpx really opened and rejects the response before any body
-byte is read. `redact_url` and `quiet_http_logs` keep the query string of a
-signed URL out of the logs, and `install_log_redaction` strips the query
-from the URLs httpx and httpcore log. The bootstrap download uses them; the
-EDGAR client of chapter 26 can adopt the same calls.
+byte is read. `redact_url` keeps the query string of a signed URL out of
+the logs, and `install_log_redaction` strips the query from the URLs httpx
+and httpcore log. The bootstrap download and the EDGAR client of chapter 26
+use them.
 """
 
 from __future__ import annotations
@@ -24,8 +24,17 @@ import httpx
 
 from keel import errors
 
-# The loggers of httpx and httpcore print the full request URL at INFO.
-HTTP_LOGGERS = ("httpx", "httpcore")
+# The loggers of httpx and httpcore print the full request URL. A filter on
+# a parent logger does not run for the records of its children, so each
+# httpcore child logger is named.
+HTTP_LOGGERS = (
+    "httpx",
+    "httpcore",
+    "httpcore.connection",
+    "httpcore.http11",
+    "httpcore.http2",
+    "httpcore.proxy",
+)
 # NAT64 maps an IPv4 address into IPv6; the embedded address decides.
 _NAT64 = ipaddress.ip_network("64:ff9b::/96")
 

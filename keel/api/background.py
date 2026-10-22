@@ -9,7 +9,8 @@ restart.
 With `scheduler.enabled` on (Railway, chapter 29.9 step 7) the in-app
 scheduler runs the refresh of chapter 26.3 at `scheduler.refresh_at` and the
 backup at `scheduler.backup_at`. A refresh that added a filing published a
-new build, so the server reloads the index after it.
+new build, so the server reloads the index after it. Both jobs skip while
+the first build is not served yet, so they never race the bootstrap.
 """
 
 from __future__ import annotations
@@ -18,8 +19,10 @@ from collections.abc import Callable
 import logging
 import threading
 
+from keel import backup
 from keel import bootstrap
 from keel import errors
+from keel import indexer
 from keel import refresh
 from keel import scheduler
 from keel.api import state
@@ -40,8 +43,11 @@ def _bootstrap_then_load(
         services.settings, services.bootstrap, deps
     )
     if status.phase != bootstrap.Phase.READY:
-        logger.error("bootstrap ended in %s: no index loaded", status.phase)
-        return
+        logger.error("bootstrap ended in %s", status.phase)
+        if indexer.current_build(services.settings.index.dir) is None:
+            return
+        # A build on the volume still serves, e.g. when only the corpus
+        # download failed.
     services.reload()
 
 
@@ -71,6 +77,34 @@ def start_bootstrap(
     return thread
 
 
+def _busy(services: state.Services, job: str) -> bool:
+    """True, and logged, while the first build is not served yet."""
+    boot = services.bootstrap
+    if (boot is not None and boot.active) or services.answerer is None:
+        logger.warning("%s skipped: the index is not loaded yet", job)
+        return True
+    return False
+
+
+def backup_job(
+    services: state.Services,
+    runner: Callable[[], object] | None = None,
+) -> object | None:
+    """Run the nightly backup unless the first build is still running.
+
+    Args:
+        services: The shared services.
+        runner: Runs the backup; None runs `backup.run_nightly_backup`.
+
+    Returns:
+        The runner's result, or None when the job was skipped.
+    """
+    if _busy(services, "backup"):
+        return None
+    run = runner or (lambda: backup.run_nightly_backup(services.settings))
+    return run()
+
+
 def refresh_job(
     services: state.Services,
     runner: RefreshRunner | None = None,
@@ -83,8 +117,11 @@ def refresh_job(
             the service settings.
 
     Returns:
-        The refresh report, or None when the run failed (logged).
+        The refresh report, or None when the run failed (logged) or was
+        skipped because the first build is not served yet.
     """
+    if _busy(services, "refresh"):
+        return None
     run = runner or (lambda: refresh.run_refresh(services.settings))
     try:
         report = run()
@@ -114,7 +151,9 @@ def start_scheduler(
         default; the AWS host runs systemd timers instead).
     """
     jobs = scheduler.build_scheduler(
-        services.settings, refresh=lambda: refresh_job(services, runner)
+        services.settings,
+        refresh=lambda: refresh_job(services, runner),
+        nightly_backup=lambda: backup_job(services),
     )
     if jobs is not None:
         jobs.start()

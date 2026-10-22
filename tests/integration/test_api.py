@@ -1091,7 +1091,7 @@ def test_serve_bootstrap_ready_reports_progress(
 
 
 def test_serve_bootstrap_failure_loads_no_index(
-    api_settings, monkeypatch
+    api_settings, monkeypatch, tmp_path
 ) -> None:
     def failed(settings, state, deps=None):
         state.begin()
@@ -1099,12 +1099,15 @@ def test_serve_bootstrap_failure_loads_no_index(
         return state.snapshot()
 
     monkeypatch.setattr(background.bootstrap, "run_bootstrap", failed)
-    services = api_app.Services(api_settings, bootstrap_first=True)
+    empty = api_settings.model_copy(
+        update={"index": config.IndexConfig(dir=tmp_path / "empty-index")}
+    )
+    services = api_app.Services(empty, bootstrap_first=True)
     thread = background.start_bootstrap(services)
     assert thread is not None
     thread.join(10)
     assert services.answerer is None
-    assert background.start_bootstrap(api_app.Services(api_settings)) is None
+    assert background.start_bootstrap(api_app.Services(empty)) is None
 
 
 def test_serve_command_bootstrap(monkeypatch, settings) -> None:
@@ -1145,6 +1148,8 @@ def test_services_reload_keeps_a_good_build(
     services.reload()
     assert services.answerer is second
     assert services.index_verified is True
+    assert second.retriever.embedder is first.retriever.embedder
+    assert second.breaker is first.breaker
 
     def missing(cls, s, **kw):
         raise errors.IndexMissingError("gone")
@@ -1169,16 +1174,61 @@ def test_refresh_job_reloads_after_a_new_build(
     reloads = []
     monkeypatch.setattr(services, "reload", lambda: reloads.append(1))
 
-    assert background.refresh_job(services, lambda: FakeReport(0, 0))
+    quiet = background.refresh_job(services, lambda: FakeReport(0, 0))
+    assert quiet == FakeReport(0, 0)
     assert reloads == []
-    assert background.refresh_job(services, lambda: FakeReport(2, 1))
+    added = background.refresh_job(services, lambda: FakeReport(2, 1))
+    assert added == FakeReport(2, 1)
     assert reloads == [1]
 
     def broken():
         raise errors.StateStoreError("locked")
 
-    assert background.refresh_job(services, broken) is None
+    failed = background.refresh_job(services, broken)
+    assert failed is None
     assert reloads == [1]
+
+
+def test_nightly_jobs_skip_until_the_index_is_served(
+    api_settings, index_dir
+) -> None:
+    """Neither job races the first build of `keel serve --bootstrap`."""
+    calls = []
+    booting = api_app.Services(api_settings, bootstrap_first=True)
+    refreshed = background.refresh_job(booting, lambda: calls.append(1))
+    backed_up = background.backup_job(booting, lambda: calls.append(2))
+    assert (refreshed, backed_up, calls) == (None, None, [])
+
+    served = api_app.Services(
+        api_settings, make_answerer(api_settings, index_dir)
+    )
+    result = background.backup_job(served, lambda: "archive")
+    assert result == "archive"
+
+
+def test_bootstrap_failure_still_serves_a_build_on_disk(
+    api_settings, index_dir, monkeypatch
+) -> None:
+    def failed(settings, state, deps=None):
+        state.begin()
+        state.finish(bootstrap.Phase.FAILED, "bootstrap failed", "X: y")
+        return state.snapshot()
+
+    opened = make_answerer(api_settings, index_dir)
+    monkeypatch.setattr(background.bootstrap, "run_bootstrap", failed)
+    monkeypatch.setattr(
+        answer.Answerer, "open", classmethod(lambda cls, s, **kw: opened)
+    )
+    monkeypatch.setattr(
+        reliability,
+        "check_index",
+        lambda path: indexer.Manifest.model_construct(corpus_sha256="x"),
+    )
+    services = api_app.Services(api_settings, bootstrap_first=True)
+    thread = background.start_bootstrap(services)
+    assert thread is not None
+    thread.join(10)
+    assert services.answerer is opened
 
 
 def test_scheduler_runs_refresh_and_backup_in_the_server(

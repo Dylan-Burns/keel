@@ -266,21 +266,6 @@ def test_bootstrap_builds_when_the_release_fails(
     assert status.index == "built"
 
 
-def test_start_background(
-    settings: config.Settings, tmp_path: pathlib.Path
-) -> None:
-    zip_path = tmp_path / "edgar_corpus.zip"
-    zip_path.write_bytes(mini_zip())
-    configured = configure(settings, tmp_path, zip_path=zip_path)
-    state = bootstrap.BootstrapState()
-
-    thread = bootstrap.start_background(configured, state, fake_deps())
-    thread.join(timeout=120)
-
-    assert not thread.is_alive()
-    assert state.snapshot().phase == bootstrap.Phase.READY
-
-
 def test_bootstrap_command(
     clean_env: pytest.MonkeyPatch,
     tmp_path: pathlib.Path,

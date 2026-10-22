@@ -7,7 +7,7 @@ A backup writes `keel-<stamp>.tar.gz` and `keel-<stamp>.tar.gz.sha256` (the
     manifest.json    the index manifest of chapter 9.5
     chunks.sqlite    the chunk store with FTS5
     vectors.npy      the dense vectors
-    audit.jsonl      the audit log, when it exists
+    audit.jsonl      the audit log: the rotated days, then today
     <name>.sqlite    any SQLite file in the logs directory (the feedback
                      table of chapter 27), as an online-backup snapshot
 
@@ -64,6 +64,8 @@ REQUIRED_MEMBERS = (indexer.MANIFEST, *INDEX_FILES)
 _MEMBER_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$")
 _ARCHIVE_NAME = re.compile(r"^keel-\d{4}-\d{2}-\d{2}T\d{6}Z\.tar\.gz$")
 # The largest member accepted on restore; the full index is about 270 MB.
+PRIVATE_FILE_MODE = 0o600
+PRIVATE_DIR_MODE = 0o700
 MAX_MEMBER_BYTES = 4 * 1024**3
 MAX_MEMBERS = 16
 MAX_TOTAL_BYTES = 5 * 1024**3
@@ -198,10 +200,17 @@ def _stage(
     members = list(REQUIRED_MEMBERS)
     if logs_dir is None:
         return members
+    # The audit log rotates daily to `audit-<date>.jsonl`, so the member
+    # joins the rotated days in date order, then today's file. It only
+    # grows, so a copy is a consistent prefix.
+    days = sorted(logs_dir.glob("audit-*.jsonl")) if logs_dir.is_dir() else []
     audit = logs_dir / AUDIT_LOG
-    if audit.is_file():
-        # The audit log only grows, so a copy is a consistent prefix.
-        shutil.copyfile(audit, work / AUDIT_LOG)
+    parts = [*days, audit] if audit.is_file() else days
+    if parts:
+        with open(work / AUDIT_LOG, "wb") as joined:
+            for part in parts:
+                with open(part, "rb") as source:
+                    shutil.copyfileobj(source, joined)
         members.append(AUDIT_LOG)
     if logs_dir.is_dir():
         reserved = {*REQUIRED_MEMBERS, AUDIT_LOG}
@@ -251,12 +260,15 @@ def create_backup(
     part = archive.with_name(archive.name + ".part")
     try:
         out_dir.mkdir(parents=True, exist_ok=True)
+        # mkdtemp makes a 0700 directory; the archive and its checksum are
+        # 0600, like the audit log they hold.
         work = pathlib.Path(tempfile.mkdtemp(prefix=".backup-", dir=out_dir))
         try:
             members = _stage(build_dir, logs_dir, work)
             with tarfile.open(part, "w:gz") as tar:
                 for name in members:
                     tar.add(work / name, arcname=name, recursive=False)
+            os.chmod(part, PRIVATE_FILE_MODE)
             os.replace(part, archive)
         finally:
             shutil.rmtree(work, ignore_errors=True)
@@ -264,6 +276,7 @@ def create_backup(
         digest = indexer.file_sha256(archive)
         sha_part = checksum_file.with_name(checksum_file.name + ".part")
         sha_part.write_text(f"{digest}  {archive.name}\n", encoding="utf-8")
+        os.chmod(sha_part, PRIVATE_FILE_MODE)
         os.replace(sha_part, checksum_file)
     except OSError as error:
         raise errors.BackupError(f"cannot write {archive}: {error}") from error
@@ -458,8 +471,10 @@ def restore_backup(
         extra_dir = logs_dir / f"restored-{stamp}" if extras else None
         if extra_dir is not None:
             extra_dir.mkdir(parents=True, exist_ok=True)
+            os.chmod(extra_dir, PRIVATE_DIR_MODE)
             for name in extras:
                 os.replace(staging / name, extra_dir / name)
+                os.chmod(extra_dir / name, PRIVATE_FILE_MODE)
         old = indexer.current_build(index_dir)
         final = index_dir / indexer.new_build_id()
         staging.rename(final)
