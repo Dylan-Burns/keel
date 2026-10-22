@@ -16,26 +16,33 @@ import {
   fetchIndexStatus,
   fetchReady,
   fetchResult,
+  fetchShared,
   getToken,
   newRequestId,
   readSession,
   setToken,
   writeSession,
 } from './api/client';
+import {sharedRequestId} from './lib/links';
 import type {Action, AppState} from './state';
 import {baseState, canAsk, initialState, reducer} from './state';
 
-/** The client route of a stored answer: `/a/{request_id}`. */
 /** The pauses between the polls of a stored result after a refresh. */
 const RESULT_POLL_MS: readonly number[] = [1000, 2000, 3000, 5000, 8000, 13000];
 
-const RESULT_ROUTE = /^\/a\/([A-Za-z0-9_-]{1,64})\/?$/;
+/**
+ * The load state of a shareable link `/a/{request_id}` (chapter 27.2):
+ * `none` on any other path, `missing` when no store holds the answer.
+ */
+export type SharedLoad = 'none' | 'loading' | 'loaded' | 'missing';
 
 /** What the page needs from the controller. */
 export interface KeelController {
   readonly state: AppState;
   readonly dispatch: Dispatch<Action>;
   readonly hasToken: boolean;
+  /** The load state of the shared answer of the `/a/{request_id}` route. */
+  readonly shared: SharedLoad;
   readonly ask: (question: string) => void;
   readonly saveToken: (token: string) => void;
   readonly reload: () => void;
@@ -62,6 +69,9 @@ export function useKeel(): KeelController {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [hasToken, setHasToken] = useState(() => getToken() !== null);
   const [loadCount, setLoadCount] = useState(0);
+  const [shared, setShared] = useState<SharedLoad>(() =>
+    sharedRequestId(window.location.pathname) === null ? 'none' : 'loading',
+  );
   const stateRef = useRef(state);
   useEffect(() => {
     stateRef.current = state;
@@ -115,9 +125,9 @@ export function useKeel(): KeelController {
 
   // A stored answer: a refresh mid-stream, or the route /a/{request_id}.
   useEffect(() => {
-    const route = RESULT_ROUTE.exec(window.location.pathname);
-    const requestId = route?.[1] ?? readSession(PENDING_REQUEST_KEY);
-    if (requestId === null || requestId === undefined || getToken() === null) {
+    const sharedId = sharedRequestId(window.location.pathname);
+    const requestId = sharedId ?? readSession(PENDING_REQUEST_KEY);
+    if (requestId === null || !hasToken) {
       return;
     }
     const question = readSession(PENDING_QUESTION_KEY);
@@ -130,15 +140,25 @@ export function useKeel(): KeelController {
     // The server stores the answer when it completes, so a refresh mid-stream
     // polls with a growing pause until the result exists (E-F-04).
     const attempt = (n: number): void => {
-      fetchResult(requestId)
+      // A link reads the shared route, open to any token holder; a refresh
+      // reads the caller's own result.
+      (sharedId === null ? fetchResult(requestId) : fetchShared(requestId))
         .then(result => {
           if (!cancelled) {
             dispatch({type: 'result_loaded', result, question});
             clear();
+            if (sharedId !== null) {
+              setShared('loaded');
+            }
           }
         })
         .catch((error: unknown) => {
-          const pending = error instanceof ApiError && error.status === 404;
+          // A link to an answer that no store holds stops at once; the
+          // shared route never reports a running answer.
+          const pending =
+            error instanceof ApiError &&
+            error.status === 404 &&
+            sharedId === null;
           if (cancelled) {
             return;
           }
@@ -146,6 +166,9 @@ export function useKeel(): KeelController {
             timer = window.setTimeout(() => attempt(n + 1), RESULT_POLL_MS[n]);
           } else {
             clear();
+            if (sharedId !== null) {
+              setShared('missing');
+            }
           }
         });
     };
@@ -154,7 +177,7 @@ export function useKeel(): KeelController {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, []);
+  }, [hasToken]);
 
   // The browser offline and online events.
   useEffect(() => {
@@ -256,5 +279,5 @@ export function useKeel(): KeelController {
 
   const reload = useCallback((): void => setLoadCount(count => count + 1), []);
 
-  return {state, dispatch, hasToken, ask, saveToken, reload};
+  return {state, dispatch, hasToken, shared, ask, saveToken, reload};
 }

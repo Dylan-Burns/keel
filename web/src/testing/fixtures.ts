@@ -7,6 +7,7 @@ import type {
   AskResponse,
   CoverageResponse,
   EvalResponse,
+  HistoryResponse,
   IndexStatusResponse,
   ReadyResponse,
   RetrievalSummary,
@@ -501,4 +502,46 @@ export const EVAL_PAGE_EMPTY: EvalResponse = {
   ...EVAL_PAGE,
   report: {source: 'eval/report.md', markdown: null, truncated: false},
   gates: [],
+};
+
+/** `GET /api/history` of an analyst with 2 questions, newest first. */
+export const HISTORY: HistoryResponse = {
+  user: 'alice',
+  role: 'analyst',
+  scope: 'own',
+  items: [
+    {
+      request_id: 'req-2',
+      timestamp: '2026-10-21T10:05:00+00:00',
+      question: QUESTION_2,
+      user: 'alice',
+      tickers: ['NVDA'],
+      outcome: 'answered',
+      model: 'claude-sonnet-5-5',
+      cost_usd: 0.0912,
+      from_cache: false,
+      degraded: false,
+      stored: true,
+    },
+    {
+      request_id: 'req-1',
+      timestamp: '2026-10-20T09:00:00+00:00',
+      question: QUESTION_1,
+      user: 'alice',
+      tickers: ['AAPL', 'TSLA', 'JPM'],
+      outcome: 'answered',
+      model: 'claude-sonnet-5-5',
+      cost_usd: 0.1034,
+      from_cache: false,
+      degraded: false,
+      stored: false,
+    },
+  ],
+};
+
+/** The history of an admin, every user. */
+export const HISTORY_ADMIN: HistoryResponse = {
+  ...HISTORY,
+  user: 'carol',
+  role: 'admin',
 };

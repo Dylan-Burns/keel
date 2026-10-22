@@ -7,6 +7,7 @@ describe('Footer', () => {
   it('shows the request ID and the prompt version, and runs copy and export', () => {
     const onCopy = vi.fn();
     const onExport = vi.fn();
+    const onShare = vi.fn();
     render(
       <Footer
         requestId="r-1"
@@ -15,6 +16,8 @@ describe('Footer', () => {
         copyStatus="Copied"
         onCopy={onCopy}
         onExport={onExport}
+        canShare
+        onShare={onShare}
       />,
     );
     expect(screen.getByTestId('request-id')).toHaveTextContent('request r-1');
@@ -25,6 +28,8 @@ describe('Footer', () => {
     fireEvent.click(screen.getByRole('button', {name: 'Export JSON'}));
     expect(onCopy).toHaveBeenCalledOnce();
     expect(onExport).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByTestId('share-link'));
+    expect(onShare).toHaveBeenCalledOnce();
     expect(screen.getByRole('status')).toHaveTextContent('Copied');
   });
 
@@ -37,10 +42,33 @@ describe('Footer', () => {
         copyStatus={null}
         onCopy={vi.fn()}
         onExport={vi.fn()}
+        canShare={false}
+        onShare={vi.fn()}
       />,
     );
     expect(
       screen.getByRole('button', {name: 'Copy as markdown'}),
     ).toBeDisabled();
+    expect(screen.getByTestId('share-link')).toBeDisabled();
+  });
+
+  it('opens the history page', () => {
+    const assign = vi.fn();
+    vi.stubGlobal('location', {...window.location, assign});
+    render(
+      <Footer
+        requestId={null}
+        promptVersion={null}
+        hasAnswer={false}
+        copyStatus={null}
+        onCopy={vi.fn()}
+        onExport={vi.fn()}
+        canShare={false}
+        onShare={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('history-link'));
+    expect(assign).toHaveBeenCalledWith('/history');
+    vi.unstubAllGlobals();
   });
 });

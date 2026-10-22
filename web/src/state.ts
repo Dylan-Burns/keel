@@ -500,8 +500,11 @@ function reduceBase(ui: UiState, action: Action): UiState {
       const run =
         previous !== null && previous.requestId === action.result.request_id
           ? previous
-          : // An empty question (the /a/ route) turns Retry off.
-            newRun(action.question ?? '', action.result.request_id);
+          : // The question of the record, else empty, which turns Retry off.
+            newRun(
+              action.question ?? action.result.question ?? '',
+              action.result.request_id,
+            );
       return settle(run, action.result);
     }
     case 'http_error': {
