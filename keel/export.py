@@ -79,9 +79,14 @@ _MARKDOWN_SPECIAL = re.compile(r"([\\`*_\[\]()#!|<>{}&~@])")
 _SCHEME = re.compile(r"\b([A-Za-z][A-Za-z0-9+.\-]{0,31}):(?=\S)")
 _WWW = re.compile(r"\b(www)\.", re.IGNORECASE)
 _BLOCK_START = re.compile(r"^(\d+)([.)])|^([-+=])")
-# The characters that could end or break a `<...>` link or a DOCX target.
+# The characters left unencoded in a link URL; every other one, such as
+# `<>[]()` and whitespace, is percent-encoded.
 URL_SAFE = "/:?=&%#.-_~"
 _URL_FORBIDDEN = re.compile(r"[<>\[\]()`\s\\]")
+# Characters that XML 1.0 (and so a DOCX file) cannot hold.
+_XML_INVALID = re.compile(
+    "[^\t\n\r\u0020-\ud7ff\ue000-\ufffd\U00010000-\U0010ffff]"
+)
 _MARKER = re.compile(r"\s*\[([^\[\]\n]{1,400})\]")
 
 # A run of memo text: strings and footnote numbers in reading order.
@@ -200,8 +205,12 @@ def _trusted(url: object) -> str | None:
 
 
 def _flat(text: object) -> str:
-    """Collapse the whitespace of a field, so no newline starts a block."""
-    return " ".join(str(text).split())
+    """Collapse the whitespace of a field, so no newline starts a block.
+
+    Characters that XML cannot hold are dropped, so the DOCX writer never
+    fails on them.
+    """
+    return " ".join(_XML_INVALID.sub("", str(text)).split())
 
 
 def _source_facts(record: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
@@ -211,10 +220,10 @@ def _source_facts(record: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
     for chunk in retrieval.get("chunks") or []:
         section = str(chunk.get("section", ""))
         facts[str(chunk.get("chunk_id"))] = {
-            "filing_name": str(chunk.get("filing_name", "")),
+            "filing_name": _flat(chunk.get("filing_name", "")),
             "section_title": citations.SECTION_TITLES.get(section, section),
-            "fiscal_label": str(chunk.get("fiscal_label", "")),
-            "period_end": str(chunk.get("period_end", "")),
+            "fiscal_label": _flat(chunk.get("fiscal_label", "")),
+            "period_end": _flat(chunk.get("period_end", "")),
             "filing_date": "",
             "sec_url": _trusted(chunk.get("sec_url")),
             "quotes": [],
@@ -227,11 +236,11 @@ def _source_facts(record: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
         if quote and quote not in quotes:
             quotes.append(quote)
         facts[chunk_id] = {
-            "filing_name": str(cited.get("filing_name", "")),
-            "section_title": str(cited.get("section_title", "")),
-            "fiscal_label": str(cited.get("fiscal_label", "")),
-            "period_end": str(cited.get("period_end", "")),
-            "filing_date": str(cited.get("filing_date", "")),
+            "filing_name": _flat(cited.get("filing_name", "")),
+            "section_title": _flat(cited.get("section_title", "")),
+            "fiscal_label": _flat(cited.get("fiscal_label", "")),
+            "period_end": _flat(cited.get("period_end", "")),
+            "filing_date": _flat(cited.get("filing_date", "")),
             "sec_url": _trusted(cited.get("sec_url")),
             "quotes": quotes,
         }
@@ -384,7 +393,7 @@ def build_memo(record: Mapping[str, Any], request_id: str) -> Memo:
     refusal = answer.get("refusal") or {}
     confidence = str(answer.get("confidence", ""))
     reason = _flat(answer.get("confidence_reason", ""))
-    question = " ".join(str(record.get("question") or "").split())
+    question = _flat(record.get("question") or "")
     return Memo(
         title=question or f"Answer {request_id}",
         request_id=request_id,
@@ -702,9 +711,15 @@ def _audit_entry(
 
 
 def _from_cache(
-    settings: config.Settings, request_id: str
+    settings: config.Settings, request_id: str, scan: bool
 ) -> dict[str, Any] | None:
-    """The answer cache entry of a request ID, through its audit record."""
+    """The answer cache entry of a request ID, through its audit record.
+
+    The entry under the key of the audit record belongs to the request
+    only when the request filled it or was served from it (outcome
+    `cached`); a refused or failed request, or an entry a later answer
+    replaced, never borrows another answer.
+    """
     answers = cache.AnswerCache(settings.cache.answers_dir)
     entry = _audit_entry(settings.logs.dir, request_id)
     if entry is not None:
@@ -715,16 +730,20 @@ def _from_cache(
         if all(isinstance(p, str) for p in parts):
             key = cache.cache_key(*[str(p) for p in parts])
             record = answers.get(key)
-            if record is not None:
+            if record is not None and (
+                record.get("request_id") == request_id
+                or entry.get("outcome") == "cached"
+            ):
                 return record
         logger.info("no answer cache entry for the audit record")
-    return answers.find(request_id)
+    return answers.find(request_id) if scan else None
 
 
 def find_record(
     settings: config.Settings,
     request_id: str,
     record_path: pathlib.Path | None = None,
+    scan: bool = True,
 ) -> dict[str, Any]:
     """Find the stored answer of a request ID.
 
@@ -733,6 +752,8 @@ def find_record(
         request_id: The request ID.
         record_path: A saved result JSON, or None to read the audit log
             and the answer cache.
+        scan: Read every cache entry for the request ID when the audit
+            record gives none; the API turns it off to bound the work.
 
     Returns:
         The answer record.
@@ -756,7 +777,7 @@ def find_record(
                 f"{record_path} holds request {held}, not {request_id}"
             )
         return record
-    found = _from_cache(settings, request_id)
+    found = _from_cache(settings, request_id, scan)
     if found is None:
         raise ExportError(
             f"no stored answer for request {request_id}: the audit log and "
