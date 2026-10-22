@@ -2,8 +2,9 @@
 
 The fixtures write each source in the format the merged code writes: the
 audit record of `keel/answer.py` with `user_name`, the `feedback` table of
-`keel/stores/pilot.py`, the `added` entries of `keel/add.py`, and the
-`refresh.log` lines of `keel/refresh.py`.
+`keel/stores/pilot.py`, the `added` entries of `keel/add.py`, the
+`refresh.log` lines of `keel/refresh.py`, and the `exports.jsonl` lines of
+`keel/export.py`.
 """
 
 import datetime
@@ -17,6 +18,7 @@ import types
 
 import pytest
 
+from keel import export
 from keel import refresh
 from keel.stores import pilot
 
@@ -185,6 +187,37 @@ def _refresh_log(path: pathlib.Path) -> pathlib.Path:
     return path
 
 
+def _exports(directory: pathlib.Path) -> pathlib.Path:
+    """4 memos in week 43 (1 by the engineer), 1 in week 44."""
+    directory.mkdir(parents=True, exist_ok=True)
+    for request_id, fmt, user in (
+        ("r1", export.MARKDOWN, "ana"),
+        ("r2", export.DOCX, "ben"),
+        ("r3", export.MARKDOWN, "ana"),
+        ("r5", export.MARKDOWN, "eng"),
+        ("r4", export.DOCX, "cy"),
+    ):
+        written = export.log_export(directory, request_id, fmt, user)
+        assert written
+    path = directory / export.LOG_NAME
+    times = iter(
+        [
+            "2026-10-19T10:05:00+00:00",
+            "2026-10-20T11:05:00+00:00",
+            "2026-10-20T12:05:00+00:00",
+            "2026-10-21T08:05:00+00:00",
+            "2026-10-27T09:05:00+00:00",
+        ]
+    )
+    lines = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        value = json.loads(line)
+        value["time"] = next(times)
+        lines.append(json.dumps(value))
+    path.write_text("\n".join([*lines, "not json", "[1]"]) + "\n")
+    return path
+
+
 def test_pilot_metrics(logs: pathlib.Path, tmp_path: pathlib.Path) -> None:
     files = pilot_metrics.audit_files([logs / "audit.jsonl"])
     assert [f.name for f in files] == ["audit-2026-10-20.jsonl", "audit.jsonl"]
@@ -202,6 +235,7 @@ def test_pilot_metrics(logs: pathlib.Path, tmp_path: pathlib.Path) -> None:
         refreshed=pilot_metrics.read_refreshed(
             _refresh_log(tmp_path / "refresh.log")
         ),
+        exports=pilot_metrics.read_exports(_exports(tmp_path / "out")),
         exclude_users=["eng"],
         skipped_lines=skipped,
     )
@@ -211,7 +245,7 @@ def test_pilot_metrics(logs: pathlib.Path, tmp_path: pathlib.Path) -> None:
     assert first.cost_usd == pytest.approx(0.20)
     assert first.cost_per_question == pytest.approx(0.20 / 3, rel=1e-4)
     assert (first.thumbs_up_rate, first.votes) == (0.5, 2)
-    assert first.memos_exported is None
+    assert (first.memos_exported, second.memos_exported) == (3, 1)
     assert (first.companies_added, first.filings_refreshed) == (0, 0)
     assert (second.active_users, second.questions) == (1, 1)
     assert (second.companies_added, second.filings_refreshed) == (1, 1)
@@ -223,11 +257,11 @@ def test_pilot_metrics(logs: pathlib.Path, tmp_path: pathlib.Path) -> None:
     # WDAY has no corpus file, so no week; it still counts in the total.
     assert metrics.companies_added == 2
     assert metrics.filings_refreshed == 1
-    assert metrics.memos_exported is None
+    assert metrics.memos_exported == 4
     assert metrics.sources == {
         "user_name": True,
         "feedback_table": True,
-        "export_log": False,
+        "export_log": True,
         "manifest": True,
         "refresh_log": True,
     }
@@ -236,10 +270,10 @@ def test_pilot_metrics(logs: pathlib.Path, tmp_path: pathlib.Path) -> None:
         "active users each week": False,
         "questions each week": None,
         "thumbs-up rate": False,
-        "memos exported": None,
+        "memos exported": True,
     }
     assert pilot_metrics.decision(pilot_metrics.targets(metrics)).startswith(
-        "0 of 4 metrics hold, 2 open: fix the top 3 feedback reasons"
+        "1 of 4 metrics hold, 1 open: fix the top 3 feedback reasons"
     )
 
 
@@ -290,12 +324,14 @@ def test_pilot_metrics_legacy_log(tmp_path: pathlib.Path) -> None:
         votes=pilot_metrics.read_votes(tmp_path / "absent.sqlite"),
         additions=pilot_metrics.read_additions(broken),
         refreshed=pilot_metrics.read_refreshed(tmp_path / "absent.log"),
+        exports=pilot_metrics.read_exports(tmp_path / "absent.jsonl"),
     )
     (week,) = metrics.weeks
     assert (week.active_users, week.questions) == (1, 2)
     assert week.thumbs_up_rate is None
     assert week.companies_added is None
     assert week.filings_refreshed is None
+    assert week.memos_exported is None
     assert not any(metrics.sources.values())
     text = pilot_metrics.to_markdown(metrics)
     assert (
@@ -303,10 +339,10 @@ def test_pilot_metrics_legacy_log(tmp_path: pathlib.Path) -> None:
         in text
     )
     assert "the legacy token counts as 1 user" in text
-    assert "Memo exports leave no log line" in text
     assert "0 of 4 metrics hold, 4 open: too early to decide" in text
     assert (
-        "Sources absent (n/a): feedback_table, manifest, refresh_log." in text
+        "Sources absent (n/a): feedback_table, export_log, manifest, "
+        "refresh_log." in text
     )
 
 
@@ -321,6 +357,7 @@ def test_pilot_metrics_main(
     monkeypatch.delenv("KEEL_PILOT__DB", raising=False)
     _feedback_db(logs / pilot.FILE_NAME)
     _refresh_log(logs / refresh.LOG_NAME)
+    _exports(logs)
     manifest = _corpus(tmp_path / "corpus")
     code = pilot_metrics.main(["--json", "--manifest", str(manifest)])
     assert code == 0
@@ -328,6 +365,8 @@ def test_pilot_metrics_main(
     assert body["questions"] == 5
     assert body["votes"] == 4
     assert body["filings_refreshed"] == 1
+    assert body["memos_exported"] == 5
+    assert body["sources"]["export_log"] is True
     assert body["sources"]["feedback_table"] is True
     assert len(body["targets"]) == 4
     assert "decision" in body
@@ -347,6 +386,7 @@ def test_pilot_metrics_main(
     out = capsys.readouterr().out
     assert out.startswith("## Pilot metrics")
     assert "| 2026-W44 | 1 | 1 |" in out
+    assert "| memos exported | >= 3 | 1 | no |" in out
     assert "2026-W43" not in out
     assert pilot_metrics.main([str(tmp_path / "missing" / "audit.jsonl")]) == 1
     assert pilot_metrics.main(["--config", str(tmp_path / "none.yaml")]) == 1
@@ -366,3 +406,28 @@ def test_iso_week() -> None:
         "2026-W53",
         "2027-W01",
     ]
+
+
+def test_pilot_metrics_week_4_rule_can_reach_4_of_4() -> None:
+    """With the export log, all 4 log metrics can hold."""
+    users = ("ana", "ben", "cy")
+    days = ("10-19", "10-26", "11-02", "11-09")
+    records = [
+        _question(
+            f"q{day}-{n}", f"2026-{day}T10:00:00+00:00", 0.1, user=users[n % 3]
+        )
+        for day in days
+        for n in range(30)
+    ]
+    votes = [pilot_metrics.Vote(True, "2026-W46", "ana")] * 3
+    exports = [pilot_metrics.Export("2026-W45", "ben")] * 3
+    exports.append(pilot_metrics.Export("2026-W45", "eng"))
+    metrics = pilot_metrics.compute(
+        records, votes=votes, exports=exports, exclude_users=["eng"]
+    )
+    assert metrics.memos_exported == 3
+    rows = pilot_metrics.targets(metrics)
+    assert all(row["holds"] is True for row in rows)
+    assert pilot_metrics.decision(rows).startswith(
+        "4 of 4 metrics hold, 0 open: continue to phase 2"
+    )
