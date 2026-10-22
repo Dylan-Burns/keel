@@ -110,6 +110,24 @@ def _facts_arguments() -> argparse.ArgumentParser:
     return facts_parser
 
 
+def _doctor_arguments() -> argparse.ArgumentParser:
+    """Build the arguments of `keel doctor` as a parent parser.
+
+    Returns:
+        A parser without help that holds the `doctor` arguments.
+    """
+    doctor_parser = argparse.ArgumentParser(add_help=False)
+    doctor_parser.add_argument(
+        "--download-models",
+        action="store_true",
+        help="download the 2 pinned Hugging Face models into the cache",
+    )
+    doctor_parser.add_argument(
+        "--json", action="store_true", help="print the results as JSON"
+    )
+    return doctor_parser
+
+
 def _add_arguments() -> argparse.ArgumentParser:
     """Build the arguments of `keel add` as a parent parser.
 
@@ -448,16 +466,10 @@ def build_parser() -> argparse.ArgumentParser:
         )
     )
 
-    doctor_parser = commands.add_parser(
-        "doctor", help="check the environment: FTS5, models, keys, clock, ports"
-    )
-    doctor_parser.add_argument(
-        "--download-models",
-        action="store_true",
-        help="download the 2 pinned Hugging Face models into the cache",
-    )
-    doctor_parser.add_argument(
-        "--json", action="store_true", help="print the results as JSON"
+    commands.add_parser(
+        "doctor",
+        parents=[_doctor_arguments()],
+        help="check the environment: FTS5, models, keys, clock, ports",
     )
     export.add_arguments(
         commands.add_parser("export", help="write a stored answer as a memo")
