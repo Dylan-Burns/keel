@@ -212,9 +212,11 @@ questions:
   - id: G-18
     type: numeric
     question: What net interest income did JPMorgan report for 2025?
-    note: Large filing. The JPM 10-K holds its MD&A in the financial section of the index.
+    note: >-
+      Large filing. The JPM 10-K holds its MD&A in the financial section of
+      the index. Not in the ci subset, because the mini corpus excerpt of the
+      JPM 10-K does not hold the net interest income figure.
     labels: section
-    subsets: [ci]
     expected:
       - {filing_id: JPM_10K_2025-12-31, ticker: JPM, form: 10-K, fiscal_period: FY2025, sections: [mdna, financial_statements]}
     gold:
