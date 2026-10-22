@@ -102,9 +102,17 @@ class CorpusConfig(_Section):
 
 
 class IndexConfig(_Section):
-    """Where the index builds land."""
+    """Where the index builds land.
+
+    Attributes:
+        dir: The index directory with the `current` pointer.
+        release_tag: The GitHub release (of `corpus.release_repo`) whose
+            `keel-<stamp>.tar.gz` archive `keel bootstrap` restores before
+            it would build the index, or None to always build.
+    """
 
     dir: pathlib.Path = pathlib.Path("index")
+    release_tag: str | None = None
 
 
 class LogsConfig(_Section):

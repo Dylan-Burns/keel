@@ -10,10 +10,13 @@ stored results, and the X-Keel-Mock faults run as they do in `keel serve`.
 
 import asyncio
 from collections.abc import Iterator
+import dataclasses
 import json
 import pathlib
 import socket
 import sqlite3
+import threading
+import time
 
 import httpx
 import pydantic
@@ -22,6 +25,7 @@ from starlette import testclient
 
 import conftest
 from keel import answer
+from keel import bootstrap
 from keel import cli
 from keel import config
 from keel import doctor
@@ -30,6 +34,7 @@ from keel import indexer
 from keel import reliability
 from keel import retriever
 from keel.api import app as api_app
+from keel.api import background
 from keel.api import routes
 from keel.providers import mock
 from keel.stores import chunk_store
@@ -1030,3 +1035,174 @@ def test_final_event_audit_retry(client, api_settings) -> None:
     assert record["filters"] == []
     assert record["candidates"] is None
     assert record["chunk_count"] == 0
+
+
+# --- keel serve --bootstrap and the nightly jobs (stage 21) -------------------
+
+
+def wait_until(check, timeout: float = 30.0) -> None:
+    deadline = time.monotonic() + timeout
+    while not check():
+        assert time.monotonic() < deadline, "timed out"
+        time.sleep(0.02)
+
+
+def test_serve_bootstrap_ready_reports_progress(
+    api_settings, index_dir, monkeypatch
+) -> None:
+    """The server answers first; the index opens when bootstrap is ready."""
+    opened = make_answerer(api_settings, index_dir)
+    monkeypatch.setattr(
+        answer.Answerer, "open", classmethod(lambda cls, s, **kw: opened)
+    )
+    monkeypatch.setattr(
+        reliability,
+        "check_index",
+        lambda path: indexer.Manifest.model_construct(corpus_sha256="x"),
+    )
+    release = threading.Event()
+
+    def slow_bootstrap(settings, state, deps=None):
+        state.begin()
+        state.enter(bootstrap.Phase.INDEXING, "building in /secret/path", 9)
+        state.advance(4, 9)
+        release.wait(30)
+        state.finish(bootstrap.Phase.READY, "corpus and index ready", None)
+        return state.snapshot()
+
+    monkeypatch.setattr(background.bootstrap, "run_bootstrap", slow_bootstrap)
+    services = api_app.Services(api_settings, bootstrap_first=True)
+    with testclient.TestClient(api_app.create_app(services)) as client:
+        assert client.get("/api/health").status_code == 200
+        wait_until(lambda: services.bootstrap.snapshot().done == 4)
+        ready = client.get("/api/ready")
+        status = client.get("/api/status", headers=AUTH).json()
+        release.set()
+        wait_until(lambda: services.answerer is not None)
+        after = client.get("/api/ready").json()
+    body = ready.json()
+    assert ready.status_code == 200
+    assert body["checks"]["index_loaded"] is False
+    assert body["bootstrap"] == {"phase": "indexing", "done": 4, "total": 9}
+    assert "secret" not in ready.text
+    assert status["bootstrap"]["detail"] == "building in /secret/path"
+    assert after["checks"]["index_loaded"] is True
+    assert after["bootstrap"]["phase"] == "ready"
+
+
+def test_serve_bootstrap_failure_loads_no_index(
+    api_settings, monkeypatch
+) -> None:
+    def failed(settings, state, deps=None):
+        state.begin()
+        state.finish(bootstrap.Phase.FAILED, "bootstrap failed", "X: y")
+        return state.snapshot()
+
+    monkeypatch.setattr(background.bootstrap, "run_bootstrap", failed)
+    services = api_app.Services(api_settings, bootstrap_first=True)
+    thread = background.start_bootstrap(services)
+    assert thread is not None
+    thread.join(10)
+    assert services.answerer is None
+    assert background.start_bootstrap(api_app.Services(api_settings)) is None
+
+
+def test_serve_command_bootstrap(monkeypatch, settings) -> None:
+    apps = []
+    monkeypatch.setattr(
+        api_app.uvicorn, "run", lambda app, **kwargs: apps.append(app)
+    )
+    monkeypatch.setattr(api_app, "pick_port", lambda host, port: port)
+    monkeypatch.setattr(cli.config, "load_settings", lambda path: settings)
+    assert cli.main(["serve", "--bootstrap"]) == 0
+    assert apps[0].state.services.bootstrap is not None
+
+
+def test_services_reload_keeps_a_good_build(
+    api_settings, index_dir, monkeypatch
+) -> None:
+    """A refresh build that fails its check never replaces the served one."""
+    first = make_answerer(api_settings, index_dir)
+    services = api_app.Services(api_settings, first)
+    second = make_answerer(api_settings, index_dir)
+    monkeypatch.setattr(
+        answer.Answerer, "open", classmethod(lambda cls, s, **kw: second)
+    )
+
+    def corrupt(path):
+        raise errors.IndexCorruptError("vectors.npy does not match")
+
+    monkeypatch.setattr(reliability, "check_index", corrupt)
+    services.reload()
+    assert services.answerer is first
+    assert services.index_error is None
+
+    monkeypatch.setattr(
+        reliability,
+        "check_index",
+        lambda path: indexer.Manifest.model_construct(corpus_sha256="x"),
+    )
+    services.reload()
+    assert services.answerer is second
+    assert services.index_verified is True
+
+    def missing(cls, s, **kw):
+        raise errors.IndexMissingError("gone")
+
+    monkeypatch.setattr(answer.Answerer, "open", classmethod(missing))
+    services.reload()
+    assert services.answerer is second
+
+
+@dataclasses.dataclass(frozen=True)
+class FakeReport:
+    new_count: int
+    added_count: int
+
+
+def test_refresh_job_reloads_after_a_new_build(
+    api_settings, index_dir, monkeypatch
+) -> None:
+    services = api_app.Services(
+        api_settings, make_answerer(api_settings, index_dir)
+    )
+    reloads = []
+    monkeypatch.setattr(services, "reload", lambda: reloads.append(1))
+
+    assert background.refresh_job(services, lambda: FakeReport(0, 0))
+    assert reloads == []
+    assert background.refresh_job(services, lambda: FakeReport(2, 1))
+    assert reloads == [1]
+
+    def broken():
+        raise errors.StateStoreError("locked")
+
+    assert background.refresh_job(services, broken) is None
+    assert reloads == [1]
+
+
+def test_scheduler_runs_refresh_and_backup_in_the_server(
+    api_settings, index_dir
+) -> None:
+    services = api_app.Services(
+        api_settings, make_answerer(api_settings, index_dir)
+    )
+    assert background.start_scheduler(services) is None
+
+    enabled = api_settings.model_copy(
+        update={
+            "scheduler": api_settings.scheduler.model_copy(
+                update={"enabled": True}
+            )
+        }
+    )
+    services = api_app.Services(enabled, make_answerer(enabled, index_dir))
+    with testclient.TestClient(api_app.create_app(services)):
+        pass
+    nightly = background.start_scheduler(services, lambda: FakeReport(0, 0))
+    assert nightly is not None
+    try:
+        assert [job.name for job in nightly.jobs] == ["refresh", "backup"]
+        assert nightly.jobs[0].run() == FakeReport(0, 0)
+    finally:
+        nightly.stop()

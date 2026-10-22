@@ -328,6 +328,12 @@ def test_backup_and_restore_commands(
     assert "index version: 1.0.0" in printed
     assert "restored logs:" in printed
 
+    index_only = tmp_path / "release"
+    assert cli.main(["backup", "--index-only", "--out", str(index_only)]) == 0
+    assert "members: manifest.json, chunks.sqlite, vectors.npy\n" in (
+        capsys.readouterr().out
+    )
+
 
 def test_backup_skips_log_files_with_index_names(
     index_dir: pathlib.Path, logs_dir: pathlib.Path, tmp_path: pathlib.Path

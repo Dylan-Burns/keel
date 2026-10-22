@@ -14,10 +14,13 @@ import httpx
 import pytest
 
 import conftest
+from keel import answer
+from keel import backup
 from keel import bootstrap
 from keel import cli
 from keel import config
 from keel import indexer
+from keel.providers import mock
 
 pytestmark = pytest.mark.integration
 
@@ -163,6 +166,104 @@ def test_bootstrap_uses_gh_with_a_token(
     assert commands[0][3] == configured.corpus.release_tag
     assert commands[0][5] == configured.corpus.release_repo
     assert all("token" not in part for part in commands[0])
+
+
+def release_archive(
+    settings: config.Settings, tmp_path: pathlib.Path
+) -> pathlib.Path:
+    """The `index-v1` release: an index-only archive of a mini build."""
+    built = tmp_path / "offhost-index"
+    embedder = conftest.FakeEmbedder()
+    indexer.build_index(settings, conftest.MINI_CORPUS, built, lambda: embedder)
+    return backup.create_backup(built, None, tmp_path / "release").archive
+
+
+def release_deps(
+    archive: pathlib.Path, commands: list[list[str]]
+) -> bootstrap.Dependencies:
+    """A fake `gh` that downloads the archive and its sha256 file."""
+
+    def fake_gh(command: Sequence[str]) -> None:
+        commands.append(list(command))
+        out = pathlib.Path(command[command.index("--dir") + 1])
+        if command[3] == "index-v1":
+            for path in (archive, archive.with_name(archive.name + ".sha256")):
+                (out / path.name).write_bytes(path.read_bytes())
+        else:
+            (out / "edgar_corpus.zip").write_bytes(mini_zip())
+
+    def refuse() -> conftest.FakeEmbedder:
+        raise AssertionError("the index was built, not restored")
+
+    return fake_deps(
+        environ={"GH_TOKEN": "token"},
+        which=lambda name: "/usr/bin/gh",
+        run_command=fake_gh,
+        embedder_factory=refuse,
+    )
+
+
+def test_bootstrap_restores_the_index_release(
+    settings: config.Settings, tmp_path: pathlib.Path
+) -> None:
+    """Option A: an empty data volume gets the index from the release."""
+    archive = release_archive(settings, tmp_path)
+    data = tmp_path / "data"
+    configured = configure(settings, data)
+    configured = configured.model_copy(
+        update={
+            "index": configured.index.model_copy(
+                update={"release_tag": "index-v1"}
+            ),
+            "logs": config.LogsConfig(dir=data / "logs"),
+        }
+    )
+    commands: list[list[str]] = []
+
+    status = bootstrap.run_bootstrap(
+        configured, deps=release_deps(archive, commands)
+    )
+
+    assert status.phase == bootstrap.Phase.READY, status.error
+    assert (status.corpus, status.index) == ("downloaded", "restored")
+    assert commands[1][3:6] == ["index-v1", "--repo", "Dylan-Burns/keel"]
+    assert not list(data.glob(".gh-index-*"))
+    # The restored build loads: the pipeline opens it without the models.
+    opened = answer.Answerer.open(
+        configured,
+        provider=mock.MockProvider(configured.llm.model),
+        load_models=False,
+    )
+    assert (
+        opened.index_version
+        == indexer.verify(configured.index.dir / indexer.CURRENT).index_version
+    )
+    assert not (data / "logs").exists()
+
+
+def test_bootstrap_builds_when_the_release_fails(
+    settings: config.Settings, tmp_path: pathlib.Path
+) -> None:
+    archive = release_archive(settings, tmp_path)
+    archive.with_name(archive.name + ".sha256").write_text("0" * 64 + "  x\n")
+    data = tmp_path / "data"
+    configured = configure(settings, data)
+    configured = configured.model_copy(
+        update={
+            "index": configured.index.model_copy(
+                update={"release_tag": "index-v1"}
+            )
+        }
+    )
+    deps = dataclasses.replace(
+        release_deps(archive, []),
+        embedder_factory=conftest.FakeEmbedder,
+    )
+
+    status = bootstrap.run_bootstrap(configured, deps=deps)
+
+    assert status.phase == bootstrap.Phase.READY, status.error
+    assert status.index == "built"
 
 
 def test_start_background(

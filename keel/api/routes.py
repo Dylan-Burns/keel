@@ -268,8 +268,9 @@ async def ready(services: Services, fault: Fault) -> fastapi.Response:
 
     Returns:
         `ready`, the index version, the checks, the breaker state as 1
-        word, whether the daily budget stopped the model, and whether the
-        answer cache exists; no amount and no model name. HTTP 503
+        word, whether the daily budget stopped the model, whether the
+        answer cache exists, and with `--bootstrap` its phase and
+        progress; no amount, no model name, and no error text. HTTP 503
         with `index_corrupt` when the index failed its checks (16.7); the
         other failed checks keep HTTP 200, so the front-end can show the
         matching banner.
@@ -299,6 +300,15 @@ async def ready(services: Services, fault: Fault) -> fastapi.Response:
         "index_corrupt": corrupt,
         "offline": services.settings.offline,
     }
+    if services.bootstrap is not None:
+        # The phase and the progress only; the detail and the error stay
+        # on /api/status behind the token.
+        boot = services.bootstrap.snapshot()
+        body["bootstrap"] = {
+            "phase": boot.phase.value,
+            "done": boot.done,
+            "total": boot.total,
+        }
     if answerer is not None:
         # Coarse values only: this route needs no token (S-06), so the
         # spend, the limits, and the model names stay on /api/status.
@@ -319,12 +329,21 @@ async def service_status(services: Services, caller: Caller) -> dict[str, Any]:
         caller: The Principal.
 
     Returns:
-        The breaker counters, the models, and the daily spend and budget.
+        The breaker counters, the models, and the daily spend and budget;
+        with `keel serve --bootstrap`, also the full bootstrap status, and
+        only that until the index is loaded.
 
     Raises:
-        HTTPException: 503 when no index is loaded.
+        HTTPException: 503 when no index is loaded and no bootstrap runs.
     """
     del caller
+    boot = (
+        services.bootstrap.snapshot().model_dump(mode="json")
+        if services.bootstrap is not None
+        else None
+    )
+    if boot is not None and services.answerer is None:
+        return {"bootstrap": boot, "offline": services.settings.offline}
     answerer = require_answerer(services)
     limit = answerer.budget.limit_usd
     spent = await asyncio.to_thread(answerer.budget.spent)
@@ -340,6 +359,7 @@ async def service_status(services: Services, caller: Caller) -> dict[str, Any]:
             "stopped": spent >= limit,
         },
         "offline": services.settings.offline,
+        **({"bootstrap": boot} if boot is not None else {}),
     }
 
 

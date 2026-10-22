@@ -201,6 +201,12 @@ def _serve_arguments() -> argparse.ArgumentParser:
         default=None,
         help="the port (default: server.port); a busy port moves up to +10",
     )
+    serve_parser.add_argument(
+        "--bootstrap",
+        action="store_true",
+        help="start first, then fetch the corpus and build the index when "
+        "absent (chapter 29.9)",
+    )
     return serve_parser
 
 
@@ -315,6 +321,12 @@ def _add_operations_commands(
         type=pathlib.Path,
         default=None,
         help="the archive directory (default: scheduler.backup_dir)",
+    )
+    backup_parser.add_argument(
+        "--index-only",
+        action="store_true",
+        help="leave out the audit log and the logs databases (for the "
+        "index release asset that bootstrap restores)",
     )
     restore_parser = commands.add_parser(
         "restore", help="restore an archive as the current index build"
@@ -1039,19 +1051,25 @@ def run_bootstrap(settings: config.Settings) -> int:
     return 0
 
 
-def run_backup(settings: config.Settings, out_dir: pathlib.Path | None) -> int:
+def run_backup(
+    settings: config.Settings,
+    out_dir: pathlib.Path | None,
+    *,
+    index_only: bool = False,
+) -> int:
     """Run `keel backup`: the archive of `infra/backup.sh`, kept locally.
 
     Args:
         settings: The loaded settings.
         out_dir: The archive directory, or None for `scheduler.backup_dir`.
+        index_only: Leave the logs out (the `index-v1` release asset).
 
     Returns:
         The process exit code: 0 after a written archive.
     """
     result = backup.create_backup(
         settings.index.dir,
-        settings.logs.dir,
+        None if index_only else settings.logs.dir,
         out_dir or settings.scheduler.backup_dir,
     )
     print(f"archive: {result.archive}")
@@ -1880,7 +1898,9 @@ def _dispatch(settings: config.Settings, args: argparse.Namespace) -> int:
             corpus_dir=args.corpus,
             as_json=args.json,
         ),
-        "serve": lambda: api_app.serve(settings, args.host, args.port),
+        "serve": lambda: api_app.serve(
+            settings, args.host, args.port, bootstrap_first=args.bootstrap
+        ),
         "export": lambda: export.run(settings, args),
         "index": lambda: run_index(
             settings,
@@ -1889,7 +1909,9 @@ def _dispatch(settings: config.Settings, args: argparse.Namespace) -> int:
             incremental=args.incremental,
         ),
         "bootstrap": lambda: run_bootstrap(settings),
-        "backup": lambda: run_backup(settings, args.out),
+        "backup": lambda: run_backup(
+            settings, args.out, index_only=args.index_only
+        ),
         "restore": lambda: run_restore(settings, args.archive),
     }
     if args.command in ("calibrate", "eval", "warm-cache"):

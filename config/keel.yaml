@@ -28,6 +28,7 @@ corpus:
 
 index:
   dir: index                   # the build writes index/<build_id> and moves the `current` pointer
+  release_tag: null            # KEEL_INDEX__RELEASE_TAG=index-v1: bootstrap restores this release archive instead of building
 
 logs:
   dir: logs                    # audit.jsonl, refresh.log, state.sqlite (the watch list, 26.3)
