@@ -1,8 +1,8 @@
 #!/bin/bash
 #
 # First-boot setup for the Keel pilot host: Docker, the compose plugin, the
-# AWS CLI for backups, and the /opt/keel directory. The application itself
-# arrives through deploy.yml.
+# AWS CLI for backups, and the /opt/keel directory. The SSM agent ships with
+# the Ubuntu AMI. The application itself arrives through deploy-aws.yml.
 
 set -euo pipefail
 
@@ -11,7 +11,9 @@ export DEBIAN_FRONTEND=noninteractive
 main() {
   apt-get update
   apt-get install -y --no-install-recommends \
-    docker.io docker-compose-v2 awscli unattended-upgrades
+    docker.io docker-compose-v2 unattended-upgrades
+  # Ubuntu 24.04 has no awscli package; the snap is the supported install.
+  snap install aws-cli --classic
   systemctl enable --now docker
   usermod -aG docker ubuntu
 
