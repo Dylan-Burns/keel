@@ -7,6 +7,7 @@ import hashlib
 import os
 import pathlib
 
+import httpx
 import numpy
 import pytest
 
@@ -188,3 +189,24 @@ class FakeReranker:
             found = words & set(passage.lower().split())
             scores.append(0.1 + 0.8 * len(found) / max(1, len(words)))
         return scores
+
+
+PUBLIC_IP = "93.184.216.34"
+
+
+class FakeNetworkStream:
+    """Stands in for httpcore's network stream: reports a peer address."""
+
+    def __init__(self, address: str) -> None:
+        self.address = address
+
+    def get_extra_info(self, info: str) -> object:
+        return (self.address, 443) if info == "server_addr" else None
+
+
+def with_peer(
+    response: httpx.Response, address: str = PUBLIC_IP
+) -> httpx.Response:
+    """Attach a peer address, as a real connection would."""
+    response.extensions["network_stream"] = FakeNetworkStream(address)
+    return response

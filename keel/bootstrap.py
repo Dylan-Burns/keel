@@ -10,8 +10,10 @@ earlier run, `gh release download` of the `corpus.release_tag` asset when
 `GH_TOKEN` is set and `gh` is installed (chapter 29.11), or an https GET of
 `corpus.url`. The GET follows control S-11: https only, a host on the allow
 list (the host of `corpus.url` and the GitHub release asset hosts), every
-resolved address public, and each redirect target checked again. The URL
-can carry a signature in its query, so logs and errors name only the host.
+resolved address public, the address of the opened socket public too (DNS
+rebinding), and each redirect target checked again. The URL can carry a
+signature in its query, so logs and errors never hold the query string, and
+the httpx and httpcore loggers stay at WARNING during the download.
 
 The routine reports its phase and progress through a `BootstrapState`, so
 the server can run it in a background thread and `/api/ready` can read the
@@ -27,7 +29,6 @@ import contextlib
 import dataclasses
 import datetime
 import enum
-import ipaddress
 import logging
 import os
 import pathlib
@@ -45,6 +46,7 @@ from keel import config
 from keel import errors
 from keel import extractor
 from keel import indexer
+from keel import net
 from keel.stores import numpy_dense
 
 logger = logging.getLogger(__name__)
@@ -253,15 +255,7 @@ def check_url(url: str, allowed: frozenset[str], resolver: Resolver) -> str:
         raise errors.HostNotAllowedError(
             f"credentials or a port in the URL of {host}"
         )
-    addresses = resolver(host)
-    if not addresses:
-        raise errors.HostNotAllowedError(f"{host} resolves to no address")
-    for address in addresses:
-        ip = ipaddress.ip_address(address)
-        if not ip.is_global or ip.is_multicast:
-            raise errors.HostNotAllowedError(
-                f"{host} resolves to a non-public address {address}"
-            )
+    net.check_addresses(host, resolver(host))
     return host
 
 
@@ -302,12 +296,18 @@ def download(
     timeout = httpx.Timeout(60.0, connect=10.0)
     try:
         destination.parent.mkdir(parents=True, exist_ok=True)
-        with httpx.Client(
-            transport=transport, follow_redirects=False, timeout=timeout
-        ) as client:
+        with (
+            net.quiet_http_logs(),
+            httpx.Client(
+                transport=transport, follow_redirects=False, timeout=timeout
+            ) as client,
+        ):
             for _ in range(MAX_REDIRECTS + 1):
                 host = check_url(url, allowed, resolver)
+                logger.info("bootstrap: GET %s", net.redact_url(url))
                 with client.stream("GET", url) as response:
+                    # DNS rebinding: the connect may resolve again.
+                    net.check_peer(response, host)
                     if response.is_redirect:
                         location = response.headers.get("location", "")
                         url = parse.urljoin(url, location)
