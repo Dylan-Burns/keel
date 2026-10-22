@@ -355,7 +355,8 @@ def merge_grades(
         conn: An open chunk store.
 
     Returns:
-        The labels with the graded chunks, sorted by chunk ID.
+        The labels with the graded chunks, sorted by chunk ID; a chunk
+        graded before and absent from `grades` keeps its grade.
 
     Raises:
         GoldenSetError: A pooled chunk has no grade, or a graded chunk is
@@ -377,8 +378,9 @@ def merge_grades(
     unknown = sorted(set(grades) - set(rows))
     if unknown:
         raise errors.GoldenSetError(f"not in the index: {unknown[0]}")
-    chunks = tuple(
-        golden.ChunkLabel.model_validate(
+    graded = {c.chunk_id: c for c in labels.chunks}
+    graded |= {
+        chunk_id: golden.ChunkLabel.model_validate(
             {
                 "chunk_id": chunk_id,
                 "grade": grade,
@@ -387,8 +389,9 @@ def merge_grades(
                 "note": note,
             }
         )
-        for chunk_id, (grade, note) in sorted(grades.items())
-    )
+        for chunk_id, (grade, note) in grades.items()
+    }
+    chunks = tuple(graded[chunk_id] for chunk_id in sorted(graded))
     return labels.model_copy(
         update={
             "level": "chunk",

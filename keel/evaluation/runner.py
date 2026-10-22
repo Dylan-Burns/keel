@@ -13,6 +13,11 @@ order of chapter 11.6 step 8 groups the chunks by company and period for
 the prompt, so a cut at rank k of that order would measure the company
 order instead of the ranking.
 
+A question in scope that the understanding step refuses or rejects as
+input scores 0 on every variant. A question that expects a refusal and
+fails an input check counts as a missed refusal: the input error is not
+the out-of-scope response the golden set asks for.
+
 The answer metrics of chapter 18.4 (judge, citations, numbers, schema,
 latency, cost) need the answer path of stage 7; they join this module as
 another step per question, and the gates of `gates.py` already list them.
@@ -169,7 +174,8 @@ class EvalRun:
         return [
             r
             for r in self.results
-            if r.variant == variant and r.outcome in {SCORED, WRONG_REFUSAL}
+            if r.variant == variant
+            and r.outcome in {SCORED, WRONG_REFUSAL, INPUT_ERROR}
         ]
 
     def summary(
