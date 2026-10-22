@@ -25,7 +25,7 @@ from typing import Any
 
 import anthropic
 
-import keel
+from keel import __version__ as keel_version
 from keel import add
 from keel import answer
 from keel import backup
@@ -349,7 +349,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--version",
         action="version",
-        version=f"keel {keel.__version__}",
+        version=f"keel {keel_version}",
     )
     parser.add_argument(
         "--config",
