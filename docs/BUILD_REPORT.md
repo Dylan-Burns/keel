@@ -1,6 +1,6 @@
 # Build report
 
-Status: next stage 21
+Status: next stage 22
 
 One entry per stage of `docs/28_build_sequence.md`. Claude Code appends to this file after each stage. The panel reads it during the demo code walk.
 
