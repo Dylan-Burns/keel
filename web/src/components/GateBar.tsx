@@ -24,7 +24,7 @@ export interface GateScale {
 export function gateScale(gate: EvalGate): GateScale {
   const value = gate.value ?? 0;
   const top =
-    gate.comparator === '>='
+    gate.comparator === '>=' || gate.comparator === '>'
       ? Math.max(1, gate.threshold, value)
       : Math.max(2 * gate.threshold, value);
   const share = (x: number): number =>
@@ -39,8 +39,8 @@ export interface GateBarProps {
 }
 
 /**
- * 1 metric bar of the eval page (W-02). The number is in the DOM before the bar grows; a value that
- * misses its gate turns red when the grow ends.
+ * 1 metric bar of the eval page (W-02). The number is in the DOM before the
+ * bar grows; a value that misses its gate turns red when the grow ends.
  *
  * @param props The props.
  * @return The bar.

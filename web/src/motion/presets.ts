@@ -257,7 +257,7 @@ export const traceDrawer = {
       visible: {
         opacity: 1,
         y: 0,
-        transition: {type: 'spring', stiffness: 300, damping: 25},
+        transition: {type: 'spring', visualDuration: 0.3, bounce: 0.2},
       },
       exit: {opacity: 0, y: 24, transition: {duration: 0.2}},
     },
@@ -272,7 +272,7 @@ export const traceDrawer = {
       hidden: {scale: 1},
       visible: {
         scale: [1, 1.12, 1],
-        transition: {duration: 0.3, delay: 0.2, ease: 'easeOut'},
+        transition: {duration: 0.2, delay: 0.1, ease: 'easeOut'},
       },
     },
     reduced: {

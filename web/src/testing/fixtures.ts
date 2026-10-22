@@ -264,8 +264,8 @@ export const RESPONSE_1: AskResponse = {
       ],
     },
     quota_fills: [
-      {label: 'AAPL', taken: 16, quota: 16, candidates: 7, tokens: 1200},
-      {label: 'JPM', taken: 11, quota: 16, candidates: 9, tokens: 1200},
+      {label: 'AAPL', taken: 1, quota: 16, candidates: 7, tokens: 1200},
+      {label: 'JPM', taken: 1, quota: 16, candidates: 9, tokens: 1200},
     ],
     chunk_count: 2,
     token_estimate: 2400,

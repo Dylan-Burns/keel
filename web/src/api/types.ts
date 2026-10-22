@@ -390,7 +390,7 @@ export interface EvalDocument {
 /** 1 regression gate of chapter 18.8, read from the eval report. */
 export interface EvalGate {
   readonly name: string;
-  readonly comparator: '>=' | '<=';
+  readonly comparator: '>=' | '<=' | '>' | '<';
   readonly threshold: number;
   readonly threshold_text: string;
   readonly value: number | null;
