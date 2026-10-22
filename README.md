@@ -138,12 +138,12 @@ Prices live in `config/prices.yaml`, keyed by model id and checked on 2026-10-21
 | `keel ask "question"` | answer with 1 model request; `--json` for the record |
 | `keel eval` | run the golden set and write `eval/report.md` |
 | `keel serve` | the API and the front-end on port 8000 |
-| `keel warm-cache` | fill the answer cache for the demo questions (stage 15, pending its merge) |
+| `keel warm-cache` | fill the answer cache for the demo questions and pre-fetch the company facts |
 | `keel doctor` | check FTS5, the models, the keys, the clock, the port; `--download-models` |
 | `keel add TICKER` | add the latest 10-K and 10-Q of 1 company from EDGAR |
 | `keel refresh` | add the new filings of the watched and added tickers; `--dry-run` |
 | `keel export REQUEST_ID` | write a stored answer as a memo; `--format markdown\|docx` |
-| `keel bootstrap` | download the corpus and build the index when absent (stage 21, pending its merge) |
+| `keel bootstrap` | download the corpus and restore or build the index when absent; `keel backup` and `keel restore` |
 
 Also: `keel calibrate` (the token calibration factor, 1 count call), `keel facts TICKER` (the company facts lines), `keel users`, `keel compsets`, `keel feedback`, `keel template`, `keel watch` (the pilot features of chapter 27), `make test`, and `npm run check --prefix web`.
 
@@ -151,22 +151,21 @@ Also: `keel calibrate` (the token calibration factor, 1 count call), `keel facts
 
 `uv run keel eval` runs the 28 questions of `eval/golden.yaml` against the index and writes `eval/report.md` and `eval/report.json` with recall at 10, 25, and 48, MRR, nDCG, the ablations (lexical, dense, hybrid, with and without the reranker), and the 10 gates of chapter 18.8. `--answers` adds the live answers and the judge (`claude-opus-5-5`), about 4 USD a run; `--gate` exits non-zero on a failed gate. CI runs the `ci` subset with answers on the mini corpus.
 
-The last full run on the main branch (`eval-20261022T031218Z`, index 1.0.1, prompt 1.3.0):
+The last full run (`eval-20261022T064805Z`, index 1.2.0, prompt 1.4.0, stage 15):
 
 | Gate | Threshold | Value | Status |
 | --- | --- | --- | --- |
-| Recall at 25 | >= 0.85 | 0.75 | fail |
-| MRR | >= 0.60 | 0.97 | pass |
-| Faithfulness | >= 0.90 | 0.86 | fail |
+| Recall at 25 | >= 0.85 | 0.74 | fail |
+| MRR | >= 0.60 | 0.96 | pass |
+| Faithfulness | >= 0.90 | 0.87 | fail |
 | Citation precision | >= 0.90 | 0.99 | pass |
-| Coverage completeness | 1.00 | 1.00 | pass |
-| Numeric accuracy | >= 0.90 | 1.00 | pass |
+| Numeric accuracy | >= 0.90 | 1.00 (9 of 9) | pass |
 | Schema validity | 1.00 | 1.00 | pass |
 | Refusal correctness | 1.00 | 1.00 | pass |
-| Latency p95 | <= 40 s | 38.9 s (p50 27.8 s) | pass |
-| Mean cost per question | <= 0.25 USD | 0.09 USD | pass |
+| Latency p95 | <= 40 s | 34.1 s (p50 23.1 s) | pass |
+| Mean cost per question | <= 0.25 USD | 0.0935 USD | pass |
 
-The run on index 1.2.0 with prompt 1.4.0 and the performance memo with the measured numbers land with stage 15 (pending). The 2 failing gates are known: the faithfulness judge partly read period labels the answer took from the chunk wrapper line (judge prompt 1.1.0 now sees it), and recall suffers where the labels grade risk factor chunks while the context holds response sections.
+1 model request per answer (24 for 24). [`docs/PERFORMANCE_MEMO.md`](docs/PERFORMANCE_MEMO.md) explains each number. The 2 failing gates are known: the faithfulness judge partly read period labels the answer took from the chunk wrapper line (judge prompt 1.1.0 now sees it), and recall suffers where the labels grade risk factor chunks while the context holds response sections.
 
 ## Prompt log
 
@@ -174,7 +173,7 @@ The run on index 1.2.0 with prompt 1.4.0 and the performance memo with the measu
 
 ## Offline demo mode
 
-`KEEL_OFFLINE=1` serves every question from the answer cache (`demo/answer_cache/`) with 0 model requests; a question outside the cache gets the degraded mode with the retrieved chunks. The cache key (D-29) holds the question, the index version, the prompt version, and the model, so a cached answer comes from the same pipeline on the same index. `keel warm-cache` fills the cache for the demo questions (stage 15, pending); until it merges, `keel ask` fills it 1 question at a time. The offline drill of stage 11 answered the 3 examples from the cache in 0.01 to 0.09 s with the provider unreachable.
+`KEEL_OFFLINE=1` serves every question from the answer cache (`demo/answer_cache/`) with 0 model requests; a question outside the cache gets the degraded mode with the retrieved chunks. The cache key (D-29) holds the question, the index version, the prompt version, and the model, so a cached answer comes from the same pipeline on the same index. `keel warm-cache` fills the cache for the 28 golden questions (24 answers and 4 refusals, 2.17 USD on the first run, 0 requests on a second run) and pre-fetches the company facts of 56 tickers. The offline drill of stage 11 answered the 3 examples from the cache in 0.01 to 0.09 s with the provider unreachable.
 
 ## Security notes
 
