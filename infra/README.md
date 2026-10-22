@@ -32,10 +32,13 @@ tflint, checkov).
    `KEEL_SCHEDULER__BACKUP_DIR=/data/backups`,
    `KEEL_SCHEDULER__BACKUP_BUCKET=<bucket>`, the bucket credentials
    (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ENDPOINT_URL`), and
-   `KEEL_CORPUS__URL` with the download URL of the corpus zip.
-4. Put the corpus zip at that URL: a Railway bucket object with a signed URL,
-   or a release asset of the repository. Add the URL host to the outbound
-   allow list (control S-11) in `config/keel.yaml`.
+   `KEEL_CORPUS__URL` with the download URL of the corpus zip. The release
+   asset option needs no token:
+   `KEEL_CORPUS__URL=https://github.com/Dylan-Burns/keel/releases/download/corpus-v1/edgar_corpus.zip`.
+4. Put the corpus zip at that URL: the release asset `corpus-v1` above, or
+   a Railway bucket object with a signed URL. The host of the URL joins the
+   outbound allow list (control S-11) on its own; the GitHub release asset
+   hosts are on it already.
 5. Generate the domain in the Railway networking settings. In GitHub, create
    the `production` environment with a required reviewer, the secret
    `RAILWAY_TOKEN` (a project token), and the variable `KEEL_HOSTNAME` with
@@ -57,10 +60,15 @@ it off the host and let the bootstrap restore it:
    release is public).
 2. `gh release create index-v1 dist/keel-*.tar.gz*` (the archive and its
    `.sha256`).
-3. On the host: `KEEL_INDEX__RELEASE_TAG=index-v1` and `GH_TOKEN`, with
-   `gh` on the PATH. The bootstrap restores the archive (about 6 s for the
-   133 MB archive of index 1.2.0) instead of building; a failed download
-   or check falls back to the build.
+3. On the host, set
+   `KEEL_INDEX__URL=https://github.com/Dylan-Burns/keel/releases/download/index-v1/<archive>`,
+   where `<archive>` is the `keel-<stamp>.tar.gz` name from step 1. No
+   `GH_TOKEN` and no `gh` are needed: the bootstrap downloads the archive
+   and its `.sha256` over https under control S-11 and restores it (about
+   6 s for the 133 MB archive of index 1.2.0) instead of building. With
+   `KEEL_INDEX__RELEASE_TAG=index-v1`, `GH_TOKEN`, and `gh` on the PATH, it
+   tries `gh release download` first. A failed download or check falls back
+   to the build.
 
 The volume is mounted by Railway with its own ownership rules. If the
 non-root `keel` user cannot write `/data` on the first start, follow the
