@@ -6,6 +6,7 @@
 import type {
   AskResponse,
   CoverageResponse,
+  EvalResponse,
   IndexStatusResponse,
   ReadyResponse,
   RetrievalSummary,
@@ -232,7 +233,57 @@ export const RESPONSE_1: AskResponse = {
     from_cache: false,
     flags: {citation_drift: 0, injection_suspect: false},
   },
-  audit: {model_requests: 1},
+  audit: {
+    request_id: 'req-example-1',
+    tickers: ['AAPL', 'TSLA', 'JPM'],
+    question_type: 'comparison',
+    time_scope: 'none',
+    filters: [
+      {
+        label: 'AAPL risk',
+        tickers: ['AAPL'],
+        sections: ['risk_factors'],
+        filings: 0,
+        windows: [],
+      },
+      {
+        label: 'JPM risk',
+        tickers: ['JPM'],
+        sections: ['risk_factors'],
+        filings: 1,
+        windows: [['JPM', '2025-01-01', '2025-12-31']],
+      },
+    ],
+    candidates: {
+      gathered: 18,
+      collapsed: 2,
+      reranked: 16,
+      per_company: [
+        {ticker: 'AAPL', before: 8, after: 7},
+        {ticker: 'JPM', before: 10, after: 9},
+      ],
+    },
+    quota_fills: [
+      {label: 'AAPL', taken: 16, quota: 16, candidates: 7, tokens: 1200},
+      {label: 'JPM', taken: 11, quota: 16, candidates: 9, tokens: 1200},
+    ],
+    chunk_count: 2,
+    token_estimate: 2400,
+    prompt_hash: 'sha256:0000',
+    prompt_version: '1.0.0',
+    index_version: '1.0.0',
+    model: 'mock',
+    model_requests: 1,
+    failed_before_content: 0,
+    usage: {input_tokens: 2400, cached_input_tokens: 0, output_tokens: 320},
+    cost_usd: 0.012,
+    latency_ms: {first_token: 500, total: 1840},
+    citation_drift: 0,
+    unverified: 0,
+    flags: {from_cache: false, degraded: false},
+    outcome: 'answered',
+    error: null,
+  },
 };
 
 /** The final answer of example question 2: full coverage. */
@@ -393,3 +444,61 @@ export function toSseText(events: readonly SseEvent[]): string {
   );
   return `: ping\n\n${blocks.join('')}`;
 }
+
+/** The eval page data: a report with 3 gates and a prompt log (W-02). */
+export const EVAL_PAGE: EvalResponse = {
+  report: {
+    source: 'eval/report.md',
+    markdown:
+      '# Eval report\n\nWritten by `keel eval`.\n\n## Regression gates\n\n' +
+      '| Gate | Threshold | Value |\n| --- | --- | --- |\n' +
+      '| Recall at 25 | >= 0.85 | 0.63 |\n\n' +
+      '## Notes\n\nA <script>window.keelPwned = true</script> stays text.\n',
+    truncated: false,
+  },
+  prompt_log: {
+    source: 'docs/PROMPT_LOG.md',
+    markdown:
+      '# Prompt log\n\n| Version | Result |\n| --- | --- |\n| 1.3.0 | 0 flags |\n',
+    truncated: false,
+  },
+  gates: [
+    {
+      name: 'Recall at 25',
+      comparator: '>=',
+      threshold: 0.85,
+      threshold_text: '>= 0.85',
+      value: 0.63,
+      value_text: '0.63',
+      status: 'fail',
+      passed: false,
+    },
+    {
+      name: 'MRR',
+      comparator: '>=',
+      threshold: 0.6,
+      threshold_text: '>= 0.60',
+      value: 0.88,
+      value_text: '0.88',
+      status: 'pass',
+      passed: true,
+    },
+    {
+      name: 'Faithfulness',
+      comparator: '>=',
+      threshold: 0.9,
+      threshold_text: '>= 0.90',
+      value: null,
+      value_text: 'n/a',
+      status: 'pending',
+      passed: null,
+    },
+  ],
+};
+
+/** The eval page data before `keel eval` ran: no report, no gates. */
+export const EVAL_PAGE_EMPTY: EvalResponse = {
+  ...EVAL_PAGE,
+  report: {source: 'eval/report.md', markdown: null, truncated: false},
+  gates: [],
+};

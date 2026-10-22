@@ -244,6 +244,7 @@ class _Run:  # pylint: disable=too-many-instance-attributes
     )
     finished: base.Finished | None = None
     requests: int = 0
+    failed_before_content: int = 0
     content: bool = False
     succeeded: bool = False
     halved: bool = False
@@ -492,8 +493,8 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             latency_ms={"total": self._elapsed(run)},
         )
         record.update(request_id=run.request_id, meta=meta)
+        record["audit"] = self._audit(run, record)
         yield Event("final", record)
-        self._audit(run, record)
         yield Event("done", {})
 
     def _retrieve(
@@ -612,6 +613,8 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
                         yield out
             except errors.ProviderError as error:
                 settled = True
+                if not run.content:
+                    run.failed_before_content += 1
                 last = attempt == attempts - 1
                 if not await self._recover(
                     run,
@@ -838,7 +841,8 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             else None,
             "meta": meta,
         }
-        self._audit(run, record)
+        # The trace drawer renders the audit record of the answer (25.1).
+        record["audit"] = self._audit(run, record)
         return Event("final", record)
 
     def _meta(
@@ -898,8 +902,23 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             },
         }
 
-    def _audit(self, run: _Run, record: dict[str, Any] | None) -> None:
-        """Write the audit record of chapter 15 S-07 (never the prompt)."""
+    def _audit(
+        self, run: _Run, record: dict[str, Any] | None
+    ) -> dict[str, Any]:
+        """Write the audit record of chapter 15 S-07 (never the prompt).
+
+        The record lists the pipeline in order: the entities and the
+        question type, the filters, the candidates per company around the
+        collapse, the quota fills, the context, the prompt, the model, the
+        requests, the usage, the latency, and the flags.
+
+        Args:
+            run: The question.
+            record: The `final` record, or None for a rejected question.
+
+        Returns:
+            The record, which the `final` event carries (chapter 25.1).
+        """
         meta = record["meta"] if record else {}
         chunk_ids = list(run.bundle.chunk_ids) if run.bundle else []
         if not chunk_ids and run.result is not None:
@@ -907,42 +926,93 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
                 c.candidate.chunk_id for c in run.result.context.chunks
             ]
         flags = meta.get("flags", {})
-        self.audit.write(
-            {
-                "request_id": run.request_id,
-                "timestamp": datetime.datetime.now(tz=datetime.UTC).isoformat(
-                    timespec="seconds"
-                ),
-                "question": run.question,
-                "tickers": list(run.analysis.tickers) if run.analysis else [],
-                "outcome": run.outcome,
-                "chunk_ids": chunk_ids,
-                "prompt_hash": self.files.prompt_hash,
-                "prompt_version": self.files.version,
-                "index_version": self.index_version,
-                "model": meta.get("model", run.model or self.model),
-                "model_requests": meta.get("model_requests", run.requests),
+        analysis = run.analysis
+        entry: dict[str, Any] = {
+            "request_id": run.request_id,
+            "timestamp": datetime.datetime.now(tz=datetime.UTC).isoformat(
+                timespec="seconds"
+            ),
+            "question": run.question,
+            "tickers": list(analysis.tickers) if analysis else [],
+            "question_type": analysis.primary_type if analysis else None,
+            "time_scope": analysis.time_scope.kind if analysis else None,
+            **_retrieval_trace(run.result),
+            "outcome": run.outcome,
+            "chunk_ids": chunk_ids,
+            "prompt_hash": self.files.prompt_hash,
+            "prompt_version": self.files.version,
+            "index_version": self.index_version,
+            "model": meta.get("model", run.model or self.model),
+            "model_requests": meta.get("model_requests", run.requests),
+            "failed_before_content": run.failed_before_content,
+            "degraded": meta.get("degraded", False),
+            "latency_ms": meta.get("latency_ms"),
+            "usage": meta.get("usage"),
+            "cost_usd": meta.get("cost_usd", 0.0),
+            "citation_drift": flags.get("citation_drift", 0),
+            "inline_drift": flags.get("inline_drift", 0),
+            "quote_mismatch": flags.get("quote_mismatch", 0),
+            "period_mismatch": flags.get("period_mismatch", []),
+            "unverified": flags.get("unverified", 0),
+            "flags": {
+                "injection_suspect": flags.get("injection_suspect", False),
+                "schema_violation": flags.get("schema_violation", False),
+                "confidence_lowered": flags.get("confidence_lowered", False),
                 "degraded": meta.get("degraded", False),
-                "latency_ms": meta.get("latency_ms"),
-                "usage": meta.get("usage"),
-                "cost_usd": meta.get("cost_usd", 0.0),
-                "citation_drift": flags.get("citation_drift", 0),
-                "inline_drift": flags.get("inline_drift", 0),
-                "quote_mismatch": flags.get("quote_mismatch", 0),
-                "period_mismatch": flags.get("period_mismatch", []),
-                "unverified": flags.get("unverified", 0),
-                "flags": {
-                    "injection_suspect": flags.get("injection_suspect", False),
-                    "schema_violation": flags.get("schema_violation", False),
-                    "confidence_lowered": flags.get(
-                        "confidence_lowered", False
-                    ),
-                    "degraded": meta.get("degraded", False),
-                    "from_cache": meta.get("from_cache", False),
-                },
-                "error": run.error.code if run.error else None,
+                "from_cache": meta.get("from_cache", False),
+            },
+            "error": run.error.code if run.error else None,
+        }
+        self.audit.write(entry)
+        return entry
+
+
+def _retrieval_trace(
+    result: retriever.RetrievalResult | None,
+) -> dict[str, Any]:
+    """The retrieval part of the audit record, in pipeline order (25.1)."""
+    if result is None:
+        return {
+            "filters": [],
+            "candidates": None,
+            "quota_fills": [],
+            "chunk_count": 0,
+            "token_estimate": 0,
+        }
+    built = result.context
+    return {
+        "filters": [
+            {
+                "label": query.label,
+                "tickers": list(query.filter.tickers),
+                "sections": list(query.filter.sections),
+                "filings": len(query.filter.filing_ids),
+                "windows": [list(w) for w in query.filter.windows],
             }
-        )
+            for query in result.plan.sub_queries
+        ],
+        "candidates": {
+            "gathered": result.candidates,
+            "collapsed": result.collapsed,
+            "reranked": result.reranked,
+            "per_company": [
+                {"ticker": ticker, "before": before, "after": after}
+                for ticker, before, after in result.per_company
+            ],
+        },
+        "quota_fills": [
+            {
+                "label": fill.label,
+                "taken": fill.taken,
+                "quota": fill.quota,
+                "candidates": fill.candidates,
+                "tokens": fill.tokens,
+            }
+            for fill in built.fills
+        ],
+        "chunk_count": len(built.chunks),
+        "token_estimate": built.token_estimate,
+    }
 
 
 _MESSAGES = {

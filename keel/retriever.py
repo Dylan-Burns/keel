@@ -973,6 +973,26 @@ def collapse(
     return [c for c in candidates if c.chunk_id not in dropped], len(dropped)
 
 
+def company_counts(
+    before: Sequence[context.Candidate], after: Sequence[context.Candidate]
+) -> tuple[tuple[str, int, int], ...]:
+    """Count the candidates per company before and after the collapse.
+
+    Args:
+        before: The candidates before the near-duplicate collapse.
+        after: The candidates the collapse kept.
+
+    Returns:
+        (ticker, before, after) per company, in first-seen order.
+    """
+    counts: dict[str, list[int]] = {}
+    for c in before:
+        counts.setdefault(c.ticker, [0, 0])[0] += 1
+    for c in after:
+        counts.setdefault(c.ticker, [0, 0])[1] += 1
+    return tuple((t, n[0], n[1]) for t, n in counts.items())
+
+
 def _descending(iso_date: str) -> int:
     try:
         return -datetime.date.fromisoformat(iso_date).toordinal()
@@ -1071,6 +1091,8 @@ class RetrievalResult:
         timings: The time per step.
         ranked: The candidates after the collapse, best first (the label
             helper and the eval read them).
+        per_company: (ticker, before, after) candidate counts around the
+            near-duplicate collapse, for the trace drawer (chapter 25.1).
     """
 
     plan: Plan
@@ -1082,6 +1104,7 @@ class RetrievalResult:
     degraded: tuple[str, ...]
     timings: Timings
     ranked: tuple[_Candidate, ...] = ()
+    per_company: tuple[tuple[str, int, int], ...] = ()
 
 
 @dataclasses.dataclass
@@ -1512,4 +1535,5 @@ class Retriever:
                 total_ms=round((time.perf_counter() - started) * 1000, 1),
             ),
             ranked=tuple(sorted(kept, key=lambda c: c.rank_key)),
+            per_company=company_counts(candidates, kept),
         )
