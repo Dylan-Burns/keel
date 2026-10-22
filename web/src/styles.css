@@ -533,6 +533,24 @@
   overflow-wrap: anywhere;
 }
 
+.answer-markdown .cite-chip {
+  margin: 0;
+  vertical-align: 1px;
+  font-size: 10.5px;
+  line-height: 1rem;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+.answer-markdown .cite-chip + .cite-chip {
+  margin-left: 0.25rem;
+}
+
+.answer-markdown button.cite-chip:focus-visible {
+  outline: 2px solid var(--k-accent);
+  outline-offset: 1px;
+}
+
 .answer-markdown a {
   color: var(--k-accent);
   text-decoration: underline;

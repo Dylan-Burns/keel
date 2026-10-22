@@ -1,4 +1,7 @@
 import type {JSX} from 'react';
+import {useCallback} from 'react';
+
+import {inlineChipFor} from '../lib/citations';
 
 import type {Run} from '../state';
 import {answerText} from '../state';
@@ -44,6 +47,10 @@ export function AnswerArea({
     answer !== null && 'companies_used' in answer.coverage
       ? answer.coverage
       : null;
+  const resolveCitation = useCallback(
+    (chunkId: string) => inlineChipFor(run, chunkId),
+    [run],
+  );
   return (
     <section className="panel" aria-label="Answer" data-testid="answer-area">
       <div className="panel-head">
@@ -63,7 +70,13 @@ export function AnswerArea({
       </div>
       <div className="panel-body space-y-4">
         {(answer !== null || run.deltas.length > 0) && (
-          <AnswerMarkdown markdown={answerText(run)} streaming={streaming} />
+          <AnswerMarkdown
+            markdown={answerText(run)}
+            streaming={streaming}
+            resolveCitation={resolveCitation}
+            citationsClickable={run.final !== null}
+            onSelectCitation={onSelectCitation}
+          />
         )}
         {answer === null && run.deltas.length === 0 && (
           <p className="font-mono text-xs text-muted" role="status">

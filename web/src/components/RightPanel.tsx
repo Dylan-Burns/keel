@@ -73,6 +73,7 @@ export function RightPanel({
         <section
           className="m-2 border border-line border-l-[3px] border-l-accent bg-raised p-2.5"
           data-testid="selected-chunk"
+          data-chunk-id={selected.chunkId}
         >
           <h3 className="section-title text-accent">Opened passage</h3>
           <p className="mt-1 text-[13px] font-semibold text-ink">
