@@ -69,8 +69,10 @@ def fake_client(stream: FakeStream | Exception) -> types.SimpleNamespace:
 def provider(
     settings: config.Settings, stream: FakeStream | Exception, model=None
 ) -> adapter.AnthropicProvider:
+    """The adapter in `tool` mode, the strict answer tool of stage 7."""
+    llm = settings.llm.model_copy(update={"output_mode": "tool"})
     return adapter.AnthropicProvider(
-        model or settings.llm.model, fake_client(stream), settings.llm
+        model or settings.llm.model, fake_client(stream), llm
     )
 
 
@@ -181,7 +183,12 @@ def test_request_shape(settings: config.Settings) -> None:
     assert params["messages"] == [{"role": "user", "content": built.user}]
     assert "input_schema" not in built.system
     llm = settings.llm.model_copy(
-        update={"temperature": 0.0, "cache_system_block": False, "thinking": {}}
+        update={
+            "temperature": 0.0,
+            "cache_system_block": False,
+            "thinking": {},
+            "output_mode": "tool",
+        }
     )
     plain = adapter.AnthropicProvider("m", fake_client(FakeStream([])), llm)
     params = plain.request(built)
@@ -202,6 +209,91 @@ def test_stream_events(settings: config.Settings) -> None:
     assert out[-2] == base.UsageReport(30000, 1800, 0, 1650)
     assert out[-1] == base.Finished(stop_reason="tool_use", tool_called=True)
     assert chosen.client.messages.calls[0]["stream"] is True
+
+
+def structured_events(answer: str) -> list[object]:
+    """The stream of a `json_schema` answer: 1 text block of JSON."""
+    usage = ns(
+        input_tokens=30000,
+        cache_read_input_tokens=2500,
+        cache_creation_input_tokens=0,
+        output_tokens=1,
+    )
+    out: list[object] = [
+        ns(type="message_start", message=ns(usage=usage)),
+        ns(type="content_block_start", index=0, content_block=ns(type="text")),
+    ]
+    for start in range(0, len(answer), 50):
+        out.append(
+            ns(
+                type="content_block_delta",
+                index=0,
+                delta=ns(type="text_delta", text=answer[start : start + 50]),
+            )
+        )
+    out.append(
+        ns(
+            type="content_block_delta",
+            index=0,
+            delta=ns(type="text_delta", text=""),
+        )
+    )
+    out.append(
+        ns(
+            type="message_delta",
+            delta=ns(stop_reason="end_turn"),
+            usage=ns(
+                input_tokens=None,
+                cache_read_input_tokens=None,
+                cache_creation_input_tokens=None,
+                output_tokens=1200,
+            ),
+        )
+    )
+    return out
+
+
+def structured(
+    settings: config.Settings, stream: FakeStream
+) -> adapter.AnthropicProvider:
+    """The adapter in `json_schema` mode (stage 8)."""
+    llm = settings.llm.model_copy(update={"output_mode": "json_schema"})
+    return adapter.AnthropicProvider(llm.model, fake_client(stream), llm)
+
+
+def test_structured_output_request(settings: config.Settings) -> None:
+    built = bundle()
+    params = structured(settings, FakeStream([])).request(built)
+    assert "tools" not in params
+    assert "tool_choice" not in params
+    assert params["output_config"] == {
+        "format": {
+            "type": "json_schema",
+            "schema": dict(prompt.PromptFiles.load("1.0.0").schema),
+        }
+    }
+    assert params["system"][0]["cache_control"] == {"type": "ephemeral"}
+    assert params["thinking"] == {"type": "between_tools"}
+    # 2 builds send the same bytes, so the cached prefix stays stable.
+    again = structured(settings, FakeStream([])).request(bundle())
+    assert json.dumps(params, sort_keys=True) == json.dumps(
+        again, sort_keys=True
+    )
+
+
+def test_structured_output_stream(settings: config.Settings) -> None:
+    answer = json.dumps(test_prompt.sample())
+    chosen = structured(settings, FakeStream(structured_events(answer)))
+    out = asyncio.run(collect(chosen.answer(bundle())))
+    text = "".join(e.text for e in out if isinstance(e, base.JsonDelta))
+    assert text == answer
+    assert not [e for e in out if isinstance(e, base.TextDelta)]
+    assert out[-2] == base.UsageReport(30000, 2500, 0, 1200)
+    assert out[-1] == base.Finished(stop_reason="end_turn", tool_called=True)
+    # No text block: the answer never arrived.
+    empty = structured(settings, FakeStream(structured_events("")[:1]))
+    last = asyncio.run(collect(empty.answer(bundle())))[-1]
+    assert last == base.Finished(stop_reason=None, tool_called=False)
 
 
 @pytest.mark.parametrize(

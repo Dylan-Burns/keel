@@ -1,12 +1,16 @@
 """The Anthropic adapter: 1 streamed Messages request per call.
 
-The request carries the `answer` tool with the schema (decision D-13) and
-the static system block with the `cache_control` marker (D-15). The 5.5
-models reject a forced `tool_choice` and the `temperature` parameter, so
-the tool choice is `auto` with 1 call at most, the system block asks for
-the call, and `strict` keeps the input valid against the schema. The SDK
-retries are off (`max_retries=0`): the caller retries only before content
-(D-04), so the request counter stays exact.
+The answer schema reaches the model in 1 of 2 ways (decision D-13,
+`llm.output_mode`). `json_schema` asks for the provider's structured
+output (`output_config.format`): the response is 1 text block of JSON
+that matches the schema. `tool` sends the `answer` tool with the schema
+as its input schema; the 5.5 models reject a forced `tool_choice`, so the
+tool choice is `auto` with 1 call at most, the system block asks for the
+call, and `strict` keeps the input valid. Both modes send the static
+system block with the `cache_control` marker (D-15) and no temperature
+(the 5.5 models reject it). The SDK retries are off (`max_retries=0`):
+the caller retries only before content (D-04), so the request counter
+stays exact.
 """
 
 from __future__ import annotations
@@ -98,6 +102,7 @@ class AnthropicProvider:  # pylint: disable=too-many-instance-attributes
         self.cache_system_block = llm.cache_system_block
         self.thinking = llm.thinking.get(model)
         self.temperature = llm.temperature
+        self.output_mode = llm.output_mode
 
     @classmethod
     def from_settings(
@@ -132,8 +137,9 @@ class AnthropicProvider:  # pylint: disable=too-many-instance-attributes
     def request(self, bundle: prompt.PromptBundle) -> dict[str, Any]:
         """Build the keyword arguments of `messages.create`.
 
-        The tools render before the system block, so the 1 cache marker on
-        the system block caches the tool schema too.
+        In `tool` mode the tools render before the system block, so the 1
+        cache marker on the system block caches the tool schema too. In
+        `json_schema` mode the schema goes in `output_config.format`.
 
         Args:
             bundle: The prompt.
@@ -149,9 +155,20 @@ class AnthropicProvider:  # pylint: disable=too-many-instance-attributes
             "max_tokens": self.max_tokens,
             "system": [system],
             "messages": [{"role": "user", "content": bundle.user}],
-            "tools": [dict(bundle.tool)],
-            "tool_choice": {"type": "auto", "disable_parallel_tool_use": True},
         }
+        if self.output_mode == "json_schema":
+            params["output_config"] = {
+                "format": {
+                    "type": "json_schema",
+                    "schema": dict(bundle.tool["input_schema"]),
+                }
+            }
+        else:
+            params["tools"] = [dict(bundle.tool)]
+            params["tool_choice"] = {
+                "type": "auto",
+                "disable_parallel_tool_use": True,
+            }
         if self.thinking:
             params["thinking"] = {"type": self.thinking}
         if self.temperature is not None:
@@ -167,7 +184,8 @@ class AnthropicProvider:  # pylint: disable=too-many-instance-attributes
             bundle: The prompt.
 
         Yields:
-            The JSON and text deltas, the usage, and the end.
+            The JSON deltas of the answer (the tool input, or the text in
+            `json_schema` mode), other text, the usage, and the end.
 
         Raises:
             ProviderError: The request or the stream failed.
@@ -206,6 +224,7 @@ class AnthropicProvider:  # pylint: disable=too-many-instance-attributes
         tool_blocks: set[int] = set()
         text_blocks: set[int] = set()
         stop_reason: str | None = None
+        structured = self.output_mode == "json_schema"
         async for event in stream:
             kind = event.type
             if kind == "message_start":
@@ -226,22 +245,38 @@ class AnthropicProvider:  # pylint: disable=too-many-instance-attributes
                 elif block.type == "text":
                     text_blocks.add(event.index)
             elif kind == "content_block_delta":
-                delta = event.delta
-                if (
-                    delta.type == "input_json_delta"
-                    and event.index in tool_blocks
-                ):
-                    if delta.partial_json:
-                        yield base.JsonDelta(delta.partial_json)
-                elif delta.type == "text_delta" and event.index in text_blocks:
-                    yield base.TextDelta(delta.text)
+                out = _delta(event, tool_blocks, text_blocks, structured)
+                if out is not None:
+                    yield out
             elif kind == "message_delta":
                 stop_reason = event.delta.stop_reason
                 usage = _merge(usage, event.usage)
         yield usage
-        yield base.Finished(
-            stop_reason=stop_reason, tool_called=bool(tool_blocks)
+        answered = text_blocks if structured else tool_blocks
+        yield base.Finished(stop_reason=stop_reason, tool_called=bool(answered))
+
+
+def _delta(
+    event: Any,  # noqa: ANN401
+    tool_blocks: set[int],
+    text_blocks: set[int],
+    structured: bool,
+) -> base.JsonDelta | base.TextDelta | None:
+    """Map 1 `content_block_delta` to an event, or None to skip it.
+
+    The input of the `answer` tool is answer JSON; so is the text of a
+    `json_schema` response. Other text stays text.
+    """
+    delta = event.delta
+    if delta.type == "input_json_delta" and event.index in tool_blocks:
+        return (
+            base.JsonDelta(delta.partial_json) if delta.partial_json else None
         )
+    if delta.type != "text_delta" or event.index not in text_blocks:
+        return None
+    if not structured:
+        return base.TextDelta(delta.text)
+    return base.JsonDelta(delta.text) if delta.text else None
 
 
 def _merge(usage: base.UsageReport, delta: Any) -> base.UsageReport:  # noqa: ANN401

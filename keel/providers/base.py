@@ -1,9 +1,10 @@
 """The provider interface and its events (chapter 17.1).
 
 A provider sends exactly 1 request per call of `answer` and yields events:
-`JsonDelta` for each fragment of the `answer` tool input, `TextDelta` for
-text the model writes outside the tool call, `UsageReport` with the token
-counts, and `Finished` with the stop reason. A failure raises a
+`JsonDelta` for each fragment of the answer JSON (the `answer` tool input
+or the structured output text), `TextDelta` for other text the model
+writes, `UsageReport` with the token counts, and `Finished` with the stop
+reason. A failure raises a
 `ProviderError`; the caller knows whether content had arrived, so it alone
 decides on a retry (decision D-04).
 """
@@ -70,7 +71,8 @@ class Finished:
 
     Attributes:
         stop_reason: The provider stop reason, such as `tool_use`.
-        tool_called: True when the model called the `answer` tool.
+        tool_called: True when the answer arrived: the model called the
+            `answer` tool, or wrote the structured output text.
     """
 
     stop_reason: str | None
