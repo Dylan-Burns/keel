@@ -147,7 +147,7 @@ On the laptop, run P-12 and P-13 with `--corpus` and `--out` on a scratch copy o
 | P-11 | Memo export | `keel export <request ID of P-3> --format docx` and `--format markdown`; `GET /api/export/<request ID>?format=docx` with ana's token | Both files open with numbered sources and `www.sec.gov` links; the route returns the DOCX | | |
 | P-12 | keel add | `keel add ZTS` (or the firm's ticker outside the corpus); ask a question about it; ask P-7 again | A new index version; the answer cites the added 10-K; the comp set question answers on ZTS too | | |
 | P-13 | Watch list and refresh | `keel watch add AAPL`, `keel refresh --dry-run`, then `keel refresh` | The dry run lists each watched and added ticker; `refresh.log` holds the run; a new filing, if any, is added | | |
-| P-14 | Pilot metrics | `uv run python scripts/pilot_metrics.py --exclude-user eng --exclude-user legacy --manifest <scratch corpus>/manifest.json` | The weekly row shows 2 active users (ana, pat), their questions and cost, a thumbs-up rate of 50%, and the companies of P-12; memos read n/a (not logged) | | |
+| P-14 | Pilot metrics | `uv run python scripts/pilot_metrics.py --exclude-user eng --exclude-user legacy --manifest <scratch corpus>/manifest.json` | The weekly row shows 2 active users (ana, pat), their questions and cost, a thumbs-up rate of 50%, the companies of P-12, and 3 memos exported (the 2 `cli` exports and ana's route export of P-11) | | |
 | P-15 | Revoke | `keel users remove pat`; pat asks again | 401 on the next request, with no restart | | |
 | P-16 | Data use | Read section 7 of `docs/START_GUIDE.md` against the provider's current commercial terms | The terms still say API data is not used for training; the check date is written in the log of section 7 | | |
 
@@ -159,4 +159,4 @@ Week 0 of chapter 27.6 on the pilot host, after the walk-through passes:
 - [ ] `keel add TICKER` for every ticker of the comp sets and the watch list outside the corpus.
 - [ ] Run the golden set (`keel eval --answers`) and write the performance memo with the measured numbers (stage 15).
 - [ ] Send `docs/START_GUIDE.md` with the pilot address; write the pilot start date for `pilot_metrics.py --since`.
-- [ ] Each week: `keel feedback --flagged`, the golden questions from the flagged answers, `scripts/pilot_metrics.py --since <start> --exclude-user eng --exclude-user legacy` (the terminal runs and the shared token write `legacy`), and the memo count by hand (exports are not logged).
+- [ ] Each week: `keel feedback --flagged`, the golden questions from the flagged answers, `scripts/pilot_metrics.py --since <start> --exclude-user eng --exclude-user legacy` (the terminal runs and the shared token write `legacy`) (the memos come from the export log).
