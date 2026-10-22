@@ -42,6 +42,7 @@ import shutil
 import sqlite3
 import tarfile
 import tempfile
+from typing import BinaryIO
 from typing import Protocol
 
 from keel import config
@@ -224,6 +225,14 @@ def _stage(
     return members
 
 
+def _private_file(path: pathlib.Path) -> BinaryIO:
+    """Create a new file with mode 0600 from the start and open it."""
+    descriptor = os.open(
+        path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, PRIVATE_FILE_MODE
+    )
+    return os.fdopen(descriptor, "wb")
+
+
 def create_backup(
     index_dir: pathlib.Path,
     logs_dir: pathlib.Path | None,
@@ -257,27 +266,30 @@ def create_backup(
     stamp = moment.strftime(STAMP_FORMAT)
     archive = out_dir / f"{ARCHIVE_PREFIX}{stamp}{ARCHIVE_SUFFIX}"
     checksum_file = archive.with_name(archive.name + CHECKSUM_SUFFIX)
-    part = archive.with_name(archive.name + ".part")
     try:
-        out_dir.mkdir(parents=True, exist_ok=True)
-        # mkdtemp makes a 0700 directory; the archive and its checksum are
-        # 0600, like the audit log they hold.
+        # A new backup directory is 0700. The archive and its checksum are
+        # written inside the 0700 work directory and moved into place, so
+        # no other local user can read them at any time (they hold the
+        # audit log and the feedback notes).
+        out_dir.mkdir(mode=PRIVATE_DIR_MODE, parents=True, exist_ok=True)
         work = pathlib.Path(tempfile.mkdtemp(prefix=".backup-", dir=out_dir))
         try:
             members = _stage(build_dir, logs_dir, work)
-            with tarfile.open(part, "w:gz") as tar:
+            part = work / archive.name
+            with (
+                _private_file(part) as stream,
+                tarfile.open(fileobj=stream, mode="w:gz") as tar,
+            ):
                 for name in members:
                     tar.add(work / name, arcname=name, recursive=False)
-            os.chmod(part, PRIVATE_FILE_MODE)
+            digest = indexer.file_sha256(part)
+            sha_part = work / checksum_file.name
+            with _private_file(sha_part) as stream:
+                stream.write(f"{digest}  {archive.name}\n".encode())
             os.replace(part, archive)
+            os.replace(sha_part, checksum_file)
         finally:
             shutil.rmtree(work, ignore_errors=True)
-            part.unlink(missing_ok=True)
-        digest = indexer.file_sha256(archive)
-        sha_part = checksum_file.with_name(checksum_file.name + ".part")
-        sha_part.write_text(f"{digest}  {archive.name}\n", encoding="utf-8")
-        os.chmod(sha_part, PRIVATE_FILE_MODE)
-        os.replace(sha_part, checksum_file)
     except OSError as error:
         raise errors.BackupError(f"cannot write {archive}: {error}") from error
     logger.info(
