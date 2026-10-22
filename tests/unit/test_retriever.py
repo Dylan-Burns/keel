@@ -502,3 +502,94 @@ def test_cross_encoder_load_failure(
     monkeypatch.setattr("sentence_transformers.CrossEncoder", fail)
     with pytest.raises(errors.ModelMissingError, match="download-models"):
         retriever.CrossEncoderReranker.from_settings(settings)
+
+
+def test_superseded_standing_sections(
+    understander: understanding.Understander,
+) -> None:
+    analysis = understander.analyze("What are Apple's main risks?")
+    latest = candidate()
+    older = candidate(
+        chunk_id="AAPL_10K_2024-12-31__risk_factors__0001",
+        filing_id="AAPL_10K_2024-12-31",
+        period_end_date="2024-12-31",
+    )
+    older_mdna = candidate(
+        chunk_id="AAPL_10K_2024-12-31__mdna__0001",
+        filing_id="AAPL_10K_2024-12-31",
+        period_end_date="2024-12-31",
+        section="mdna",
+    )
+    quarter = candidate(
+        chunk_id="AAPL_10Q_2025-06-28__risk_factors__0001",
+        filing_id="AAPL_10Q_2025-06-28",
+        form="10-Q",
+        period_end_date="2025-06-28",
+    )
+    found = [latest, older, older_mdna, quarter]
+    rules = retriever.weight_rules(analysis, understander.catalog, found)
+    assert rules.superseded_filings == {
+        "AAPL_10K_2024-12-31",
+        "AAPL_10Q_2025-06-28",
+    }
+    risk = analysis.section_weights["risk_factors"]
+    assert retriever.weigh(latest, rules) == pytest.approx(risk)
+    assert retriever.weigh(older, rules) == pytest.approx(risk * 0.9 * 0.6)
+    # MD&A of an earlier year is not restated, so it keeps the 0.9 only.
+    mdna = analysis.section_weights["mdna"]
+    assert retriever.weigh(older_mdna, rules) == pytest.approx(mdna * 0.9)
+    # A time scope or a trend keeps the earlier filings at full weight.
+    for question in [
+        "What were Apple's risks in fiscal 2024?",
+        "How have Apple's risk factors changed?",
+    ]:
+        scoped = understander.analyze(question)
+        rules = retriever.weight_rules(scoped, understander.catalog, found)
+        assert not rules.superseded_filings
+
+
+def test_quarter_in_year_weight(
+    understander: understanding.Understander,
+) -> None:
+    analysis = understander.analyze(
+        "What was NVIDIA's total revenue in fiscal 2025?"
+    )
+    annual = candidate(
+        chunk_id="NVDA_10K_2025-01-26__mdna__0001",
+        filing_id="NVDA_10K_2025-01-26",
+        ticker="NVDA",
+        period_end_date="2025-01-26",
+        section="mdna",
+    )
+    quarter = candidate(
+        chunk_id="NVDA_10Q_2024-10-27__mdna__0001",
+        filing_id="NVDA_10Q_2024-10-27",
+        ticker="NVDA",
+        form="10-Q",
+        period_end_date="2024-10-27",
+        section="mdna",
+    )
+    rules = retriever.weight_rules(
+        analysis, understander.catalog, [annual, quarter]
+    )
+    assert rules.quarter_filings == {
+        "NVDA_10Q_2024-04-28",
+        "NVDA_10Q_2024-07-28",
+        "NVDA_10Q_2024-10-27",
+    }
+    assert retriever.weigh(quarter, rules) == pytest.approx(
+        retriever.weigh(annual, rules) * 0.9 * 0.6
+    )
+    # A calendar year over the January year end of NVDA holds the 10-K of
+    # fiscal 2024 (ended 2024-01-28) and the 10-Qs of fiscal 2025, which
+    # that 10-K does not cover: they keep their weight.
+    calendar = understander.analyze("What was NVIDIA's revenue in 2024?")
+    assert calendar.time_scope.kind == "calendar_year"
+    rules = retriever.weight_rules(calendar, understander.catalog, [quarter])
+    assert not rules.quarter_filings
+    # A year with no 10-K in the corpus keeps its quarters.
+    later = understander.analyze(
+        "What was NVIDIA's total revenue in fiscal 2026?"
+    )
+    rules = retriever.weight_rules(later, understander.catalog, [quarter])
+    assert not rules.quarter_filings
