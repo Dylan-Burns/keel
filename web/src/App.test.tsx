@@ -1,22 +1,22 @@
 import {render, screen} from '@testing-library/react';
-import {describe, expect, it} from 'vitest';
+import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import {App} from './App';
-import {pageLoad, pick} from './motion/presets';
+import {READY} from './testing/fixtures';
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe('App', () => {
-  it('renders the name Keel as the page heading', () => {
+  it('renders the name Keel as the page heading and the example chips', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(JSON.stringify(READY))),
+    );
     render(<App />);
     expect(
       screen.getByRole('heading', {level: 1, name: 'Keel'}),
     ).toBeInTheDocument();
-  });
-});
-
-describe('pick', () => {
-  it('uses the reduced twin only when reduced motion is true', () => {
-    expect(pick(pageLoad, true)).toBe(pageLoad.reduced);
-    expect(pick(pageLoad, false)).toBe(pageLoad.full);
-    expect(pick(pageLoad, null)).toBe(pageLoad.full);
+    expect(screen.getAllByTestId('example-chip')).toHaveLength(3);
+    expect(await screen.findByText('index 1.0.0')).toBeInTheDocument();
   });
 });

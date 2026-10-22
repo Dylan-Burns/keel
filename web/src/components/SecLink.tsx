@@ -26,7 +26,7 @@ export function SecLink({url, label}: SecLinkProps): JSX.Element | null {
         className="block break-all text-slate-500"
         data-testid="untrusted-url"
       >
-        {label ?? url}
+        {url}
       </span>
     );
   }

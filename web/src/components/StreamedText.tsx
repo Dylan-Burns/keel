@@ -1,4 +1,7 @@
+import {motion, useReducedMotion} from 'motion/react';
 import type {JSX} from 'react';
+
+import {pick, stream} from '../motion/presets';
 
 /** Props of StreamedText. */
 export interface StreamedTextProps {
@@ -14,6 +17,7 @@ export interface StreamedTextProps {
  * @return The growing answer.
  */
 export function StreamedText({deltas}: StreamedTextProps): JSX.Element {
+  const reduced = useReducedMotion();
   return (
     <p
       className="whitespace-pre-wrap leading-relaxed"
@@ -22,14 +26,24 @@ export function StreamedText({deltas}: StreamedTextProps): JSX.Element {
       aria-live="polite"
     >
       {deltas.map((text, index) => (
-        <span key={index}>{text}</span>
+        <motion.span
+          key={index}
+          variants={pick(stream.delta, reduced)}
+          initial="hidden"
+          animate="visible"
+        >
+          {text}
+        </motion.span>
       ))}
-      <span
+      <motion.span
+        variants={pick(stream.cursor, reduced)}
+        initial="hidden"
+        animate="visible"
         className="answer-cursor ml-0.5 inline-block w-2 text-accent"
         aria-hidden="true"
       >
         |
-      </span>
+      </motion.span>
     </p>
   );
 }

@@ -1,3 +1,4 @@
+import {MotionConfig, motion, useReducedMotion} from 'motion/react';
 import type {JSX} from 'react';
 import {useCallback, useState} from 'react';
 
@@ -20,6 +21,7 @@ import {TopBar} from './components/TopBar';
 import {answerToJson, answerToMarkdown} from './lib/answerExport';
 import type {Example} from './lib/examples';
 import {EXAMPLES} from './lib/examples';
+import {pageLoad, pick, pickTransition, stateChange} from './motion/presets';
 import {baseState, canAsk, currentRun, hasOverlay, health} from './state';
 import {useKeel} from './useKeel';
 
@@ -49,6 +51,7 @@ export function App(): JSX.Element {
   const [selected, setSelected] = useState<SelectedChunk | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
+  const reduced = useReducedMotion();
 
   const ui = state.ui;
   const base = baseState(ui);
@@ -140,112 +143,135 @@ export function App(): JSX.Element {
     (base.kind !== 'rate_limited' || run.final !== null);
 
   return (
-    <div
-      className="flex min-h-screen flex-col bg-paper font-sans text-ink"
-      data-state={base.kind}
-    >
-      <TopBar
-        indexVersion={indexVersion}
-        health={health(state)}
-        lastMeta={meta}
+    <MotionConfig reducedMotion="user">
+      <div
+        className="flex min-h-screen flex-col bg-paper font-sans text-ink"
+        data-state={base.kind}
       >
-        <TokenField
-          hasToken={hasToken}
-          rejected={state.service.tokenRejected}
-          onSave={saveToken}
-        />
-      </TopBar>
-      {hasOverlay(ui, 'network_offline') && <OfflineBanner />}
-      {hasOverlay(ui, 'stale_index') && (
-        <StaleIndexBanner
-          warnings={state.service.indexStatus?.warnings ?? []}
-        />
-      )}
-      <div className="mx-auto grid w-full max-w-7xl flex-1 grid-cols-1 gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
-        <main className="min-w-0 space-y-4">
-          <QuestionArea
-            question={question}
-            onQuestionChange={setQuestion}
-            onAsk={onAsk}
-            askEnabled={askEnabled}
-            examples={EXAMPLES}
-            analysis={run?.analysis ?? null}
-          />
-          {base.kind === 'empty' && (
-            <CoverageSummary
-              coverage={state.service.coverage}
+        <motion.div
+          variants={pick(pageLoad.region, reduced)}
+          initial="hidden"
+          animate="visible"
+        >
+          <TopBar
+            indexVersion={indexVersion}
+            health={health(state)}
+            lastMeta={meta}
+          >
+            <TokenField
               hasToken={hasToken}
+              rejected={state.service.tokenRejected}
+              onSave={saveToken}
             />
-          )}
-          {base.kind === 'partial_coverage' && (
-            <PartialCoverageBanner
-              companiesMissing={base.companiesMissing}
-              unverifiedFindings={base.unverifiedFindings}
-            />
-          )}
-          {base.kind === 'provider_down' && (
-            <ProviderDownBanner
-              message={base.message}
-              retryEnabled={askEnabled}
-              onRetry={
-                base.run === null ? null : () => onAsk(base.run?.question ?? '')
-              }
-            />
-          )}
-          {base.kind === 'rate_limited' && (
-            <RateLimitedCard secondsLeft={base.secondsLeft} />
-          )}
-          {base.kind === 'out_of_scope' && (
-            <OutOfScopeCard
-              reason={base.reason}
-              coverage={state.service.coverage}
-              examples={EXAMPLES}
-              askEnabled={askEnabled}
-              onPick={onPick}
-            />
-          )}
-          {showAnswer && run !== null && (
-            <AnswerArea
-              run={run}
-              streaming={base.kind === 'streaming'}
-              askEnabled={askEnabled}
-              onSelectCitation={onSelectCitation}
-              onAsk={text => {
-                setQuestion(text);
-                onAsk(text);
-              }}
-            />
-          )}
-          {run?.retrieval !== undefined && run?.retrieval !== null && (
-            <button
-              type="button"
-              className="rounded border border-slate-300 bg-white px-3 py-1 text-sm lg:hidden"
-              data-testid="open-sources"
-              onClick={() => setPanelOpen(true)}
+          </TopBar>
+        </motion.div>
+        {hasOverlay(ui, 'network_offline') && <OfflineBanner />}
+        {hasOverlay(ui, 'stale_index') && (
+          <StaleIndexBanner
+            warnings={state.service.indexStatus?.warnings ?? []}
+          />
+        )}
+        <div className="mx-auto grid w-full max-w-7xl flex-1 grid-cols-1 gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
+          <main className="min-w-0 space-y-4">
+            <motion.div
+              variants={pick(pageLoad.region, reduced)}
+              initial="hidden"
+              animate="visible"
             >
-              Sources
-            </button>
-          )}
-        </main>
-        <RightPanel
-          run={run}
-          selected={selected}
-          open={panelOpen}
-          onClose={() => setPanelOpen(false)}
+              <QuestionArea
+                question={question}
+                onQuestionChange={setQuestion}
+                onAsk={onAsk}
+                askEnabled={askEnabled}
+                examples={EXAMPLES}
+                analysis={run?.analysis ?? null}
+              />
+            </motion.div>
+            <motion.div
+              layout
+              transition={pickTransition(stateChange, reduced)}
+              className="space-y-4"
+              data-testid="answer-container"
+            >
+              {base.kind === 'empty' && (
+                <CoverageSummary
+                  coverage={state.service.coverage}
+                  hasToken={hasToken}
+                />
+              )}
+              {base.kind === 'partial_coverage' && (
+                <PartialCoverageBanner
+                  companiesMissing={base.companiesMissing}
+                  unverifiedFindings={base.unverifiedFindings}
+                />
+              )}
+              {base.kind === 'provider_down' && (
+                <ProviderDownBanner
+                  message={base.message}
+                  retryEnabled={askEnabled}
+                  onRetry={
+                    base.run === null
+                      ? null
+                      : () => onAsk(base.run?.question ?? '')
+                  }
+                />
+              )}
+              {base.kind === 'rate_limited' && (
+                <RateLimitedCard secondsLeft={base.secondsLeft} />
+              )}
+              {base.kind === 'out_of_scope' && (
+                <OutOfScopeCard
+                  reason={base.reason}
+                  coverage={state.service.coverage}
+                  examples={EXAMPLES}
+                  askEnabled={askEnabled}
+                  onPick={onPick}
+                />
+              )}
+              {showAnswer && run !== null && (
+                <AnswerArea
+                  run={run}
+                  streaming={base.kind === 'streaming'}
+                  askEnabled={askEnabled}
+                  onSelectCitation={onSelectCitation}
+                  onAsk={text => {
+                    setQuestion(text);
+                    onAsk(text);
+                  }}
+                />
+              )}
+              {run?.retrieval !== undefined && run?.retrieval !== null && (
+                <button
+                  type="button"
+                  className="rounded border border-slate-300 bg-white px-3 py-1 text-sm lg:hidden"
+                  data-testid="open-sources"
+                  onClick={() => setPanelOpen(true)}
+                >
+                  Sources
+                </button>
+              )}
+            </motion.div>
+          </main>
+          <RightPanel
+            run={run}
+            selected={selected}
+            open={panelOpen}
+            onClose={() => setPanelOpen(false)}
+          />
+        </div>
+        <Footer
+          requestId={run?.meta?.request_id ?? run?.final?.request_id ?? null}
+          promptVersion={
+            meta?.prompt_version ?? run?.meta?.prompt_version ?? null
+          }
+          hasAnswer={
+            run !== null && (run.deltas.length > 0 || run.final !== null)
+          }
+          copyStatus={copyStatus}
+          onCopy={onCopy}
+          onExport={onExport}
         />
       </div>
-      <Footer
-        requestId={run?.meta?.request_id ?? run?.final?.request_id ?? null}
-        promptVersion={
-          meta?.prompt_version ?? run?.meta?.prompt_version ?? null
-        }
-        hasAnswer={
-          run !== null && (run.deltas.length > 0 || run.final !== null)
-        }
-        copyStatus={copyStatus}
-        onCopy={onCopy}
-        onExport={onExport}
-      />
-    </div>
+    </MotionConfig>
   );
 }

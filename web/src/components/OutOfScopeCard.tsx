@@ -1,7 +1,9 @@
+import {motion, useReducedMotion} from 'motion/react';
 import type {JSX} from 'react';
 
 import type {CoverageResponse} from '../api/types';
 import type {Example} from '../lib/examples';
+import {outOfScope, pick} from '../motion/presets';
 import {ExampleChips} from './ExampleChips';
 
 /** Props of OutOfScopeCard. */
@@ -27,8 +29,12 @@ export function OutOfScopeCard({
   askEnabled,
   onPick,
 }: OutOfScopeCardProps): JSX.Element {
+  const reduced = useReducedMotion();
   return (
-    <section
+    <motion.section
+      variants={pick(outOfScope.card, reduced)}
+      initial="hidden"
+      animate="visible"
       className="space-y-3 rounded-lg border border-slate-300 bg-slate-100 p-4 text-sm text-slate-800"
       data-testid="card-out-of-scope"
     >
@@ -44,6 +50,6 @@ export function OutOfScopeCard({
         disabled={!askEnabled}
         onPick={onPick}
       />
-    </section>
+    </motion.section>
   );
 }

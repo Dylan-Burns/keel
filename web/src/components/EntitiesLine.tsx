@@ -1,6 +1,8 @@
+import {motion, useReducedMotion} from 'motion/react';
 import type {JSX} from 'react';
 
 import type {AnalysisSummary} from '../api/types';
+import {entitiesResolved, pick} from '../motion/presets';
 
 /** Props of EntitiesLine. */
 export interface EntitiesLineProps {
@@ -16,30 +18,35 @@ export interface EntitiesLineProps {
 export function EntitiesLine({
   analysis,
 }: EntitiesLineProps): JSX.Element | null {
+  const reduced = useReducedMotion();
   if (analysis === null || analysis.tickers.length === 0) {
     return null;
   }
   const fuzzy = (analysis.entities ?? []).filter(e => e.fuzzy === true);
   return (
-    <div
+    <motion.div
       className="flex flex-wrap items-center gap-2 text-sm"
       data-testid="entities-line"
+      variants={pick(entitiesResolved.chips, reduced)}
+      initial="hidden"
+      animate="visible"
     >
       <span className="text-slate-500">Companies:</span>
       {analysis.tickers.map(ticker => (
-        <span
+        <motion.span
           key={ticker}
+          variants={pick(entitiesResolved.chip, reduced)}
           className="rounded bg-slate-800 px-2 py-0.5 font-mono text-xs text-white"
           data-testid="entity-chip"
         >
           {ticker}
-        </span>
+        </motion.span>
       ))}
       {fuzzy.map(e => (
         <span key={e.text} className="text-xs text-slate-500">
           Did you mean {e.company}? (read &quot;{e.text}&quot; as {e.ticker})
         </span>
       ))}
-    </div>
+    </motion.div>
   );
 }

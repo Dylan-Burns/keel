@@ -1,6 +1,8 @@
+import {motion, useReducedMotion} from 'motion/react';
 import type {JSX} from 'react';
 
 import type {ComparisonTable as Table} from '../api/types';
+import {complete, pick} from '../motion/presets';
 
 /** Props of ComparisonTable. */
 export interface ComparisonTableProps {
@@ -15,6 +17,7 @@ export interface ComparisonTableProps {
  * @return The table.
  */
 export function ComparisonTable({table}: ComparisonTableProps): JSX.Element {
+  const reduced = useReducedMotion();
   return (
     <div className="overflow-x-auto">
       <table
@@ -33,9 +36,13 @@ export function ComparisonTable({table}: ComparisonTableProps): JSX.Element {
             ))}
           </tr>
         </thead>
-        <tbody>
+        <motion.tbody
+          variants={pick(complete.rows, reduced)}
+          initial="hidden"
+          animate="visible"
+        >
           {table.rows.map((row, rowIndex) => (
-            <tr key={rowIndex}>
+            <motion.tr key={rowIndex} variants={pick(complete.row, reduced)}>
               {row.map((cell, cellIndex) => (
                 <td
                   key={cellIndex}
@@ -44,9 +51,9 @@ export function ComparisonTable({table}: ComparisonTableProps): JSX.Element {
                   {cell}
                 </td>
               ))}
-            </tr>
+            </motion.tr>
           ))}
-        </tbody>
+        </motion.tbody>
       </table>
     </div>
   );

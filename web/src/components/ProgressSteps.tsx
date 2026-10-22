@@ -1,6 +1,8 @@
+import {motion, useReducedMotion} from 'motion/react';
 import type {JSX} from 'react';
 
 import type {PipelineStep, Run} from '../state';
+import {pick, questionSent} from '../motion/presets';
 import {PIPELINE_STEPS} from '../state';
 
 /** Props of ProgressSteps. */
@@ -27,6 +29,7 @@ export function ProgressSteps({
   run,
   streaming,
 }: ProgressStepsProps): JSX.Element {
+  const reduced = useReducedMotion();
   const last = run.stepsLit[run.stepsLit.length - 1];
   return (
     <ol
@@ -39,15 +42,18 @@ export function ProgressSteps({
         const lit = run.stepsLit.includes(step);
         const active = lit && step === last && !streaming && run.final === null;
         return (
-          <li
+          <motion.li
             key={step}
+            variants={pick(questionSent.step, reduced)}
+            initial="off"
+            animate={active ? 'pulse' : lit ? 'lit' : 'off'}
             className={`rounded-full px-3 py-1 ${lit ? 'bg-accent text-white' : 'bg-slate-200 text-slate-500'}`}
             data-step={step}
             data-lit={lit}
             data-active={active}
           >
             {LABELS[step]}
-          </li>
+          </motion.li>
         );
       })}
     </ol>

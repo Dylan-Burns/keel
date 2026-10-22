@@ -2,6 +2,7 @@ import type {JSX, ReactNode} from 'react';
 
 import type {ResponseMeta} from '../api/types';
 import type {Health} from '../state';
+import {CostBadge} from './CostBadge';
 
 /** Props of TopBar. */
 export interface TopBarProps {
@@ -19,17 +20,6 @@ const DOT: Readonly<Record<Health, string>> = {
   red: 'bg-red-500',
   unknown: 'bg-slate-300',
 };
-
-/**
- * Formats the latency and cost badge text.
- *
- * @param latencyMs The total latency in milliseconds.
- * @param costUsd The cost in US dollars.
- * @return The badge text, such as `18.4 s, $0.082`.
- */
-export function badgeText(latencyMs: number, costUsd: number): string {
-  return `${(latencyMs / 1000).toFixed(1)} s, $${costUsd.toFixed(3)}`;
-}
 
 /**
  * The top bar (chapter 14.5): the name, the index version badge, the health
@@ -63,13 +53,11 @@ export function TopBar({
         aria-label={`Service health: ${health}`}
       />
       {lastMeta !== null && (
-        <span
-          className="rounded bg-slate-100 px-2 py-0.5 text-xs tabular-nums text-slate-700"
-          data-testid="cost-badge"
-          data-final={badgeText(lastMeta.latency_ms.total, lastMeta.cost_usd)}
-        >
-          {badgeText(lastMeta.latency_ms.total, lastMeta.cost_usd)}
-        </span>
+        <CostBadge
+          key={`${lastMeta.latency_ms.total}:${lastMeta.cost_usd}`}
+          latencyMs={lastMeta.latency_ms.total}
+          costUsd={lastMeta.cost_usd}
+        />
       )}
       <div className="ml-auto">{children}</div>
     </header>
