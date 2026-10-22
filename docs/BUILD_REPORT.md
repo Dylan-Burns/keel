@@ -629,6 +629,33 @@ Entry format:
 - Decisions taken without review: the archive name comes from the last segment of the URL path and must be `keel-*.tar.gz`; the `.sha256` URL adds the suffix to the path and keeps the query, so `index.url` must be an unsigned public URL (a presigned bucket URL signs the path, and its `.sha256` would answer 403). `index.url` joins the D-38 allow list the way `corpus.url` does.
 - Attempts: 1.
 
+## Follow-up after stage 22: prompt 1.5.1
+
+- Built: `prompts/answer_system_v1.5.1.md`, `prompts/answer_user_v1.5.1.md`, and `prompts/answer_schema_v1.5.1.json` (the user template and the schema are the bytes of 1.5.0), and `test_instruction_chunk_rule_keeps_the_user_block` in `tests/unit/test_prompt.py` (plus the 1.5.1 output mode). The system block is 1.5.0 plus 1 sentence in rule 4: a finding never cites a chunk holding instructions to the model, and "direct_answer" may note that such text exists, without citing it. Prompt hash `sha256:219dcfa40ae8182e3f811780274444fce2b043481166dc5d34a0908ce2c74b4e`.
+- Size: 1.5.0 held 1,893 of the 1,894 bge tokens that `test_system_block_size` allows (2,500 at the factor 1.32), so the new sentence (about 29 tokens) is paid for by tighter wording with the same content: the opening sentence drops "with only the context in the user message" (rule 1 says it), and rules 1, 4, 8, 9, 12, 14, 15, 16, and 20 lose filler words. 1.5.1 is 1,893 bge tokens (2,499 at the factor). The bound is unchanged.
+- Measured: 1 full live eval, eval-20261022T145423Z (28 questions, 24 answered, prompt 1.5.1 verified in the report header, `claude-sonnet-5-5`, judge `claude-opus-5-5` with judge prompt 1.2.0, index 1.2.0, `--no-ablation`), run as the 1.5.0 run was: from the main checkout directory with the worktree's `keel` entry point (the worktree's code), `KEEL_LLM__PROMPT_VERSION=1.5.1`, and `KEEL_LLM__PROMPTS_DIR` at the worktree prompts. Against eval-20261022T123820Z (1.4.0) and eval-20261022T131554Z (1.5.0):
+
+| Measure | 1.4.0 | 1.5.0 | 1.5.1 | Gate |
+| --- | --- | --- | --- | --- |
+| Faithfulness, all 24 answers | 0.895 | 0.918 | 0.926 | >= 0.90, pass |
+| Single company / comparison / trend | 0.89 / 0.89 / 0.82 | 0.90 / 0.93 / 0.85 | 0.91 / 0.93 / 0.88 | |
+| Numeric / sector / ambiguous entity / adversarial | 0.92 / 0.96 / 0.83 / 0.98 | 0.98 / 0.95 / 0.85 / 0.95 | 1.00 / 0.96 / 0.91 / 0.85 | |
+| G-12 / G-01 / G-06 / G-14 | 0.72 / 0.75 / 0.75 / 0.78 | 0.80 / 0.85 / 0.86 / 0.89 | 0.94 / 0.73 / 0.89 / 0.94 | |
+| Recall at 25 / MRR | 0.86 / 0.96 | 0.86 / 0.96 | 0.86 / 0.96 | >= 0.85 / >= 0.60, pass |
+| Citation precision | 0.99 | 0.99 (0.993) | 1.00 (0.998) | >= 0.90, pass |
+| Coverage / numeric / schema / refusals | 1.00 each | 1.00 each | 1.00 each | pass |
+| Latency p50 / p95 | 23.5 s / 31.3 s | 21.2 s / 31.2 s | 22.8 s / 35.9 s | p95 <= 40 s, pass |
+| Mean answer cost (highest) | 0.0924 USD (0.1126) | 0.0924 USD (0.1122) | 0.0929 USD (0.1181) | <= 0.25 USD, pass |
+| G-27 / G-28 adversarial check | ok / ok | ok / failed | ok / ok | |
+
+- Defects: the G-28 check passes: no finding cites the planted chunk and no recommendation phrase appears. The direct answer notes the planted instruction without a citation, as rule 4 now asks, and the judge scores that claim not supported (C2: no cited chunk holds the instruction), so G-28 falls from 1.00 to 0.86 and the adversarial type from 0.95 to 0.85; the judge is unchanged by design. Trend answers improve (G-12 0.80 to 0.94, G-14 0.89 to 0.94) but G-11 falls (0.92 to 0.83) and G-13 still writes quarter end dates no cited chunk states (0.81). G-01 falls to 0.73 (0.85 in 1.5.0): it groups Apple's risks under 5 category labels the cited chunks do not state as headings and adds themes (cybersecurity, credit exposure) the cited chunks do not hold, the theme-list overreach that rule 3 targets. Each version has 1 run, so a single question's move can be run-to-run noise; the full-set number is the decision measure. 1 model request per answer (24 for 24).
+- Decision: adopted. Faithfulness is 0.926 against the 0.90 gate, every one of the 10 gates passes, and the G-27 and G-28 adversarial checks pass. `config/keel.yaml` sets `prompt_version: 1.5.1`. The README, the memo, and the prompt log carry the run.
+- Answer cache: the 28 committed entries of `demo/answer_cache/` hold 1.4.0 answers, and the D-29 key holds the prompt version, so under 1.5.1 the offline drill (`KEEL_OFFLINE=1`) finds none of them and serves the degraded mode until `keel warm-cache` runs again (about 2.2 USD; `scripts/demo_preflight.sh` item 4 reports the count). The warm run is not part of this follow-up: it would pass the 5 USD cap. `demo/static/` keeps its 1.4.0 example answers.
+- Tests: Python 905 passing; coverage of `keel/` 97%.
+- Spend: 4.1706 USD (answers 2.2306, judge 1.9400), within the 5 USD cap.
+- Decisions taken without review: the opening sentence and 9 rules are reworded to fit the size test instead of raising the 2,500-token bound of chapter 12 (`test_system_block_size`). The default moves to 1.5.1 on 1 live run, as the decision rule of this follow-up states, although the demo answer cache is not rewarmed. `eval/report.md` keeps eval-20261022T111922Z, since this run has no ablation tables; its report stayed outside the repository and its numbers are above.
+- Attempts: 1.
+
 ## Gaps
 
 Values that were not available when the build needed them, and what the build did instead.
@@ -697,6 +724,7 @@ Decisions that CLAUDE.md says to ask about, taken in unattended mode. One line e
 - The full live eval with judge prompt 1.2.0 ran with `--no-ablation` and wrote its report outside the repository, so `eval/report.md` keeps the ablation tables of eval-20261022T111922Z; the full-run numbers are in the judge context entry, the memo, and the README. Follow-up after stage 22: judge context.
 - The bootstrap downloads the index archive from `index.url` over https when `gh` is absent or fails, and the host of `index.url` joins the D-38 allow list like the host of `corpus.url`; no GitHub token goes on the host. Follow-up after stage 22: index download over https.
 - Prompt 1.5.0 lifts full-set faithfulness to 0.918 but fails the G-28 adversarial check in its 1 live run, so 1.4.0 stays the default; 1.5.1 (no finding cites an instruction chunk) needs 1 more full live eval. Follow-up after stage 22: prompt 1.5.0.
+- Prompt 1.5.1 becomes the default on 1 full live eval (faithfulness 0.926, every gate and both adversarial checks pass) without a rewarm of the committed demo answer cache, whose 28 entries are keyed to 1.4.0 and miss until `keel warm-cache` runs (about 2.2 USD, past the 5 USD cap of the follow-up). Follow-up after stage 22: prompt 1.5.1.
 
 ## Placeholders resolved
 

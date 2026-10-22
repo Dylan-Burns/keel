@@ -2,7 +2,9 @@
 
 To: the investment team. Date: 2026-10-22. Index 1.2.0 (245 filings of 53
 companies, 63,688 passages). Answer model `claude-sonnet-5-5`, prompt
-1.4.0. Evidence: eval run `eval-20261022T111922Z` (`eval/report.md`).
+1.5.1. Evidence: eval run `eval-20261022T111922Z` (`eval/report.md`) for
+retrieval, and the full live run `eval-20261022T145423Z` (prompt 1.5.1,
+judge prompt 1.2.0) for the answers.
 
 **Decision: use Keel now for narrative questions on public filings, as a
 pilot beside your current tools. Use it for reported numbers only for the 8
@@ -19,13 +21,13 @@ corpus, a quarter after the corpus, a quarantined filing).
 | Right passages found (recall at 25), all questions | 0.86 (0.83 on the stage 10 labels) | 0.85 | met |
 | Comparisons / numeric / trend / sector / single company | 0.92 / 1.00 / 0.87 / 0.71 / 0.73 | | |
 | First right passage near the top (MRR) | 0.96 | 0.60 | met |
-| Claims supported by the cited text (faithfulness) | 0.895 (full live run eval-20261022T123820Z, judge prompt 1.2.0; 0.86 with judge prompt 1.1.0) | 0.90 | miss by 0.005 |
-| Citations that support their claim | 0.99 | 0.90 | met |
+| Claims supported by the cited text (faithfulness) | 0.926 (prompt 1.5.1; 0.895 with prompt 1.4.0 in eval-20261022T123820Z) | 0.90 | met |
+| Citations that support their claim | 1.00 (0.998) | 0.90 | met |
 | Reported numbers within 0.5% of the filing | 9 of 9 (1.00) | 0.90 gate, 0.95 to ship | met |
 | Valid answer format / correct refusals | 1.00 / 4 of 4 | 1.00 | met |
 | Model requests per answer | 1 (24 for 24) | 1 | met |
-| Time to the full answer, median / 95th percentile | 23.0 s / 32.2 s | 40 s | met |
-| Cost per answer, mean / highest | $0.094 / $0.116 | $0.25 | met |
+| Time to the full answer, median / 95th percentile | 22.8 s / 35.9 s | 40 s | met |
+| Cost per answer, mean / highest | $0.093 / $0.118 | $0.25 | met |
 
 ## 2. What works today
 
@@ -43,11 +45,13 @@ refused without a model call.
   10-K, 36 of them nothing else (the `filings` table of index 1.2.0). A question about change over time for
   them cannot be answered, and the answer says so in its gaps (for example
   "MRK has only one 10-K ... so no change over time can be shown").
-- **Trend and summary answers overreach.** Faithfulness is 0.72 on trend
-  questions. The weakest answer (Amazon risk changes, 0.50) says what was
-  added since the earlier 10-K but cites only the later filing, so the
-  cited text cannot show the change. Summary sentences list more themes
-  than their citations cover (Apple, Tesla, and JPMorgan risks, 0.75).
+- **Trend and summary answers still overreach in places.** Faithfulness
+  on trend questions rose from 0.82 (prompt 1.4.0) to 0.88 (prompt 1.5.1):
+  a claim that language changed now cites both filings (Amazon risk
+  changes, 0.72 to 0.94). Quarterly tables can still carry end dates that
+  no cited chunk states (Pfizer quarterly revenue, 0.81), and a summary can still
+  group risks under headings its citations do not state (Apple risks,
+  0.73).
 - **Some answers still miss part of the right section.** Microsoft's
   business segments (0.52), Disney's fiscal 2024 drivers (0.44), and
   NVIDIA's revenue trend (0.56) find the right filing but rank other
@@ -80,6 +84,6 @@ behind a warning until a larger numeric test set holds 0.95.
 
 | Change | Measure that decides | Target date |
 | --- | --- | --- |
-| Done: judge prompt 1.2.0 reads each cited chunk as the answer model read it and leaves statements about Keel out of the score (full set: 0.86 to 0.895). Next: prompt 1.5.0, where a change claim cites the earlier and the later filing | Faithfulness 0.90 on the full set | 2026-11-05 |
+| Done: judge prompt 1.2.0 (full set: 0.86 to 0.895), then prompt 1.5.1, where a change claim cites both filings and no finding cites an instruction chunk (0.895 to 0.926). Next: rewarm the demo answer cache for 1.5.1 | Faithfulness 0.90 on the full set (met) | 2026-11-05 |
 | Judge thresholds and a summary-claim rule in the prompt; the human rubric of 2 raters | Faithfulness 0.90; judge agreement with the raters | 2026-11-12 |
 | Live EDGAR for coverage (`keel add`, nightly refresh) and a larger numeric set | Companies with 2 or more 10-Ks; 50 gold values at 0.95 | 2026-11-26 |

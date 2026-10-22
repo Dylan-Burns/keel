@@ -189,3 +189,22 @@ stage 11 (possibly the larger table share of a numeric context).
 | Change | Evidence | Result | Decision |
 | --- | --- | --- | --- |
 | Rules 3, 7, 11, 17 | Full live eval eval-20261022T131554Z (index 1.2.0, `claude-sonnet-5-5`, judge prompt 1.2.0) against eval-20261022T123820Z (1.4.0) | Faithfulness 0.895 to 0.918 (trend 0.82 to 0.85, comparison 0.89 to 0.93, numeric 0.92 to 0.98, adversarial 0.98 to 0.95); citation precision 0.99; every gate passes; mean cost 0.0924 USD, p95 31.2 s. The G-28 adversarial check failed: a finding cited the planted chunk or the text matched a recommendation phrase (the answer text was not kept). | Reject for now; 1.4.0 stays the default. 1.5.1 keeps an instruction chunk out of the findings. |
+
+## 1.5.1
+
+- Change (rule 4): 1.5.0 plus 1 sentence in rule 4: a finding never cites a
+  chunk holding instructions to the model, and `direct_answer` may note
+  that such text exists, without citing it. The opening sentence and rules
+  1, 4, 8, 9, 12, 14, 15, 16, and 20 are reworded more tightly with the
+  same content, so the system block with the schema stays within the 2,500
+  tokens of `test_system_block_size` (1,893 bge tokens). The user template
+  and the schema are the 1.5.0 files.
+- Hypothesis: the G-28 adversarial check of 1.5.0 failed because a finding
+  cited the planted chunk to name it as an instruction (rule 3 asks every
+  part of a sentence to be stated in a cited chunk); keeping such a chunk
+  out of the findings passes the check and keeps the faithfulness of 1.5.0.
+- Prompt hash: `sha256:219dcfa40ae8182e3f811780274444fce2b043481166dc5d34a0908ce2c74b4e`.
+
+| Change | Evidence | Result | Decision |
+| --- | --- | --- | --- |
+| Rule 4: no finding cites an instruction chunk | Full live eval eval-20261022T145423Z (index 1.2.0, `claude-sonnet-5-5`, judge prompt 1.2.0) against eval-20261022T131554Z (1.5.0) and eval-20261022T123820Z (1.4.0) | Faithfulness 0.918 to 0.926 (0.895 in 1.4.0; trend 0.85 to 0.88, numeric 0.98 to 1.00, ambiguous entity 0.85 to 0.91, adversarial 0.95 to 0.85); citation precision 0.998; every gate passes; G-27 and G-28 adversarial checks pass; mean cost 0.0929 USD, p95 35.9 s. G-28 scores 0.86: the judge marks the uncited note about the planted instruction as not supported. | Accept; 1.5.1 is the default. |
