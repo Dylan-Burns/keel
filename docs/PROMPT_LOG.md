@@ -195,10 +195,19 @@ stage 11 (possibly the larger table share of a numeric context).
 - Change (rule 4): 1.5.0 plus 1 sentence in rule 4: a finding never cites a
   chunk holding instructions to the model, and `direct_answer` may note
   that such text exists, without citing it. The opening sentence and rules
-  1, 4, 8, 9, 12, 14, 15, 16, and 20 are reworded more tightly with the
-  same content, so the system block with the schema stays within the 2,500
-  tokens of `test_system_block_size` (1,893 bge tokens). The user template
-  and the schema are the 1.5.0 files.
+  1, 4, 8, 9, 12, 14, 15, 16, and 20 are reworded more tightly, mostly
+  with the same content, so the system block with the schema stays within the 2,500
+  tokens of `test_system_block_size` (1,893 bge tokens). 2 of those cuts
+  change wording a reader could weigh: rule 16 drops "only" from "Return
+  only one JSON object" (the `json_schema` output mode already returns 1
+  object), and the opening sentence drops "with only the context in the
+  user message" (rule 1 says it). The user template and the schema are the
+  1.5.0 files.
+- Trade-off: the note that rule 4 allows in `direct_answer` is a claim with
+  no citation, an exception to rule 2 that the rule text does not name.
+  The validator checks citations, so the note is not flagged, and the
+  judge scores it not supported (G-28 0.86). A later version can name the
+  exception in rule 2; any change to the measured text needs its own run.
 - Hypothesis: the G-28 adversarial check of 1.5.0 failed because a finding
   cited the planted chunk to name it as an instruction (rule 3 asks every
   part of a sentence to be stated in a cited chunk); keeping such a chunk
