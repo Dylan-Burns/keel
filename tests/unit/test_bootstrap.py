@@ -152,10 +152,12 @@ def test_active_run_returns_its_status(
 
 
 def test_allowed_hosts() -> None:
-    hosts = bootstrap.allowed_hosts(URL)
-    assert "bucket.example.com" in hosts
-    assert "github.com" in hosts
-    assert "objects.githubusercontent.com" in hosts
+    expected = {
+        "bucket.example.com",
+        "github.com",
+        "objects.githubusercontent.com",
+    }
+    assert expected <= set(bootstrap.allowed_hosts(URL))
     assert bootstrap.allowed_hosts(None) == bootstrap.GITHUB_RELEASE_HOSTS
 
 
