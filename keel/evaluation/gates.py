@@ -1,9 +1,16 @@
 """The 10 regression gates of chapter 18.8.
 
 A gate passes, fails, or is pending: a pending gate has no measured value
-yet (the answer gates until the answer path of stage 7 joins the harness).
-`keel eval --gate` exits 1 when any gate fails; a pending gate never blocks
-on its own, and the report lists it.
+yet (the answer gates until the answer path of stage 7 joins the harness),
+or its value rests on too few judged answers. The 2 judge gates
+(faithfulness and citation precision) are means over the judged answers, so
+they gate only when the run judged at least `MIN_JUDGED_ANSWERS` answers;
+below that the value is reported with its sample size and the gate stays
+pending (the minimum sample rule). The CI subset on the mini corpus judges
+1 answer, whose faithfulness swings around the threshold from run to run;
+the full golden set judges 24 and gates as before. `keel eval --gate` exits
+1 when any gate fails; a pending gate never blocks on its own, and the
+report lists it.
 """
 
 from __future__ import annotations
@@ -18,6 +25,8 @@ PASSED: Final = "pass"
 FAILED: Final = "fail"
 PENDING: Final = "pending"
 Status = Literal["pass", "fail", "pending"]
+MIN_JUDGED_ANSWERS: Final = 5
+SAMPLED_GATES: Final = frozenset({"faithfulness", "citation_precision"})
 
 
 @dataclasses.dataclass(frozen=True)
@@ -94,27 +103,63 @@ class GateResult:
         gate: The gate.
         value: The measured value, or None.
         status: `pass`, `fail`, or `pending`.
+        sample: The number of judged answers behind the value, for the
+            sampled gates; None for the other gates.
     """
 
     gate: Gate
     value: float | None
     status: Status
+    sample: int | None = None
+
+    @property
+    def undersampled(self) -> bool:
+        """True when the gate is pending because of the minimum sample."""
+        return (
+            self.sample is not None
+            and self.value is not None
+            and self.status == PENDING
+        )
+
+    @property
+    def status_text(self) -> str:
+        """The status as the report prints it, such as `pending (n=1)`."""
+        if self.undersampled:
+            return f"{PENDING} (sample n={self.sample})"
+        return self.status
+
+
+def _check(gate: Gate, value: float | None, sample: int | None) -> GateResult:
+    status = gate.check(value)
+    if (
+        gate.key in SAMPLED_GATES
+        and sample is not None
+        and sample < MIN_JUDGED_ANSWERS
+        and value is not None
+    ):
+        status = PENDING
+    return GateResult(gate, value, status, sample)
 
 
 def evaluate(
-    values: Mapping[str, float | None], gates: Sequence[Gate] = GATES
+    values: Mapping[str, float | None],
+    gates: Sequence[Gate] = GATES,
+    judged: int | None = None,
 ) -> tuple[GateResult, ...]:
     """Check every gate against the run values.
 
     Args:
         values: The run values by metric key; an absent key is pending.
         gates: The gates.
+        judged: The number of judged answers behind the sampled gates, or
+            None when the sample is not known (no minimum applies). Below
+            `MIN_JUDGED_ANSWERS` the sampled gates stay pending.
 
     Returns:
         1 result per gate, in gate order.
     """
     return tuple(
-        GateResult(g, values.get(g.key), g.check(values.get(g.key)))
+        _check(g, values.get(g.key), judged if g.key in SAMPLED_GATES else None)
         for g in gates
     )
 
