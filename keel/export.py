@@ -1,7 +1,7 @@
-"""Memo export (chapter 27.2): 1 stored answer as a Markdown memo.
+"""Memo export (chapter 27.2): 1 stored answer as a Markdown or DOCX memo.
 
 `keel export REQUEST_ID` finds the stored answer of a request ID and writes
-a Markdown memo: the question as the title, the direct answer, the findings per
+a memo: the question as the title, the direct answer, the findings per
 company, the comparison table, the gaps, the coverage, and numbered
 footnotes with the filing, the section, the fiscal label, the period end,
 and the SEC link.
@@ -18,6 +18,11 @@ order of first reference in the memo, and a validated citation that the
 text never references comes after them. A link renders only for a URL that
 passes the `www.sec.gov` check of control S-05 (E-D-28), checked again here
 because a saved result JSON comes from outside the pipeline.
+
+The DOCX writer needs python-docx (the `export` extra). It is imported on
+first use, so the core install runs without it. python-docx has no
+footnote API, so the DOCX memo carries superscript numbers in the text
+and the numbered notes in a `Sources` section at the end (endnotes).
 """
 
 from __future__ import annotations
@@ -26,12 +31,16 @@ import argparse
 from collections.abc import Iterable
 from collections.abc import Mapping
 import dataclasses
+import importlib
+import io
 import json
 import logging
 import pathlib
 import re
 import sys
+from typing import TYPE_CHECKING
 from typing import Any
+import urllib.parse
 
 from keel import audit
 from keel import cache
@@ -40,13 +49,39 @@ from keel import config
 from keel import errors
 from keel.parsers import form_10k_10q
 
+if TYPE_CHECKING:
+    from docx import document as docx_document
+    from docx.text import paragraph as docx_paragraph
+
 logger = logging.getLogger(__name__)
 
 MARKDOWN = "markdown"
-FORMATS = (MARKDOWN,)
-SUFFIXES = {MARKDOWN: ".md"}
+DOCX = "docx"
+FORMATS = (MARKDOWN, DOCX)
+SUFFIXES = {MARKDOWN: ".md", DOCX: ".docx"}
+MEDIA_TYPES = {
+    MARKDOWN: "text/markdown; charset=utf-8",
+    DOCX: (
+        "application/vnd.openxmlformats-officedocument."
+        "wordprocessingml.document"
+    ),
+}
 REQUEST_ID = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 NO_GAPS = "The answer names no gaps."
+EXTRA_HINT = (
+    "the DOCX memo needs python-docx: install the export extra "
+    "(uv sync --extra export)"
+)
+LINK_COLOR = "0563C1"
+# Every Markdown metacharacter of untrusted text gets a backslash; a hyphen
+# or a plus sign only at the start of a field, where it would start a list.
+_MARKDOWN_SPECIAL = re.compile(r"([\\`*_\[\]()#!|<>{}&~@])")
+_SCHEME = re.compile(r"\b([A-Za-z][A-Za-z0-9+.\-]{0,31}):(?=\S)")
+_WWW = re.compile(r"\b(www)\.", re.IGNORECASE)
+_BLOCK_START = re.compile(r"^(\d+)([.)])|^([-+=])")
+# The characters that could end or break a `<...>` link or a DOCX target.
+URL_SAFE = "/:?=&%#.-_~"
+_URL_FORBIDDEN = re.compile(r"[<>\[\]()`\s\\]")
 _MARKER = re.compile(r"\s*\[([^\[\]\n]{1,400})\]")
 
 # A run of memo text: strings and footnote numbers in reading order.
@@ -112,7 +147,7 @@ class Company:
 
 @dataclasses.dataclass(frozen=True)
 class Memo:  # pylint: disable=too-many-instance-attributes
-    """The parts of a memo, shared by the memo writers.
+    """The parts of a memo, shared by the Markdown and DOCX writers.
 
     Attributes:
         title: The question.
@@ -144,10 +179,29 @@ class Memo:  # pylint: disable=too-many-instance-attributes
 
 
 def _trusted(url: object) -> str | None:
-    """Keep a URL only when it passes the SEC check (control S-05)."""
-    if isinstance(url, str) and form_10k_10q.url_trusted(url):
-        return url
-    return None
+    """A URL fit for a link, or None (control S-05, E-D-28).
+
+    The URL must pass the `www.sec.gov` check of the parser, then it is
+    percent-encoded so no character can end a Markdown `<...>` link, and
+    the encoded URL must pass the check again.
+
+    Args:
+        url: The stored URL.
+
+    Returns:
+        The encoded trusted URL, or None.
+    """
+    if not isinstance(url, str) or not form_10k_10q.url_trusted(url):
+        return None
+    encoded = urllib.parse.quote(url, safe=URL_SAFE)
+    if _URL_FORBIDDEN.search(encoded) or not form_10k_10q.url_trusted(encoded):
+        return None
+    return encoded
+
+
+def _flat(text: object) -> str:
+    """Collapse the whitespace of a field, so no newline starts a block."""
+    return " ".join(str(text).split())
 
 
 def _source_facts(record: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
@@ -169,7 +223,7 @@ def _source_facts(record: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
         chunk_id = str(cited.get("chunk_id"))
         known = facts.get(chunk_id, {})
         quotes = list(known.get("quotes", []))
-        quote = str(cited.get("quote", "")).strip()
+        quote = _flat(cited.get("quote", ""))
         if quote and quote not in quotes:
             quotes.append(quote)
         facts[chunk_id] = {
@@ -207,6 +261,7 @@ class _Numbering:
         Returns:
             The text pieces and the numbers.
         """
+        raw = _flat(raw)
         pieces: list[str | int] = []
         seen: list[str] = []
         position = 0
@@ -248,7 +303,7 @@ def _details(record: Mapping[str, Any], request_id: str) -> tuple[str, ...]:
     data_as_of = (answer.get("coverage") or {}).get("data_as_of")
     if data_as_of:
         lines.append(f"Data as of: {data_as_of}")
-    return tuple(lines)
+    return tuple(_flat(line) for line in lines)
 
 
 def _coverage(answer: Mapping[str, Any]) -> tuple[str, ...]:
@@ -262,7 +317,7 @@ def _coverage(answer: Mapping[str, Any]) -> tuple[str, ...]:
     missing = coverage.get("companies_missing") or []
     if missing:
         lines.append("Not covered: " + ", ".join(missing))
-    return tuple(lines)
+    return tuple(_flat(line) for line in lines)
 
 
 def build_memo(record: Mapping[str, Any], request_id: str) -> Memo:
@@ -299,10 +354,10 @@ def build_memo(record: Mapping[str, Any], request_id: str) -> Memo:
             for f in company.get("findings") or []
         )
         name, ticker = company.get("company", ""), company.get("ticker", "")
-        heading = f"{name} ({ticker})"
+        heading = _flat(f"{name} ({ticker})")
         companies.append(Company(heading=heading, findings=findings))
     table = answer.get("comparison_table") or {}
-    columns = tuple(str(c) for c in table.get("columns") or [])
+    columns = tuple(_flat(c) for c in table.get("columns") or [])
     rows = tuple(
         tuple(numbering.text(str(cell)) for cell in row)
         for row in table.get("rows") or []
@@ -328,7 +383,7 @@ def build_memo(record: Mapping[str, Any], request_id: str) -> Memo:
         )
     refusal = answer.get("refusal") or {}
     confidence = str(answer.get("confidence", ""))
-    reason = str(answer.get("confidence_reason", "")).strip()
+    reason = _flat(answer.get("confidence_reason", ""))
     question = " ".join(str(record.get("question") or "").split())
     return Memo(
         title=question or f"Answer {request_id}",
@@ -336,11 +391,11 @@ def build_memo(record: Mapping[str, Any], request_id: str) -> Memo:
         details=_details(record, request_id),
         direct_answer=direct,
         confidence=f"{confidence}: {reason}" if reason else confidence,
-        refusal=refusal.get("reason") if refusal else None,
+        refusal=_flat(refusal.get("reason", "")) if refusal else None,
         companies=tuple(companies),
         columns=columns,
         rows=rows,
-        gaps=tuple(str(g) for g in answer.get("gaps") or []),
+        gaps=tuple(_flat(g) for g in answer.get("gaps") or []),
         coverage=_coverage(answer),
         sources=tuple(sources),
     )
@@ -373,22 +428,48 @@ def source_note(source: Source) -> str:
     return note
 
 
-def _escape(text: str) -> str:
-    """Keep model text inert in Markdown: no HTML, no footnote syntax."""
-    return text.replace("<", "&lt;").replace("[^", "[\\^")
+def _escape(text: str, start: bool = True) -> str:
+    """Make untrusted text inert Markdown inline text (control S-05).
+
+    Newlines collapse, every metacharacter that can open a link, an image,
+    an autolink, HTML, emphasis, code, or a table cell gets a backslash,
+    the colon after a scheme and the dot after `www` are escaped so no
+    bare URL becomes an autolink, and a list or heading marker at the
+    start of the field is escaped.
+
+    Args:
+        text: The untrusted text.
+        start: True when the text starts a line of the memo.
+
+    Returns:
+        The escaped text.
+    """
+    flat = _flat(text)
+    escaped = _MARKDOWN_SPECIAL.sub(r"\\\1", flat)
+    escaped = _SCHEME.sub(r"\1\\:", escaped)
+    escaped = _WWW.sub(r"\1\\.", escaped)
+    if start:
+        escaped = _BLOCK_START.sub(_block_escape, escaped, count=1)
+    return escaped
+
+
+def _block_escape(match: re.Match[str]) -> str:
+    if match.group(3):
+        return "\\" + match.group(3)
+    return match.group(1) + "\\" + match.group(2)
 
 
 def _cell(text: str) -> str:
-    return _escape(" ".join(text.split())).replace("|", "\\|")
+    return _escape(text)
 
 
-def _markdown_text(text: Text, escape: bool = True) -> str:
+def _markdown_text(text: Text, start: bool = True) -> str:
     out = []
-    for piece in text:
+    for k, piece in enumerate(text):
         if isinstance(piece, int):
             out.append(f"[^{piece}]")
         else:
-            out.append(_escape(piece) if escape else piece)
+            out.append(_escape(piece, start=start and k == 0))
     return "".join(out)
 
 
@@ -443,7 +524,153 @@ def render_markdown(memo: Memo) -> str:
 
 
 def _cell_text(text: Text) -> str:
-    return "".join(f"[^{p}]" if isinstance(p, int) else _cell(p) for p in text)
+    return _markdown_text(text, start=False)
+
+
+def _docx_modules() -> dict[str, Any]:
+    """Import python-docx on first use (the `export` extra)."""
+    try:
+        return {
+            "docx": importlib.import_module("docx"),
+            "oxml": importlib.import_module("docx.oxml"),
+            "ns": importlib.import_module("docx.oxml.ns"),
+            "constants": importlib.import_module("docx.opc.constants"),
+        }
+    except ImportError as error:
+        raise ExportError(EXTRA_HINT) from error
+
+
+def _add_runs(paragraph: docx_paragraph.Paragraph, text: Text) -> None:
+    """Add the text, with each footnote number as a superscript run."""
+    previous_number = False
+    for piece in text:
+        if isinstance(piece, int):
+            label = f",{piece}" if previous_number else str(piece)
+            paragraph.add_run(label).font.superscript = True
+            previous_number = True
+        else:
+            paragraph.add_run(piece)
+            previous_number = False
+
+
+def _add_hyperlink(
+    paragraph: docx_paragraph.Paragraph,
+    url: str,
+    label: str,
+    modules: Mapping[str, Any],
+) -> None:
+    """Add an external link run (python-docx has no hyperlink writer)."""
+    oxml, qn = modules["oxml"], modules["ns"].qn
+    relation = paragraph.part.relate_to(
+        url,
+        modules["constants"].RELATIONSHIP_TYPE.HYPERLINK,
+        is_external=True,
+    )
+    link = oxml.OxmlElement("w:hyperlink")
+    link.set(qn("r:id"), relation)
+    link_run = oxml.OxmlElement("w:r")
+    properties = oxml.OxmlElement("w:rPr")
+    color = oxml.OxmlElement("w:color")
+    color.set(qn("w:val"), LINK_COLOR)
+    underline = oxml.OxmlElement("w:u")
+    underline.set(qn("w:val"), "single")
+    properties.append(color)
+    properties.append(underline)
+    link_run.append(properties)
+    text = oxml.OxmlElement("w:t")
+    text.text = label
+    link_run.append(text)
+    link.append(link_run)
+    # pylint: disable-next=protected-access
+    paragraph._p.append(link)
+
+
+def _docx_findings(document: docx_document.Document, memo: Memo) -> None:
+    """Add the findings per company as bullet lists."""
+    if not memo.companies:
+        return
+    document.add_heading("Findings by company", level=1)
+    for company in memo.companies:
+        document.add_heading(company.heading, level=2)
+        for finding in company.findings:
+            item = document.add_paragraph(style="List Bullet")
+            _add_runs(item, finding.text)
+            if finding.unverified:
+                item.add_run(" (unverified)").italic = True
+
+
+def _docx_table(document: docx_document.Document, memo: Memo) -> None:
+    """Add the comparison table with a bold header row."""
+    if not memo.columns:
+        return
+    document.add_heading("Comparison table", level=1)
+    table = document.add_table(rows=1 + len(memo.rows), cols=len(memo.columns))
+    table.style = "Table Grid"
+    for k, column in enumerate(memo.columns):
+        table.cell(0, k).paragraphs[0].add_run(column).bold = True
+    for r, row in enumerate(memo.rows, start=1):
+        for k, cell in enumerate(row[: len(memo.columns)]):
+            _add_runs(table.cell(r, k).paragraphs[0], cell)
+
+
+def _docx_sources(
+    document: docx_document.Document,
+    memo: Memo,
+    modules: Mapping[str, Any],
+) -> None:
+    """Add the numbered endnotes, each with its SEC link when trusted."""
+    if not memo.sources:
+        return
+    document.add_heading("Sources", level=1)
+    for source in memo.sources:
+        paragraph = document.add_paragraph()
+        paragraph.add_run(f"{source.number}. ").bold = True
+        paragraph.add_run(source_note(source))
+        if source.sec_url:
+            paragraph.add_run(" SEC filing: ")
+            _add_hyperlink(paragraph, source.sec_url, source.sec_url, modules)
+
+
+def render_docx(memo: Memo) -> bytes:
+    """Write the memo as a DOCX file with numbered endnotes and SEC links.
+
+    Args:
+        memo: The memo.
+
+    Returns:
+        The DOCX bytes.
+
+    Raises:
+        ExportError: python-docx is not installed.
+    """
+    modules = _docx_modules()
+    document: docx_document.Document = modules["docx"].Document()
+    document.core_properties.title = memo.title[:255]
+    document.add_heading(memo.title, level=0)
+    for line in memo.details:
+        document.add_paragraph().add_run(line).italic = True
+    document.add_heading("Answer", level=1)
+    _add_runs(document.add_paragraph(), memo.direct_answer)
+    if memo.refusal:
+        paragraph = document.add_paragraph()
+        paragraph.add_run("Declined: ").bold = True
+        paragraph.add_run(memo.refusal)
+    paragraph = document.add_paragraph()
+    paragraph.add_run("Confidence: ").bold = True
+    paragraph.add_run(memo.confidence)
+    _docx_findings(document, memo)
+    _docx_table(document, memo)
+    document.add_heading("Gaps", level=1)
+    for gap in memo.gaps or (NO_GAPS,):
+        document.add_paragraph(gap, style="List Bullet")
+    if memo.coverage:
+        document.add_heading("Coverage", level=1)
+        for line in memo.coverage:
+            document.add_paragraph(line, style="List Bullet")
+    _docx_sources(document, memo, modules)
+    buffer = io.BytesIO()
+    document.save(buffer)
+    return buffer.getvalue()
 
 
 def _audit_entry(
@@ -544,16 +771,18 @@ def render(memo: Memo, fmt: str) -> bytes:
 
     Args:
         memo: The memo.
-        fmt: `markdown`.
+        fmt: `markdown` or `docx`.
 
     Returns:
         The file bytes.
 
     Raises:
-        ExportError: An unknown format.
+        ExportError: An unknown format, or python-docx is missing.
     """
     if fmt == MARKDOWN:
         return render_markdown(memo).encode("utf-8")
+    if fmt == DOCX:
+        return render_docx(memo)
     raise ExportError(f"unknown memo format {fmt!r}")
 
 
@@ -562,10 +791,10 @@ def file_name(request_id: str, fmt: str) -> str:
 
     Args:
         request_id: The request ID (checked by `find_record`).
-        fmt: `markdown`.
+        fmt: `markdown` or `docx`.
 
     Returns:
-        Such as `memo-abc123.md`.
+        Such as `memo-abc123.docx`.
     """
     return f"memo-{request_id}{SUFFIXES[fmt]}"
 
@@ -582,13 +811,13 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         dest="memo_format",
         choices=FORMATS,
         default=MARKDOWN,
-        help="markdown (the default)",
+        help="markdown (default) or docx (the export extra)",
     )
     parser.add_argument(
         "--out",
         type=pathlib.Path,
         default=None,
-        help="the memo file (default: memo-<request_id>.md)",
+        help="the memo file (default: memo-<request_id>.md or .docx)",
     )
     parser.add_argument(
         "--record",
@@ -609,7 +838,8 @@ def run(settings: config.Settings, args: argparse.Namespace) -> int:
         0 after the memo is written.
 
     Raises:
-        ExportError: No stored answer, or the file cannot be written.
+        ExportError: No stored answer, python-docx is missing, or the file
+            cannot be written.
     """
     record = find_record(settings, args.request_id, args.record)
     memo = build_memo(record, args.request_id)
