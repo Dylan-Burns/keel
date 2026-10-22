@@ -6,7 +6,20 @@ import {CompSetsPage} from './components/CompSetsPage';
 import {EvalPage} from './components/EvalPage';
 import {HelpPage} from './components/HelpPage';
 import {HistoryPage} from './components/HistoryPage';
-import {COMPSETS_PATH, HELP_PATH, HISTORY_PATH} from './lib/links';
+import {CompaniesPage} from './components/admin/CompaniesPage';
+import {JobsPage} from './components/admin/JobsPage';
+import {SystemPage} from './components/admin/SystemPage';
+import {UsersPage} from './components/admin/UsersPage';
+import {
+  COMPANIES_PATH,
+  COMPSETS_PATH,
+  HELP_PATH,
+  HISTORY_PATH,
+  JOBS_PATH,
+  SYSTEM_PATH,
+  USERS_PATH,
+  jobIdOf,
+} from './lib/links';
 import './styles.css';
 
 const container = document.getElementById('root');
@@ -15,7 +28,9 @@ if (container === null) {
 }
 // The client routes: `/eval` is the eval page (W-02), `/history` the history
 // page and `/compsets` the comp sets page (27.2), `/help` the data use page
-// (27.2); every other path is the question page, which reads the shared
+// (27.2), `/companies` the watch list and the company jobs, `/jobs` and
+// `/jobs/{id}` the admin jobs, `/users` and `/system` the other admin
+// pages; every other path is the question page, which reads the shared
 // answer route `/a/{request_id}` itself.
 const path = window.location.pathname.replace(/\/+$/, '');
 const page =
@@ -27,6 +42,14 @@ const page =
     <CompSetsPage />
   ) : path === HELP_PATH ? (
     <HelpPage />
+  ) : path === COMPANIES_PATH ? (
+    <CompaniesPage />
+  ) : path === JOBS_PATH || jobIdOf(path) !== null ? (
+    <JobsPage />
+  ) : path === USERS_PATH ? (
+    <UsersPage />
+  ) : path === SYSTEM_PATH ? (
+    <SystemPage />
   ) : (
     <App />
   );

@@ -84,4 +84,28 @@ describe('Footer', () => {
     expect(assign).toHaveBeenCalledWith('/help');
     vi.unstubAllGlobals();
   });
+
+  it('shows the admin links only to an admin', () => {
+    const props = {
+      requestId: null,
+      promptVersion: null,
+      hasAnswer: false,
+      copyStatus: null,
+      onCopy: vi.fn(),
+      onExport: vi.fn(),
+      canShare: false,
+      onShare: vi.fn(),
+      onMemo: vi.fn(),
+    };
+    const {rerender} = render(<Footer {...props} />);
+    expect(screen.getByTestId('companies-link')).toBeInTheDocument();
+    expect(screen.getByTestId('debug-link')).toBeInTheDocument();
+    expect(screen.queryByTestId('jobs-link')).toBeNull();
+    expect(screen.queryByTestId('users-link')).toBeNull();
+    expect(screen.queryByTestId('system-link')).toBeNull();
+    rerender(<Footer {...props} isAdmin />);
+    expect(screen.getByTestId('jobs-link')).toBeInTheDocument();
+    expect(screen.getByTestId('users-link')).toBeInTheDocument();
+    expect(screen.getByTestId('system-link')).toBeInTheDocument();
+  });
 });

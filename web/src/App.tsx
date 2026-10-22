@@ -35,6 +35,7 @@ import {EXAMPLES} from './lib/examples';
 import {copyText, sharedRequestId, shareUrl} from './lib/links';
 import {pageLoad, pick, pickTransition, stateChange} from './motion/presets';
 import {baseState, canAsk, currentRun, hasOverlay, health} from './state';
+import {useAdminRole} from './useAdminRole';
 import {useKeel} from './useKeel';
 
 /**
@@ -60,6 +61,16 @@ function memoFailure(error: unknown): string {
  */
 export function App(): JSX.Element {
   const {state, hasToken, shared, ask, saveToken, reload} = useKeel();
+  // The role only picks the footer links; the API checks it on every call.
+  const [tokenVersion, setTokenVersion] = useState(0);
+  const role = useAdminRole(tokenVersion);
+  const onSaveToken = useCallback(
+    (token: string): void => {
+      saveToken(token);
+      setTokenVersion(n => n + 1);
+    },
+    [saveToken],
+  );
   // The history page's Re-run prefills the question; the user presses Ask.
   // Nothing from the URL is ever sent on its own.
   const [question, setQuestion] = useState(() => takeRerunQuestion() ?? '');
@@ -198,7 +209,7 @@ export function App(): JSX.Element {
             <TokenField
               hasToken={hasToken}
               rejected={state.service.tokenRejected}
-              onSave={saveToken}
+              onSave={onSaveToken}
             />
           </TopBar>
         </motion.div>
@@ -339,6 +350,7 @@ export function App(): JSX.Element {
           canShare={run?.final !== null && run?.final !== undefined}
           onShare={onShare}
           onMemo={onMemo}
+          isAdmin={role.kind === 'admin'}
         />
       </div>
     </MotionConfig>

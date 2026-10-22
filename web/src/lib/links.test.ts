@@ -1,6 +1,13 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
-import {copyText, sharePath, sharedRequestId, shareUrl} from './links';
+import {
+  copyText,
+  jobIdOf,
+  jobPath,
+  sharePath,
+  sharedRequestId,
+  shareUrl,
+} from './links';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -21,5 +28,13 @@ describe('links', () => {
   it('rejects a copy without a clipboard instead of throwing', async () => {
     vi.stubGlobal('navigator', {onLine: true});
     await expect(copyText('x')).rejects.toThrow('no clipboard');
+  });
+
+  it('reads the job ID of a job path', () => {
+    expect(jobPath('3f2a9c0d1e4b5a67')).toBe('/jobs/3f2a9c0d1e4b5a67');
+    expect(jobIdOf('/jobs/3f2a9c0d1e4b5a67')).toBe('3f2a9c0d1e4b5a67');
+    expect(jobIdOf('/jobs/3f2a9c0d1e4b5a67/')).toBe('3f2a9c0d1e4b5a67');
+    expect(jobIdOf('/jobs/not-a-job')).toBeNull();
+    expect(jobIdOf('/jobs')).toBeNull();
   });
 });
