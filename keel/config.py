@@ -163,11 +163,14 @@ class LlmConfig(_Section):
     fallback_model: str
     judge_model: str
     prices: pathlib.Path = pathlib.Path("config/prices.yaml")
-    temperature: float = 0.0
+    temperature: float | None = None
+    thinking: dict[str, str] = pydantic.Field(default_factory=dict)
     max_output_tokens: int = 4000
     prompt_version: str = "1.0.0"
     cache_system_block: bool = True
     timeout_seconds: float = 120.0
+    connect_timeout_seconds: float = 10.0
+    idle_timeout_seconds: float = 30.0
     max_retries: int = pydantic.Field(default=2, ge=0)
 
 

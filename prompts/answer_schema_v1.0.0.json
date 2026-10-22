@@ -1,0 +1,100 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "direct_answer",
+    "company_findings",
+    "comparison_table",
+    "citations",
+    "coverage",
+    "gaps",
+    "confidence",
+    "confidence_reason",
+    "next_questions",
+    "refusal"
+  ],
+  "properties": {
+    "direct_answer": {"type": "string"},
+    "company_findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ticker", "company", "findings"],
+        "properties": {
+          "ticker": {"type": "string"},
+          "company": {"type": "string"},
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["point", "citations"],
+              "properties": {
+                "point": {"type": "string"},
+                "citations": {"type": "array", "items": {"type": "string"}}
+              }
+            }
+          }
+        }
+      }
+    },
+    "comparison_table": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["columns", "rows"],
+      "properties": {
+        "columns": {"type": "array", "items": {"type": "string"}},
+        "rows": {
+          "type": "array",
+          "items": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "citations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["chunk_id", "claim", "quote"],
+        "properties": {
+          "chunk_id": {"type": "string"},
+          "claim": {"type": "string"},
+          "quote": {"type": "string"}
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["companies_used", "companies_missing", "data_as_of"],
+      "properties": {
+        "companies_used": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["ticker", "forms", "fiscal_periods"],
+            "properties": {
+              "ticker": {"type": "string"},
+              "forms": {"type": "array", "items": {"type": "string"}},
+              "fiscal_periods": {"type": "array", "items": {"type": "string"}}
+            }
+          }
+        },
+        "companies_missing": {"type": "array", "items": {"type": "string"}},
+        "data_as_of": {"type": "string"}
+      }
+    },
+    "gaps": {"type": "array", "items": {"type": "string"}},
+    "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+    "confidence_reason": {"type": "string"},
+    "next_questions": {"type": "array", "items": {"type": "string"}},
+    "refusal": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["reason"],
+      "properties": {"reason": {"type": "string"}}
+    }
+  }
+}

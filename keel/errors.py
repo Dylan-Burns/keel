@@ -103,3 +103,66 @@ class QuestionTooLongError(QuestionInputError):
 
 class NonEnglishQuestionError(QuestionInputError):
     """The question is not in English (HTTP 400, chapter 10.7)."""
+
+
+class ProviderError(KeelError):
+    """The model provider failed (chapter 6.5, the `provider` module).
+
+    Attributes:
+        code: The error code of the SSE `error` event (chapter 14.3).
+        retryable: True when D-04 permits a retry before any content.
+        retry_after: The seconds the provider asked to wait, or None.
+    """
+
+    code = "provider_unavailable"
+    retryable = True
+
+    def __init__(self, message: str, retry_after: float | None = None) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
+class ProviderTimeoutError(ProviderError):
+    """The provider did not answer in time (connect, idle gap, or total)."""
+
+    code = "provider_timeout"
+
+
+class ProviderRateLimitedError(ProviderError):
+    """The provider returned HTTP 429 or 529 (rate limited or overloaded)."""
+
+    code = "provider_rate_limited"
+
+
+class ProviderUnavailableError(ProviderError):
+    """The provider returned a 5xx error or the connection failed."""
+
+
+class ProviderRequestError(ProviderError):
+    """The provider rejected the request (a 4xx other than 429): no retry."""
+
+    code = "provider_request_rejected"
+    retryable = False
+
+
+class ContextOverflowError(ProviderError):
+    """The prompt is longer than the model accepts (chapter 16.6).
+
+    Stage 11 halves the context budget and retries once; this stage ends
+    the answer with the error.
+    """
+
+    code = "context_overflow"
+    retryable = False
+
+
+class SchemaViolationError(KeelError):
+    """The model output does not match the answer schema (E-C-04)."""
+
+
+class AuditWriteError(KeelError):
+    """An audit record could not be written; logged, never blocks the answer."""
+
+
+class AnswerCacheError(KeelError):
+    """An answer cache entry is unreadable or fails its checksum."""
