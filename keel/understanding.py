@@ -202,6 +202,7 @@ TOPIC_PROFILES = (
             "risk_factors": 1.1,
             "mdna": 0.8,
             "business": 0.8,
+            "financial_statements": 1.2,
         },
     ),
     TopicProfile(
@@ -1676,6 +1677,25 @@ def classify(
     return [t for t in TYPE_PRIORITY if t in found]
 
 
+def with_period_trend(
+    types: Sequence[QuestionType], time_scope: TimeScope
+) -> list[QuestionType]:
+    """Add `trend` to a question that names 2 or more fiscal years.
+
+    Args:
+        types: The types of chapter 10.5, in priority order.
+        time_scope: The time scope of the question.
+
+    Returns:
+        The types in priority order.
+    """
+    years = {s.fiscal_year for s in time_scope.scopes if s.fiscal_year}
+    if "out_of_scope" in types or "trend" in types or len(years) < 2:
+        return list(types)
+    found = {*types, "trend"}
+    return [t for t in TYPE_PRIORITY if t in found]
+
+
 # --- The pipeline -------------------------------------------------------------
 
 
@@ -1911,6 +1931,7 @@ class Understander:
             has_topic=bool(terms),
             out_of_scope_reason=reason,
         )
+        types = with_period_trend(types, time_scope)
         windows = {
             ticker: company_window(
                 time_scope,

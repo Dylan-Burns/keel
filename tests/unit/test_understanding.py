@@ -295,6 +295,31 @@ def test_type_trend(step: understanding.Understander) -> None:
     assert analysis.section_weights["mdna"] == 1.5
 
 
+def test_type_trend_from_years(step: understanding.Understander) -> None:
+    analysis = step.analyze(
+        "How did Pfizer's quarterly revenue develop in fiscal 2024 and "
+        "fiscal 2025?"
+    )
+    assert analysis.time_scope.kind == "multiple"
+    assert analysis.primary_type == "trend"
+    assert "single_company" in analysis.types
+    # 1 fiscal year is no trend.
+    single = step.analyze("What was Pfizer's revenue in fiscal 2024?")
+    assert "trend" not in single.types
+    scope = understanding.parse_time_scope("fiscal 2024 and fiscal 2025")
+    assert understanding.with_period_trend(["out_of_scope"], scope) == [
+        "out_of_scope"
+    ]
+
+
+def test_legal_profile_reads_the_notes(
+    step: understanding.Understander,
+) -> None:
+    analysis = step.analyze("What legal proceedings does Tesla disclose?")
+    assert analysis.section_weights["legal_proceedings"] == 1.5
+    assert analysis.section_weights["financial_statements"] == 1.2
+
+
 def test_type_sector(step: understanding.Understander) -> None:
     analysis = step.analyze(EXAMPLE_3)
     assert analysis.primary_type == "sector"
