@@ -29,6 +29,7 @@ import json
 import logging
 import pathlib
 import socket
+import tempfile
 import time
 from typing import Any
 from typing import Literal
@@ -102,14 +103,11 @@ def _is_public(address: str) -> bool:
         ip = ipaddress.ip_address(address.split("%", 1)[0])
     except ValueError:
         return False
-    return not (
-        ip.is_private
-        or ip.is_loopback
-        or ip.is_link_local
-        or ip.is_reserved
-        or ip.is_multicast
-        or ip.is_unspecified
-    )
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
+        ip = ip.ipv4_mapped
+    # is_global rejects private, loopback, link-local, shared (100.64/10),
+    # reserved, and unspecified addresses; multicast is never a server.
+    return ip.is_global and not ip.is_multicast
 
 
 def check_url(url: str, resolver: Resolver = resolve_host) -> str:
@@ -351,6 +349,8 @@ class EdgarClient:
                 "Accept-Encoding": "gzip, deflate",
             },
             follow_redirects=False,
+            # No proxy from the environment: S-11 checks the direct route.
+            trust_env=False,
             timeout=timeout,
             transport=transport,
         )
@@ -389,21 +389,43 @@ class EdgarClient:
         self.close()
 
     def close(self) -> None:
-        """Close the HTTP connection pool."""
+        """Close the HTTP connection pool.
+
+        Returns:
+            None.
+        """
         self._http.close()
 
     # The cache paths mirror the URL paths of the 3 documents.
 
     def ticker_map_path(self) -> pathlib.Path:
-        """Return the cache file of the ticker map."""
+        """Return the cache file of the ticker map.
+
+        Returns:
+            The path under the cache directory.
+        """
         return self.cache_dir / "company_tickers.json"
 
     def company_facts_path(self, cik: str) -> pathlib.Path:
-        """Return the cache file of the company facts of a CIK."""
+        """Return the cache file of the company facts of a CIK.
+
+        Args:
+            cik: The CIK (any zero padding).
+
+        Returns:
+            The path under the cache directory.
+        """
         return self.cache_dir / "companyfacts" / f"CIK{cik10(cik)}.json"
 
     def submissions_path(self, cik: str) -> pathlib.Path:
-        """Return the cache file of the submissions of a CIK."""
+        """Return the cache file of the submissions of a CIK.
+
+        Args:
+            cik: The CIK (any zero padding).
+
+        Returns:
+            The path under the cache directory.
+        """
         return self.cache_dir / "submissions" / f"CIK{cik10(cik)}.json"
 
     def ticker_map(self, refresh: bool = False) -> TickerMap:
@@ -570,11 +592,18 @@ def write_cached(path: pathlib.Path, document: CachedDocument) -> None:
     Raises:
         EdgarError: The file cannot be written.
     """
-    temporary = path.with_name(path.name + ".tmp")
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        temporary.write_text(document.model_dump_json(), encoding="utf-8")
-        temporary.replace(path)
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=path.name,
+            suffix=".tmp",
+            delete=False,
+        ) as stream:
+            stream.write(document.model_dump_json())
+        pathlib.Path(stream.name).replace(path)
     except OSError as error:
         raise errors.EdgarError(f"cannot write {path}: {error}") from error
 
@@ -642,7 +671,7 @@ def load_facts_config(path: pathlib.Path) -> FactsConfig:
             )
         )
     except (TypeError, ValueError) as error:
-        raise errors.ConfigError(f"invalid {path}: {error}") from None
+        raise errors.ConfigError(f"invalid {path}: {error}") from error
 
 
 # --- Facts lines (chapter 26.1, step 4) ---------------------------------------
@@ -690,7 +719,11 @@ class FactLine(_Model):
 
     @property
     def filing_index_url(self) -> str:
-        """The EDGAR filing index page of the filing behind the value."""
+        """The EDGAR filing index page of the filing behind the value.
+
+        Returns:
+            The https URL of the filing index on www.sec.gov.
+        """
         return FILING_INDEX_URL.format(
             cik=int(self.cik),
             folder=self.accession.replace("-", ""),
@@ -738,7 +771,11 @@ class FactsBlock(_Model):
         return "\n".join(line.text() for line in self.lines)
 
     def fact_ids(self) -> frozenset[str]:
-        """Return the fact IDs of the block, for the citation validator."""
+        """Return the fact IDs of the block, for the citation validator.
+
+        Returns:
+            The fact IDs.
+        """
         return frozenset(line.fact_id for line in self.lines)
 
 
@@ -788,10 +825,15 @@ def _entries(
     for concept in concepts:
         for priority, name in enumerate(concept.names):
             taxonomy, _, local = name.partition(":")
-            item = facts.get(taxonomy, {}).get(local)
-            if not isinstance(item, Mapping):
-                continue
-            for row in item.get("units", {}).get(concept.unit, []):
+            items = facts.get(taxonomy)
+            item = items.get(local) if isinstance(items, Mapping) else None
+            units = item.get("units") if isinstance(item, Mapping) else None
+            rows = (
+                units.get(concept.unit) if isinstance(units, Mapping) else None
+            )
+            for row in rows if isinstance(rows, list) else []:
+                if not isinstance(row, Mapping):
+                    continue
                 entry = _entry(concept, priority, local, row)
                 if entry is not None:
                     entries.append(entry)
@@ -922,8 +964,11 @@ def facts_lines(
 
     For each concept and period, the highest priority XBRL name with a
     value wins, and among its values the latest filing wins (a restated
-    value replaces the original). Annual values and fiscal year end
-    balances come before quarterly values when the line limit cuts.
+    value replaces the original). The priority comes first on purpose: a
+    company that moves a number to a new name keeps the configured name,
+    so a later value under a lower priority name does not replace it.
+    Annual values and fiscal year end balances come before quarterly
+    values when the line limit cuts.
 
     Args:
         document: The company facts JSON body (`CachedDocument.data`).
