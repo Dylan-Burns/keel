@@ -795,6 +795,9 @@ def test_debug_routes_make_no_model_request(client, services, tokens) -> None:
     summary = body["retrieval"]
     assert summary["sub_queries"]
     assert summary["context"]["chunks"] == len(summary["context"]["items"]) > 0
+    assert all(
+        isinstance(item["score"], float) for item in summary["context"]["items"]
+    )
     assert set(summary["timings_ms"]) == {"lexical", "dense", "rerank", "total"}
     outside = client.post(
         "/api/debug/retrieve",

@@ -147,6 +147,7 @@ def retrieval_summary(result: retriever.RetrievalResult) -> dict[str, Any]:
                     "period_end_date": c.candidate.period_end_date,
                     "estimated_tokens": c.estimated_tokens,
                     "truncated": c.truncated,
+                    "score": round(c.candidate.score, 4),
                 }
                 for c in built.chunks
             ],
