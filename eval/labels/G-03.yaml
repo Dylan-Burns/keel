@@ -4,7 +4,7 @@ index_version: 1.2.0
 build_id: 20261022T050249382998Z
 chunks_sha256: be95e3aa90a5857e023f945125193cc6a5e0de6df111119a5b31ff00b2f59737
 created: '2026-10-22'
-pool: hybrid top 30, lexical top 10, and dense top 10 per sub-query, with the reranker; plus the lexical top 10 in the expected filings without a section filter
+pool: hybrid top 30, lexical top 10, and dense top 10 per sub-query, with the reranker; plus the lexical top 10 in the expected filings without a section filter; plus the unjudged chunks in the top 25 of the retrieval follow-up after stage 22, graded on 2026-10-22
 sections:
   - filing_id: TSLA_10K_2025-12-31
     section: legal_proceedings
@@ -38,6 +38,11 @@ chunks:
     filing_id: TSLA_10K_2023-12-31
     section: business
     note: vehicle regulation overview, not proceedings
+  - chunk_id: TSLA_10K_2023-12-31__financial_statements__0145
+    grade: 1
+    filing_id: TSLA_10K_2023-12-31
+    section: financial_statements
+    note: older 10-K, investigations and data incident
   - chunk_id: TSLA_10K_2023-12-31__legal_proceedings__0000
     grade: 1
     filing_id: TSLA_10K_2023-12-31
@@ -73,6 +78,36 @@ chunks:
     filing_id: TSLA_10K_2025-12-31
     section: financial_statements
     note: Note 13 start, 2018 CEO award Delaware litigation
+  - chunk_id: TSLA_10K_2025-12-31__financial_statements__0149
+    grade: 2
+    filing_id: TSLA_10K_2025-12-31
+    section: financial_statements
+    note: Note 13, directors' compensation derivative suit
+  - chunk_id: TSLA_10K_2025-12-31__financial_statements__0152
+    grade: 2
+    filing_id: TSLA_10K_2025-12-31
+    section: financial_statements
+    note: Note 13, CRD and EEOC discrimination suits, FSD class action
+  - chunk_id: TSLA_10K_2025-12-31__financial_statements__0153
+    grade: 2
+    filing_id: TSLA_10K_2025-12-31
+    section: financial_statements
+    note: Note 13, FSD consumer class action history
+  - chunk_id: TSLA_10K_2025-12-31__financial_statements__0154
+    grade: 2
+    filing_id: TSLA_10K_2025-12-31
+    section: financial_statements
+    note: Note 13, San Diego case, Autopilot securities class action
+  - chunk_id: TSLA_10K_2025-12-31__financial_statements__0155
+    grade: 2
+    filing_id: TSLA_10K_2025-12-31
+    section: financial_statements
+    note: Note 13, Texas securities suit, Benavides verdict
+  - chunk_id: TSLA_10K_2025-12-31__financial_statements__0156
+    grade: 2
+    filing_id: TSLA_10K_2025-12-31
+    section: financial_statements
+    note: Note 13, Benavides post-trial motion, government investigations
   - chunk_id: TSLA_10K_2025-12-31__financial_statements__0157
     grade: 2
     filing_id: TSLA_10K_2025-12-31
@@ -93,6 +128,11 @@ chunks:
     filing_id: TSLA_10K_2025-12-31
     section: unknown
     note: expected 10-K table of contents heading list
+  - chunk_id: TSLA_10Q_2022-03-31__financial_statements__0079
+    grade: 1
+    filing_id: TSLA_10Q_2022-03-31
+    section: financial_statements
+    note: older 10-Q, SolarCity acquisition litigation
   - chunk_id: TSLA_10Q_2022-03-31__legal_proceedings__0000
     grade: 1
     filing_id: TSLA_10Q_2022-03-31
@@ -148,6 +188,11 @@ chunks:
     filing_id: TSLA_10Q_2023-06-30
     section: legal_proceedings
     note: older 10-Q, California waste investigation
+  - chunk_id: TSLA_10Q_2023-09-30__financial_statements__0074
+    grade: 1
+    filing_id: TSLA_10Q_2023-09-30
+    section: financial_statements
+    note: older 10-Q, DOJ subpoenas, data breach suit
   - chunk_id: TSLA_10Q_2023-09-30__legal_proceedings__0000
     grade: 1
     filing_id: TSLA_10Q_2023-09-30
@@ -163,11 +208,26 @@ chunks:
     filing_id: TSLA_10Q_2024-03-31
     section: legal_proceedings
     note: older 10-Q, waste investigation settled for 1.5M
+  - chunk_id: TSLA_10Q_2024-09-30__financial_statements__0072
+    grade: 1
+    filing_id: TSLA_10Q_2024-09-30
+    section: financial_statements
+    note: older 10-Q, investigations and data incident
+  - chunk_id: TSLA_10Q_2025-03-31__financial_statements__0069
+    grade: 1
+    filing_id: TSLA_10Q_2025-03-31
+    section: financial_statements
+    note: older 10-Q, data breach class action
   - chunk_id: TSLA_10Q_2025-03-31__unknown__0011
     grade: 0
     filing_id: TSLA_10Q_2025-03-31
     section: unknown
     note: older 10-Q table of contents
+  - chunk_id: TSLA_10Q_2025-06-30__financial_statements__0074
+    grade: 1
+    filing_id: TSLA_10Q_2025-06-30
+    section: financial_statements
+    note: older 10-Q, investigations and data incident
   - chunk_id: TSLA_10Q_2025-06-30__unknown__0011
     grade: 0
     filing_id: TSLA_10Q_2025-06-30
