@@ -656,6 +656,13 @@ Entry format:
 - Decisions taken without review: the opening sentence and 9 rules (8 of them without a change of content; rule 16 drops "only") are reworded to fit the size test instead of raising the 2,500-token bound of chapter 12 (`test_system_block_size`). The default moves to 1.5.1 on 1 live run, as the decision rule of this follow-up states, although the demo answer cache is not rewarmed. `eval/report.md` keeps eval-20261022T111922Z, since this run has no ablation tables; its report stayed outside the repository and its numbers are above.
 - Attempts: 1.
 
+## Follow-up after stage 22: answer cache for prompt 1.5.1
+
+- Built: the 28 entries of `demo/answer_cache/` are replaced by a `keel warm-cache` run under prompt 1.5.1 (index 1.2.0, `claude-sonnet-5-5`); the 28 entries keyed to prompt 1.4.0 are removed, since the D-29 key holds the prompt version and they no longer hit.
+- Measured: `answer cache: 28 of 28 questions have an entry (24 answered, 4 refusals stored, 0 cached already, 0 failed); 24 model requests, $2.1376`. Offline check: `KEEL_OFFLINE=1 keel ask` on example question 1 returns `from_cache: true`, `model_requests: 0`, prompt 1.5.1, total latency 1.3 ms.
+- Decisions taken without review: the 1.4.0 entries are removed rather than kept beside the new ones, so the pre-flight count stays 28. `demo/static/` keeps its 1.4.0 example answers until the static export runs again against a server on the new cache.
+- Attempts: 1.
+
 ## Gaps
 
 Values that were not available when the build needed them, and what the build did instead.
@@ -725,6 +732,7 @@ Decisions that CLAUDE.md says to ask about, taken in unattended mode. One line e
 - The bootstrap downloads the index archive from `index.url` over https when `gh` is absent or fails, and the host of `index.url` joins the D-38 allow list like the host of `corpus.url`; no GitHub token goes on the host. Follow-up after stage 22: index download over https.
 - Prompt 1.5.0 lifts full-set faithfulness to 0.918 but fails the G-28 adversarial check in its 1 live run, so 1.4.0 stays the default; 1.5.1 (no finding cites an instruction chunk) needs 1 more full live eval. Follow-up after stage 22: prompt 1.5.0.
 - Prompt 1.5.1 becomes the default on 1 full live eval (faithfulness 0.926, every gate and both adversarial checks pass) without a rewarm of the committed demo answer cache, whose 28 entries are keyed to 1.4.0 and miss until `keel warm-cache` runs (about 2.2 USD, past the 5 USD cap of the follow-up). Follow-up after stage 22: prompt 1.5.1.
+- The 28 demo cache entries keyed to prompt 1.4.0 are replaced by a rewarm under prompt 1.5.1 (2.14 USD) instead of kept beside them. Follow-up after stage 22: answer cache for prompt 1.5.1.
 
 ## Placeholders resolved
 
