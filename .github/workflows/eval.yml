@@ -39,6 +39,15 @@ jobs:
           fi
       - run: uv sync --frozen
         if: steps.harness.outputs.present == 'true'
+      - name: cache the pinned Hugging Face models
+        if: steps.harness.outputs.present == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-models-${{ hashFiles('config/keel.yaml') }}
+      - name: download the pinned models
+        if: steps.harness.outputs.present == 'true'
+        run: uv run keel doctor --download-models
       - name: build the mini index
         if: steps.harness.outputs.present == 'true'
         run: uv run keel index --corpus tests/fixtures/mini_corpus --out index/ci
