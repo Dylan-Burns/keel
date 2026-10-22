@@ -4,6 +4,40 @@ All notable changes to this project are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 release-please maintains the released sections from Conventional Commits.
 
+## [0.3.0](https://github.com/Dylan-Burns/keel/compare/v0.2.0...v0.3.0) (2026-10-22)
+
+
+### Features
+
+* **api:** add the admin job runner and the admin routes ([223daed](https://github.com/Dylan-Burns/keel/commit/223daed9779ac58b328a158ed6b7748c23cf3fe7))
+* **api:** add the watch list and the debug routes ([ed0c4f2](https://github.com/Dylan-Burns/keel/commit/ed0c4f2fea123ed12a05c1eba187b474d956712e))
+* **cli:** add the history, share, coverage, and jobs commands ([1466a51](https://github.com/Dylan-Burns/keel/commit/1466a51e266e808d792d717c5d093c934aeee140))
+* **infra:** deploy the aws host through ssm and github oidc ([7705665](https://github.com/Dylan-Burns/keel/commit/770566533f7f77f657e3bd6fae90461d2ff14cfd))
+* **infra:** terraform plan and drift check in ci, release starts deploy ([3721bdf](https://github.com/Dylan-Burns/keel/commit/3721bdfd5a67f1bb64a583234e3209850b741ad1))
+* **web:** show cited IDs in the answer text as citation chips ([d98de49](https://github.com/Dylan-Burns/keel/commit/d98de494f9b97ccc5fccdf3b67b02ac679c18a01))
+
+
+### Bug fixes
+
+* **api:** break the state and jobs import cycle ([1e9e162](https://github.com/Dylan-Burns/keel/commit/1e9e162c1d75a07921ef55d6684e9b05724481e5))
+* **eval:** hold the judge gates pending below 5 judged answers ([23cb439](https://github.com/Dylan-Burns/keel/commit/23cb43949f40cd7c6da7dbfd4a30eb3f9481e1e2))
+* **infra:** install the aws cli by snap and pin an existing trivy tag ([5f5c8e4](https://github.com/Dylan-Burns/keel/commit/5f5c8e48222f6067147d26c3f24cbf8c86a5492f))
+* **infra:** match the release tag exactly when resolving its commit ([97d153f](https://github.com/Dylan-Burns/keel/commit/97d153f7c45aec7844b3963d0805e543f8d18117))
+* **infra:** plan with aws credentials on main only, narrower reads ([34446fb](https://github.com/Dylan-Burns/keel/commit/34446fb36ffb48e852c94ee374884af7f23dc3fe))
+* **infra:** prefer the peeled commit of an annotated release tag ([f567461](https://github.com/Dylan-Burns/keel/commit/f567461039fb0c1854a4c27a5ff209e26f2859e0))
+* **infra:** run the deploy script by commit and pin trivy by sha ([ab1aecb](https://github.com/Dylan-Burns/keel/commit/ab1aecb2a45659fb01c3a432663aa317aaa0c2d8))
+* **release:** bump the keel version in uv.lock with each release ([8a65375](https://github.com/Dylan-Burns/keel/commit/8a653751b49dce28cb8c4a156468ec91bfb0fd0a))
+* **web:** name unverified inline chips and keep link brackets ([56e2e5f](https://github.com/Dylan-Burns/keel/commit/56e2e5ff15eb83f9fbd9ad6a2af9eda693ed3945))
+
+
+### Documentation
+
+* **docs:** count the tests after the rebase on main ([b0c9a49](https://github.com/Dylan-Burns/keel/commit/b0c9a49241c91dd85c09318098004c0b34c7c4a9))
+* **docs:** document the admin API and the CLI parity commands ([3dcc229](https://github.com/Dylan-Burns/keel/commit/3dcc22990a542bf5b9d6f584aebc67030fe58079))
+* **docs:** record the inline citation chips follow-up ([be53d76](https://github.com/Dylan-Burns/keel/commit/be53d76ea6cca970a46e7e52585d87cca50278de))
+* **eval:** document the minimum sample rule of the judge gates ([b169cd1](https://github.com/Dylan-Burns/keel/commit/b169cd1ffe65311f2fae3b28743e2e504748f1a1))
+* **infra:** the aws ci and cd pipeline in the infra readme ([c13636c](https://github.com/Dylan-Burns/keel/commit/c13636c5605f2b33a1df403e2e1ae8447ea354c7))
+
 ## [0.2.0](https://github.com/Dylan-Burns/keel/compare/v0.1.0...v0.2.0) (2026-10-22)
 
 
