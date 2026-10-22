@@ -123,6 +123,16 @@ def _eval_arguments() -> argparse.ArgumentParser:
         action="store_true",
         help="run the hybrid pipeline only, without the ablation variants",
     )
+    eval_parser.add_argument(
+        "--answers",
+        action="store_true",
+        help="also answer each question (1 model request each) and judge it",
+    )
+    eval_parser.add_argument(
+        "--no-judge",
+        action="store_true",
+        help="with --answers, skip the judge (the code metrics still run)",
+    )
     return eval_parser
 
 
@@ -1144,8 +1154,12 @@ def run_eval(settings: config.Settings, args: argparse.Namespace) -> int:
     Raises:
         GoldenSetError: The golden set or a label file is not valid.
         IndexMissingError: No published index.
+        ProviderRequestError: `--answers` without `ANTHROPIC_API_KEY`.
     """
     variants = (runner.MAIN,) if args.no_ablation else runner.ABLATION
+    setup = (
+        runner.AnswerSetup(judge=not args.no_judge) if args.answers else None
+    )
     run, questions = runner.evaluate(
         settings,
         args.golden,
@@ -1154,6 +1168,7 @@ def run_eval(settings: config.Settings, args: argparse.Namespace) -> int:
         index_dir=args.index,
         variants=variants,
         progress=print,
+        answers=setup,
     )
     json_path = eval_report.write(run, questions, args.report)
     print(f"run {run.info.run_id}: {len(questions)} questions, ", end="")
@@ -1162,6 +1177,11 @@ def run_eval(settings: config.Settings, args: argparse.Namespace) -> int:
     for result in results:
         value = "n/a" if result.value is None else f"{result.value:.2f}"
         print(f"  {result.gate.name}: {value} ({result.status})")
+    if run.answers:
+        values = run.answer_values()
+        spend = sum(r.cost_usd for r in run.answers)
+        judge_cost = values.get("judge_cost_usd") or 0.0
+        print(f"spend: answers ${spend:.4f}, judge ${judge_cost:.4f}")
     if args.gate and gates.blocked(results):
         print("gate failed: the release stays blocked")
         return 1
