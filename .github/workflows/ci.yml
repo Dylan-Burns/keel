@@ -160,13 +160,19 @@ jobs:
           KEEL_LLM__PROVIDER: mock
           KEEL_API_TOKEN: ci-token
           KEEL_INDEX__DIR: index/ci
+          # The add job of the ops-jobs spec reads the recorded EDGAR
+          # responses and writes into a copy of the mini corpus: no network.
+          KEEL_CORPUS__DIR: ${{ runner.temp }}/e2e-corpus
+          KEEL_EDGAR__CACHE_DIR: ${{ runner.temp }}/e2e-edgar
           # The specs ask about 30 questions from 1 address within minutes.
           KEEL_LIMITS__RATE_PER_MINUTE: "1000"
           KEEL_LIMITS__RATE_PER_HOUR: "10000"
           HF_HUB_OFFLINE: "0"
         run: |
           uv sync --frozen
-          uv run keel index --corpus tests/fixtures/mini_corpus --out index/ci
+          cp -R tests/fixtures/mini_corpus "$KEEL_CORPUS__DIR"
+          cp -R tests/fixtures/edgar "$KEEL_EDGAR__CACHE_DIR"
+          uv run keel index --corpus "$KEEL_CORPUS__DIR" --out index/ci
           nohup uv run keel serve > serve.log 2>&1 &
           for _ in $(seq 1 60); do
             curl -fsS http://127.0.0.1:8000/api/health > /dev/null 2>&1 && break

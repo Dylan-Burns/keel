@@ -21,9 +21,25 @@ export default defineConfig({
     baseURL: baseUrl,
     trace: 'retain-on-failure',
   },
+  // The admin jobs that change the index (ops-jobs.spec.ts) run last, in
+  // their own project, so the other specs see the mini corpus unchanged.
   projects: [
-    {name: 'desktop', use: {...devices['Desktop Chrome']}},
-    {name: 'phone', use: {...devices['Pixel 7']}},
+    {
+      name: 'desktop',
+      use: {...devices['Desktop Chrome']},
+      testIgnore: /ops-jobs\.spec\.ts/,
+    },
+    {
+      name: 'phone',
+      use: {...devices['Pixel 7']},
+      testIgnore: /ops-jobs\.spec\.ts/,
+    },
+    {
+      name: 'ops-jobs',
+      use: {...devices['Desktop Chrome']},
+      testMatch: /ops-jobs\.spec\.ts/,
+      dependencies: ['desktop', 'phone'],
+    },
   ],
   // Without KEEL_E2E_BASE_URL, serve the built page with vite preview.
   ...(!isLive

@@ -258,6 +258,17 @@ async function mockApi(page: Page, fault: Fault | null): Promise<void> {
     if (path === `/api/shared/${RESPONSE_2.request_id}`) {
       return json(route, {...RESPONSE_2, question: QUESTION_2});
     }
+    if (path.startsWith('/api/export/')) {
+      const requestId = decodeURIComponent(path.slice('/api/export/'.length));
+      return route.fulfill({
+        status: 200,
+        contentType: 'text/markdown; charset=utf-8',
+        headers: {
+          'Content-Disposition': `attachment; filename="keel-memo-${requestId}.md"`,
+        },
+        body: `# Keel memo\n\nRequest ${requestId}\n`,
+      });
+    }
     if (path.startsWith('/api/chunks/')) {
       const chunkId = decodeURIComponent(path.slice('/api/chunks/'.length));
       const all = [
@@ -291,6 +302,8 @@ export interface OpenOptions {
   readonly paceMs?: number;
   /** The page path to open (default `/`). */
   readonly path?: string;
+  /** The token to store instead of TOKEN, such as an analyst's. */
+  readonly token?: string;
 }
 
 /**
@@ -307,7 +320,7 @@ export async function openKeel(
   if (options.withToken !== false) {
     await page.addInitScript(token => {
       window.sessionStorage.setItem('keel.token', token);
-    }, TOKEN);
+    }, options.token ?? TOKEN);
   }
   if (isLive) {
     if (fault !== null) {
