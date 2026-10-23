@@ -350,3 +350,76 @@ def test_add_rejects_other_forms(
             embedder_factory=conftest.FakeEmbedder,
             forms=("10-K/A",),
         )
+
+
+def test_add_reports_its_steps(
+    workspace: tuple[config.Settings, pathlib.Path, pathlib.Path],
+    client: edgar.EdgarClient,
+) -> None:
+    """The add enters each step of `add.STEPS` in order, with its lines."""
+    settings, corpus, index = workspace
+    reporter = conftest.RecordingReporter()
+    report = add.add_ticker(
+        settings,
+        "ZTS",
+        client=client,
+        corpus_dir=corpus,
+        index_dir=index,
+        embedder_factory=conftest.FakeEmbedder,
+        reporter=reporter,
+    )
+    # The build enters `parse` again; the job's step book ignores that.
+    entered = list(dict.fromkeys(reporter.steps()))
+    assert entered == [step.key for step in add.STEPS]
+    lines = reporter.lines()
+    assert "ZTS is CIK 0001555280" in lines
+    assert any(line.startswith("latest 10-Q filed ") for line in lines)
+    assert any(
+        line.startswith("10-K filed ") and "from the EDGAR cache" in line
+        for line in lines
+    )
+    assert any(line.startswith(f"wrote {ZTS_10K} (") for line in lines)
+    assert any(line.startswith(f"{ZTS_10Q}: fiscal Q2 2026") for line in lines)
+    assert any(line.startswith("published build ") for line in lines)
+    # The embed step counts the chunks of every filing it wrote.
+    embedded = [e for e in reporter.of("progress") if e[2] == "chunks"]
+    assert embedded[0][0] == 0
+    assert embedded[-1][0] == embedded[-1][1]
+    assert report.embedded_chunks > 0
+
+    # A repeat run stops after the parse step: nothing to build.
+    again = conftest.RecordingReporter()
+    add.add_ticker(
+        settings,
+        "ZTS",
+        client=client,
+        corpus_dir=corpus,
+        index_dir=index,
+        embedder_factory=conftest.FakeEmbedder,
+        reporter=again,
+    )
+    assert again.steps()[-1] == "parse"
+    assert again.lines()[-1] == (
+        "no new or changed filing: the index stays as it is"
+    )
+
+
+def test_add_skips_a_form_it_does_not_pick(
+    workspace: tuple[config.Settings, pathlib.Path, pathlib.Path],
+    client: edgar.EdgarClient,
+) -> None:
+    """A 10-K-only add skips the 10-Q download step with its reason."""
+    settings, corpus, index = workspace
+    reporter = conftest.RecordingReporter()
+    add.add_ticker(
+        settings,
+        "ZTS",
+        client=client,
+        corpus_dir=corpus,
+        index_dir=index,
+        embedder_factory=conftest.FakeEmbedder,
+        forms=("10-K",),
+        reporter=reporter,
+    )
+    assert ("download_10q", "no 10-Q picked") in reporter.of("skip")
+    assert "download_10q" not in reporter.steps()

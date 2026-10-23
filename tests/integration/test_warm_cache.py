@@ -229,14 +229,26 @@ def test_warm_cache_complete(
     assert {r.status for r in again} == {"skipped"}
     before = provider.requests
     lines: list[str] = []
+    reporter = conftest.RecordingReporter()
     fresh = asyncio.run(
         warm_cache.warm_answers(
-            answerer, items, refresh=True, printer=lines.append
+            answerer,
+            items,
+            refresh=True,
+            printer=lines.append,
+            reporter=reporter,
         )
     )
     assert {r.status for r in fresh} == {"answered", "refusal"}
     assert provider.requests > before
     assert len(lines) == len(items)
+    # The step log holds the question before each answer, then its line.
+    logged = reporter.lines()
+    assert logged[0].startswith(f"[1/{len(items)}] G-01: asking ")
+    assert logged[1] == lines[0]
+    assert len(logged) == 2 * len(items)
+    assert all(len(line) < 160 for line in logged)
+    assert reporter.of("progress")[-1] == (len(items), len(items), "questions")
 
 
 def test_warm_cache_failed_answer_is_reported(
@@ -263,9 +275,16 @@ def test_prefetch_facts(tmp_path: pathlib.Path) -> None:
         conftest.REPO_ROOT / "config" / "facts.yaml"
     )
     tickers = ("MSFT", "NVDA", "AAPL", "QQQQQ")
+    reporter = conftest.RecordingReporter()
     with facts_client(tmp_path / "edgar") as client:
-        first = warm_cache.prefetch_facts(client, facts_config, tickers)
+        first = warm_cache.prefetch_facts(
+            client, facts_config, tickers, reporter=reporter
+        )
     assert first.fetched == ("MSFT", "NVDA")
+    lines = reporter.lines()
+    assert lines[0] == "MSFT: fetched, 0 facts lines"
+    assert lines[2].startswith("AAPL: no facts file: ")
+    assert reporter.of("progress")[-1] == (4, 4, "tickers")
     assert first.no_lines == ("MSFT",)
     assert [f.split(":")[0] for f in first.failed] == ["AAPL", "QQQQQ"]
     # The ticker map, MSFT, NVDA, and the AAPL 404.

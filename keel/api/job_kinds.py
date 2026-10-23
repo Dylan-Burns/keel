@@ -14,6 +14,23 @@ library functions that the CLI command calls, in-process:
 - `restore`: `keel restore ARCHIVE`; heavy; `confirm` is the archive name.
 - `index`: `keel index [--incremental]`; heavy; `confirm: "rebuild"`.
 
+Each kind declares its steps (`plan_*`), joined from the step lists of
+the library modules it calls, and passes its `JobContext` to them as the
+`keel.steps` reporter:
+
+- `add`: prepare the corpus, the fetch steps of `add.STEPS` (resolve
+  the ticker, the filing list, the 10-K, the 10-Q, convert), the build
+  steps of
+  `indexer.STEPS` (parse, chunk, embed, chunk store, publish), reload.
+- `refresh`: `refresh.STEPS` (watch list, check, add), reload.
+- `warm_cache`: `warm_cache.STEPS` (index, facts, questions, answer).
+- `eval`: report directory, `runner.STEPS` (golden set, harness,
+  questions, score), report.
+- `facts`: resolve, fetch, map.
+- `backup`: `backup.BACKUP_STEPS`; `restore`: find the archive,
+  `backup.RESTORE_STEPS`, reload.
+- `index`: prepare the corpus, `indexer.STEPS`, reload.
+
 A job that embeds new filings reuses the embedding model the server
 loaded, behind the pipeline's retrieval lock per batch, so the memory
 does not double; a rebuild without a loaded pipeline loads its own.
@@ -40,7 +57,9 @@ from keel import errors
 from keel import extractor
 from keel import indexer
 from keel import refresh
+from keel import steps
 from keel import warm_cache
+from keel.api import job_steps
 from keel.api import jobs
 from keel.api import state
 from keel.evaluation import golden
@@ -73,6 +92,18 @@ EVAL_WARNING = (
     "keel eval with answers makes 2 model requests per golden question "
     "(the answer and the judge)"
 )
+
+
+RELOAD = job_steps.RELOAD
+CORPUS_STEP = steps.StepDef("corpus", "Prepare the corpus")
+REPORT_DIR_STEP = steps.StepDef("report_dir", "Check the report directory")
+REPORT_STEP = steps.StepDef("report", "Write the report")
+FACTS_STEPS = (
+    steps.StepDef("resolve", "Resolve the ticker"),
+    steps.StepDef("fetch", "Fetch the company facts"),
+    steps.StepDef("map", "Map the facts lines"),
+)
+FIND_ARCHIVE_STEP = steps.StepDef("find", "Find the archive")
 
 
 class _Params(pydantic.BaseModel):
@@ -227,6 +258,8 @@ def ensure_corpus(settings: config.Settings, context: jobs.JobContext) -> None:
     """
     corpus_dir = settings.corpus.dir
     if corpus_dir.is_dir() and any(corpus_dir.glob("*.txt")):
+        count = sum(1 for _ in corpus_dir.glob("*.txt"))
+        context.log(f"the corpus holds {count} filings")
         return
     if not settings.corpus.zip.is_file():
         raise errors.CorpusMissingError(
@@ -251,8 +284,8 @@ def run_add(
         The add report; the index reloads when a build was published.
     """
     settings = services.settings
+    context.step(CORPUS_STEP.key)
     ensure_corpus(settings, context)
-    context.phase("fetching from EDGAR")
     with edgar.EdgarClient.from_settings(settings) as client:
         report = add.add_ticker(
             settings,
@@ -261,18 +294,8 @@ def run_add(
             corpus_dir=settings.corpus.dir,
             index_dir=settings.index.dir,
             embedder_factory=embedder_factory(services),
+            reporter=context,
         )
-    for filing in report.filings:
-        state_word = (
-            f"quarantined: {filing.quarantine}"
-            if filing.quarantine
-            else f"{filing.chunks} chunks"
-        )
-        context.log(
-            f"{filing.form} filed {filing.filing_date}: {filing.file_name}, "
-            f"{state_word}"
-        )
-    context.progress(len(report.filings), len(report.filings))
     return jobs.JobOutput(
         report.model_dump(mode="json"), reload=report.index_built
     )
@@ -297,17 +320,12 @@ def run_refresh(
         services.settings,
         dry_run=params.dry_run,
         embedder_factory=embedder_factory(services),
+        reporter=context,
     )
-    for result in report.tickers:
-        if result.error:
-            context.log(f"{result.ticker}: error: {result.error}")
-        elif not result.new:
-            context.log(f"{result.ticker}: up to date")
-        for ref in result.new:
-            context.log(
-                f"{result.ticker}: new {ref.form} filed {ref.filing_date}"
-            )
-    context.progress(len(report.tickers), len(report.tickers))
+    context.log(
+        f"{len(report.tickers)} tickers, {report.new_count} new, "
+        f"{report.added_count} added, {report.error_count} errors"
+    )
     summary = report.model_dump(mode="json")
     summary.update(
         new_count=report.new_count,
@@ -316,17 +334,6 @@ def run_refresh(
     )
     reload = not params.dry_run and report.added_count > 0
     return jobs.JobOutput(summary, reload=reload)
-
-
-def _counted(context: jobs.JobContext, total: int) -> warm_cache.Printer:
-    seen = [0]
-
-    def printer(line: str) -> None:
-        seen[0] += 1
-        context.log(line)
-        context.progress(seen[0], total)
-
-    return printer
 
 
 def run_warm_cache(
@@ -357,17 +364,23 @@ def run_warm_cache(
         raise errors.ConfigError(
             "warm-cache needs the provider and EDGAR; unset KEEL_OFFLINE"
         )
+    context.step("index")
     answerer = services.answerer
     if answerer is None:
         raise errors.IndexMissingError("no index is loaded")
-    context.phase("fetching the company facts")
     tickers = warm_cache.corpus_tickers(
         answerer.retriever.catalog, settings.demo.add_companies
     )
+    context.log(f"the loaded index covers {len(tickers)} tickers")
+    context.step("facts")
     facts_config = edgar.load_facts_config(settings.edgar.facts)
     with edgar.EdgarClient.from_settings(settings, offline=False) as client:
         prefetch = warm_cache.prefetch_facts(
-            client, facts_config, tickers, refresh=params.refresh
+            client,
+            facts_config,
+            tickers,
+            refresh=params.refresh,
+            reporter=context,
         )
     context.log(
         f"facts: {len(prefetch.tickers)} tickers, {len(prefetch.fetched)} "
@@ -386,17 +399,23 @@ def run_warm_cache(
     if params.facts_only:
         result["ok"] = not prefetch.failed
         return jobs.JobOutput(result)
-    context.phase("answering the demo questions")
+    context.step("questions")
     golden_set = golden.load_golden(warm_cache.DEFAULT_GOLDEN)
     questions = warm_cache.demo_questions(
         settings.demo.example_questions, golden_set
     )
+    context.log(
+        f"{len(questions)} questions: "
+        f"{len(settings.demo.example_questions)} examples and the golden "
+        f"set {golden_set.version}"
+    )
+    context.step("answer")
     results = context.run_async(
         warm_cache.warm_answers(
             answerer,
             questions,
             refresh=params.refresh,
-            printer=_counted(context, len(questions)),
+            reporter=context,
         )
     )
     counts = collections.Counter(r.status for r in results)
@@ -508,24 +527,23 @@ def run_eval(
         ConfigError: The report directory cannot be written.
     """
     settings = services.settings
+    context.step(REPORT_DIR_STEP.key)
     report_dir = config.eval_report_dir(settings)
     ensure_writable(report_dir)
+    context.log(f"{report_dir} is writable")
     golden_path = warm_cache.DEFAULT_GOLDEN
-    total = len(golden.load_golden(golden_path).select(params.subset))
-    context.progress(0, total)
     variants = runner.ABLATION if params.ablation else (runner.MAIN,)
     setup = runner.AnswerSetup(judge=params.judge) if params.answers else None
-    context.phase("running the golden set")
     run, questions = runner.evaluate(
         settings,
         golden_path,
         golden_path.parent / "labels",
         subset=params.subset,
         variants=variants,
-        progress=_counted(context, total),
         answers=setup,
+        reporter=context,
     )
-    context.phase("writing the report")
+    context.step(REPORT_STEP.key)
     report_path = write_eval_report(run, questions, report_dir, context)
     gate_rows = [
         {
@@ -535,6 +553,8 @@ def run_eval(
         }
         for result in run.gates()
     ]
+    for row in gate_rows:
+        context.log("gate {name}: {status}".format_map(row))
     spend = sum(r.cost_usd for r in run.answers)
     judge_cost = run.answer_values().get("judge_cost_usd") if run.answers else 0
     return jobs.JobOutput(
@@ -567,15 +587,23 @@ def run_facts(
         The facts lines and their counts.
     """
     settings = services.settings
-    context.phase("fetching the company facts")
     facts_config = edgar.load_facts_config(settings.edgar.facts)
     with edgar.EdgarClient.from_settings(settings) as client:
+        context.step("resolve")
         cik = client.cik(params.ticker)
+        context.log(f"{params.ticker.upper()} is CIK {cik}")
+        context.step("fetch")
         document = client.company_facts(cik)
         requests = client.requests
+        context.log(
+            "fetched at "
+            + document.fetched_at.isoformat(timespec="seconds")
+            + f", {requests} requests"
+        )
+    context.step("map")
     block = edgar.facts_lines(document.data, params.ticker, facts_config)
     lines = block.text().splitlines()
-    context.progress(1, 1)
+    context.log(f"{len(block.lines)} lines, {block.dropped} dropped")
     return jobs.JobOutput(
         {
             "ticker": params.ticker.upper(),
@@ -603,13 +631,12 @@ def run_backup(
         The archive name, its sha256, and its members.
     """
     settings = services.settings
-    context.phase("writing the archive")
     result = backup.create_backup(
         settings.index.dir,
         None if params.index_only else settings.logs.dir,
         settings.scheduler.backup_dir,
+        reporter=context,
     )
-    context.progress(1, 1)
     return jobs.JobOutput(
         {
             "archive": result.archive.name,
@@ -655,14 +682,14 @@ def run_restore(
         BackupError: The archive is no longer in the listing.
     """
     settings = services.settings
+    context.step(FIND_ARCHIVE_STEP.key)
     found = find_archive(settings, params.archive)
     if found is None:
         raise errors.BackupError("the archive is not in the backup directory")
-    context.phase("checking and extracting the archive")
+    context.log(f"{found.name}: {found.size_bytes:,} bytes")
     result = backup.restore_backup(
-        found.path, settings.index.dir, settings.logs.dir
+        found.path, settings.index.dir, settings.logs.dir, reporter=context
     )
-    context.progress(1, 1)
     return jobs.JobOutput(
         {
             "archive": found.name,
@@ -691,15 +718,15 @@ def run_index(
         The build, its version, and its counts; the index reloads.
     """
     settings = services.settings
+    context.step(CORPUS_STEP.key)
     ensure_corpus(settings, context)
-    context.phase("building the index")
     result = indexer.build_index(
         settings,
         settings.corpus.dir,
         settings.index.dir,
         embedder_factory(services),
         incremental=params.incremental,
-        progress=context.progress,
+        reporter=context,
     )
     manifest = result.manifest
     counts = manifest.counts
@@ -718,12 +745,124 @@ def run_index(
     )
 
 
+def plan_add(params: TickerParams) -> tuple[steps.StepDef, ...]:
+    """The steps of `add`.
+
+    Args:
+        params: The ticker.
+
+    Returns:
+        The steps.
+    """
+    del params
+    return (CORPUS_STEP, *add.STEPS, RELOAD)
+
+
+def plan_refresh(params: RefreshParams) -> tuple[steps.StepDef, ...]:
+    """The steps of `refresh`; a dry run skips the add and the reload.
+
+    Args:
+        params: The dry run flag.
+
+    Returns:
+        The steps.
+    """
+    del params
+    return (*refresh.STEPS, RELOAD)
+
+
+def plan_warm_cache(params: WarmCacheParams) -> tuple[steps.StepDef, ...]:
+    """The steps of `warm_cache`; facts only stops after the facts.
+
+    Args:
+        params: The flags.
+
+    Returns:
+        The steps.
+    """
+    if params.facts_only:
+        return warm_cache.STEPS[:2]
+    return warm_cache.STEPS
+
+
+def plan_eval(params: EvalParams) -> tuple[steps.StepDef, ...]:
+    """The steps of `eval`; the score step runs with the answers only.
+
+    Args:
+        params: The flags.
+
+    Returns:
+        The steps.
+    """
+    run_steps = tuple(
+        s for s in runner.STEPS if params.answers or s.key != "score"
+    )
+    return (REPORT_DIR_STEP, *run_steps, REPORT_STEP)
+
+
+def plan_facts(params: TickerParams) -> tuple[steps.StepDef, ...]:
+    """The steps of `facts`.
+
+    Args:
+        params: The ticker.
+
+    Returns:
+        The steps.
+    """
+    del params
+    return FACTS_STEPS
+
+
+def plan_backup(params: BackupParams) -> tuple[steps.StepDef, ...]:
+    """The steps of `backup`; an index-only archive skips the logs.
+
+    Args:
+        params: The index-only flag.
+
+    Returns:
+        The steps.
+    """
+    del params
+    return backup.BACKUP_STEPS
+
+
+def plan_restore(params: RestoreParams) -> tuple[steps.StepDef, ...]:
+    """The steps of `restore`.
+
+    Args:
+        params: The archive.
+
+    Returns:
+        The steps.
+    """
+    del params
+    return (FIND_ARCHIVE_STEP, *backup.RESTORE_STEPS, RELOAD)
+
+
+def plan_index(params: IndexParams) -> tuple[steps.StepDef, ...]:
+    """The steps of `index`.
+
+    Args:
+        params: The incremental flag.
+
+    Returns:
+        The steps.
+    """
+    del params
+    return (CORPUS_STEP, *indexer.STEPS, RELOAD)
+
+
 SPECS: dict[str, jobs.JobSpec] = {
     spec.kind: spec
     for spec in (
-        jobs.JobSpec("add", TickerParams, True, run_add, "keel add"),
+        jobs.JobSpec("add", TickerParams, True, run_add, "keel add", plan_add),
         jobs.JobSpec(
-            "refresh", RefreshParams, True, run_refresh, "keel refresh"
+            "refresh",
+            RefreshParams,
+            True,
+            run_refresh,
+            "keel refresh",
+            plan_refresh,
         ),
         jobs.JobSpec(
             "warm_cache",
@@ -731,13 +870,32 @@ SPECS: dict[str, jobs.JobSpec] = {
             True,
             run_warm_cache,
             "keel warm-cache",
+            plan_warm_cache,
         ),
-        jobs.JobSpec("eval", EvalParams, True, run_eval, "keel eval"),
-        jobs.JobSpec("facts", TickerParams, False, run_facts, "keel facts"),
-        jobs.JobSpec("backup", BackupParams, True, run_backup, "keel backup"),
         jobs.JobSpec(
-            "restore", RestoreParams, True, run_restore, "keel restore"
+            "eval", EvalParams, True, run_eval, "keel eval", plan_eval
         ),
-        jobs.JobSpec("index", IndexParams, True, run_index, "keel index"),
+        jobs.JobSpec(
+            "facts", TickerParams, False, run_facts, "keel facts", plan_facts
+        ),
+        jobs.JobSpec(
+            "backup",
+            BackupParams,
+            True,
+            run_backup,
+            "keel backup",
+            plan_backup,
+        ),
+        jobs.JobSpec(
+            "restore",
+            RestoreParams,
+            True,
+            run_restore,
+            "keel restore",
+            plan_restore,
+        ),
+        jobs.JobSpec(
+            "index", IndexParams, True, run_index, "keel index", plan_index
+        ),
     )
 }

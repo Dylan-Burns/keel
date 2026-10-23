@@ -317,6 +317,7 @@ def host(
 def test_every_job_kind_runs_on_a_read_only_root(host: Host) -> None:
     """Each job kind and the users file write only to the volumes."""
     results = {}
+    stepped: dict[str, dict[str, str]] = {}
     for kind, params in (
         ("index", {"incremental": True}),
         ("add", {"ticker": "ZTS"}),
@@ -337,6 +338,22 @@ def test_every_job_kind_runs_on_a_read_only_root(host: Host) -> None:
         job = host.run(kind, **params)
         assert job.status == "succeeded", (kind, job.error, job.log)
         results[kind] = job.result
+        # Every step of the plan ended; none failed.
+        ended = {step["status"] for step in job.steps}
+        assert ended <= {"succeeded", "skipped"}, (kind, job.steps)
+        assert job.steps[0]["status"] == "succeeded", (kind, job.steps)
+        stepped[kind] = {step["key"]: step["status"] for step in job.steps}
+    assert set(stepped["eval"].values()) == {"succeeded"}
+    assert list(stepped["eval"]) == [
+        "report_dir",
+        "golden",
+        "harness",
+        "questions",
+        "score",
+        "report",
+    ]
+    assert set(stepped["warm_cache"].values()) == {"succeeded"}
+    assert stepped["add"]["resolve"] == "succeeded"
     archive = results["backup"]["archive"]
     restored = host.run("restore", archive=archive)
     assert restored.status == "succeeded", restored.error
@@ -379,6 +396,9 @@ def test_eval_job_fails_before_the_run_on_a_read_only_dir(
     assert "Read-only file system" in job.error
     assert "KEEL_EVAL__REPORT_DIR" in job.error
     assert asked == []
+    statuses = [step["status"] for step in job.steps]
+    assert statuses == ["failed"] + ["skipped"] * (len(statuses) - 1)
+    assert job.steps[0]["log"][-1].startswith("error: ConfigError: ")
     assert GUARD.violations
 
 

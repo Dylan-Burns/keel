@@ -37,6 +37,7 @@ from keel import chunker
 from keel import config
 from keel import errors
 from keel import inventory
+from keel import steps
 from keel.parsers import base
 from keel.parsers import corpus as parser_corpus
 from keel.stores import chunk_store
@@ -59,6 +60,14 @@ _HASH_BLOCK = 1 << 20
 EmbedderFactory = Callable[[], numpy_dense.Embedder]
 # Called after each shard with the shards done and the shards in all.
 Progress = Callable[[int, int], None]
+# The steps of a build, in order, for the step list of an admin job.
+STEPS = (
+    steps.StepDef("parse", "Parse and section"),
+    steps.StepDef("chunk", "Chunk"),
+    steps.StepDef("embed", "Embed"),
+    steps.StepDef("store", "Write the chunk store"),
+    steps.StepDef("publish", "Publish the index build"),
+)
 
 
 class ModelRef(pydantic.BaseModel):
@@ -459,8 +468,10 @@ def _write_shards(  # pylint: disable=too-many-locals
     embedder_factory: EmbedderFactory,
     *,
     progress: Progress | None = None,
+    reporter: steps.Reporter = steps.NULL,
 ) -> _EmbedStats:
     total_chunks = sum(len(c) for _, c in work)
+    reporter.progress(0, total_chunks, "chunks")
     done_chunks = embedded_filings = embedded_chunks = 0
     embed_seconds = 0.0
     embedder: numpy_dense.Embedder | None = None
@@ -483,6 +494,12 @@ def _write_shards(  # pylint: disable=too-many-locals
         done_chunks += len(chunks)
         if progress is not None:
             progress(number, len(work))
+        # The line first: the progress report writes both to the job.
+        reporter.log(
+            f"shard {number}/{len(work)} {filing_id}: {len(chunks)} chunks "
+            + ("reused" if reused is not None else "embedded")
+        )
+        reporter.progress(done_chunks, total_chunks, "chunks")
         logger.info(
             "shard %d/%d %s: %d chunks, %s; %d/%d chunks done, %.1f chunks/s",
             number,
@@ -571,6 +588,32 @@ def _prune(index_dir: pathlib.Path, keep: Sequence[pathlib.Path]) -> None:
         shutil.rmtree(path, ignore_errors=True)
 
 
+def _seconds(seconds: Mapping[str, float], step: str) -> str:
+    """The time of 1 build step, for a log line."""
+    return f"{seconds.get(step, 0.0):.1f} s"
+
+
+def _report_parse(
+    reporter: steps.Reporter,
+    files: Sequence[pathlib.Path],
+    parsed: parser_corpus.CorpusParse,
+    seconds: float,
+) -> None:
+    """Log the parse counts and each quarantined filing."""
+    quarantined = [f for f in parsed.filings if f.quarantine is not None]
+    reporter.log(
+        f"parsed {len(files)} files in {seconds:.1f} s: "
+        f"{len(parsed.filings) - len(quarantined)} indexable, "
+        f"{len(quarantined)} quarantined"
+    )
+    for filing in quarantined:
+        if filing.quarantine is not None:
+            reporter.log(
+                f"quarantined {filing.metadata.file_name}: "
+                f"{filing.quarantine.reason}"
+            )
+
+
 def _chunk_all(
     settings: config.Settings,
     parsed: parser_corpus.CorpusParse,
@@ -595,6 +638,43 @@ def _chunk_all(
     )
 
 
+def _parse_and_chunk(
+    settings: config.Settings,
+    corpus_dir: pathlib.Path,
+    reporter: steps.Reporter,
+    seconds: dict[str, float],
+) -> tuple[
+    list[pathlib.Path],
+    parser_corpus.CorpusParse,
+    dict[str, str],
+    list[tuple[base.ParsedFiling, list[chunker.Chunk]]],
+]:
+    """The parse and chunk steps of a build; times go into `seconds`."""
+    reporter.step("parse")
+    step = time.perf_counter()
+    files, parsed, sources = _parse(settings, corpus_dir)
+    seconds["parse"] = time.perf_counter() - step
+    logger.info("parsed %d files in %.1f s", len(files), seconds["parse"])
+    _report_parse(reporter, files, parsed, seconds["parse"])
+    reporter.step("chunk")
+    step = time.perf_counter()
+    work = _chunk_all(settings, parsed)
+    chunks = [c for _, filing_chunks in work for c in filing_chunks]
+    seconds["chunk"] = time.perf_counter() - step
+    logger.info(
+        "chunked %d filings into %d chunks in %.1f s",
+        len(work),
+        len(chunks),
+        seconds["chunk"],
+    )
+    reporter.log(
+        f"chunked {len(work)} filings into {len(chunks)} chunks "
+        f"({sum(1 for c in chunks if c.is_table)} table chunks) in "
+        + _seconds(seconds, "chunk")
+    )
+    return files, parsed, sources, work
+
+
 def build_index(  # pylint: disable=too-many-locals
     settings: config.Settings,
     corpus_dir: pathlib.Path,
@@ -603,6 +683,7 @@ def build_index(  # pylint: disable=too-many-locals
     *,
     incremental: bool = False,
     progress: Progress | None = None,
+    reporter: steps.Reporter = steps.NULL,
 ) -> BuildResult:
     """Build an index from a corpus directory and publish it as `current`.
 
@@ -615,6 +696,8 @@ def build_index(  # pylint: disable=too-many-locals
         incremental: Reuse the shards of unchanged filings from `current`.
         progress: Called after each shard with the shards done and the
             shards in all, for the bootstrap state of `/api/ready`.
+        reporter: Receives the steps of `STEPS`, their log lines, and
+            the embedded chunks of the embed step.
 
     Returns:
         The published build.
@@ -636,20 +719,11 @@ def build_index(  # pylint: disable=too-many-locals
     staging.mkdir()
     logger.info("building %s from %s", staging, corpus_dir)
     try:
-        step = time.perf_counter()
-        files, parsed, sources = _parse(settings, corpus_dir)
-        seconds["parse"] = time.perf_counter() - step
-        logger.info("parsed %d files in %.1f s", len(files), seconds["parse"])
-        step = time.perf_counter()
-        work = _chunk_all(settings, parsed)
-        chunks = [c for _, filing_chunks in work for c in filing_chunks]
-        seconds["chunk"] = time.perf_counter() - step
-        logger.info(
-            "chunked %d filings into %d chunks in %.1f s",
-            len(work),
-            len(chunks),
-            seconds["chunk"],
+        files, parsed, sources, work = _parse_and_chunk(
+            settings, corpus_dir, reporter, seconds
         )
+        chunks = [c for _, filing_chunks in work for c in filing_chunks]
+        reporter.step("embed")
         step = time.perf_counter()
         stats = _write_shards(
             staging,
@@ -658,8 +732,16 @@ def build_index(  # pylint: disable=too-many-locals
             settings,
             embedder_factory,
             progress=progress,
+            reporter=reporter,
         )
         seconds["embed"] = time.perf_counter() - step
+        reporter.log(
+            f"embedded {stats.embedded_chunks} chunks of "
+            f"{stats.embedded_filings} filings, reused "
+            f"{len(work) - stats.embedded_filings} filings, in "
+            + _seconds(seconds, "embed")
+        )
+        reporter.step("store")
         step = time.perf_counter()
         _write_store(
             staging / chunk_store.FILE_NAME,
@@ -669,6 +751,11 @@ def build_index(  # pylint: disable=too-many-locals
             sources,
         )
         seconds["sqlite"] = time.perf_counter() - step
+        reporter.log(
+            f"wrote {len(chunks)} chunks and the full-text index to "
+            f"{chunk_store.FILE_NAME} in " + _seconds(seconds, "sqlite")
+        )
+        reporter.step("publish")
         step = time.perf_counter()
         rows = numpy_dense.concatenate(
             [
@@ -754,6 +841,12 @@ def build_index(  # pylint: disable=too-many-locals
         raise
     keep = [final] + ([previous.build_dir] if previous else [])
     _prune(index_dir, keep[: KEEP_PREVIOUS + 1])
+    reporter.log(
+        f"published build {final.name} as index version "
+        f"{manifest.index_version}: {len(chunks)} chunks, "
+        + _seconds(seconds, "total")
+        + " in all"
+    )
     logger.info(
         "published %s as %s: %d chunks in %.1f s",
         final,

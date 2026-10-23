@@ -221,3 +221,73 @@ def test_runner_cleans_log_lines() -> None:
     assert "\x00" not in line
     assert "\x1b" not in line
     assert len(line) == jobs.LOG_LINE_CHARS
+    # A line break cannot forge a second log line.
+    forged = runner.clean("done\nerror: forged line\r\u2028more")
+    assert forged == "done error: forged line  more"
+
+
+class FakeRunner:
+    """The 2 runner methods a job context calls."""
+
+    def __init__(self) -> None:
+        self.writes: list[dict] = []
+        self._secrets = ["supersecretvalue"]
+
+    def clean(self, text: str) -> str:
+        return jobs.JobRunner.clean(self, text)  # type: ignore[arg-type]
+
+    def update(self, job_id: str, **fields: object) -> None:
+        del job_id
+        self.writes.append(fields)
+
+
+def test_job_context_reports_steps() -> None:
+    fake = FakeRunner()
+    plan = [
+        {"key": "fetch", "name": "Fetch", "status": "pending", "log": []},
+        {"key": "embed", "name": "Embed", "status": "pending", "log": []},
+    ]
+    context = jobs.JobContext(fake, "job", plan=plan)  # type: ignore[arg-type]
+    context.progress(5, 10)
+    context.step("fetch")
+    assert fake.writes[-1]["phase"] == "Fetch"
+    assert (fake.writes[-1]["done"], fake.writes[-1]["total"]) == (0, 2)
+    context.log("got supersecretvalue\nforged")
+    context.progress(3, 4, "files")
+    context.skip("embed", "nothing to embed")
+    context.finish(True)
+    context.flush()
+    merged: dict = {}
+    for write in fake.writes:
+        merged.update(write)
+    fetch, embed = merged["steps"]
+    assert fetch["status"] == "succeeded"
+    (line,) = fetch["log"]
+    assert line.startswith("got ")
+    assert line.endswith(" forged")
+    assert "supersecretvalue" not in json.dumps(merged)
+    assert fetch["progress"] == {"done": 3, "total": 4, "unit": "files"}
+    assert embed == {**embed, "status": "skipped"}
+    assert embed["log"] == ["skipped: nothing to embed"]
+    assert (merged["done"], merged["total"]) == (2, 2)
+    # The job log keeps every line too, for a client without steps.
+    assert len(merged["log"]) == 1
+    assert context.has_step("embed")
+    assert not context.has_step("other")
+
+
+def test_job_context_without_a_plan_keeps_the_job_progress() -> None:
+    fake = FakeRunner()
+    context = jobs.JobContext(fake, "job")  # type: ignore[arg-type]
+    context.progress(2, 5)
+    context.finish(False, "boom")
+    context.flush()
+    merged: dict = {}
+    for write in fake.writes:
+        merged.update(write)
+    assert (merged["done"], merged["total"]) == (2, 5)
+    assert "steps" not in merged
+    # A step reported by a job without a plan starts a plan of its own.
+    context.step("anything")
+    context.flush()
+    assert fake.writes[-1]["steps"][0]["key"] == "anything"

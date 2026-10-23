@@ -49,6 +49,7 @@ from typing import Protocol
 from keel import config
 from keel import errors
 from keel import indexer
+from keel import steps
 from keel.stores import chunk_store
 from keel.stores import numpy_dense
 
@@ -178,6 +179,24 @@ def snapshot_sqlite(source: pathlib.Path, destination: pathlib.Path) -> None:
         ) from error
 
 
+# The steps of `create_backup` and of `restore_backup`.
+BACKUP_STEPS = (
+    steps.StepDef("build", "Find the current build"),
+    steps.StepDef("index", "Copy and check the index files"),
+    steps.StepDef("logs", "Copy the logs and databases"),
+    steps.StepDef("archive", "Write the archive"),
+    steps.StepDef("checksum", "Write the checksum"),
+)
+RESTORE_STEPS = (
+    steps.StepDef("verify", "Verify the archive checksum"),
+    steps.StepDef("extract", "Extract the archive"),
+    steps.StepDef("check", "Check the index files"),
+    steps.StepDef("shards", "Rebuild the shards"),
+    steps.StepDef("logs", "Set the restored logs aside"),
+    steps.StepDef("swap", "Point current at the restored build"),
+)
+
+
 def _copy_verified(
     source: pathlib.Path, destination: pathlib.Path, sha: str
 ) -> None:
@@ -193,17 +212,33 @@ def _stage(
     build_dir: pathlib.Path,
     logs_dir: pathlib.Path | None,
     work: pathlib.Path,
+    reporter: steps.Reporter = steps.NULL,
 ) -> list[str]:
     """Copy the files of 1 backup into the work directory."""
+    reporter.step("index")
     manifest = indexer.load_manifest(build_dir)
     for name in INDEX_FILES:
         if name not in manifest.files:
             raise errors.IndexCorruptError(f"the manifest lists no {name}")
         _copy_verified(build_dir / name, work / name, manifest.files[name])
+        size = (work / name).stat().st_size
+        reporter.log(f"copied {name} ({size:,} bytes), checksum matches")
     shutil.copyfile(build_dir / indexer.MANIFEST, work / indexer.MANIFEST)
     members = list(REQUIRED_MEMBERS)
     if logs_dir is None:
+        reporter.skip("logs", "index only")
         return members
+    reporter.step("logs")
+    members = _stage_logs(logs_dir, work, members)
+    for name in members[len(REQUIRED_MEMBERS) :]:
+        reporter.log(f"copied {name}")
+    return members
+
+
+def _stage_logs(
+    logs_dir: pathlib.Path, work: pathlib.Path, members: list[str]
+) -> list[str]:
+    """Copy the audit and export logs and snapshot the SQLite files."""
     # The audit log rotates daily to `audit-<date>.jsonl`, so the member
     # joins the rotated days in date order, then today's file. It only
     # grows, so a copy is a consistent prefix.
@@ -247,6 +282,7 @@ def create_backup(
     out_dir: pathlib.Path,
     *,
     now: datetime.datetime | None = None,
+    reporter: steps.Reporter = steps.NULL,
 ) -> Backup:
     """Write the checksummed archive of the current build and the logs.
 
@@ -257,6 +293,7 @@ def create_backup(
             never hold a user's question).
         out_dir: The directory that receives the archive.
         now: The time of the stamp; None takes the UTC clock.
+        reporter: Receives the steps of `BACKUP_STEPS` and their lines.
 
     Returns:
         The written backup.
@@ -267,9 +304,11 @@ def create_backup(
         IndexCorruptError: An index file does not match the manifest.
         BackupError: A file cannot be read or written.
     """
+    reporter.step("build")
     build_dir = indexer.current_build(index_dir)
     if build_dir is None:
         raise errors.IndexMissingError(f"no current build in {index_dir}")
+    reporter.log(f"current build {build_dir.name}")
     moment = now or datetime.datetime.now(datetime.UTC)
     stamp = moment.strftime(STAMP_FORMAT)
     archive = out_dir / f"{ARCHIVE_PREFIX}{stamp}{ARCHIVE_SUFFIX}"
@@ -282,20 +321,28 @@ def create_backup(
         out_dir.mkdir(mode=PRIVATE_DIR_MODE, parents=True, exist_ok=True)
         work = pathlib.Path(tempfile.mkdtemp(prefix=".backup-", dir=out_dir))
         try:
-            members = _stage(build_dir, logs_dir, work)
+            members = _stage(build_dir, logs_dir, work, reporter)
+            reporter.step("archive")
             part = work / archive.name
             with (
                 _private_file(part) as stream,
                 tarfile.open(fileobj=stream, mode="w:gz") as tar,
             ):
-                for name in members:
+                for number, name in enumerate(members, start=1):
                     tar.add(work / name, arcname=name, recursive=False)
+                    reporter.progress(number, len(members), "members")
+            reporter.log(
+                f"{archive.name}: {len(members)} members, "
+                f"{part.stat().st_size:,} bytes"
+            )
+            reporter.step("checksum")
             digest = indexer.file_sha256(part)
             sha_part = work / checksum_file.name
             with _private_file(sha_part) as stream:
                 stream.write(f"{digest}  {archive.name}\n".encode())
             os.replace(part, archive)
             os.replace(sha_part, checksum_file)
+            reporter.log(f"sha256 {digest}")
         finally:
             shutil.rmtree(work, ignore_errors=True)
     except OSError as error:
@@ -445,10 +492,44 @@ def _swap_link(index_dir: pathlib.Path, name: str, target: str) -> None:
     os.replace(temporary, pointer)
 
 
+def _unpack(
+    archive: pathlib.Path,
+    staging: pathlib.Path,
+    extra_dir: pathlib.Path,
+    reporter: steps.Reporter,
+) -> tuple[indexer.Manifest, int, pathlib.Path | None]:
+    """Extract, check, and complete a build; set the logs aside."""
+    reporter.step("extract")
+    names = _extract(archive, staging)
+    reporter.log(f"extracted {len(names)} members: " + ", ".join(names))
+    reporter.step("check")
+    manifest = indexer.verify(staging)
+    reporter.log(
+        f"index version {manifest.index_version}, "
+        f"{manifest.counts.chunks} chunks; checksums match"
+    )
+    reporter.step("shards")
+    shards = rebuild_shards(staging)
+    reporter.log(f"rebuilt {shards} shards")
+    extras = [n for n in names if n not in REQUIRED_MEMBERS]
+    if not extras:
+        reporter.skip("logs", "the archive holds no logs")
+        return manifest, shards, None
+    reporter.step("logs")
+    reporter.log(f"{len(extras)} files to {extra_dir.name}")
+    extra_dir.mkdir(parents=True, exist_ok=True)
+    os.chmod(extra_dir, PRIVATE_DIR_MODE)
+    for name in extras:
+        os.replace(staging / name, extra_dir / name)
+        os.chmod(extra_dir / name, PRIVATE_FILE_MODE)
+    return manifest, shards, extra_dir
+
+
 def restore_backup(
     archive: pathlib.Path,
     index_dir: pathlib.Path,
     logs_dir: pathlib.Path,
+    reporter: steps.Reporter = steps.NULL,
 ) -> Restore:
     """Restore an archive as the current build (infra/README.md).
 
@@ -460,6 +541,7 @@ def restore_backup(
         index_dir: The index directory with the `current` pointer.
         logs_dir: The logs directory; the restored audit log and SQLite
             files go to `restored-<stamp>` under it, never over the live log.
+        reporter: Receives the steps of `RESTORE_STEPS` and their lines.
 
     Returns:
         The restored build.
@@ -470,7 +552,9 @@ def restore_backup(
         IndexCorruptError: An index file fails its manifest checksum.
         IndexWriteError: The pointers cannot be swapped.
     """
-    verify_archive(archive)
+    reporter.step("verify")
+    digest = verify_archive(archive)
+    reporter.log(f"{archive.name}: sha256 {digest} matches")
     if not _ARCHIVE_NAME.match(archive.name):
         raise errors.BackupError(f"{archive.name} is not a Keel archive name")
     stamp = archive.name.removeprefix(ARCHIVE_PREFIX).removesuffix(
@@ -484,17 +568,9 @@ def restore_backup(
     staging = index_dir / RESTORE_DIR
     shutil.rmtree(staging, ignore_errors=True)
     try:
-        names = _extract(archive, staging)
-        manifest = indexer.verify(staging)
-        shards = rebuild_shards(staging)
-        extras = [n for n in names if n not in REQUIRED_MEMBERS]
-        extra_dir = logs_dir / f"restored-{stamp}" if extras else None
-        if extra_dir is not None:
-            extra_dir.mkdir(parents=True, exist_ok=True)
-            os.chmod(extra_dir, PRIVATE_DIR_MODE)
-            for name in extras:
-                os.replace(staging / name, extra_dir / name)
-                os.chmod(extra_dir / name, PRIVATE_FILE_MODE)
+        manifest, shards, extra_dir = _unpack(
+            archive, staging, logs_dir / f"restored-{stamp}", reporter
+        )
         old = indexer.current_build(index_dir)
         final = index_dir / indexer.new_build_id()
         staging.rename(final)
@@ -502,9 +578,14 @@ def restore_backup(
         shutil.rmtree(staging, ignore_errors=True)
         raise
     try:
+        reporter.step("swap")
         if old is not None:
             _swap_link(index_dir, PREVIOUS, old.name)
         _swap_link(index_dir, indexer.CURRENT, final.name)
+        reporter.log(
+            f"current is {final.name}"
+            + (f"; previous is {old.name}" if old is not None else "")
+        )
     except (OSError, errors.IndexWriteError) as error:
         if indexer.current_build(index_dir) != final.resolve():
             shutil.rmtree(final, ignore_errors=True)

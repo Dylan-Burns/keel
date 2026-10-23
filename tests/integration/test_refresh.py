@@ -24,6 +24,7 @@ from keel import config
 from keel import edgar
 from keel import indexer
 from keel import refresh
+from keel import steps
 from keel.stores import numpy_dense
 from keel.stores import state_store
 
@@ -135,6 +136,7 @@ class CountingAdder:
         index_dir: pathlib.Path,
         embedder_factory: indexer.EmbedderFactory,
         forms: Sequence[str] = edgar.ADD_FORMS,
+        reporter: steps.Reporter = steps.NULL,
     ) -> add.AddReport:
         self.calls.append((ticker, tuple(forms)))
         return add.add_ticker(
@@ -145,6 +147,7 @@ class CountingAdder:
             index_dir=index_dir,
             embedder_factory=embedder_factory,
             forms=forms,
+            reporter=reporter,
         )
 
 
@@ -171,6 +174,7 @@ def test_refresh_new_filing(workspace: Workspace) -> None:
     sec = RecordedSec()
     adder = CountingAdder()
     fake = conftest.FakeEmbedder()
+    reporter = conftest.RecordingReporter()
     with sec.client(settings) as client:
         report = refresh.run_refresh(
             settings,
@@ -180,7 +184,18 @@ def test_refresh_new_filing(workspace: Workspace) -> None:
             embedder_factory=lambda: fake,
             adder=adder,
             clock=lambda: T0,
+            reporter=reporter,
         )
+    # The run checks every ticker, then adds; the add's own steps are
+    # lines of the add step.
+    assert reporter.steps() == ["watch", "check", "add"]
+    lines = reporter.lines()
+    assert lines[0] == "1 tickers: ZTS"
+    assert "ZTS: new 10-Q filed 2026-08-06" in lines
+    assert "ZTS: Download the 10-Q" in lines
+    assert "ZTS: Download the 10-K skipped: no 10-K picked" in lines
+    assert "ZTS: Embed" in lines
+    assert ("progress", 1, 1, "tickers") in reporter.events
     # 1 request: the submissions; the ticker map and the 10-Q are cached.
     assert sec.urls == [SUBMISSIONS_URL]
     assert report.requests == 1
@@ -238,6 +253,7 @@ def test_refresh_dry_run(workspace: Workspace) -> None:
     before = indexer.current_build(index)
     manifest_text = (corpus / "manifest.json").read_text()
     adder = CountingAdder()
+    reporter = conftest.RecordingReporter()
     with _offline(settings) as client:
         report = refresh.run_refresh(
             settings,
@@ -248,7 +264,10 @@ def test_refresh_dry_run(workspace: Workspace) -> None:
             embedder_factory=conftest.FakeEmbedder,
             adder=adder,
             clock=lambda: T0,
+            reporter=reporter,
         )
+    assert reporter.steps() == ["watch", "check"]
+    assert ("add", "dry run") in reporter.of("skip")
     assert report.dry_run
     (result,) = report.tickers
     assert [(ref.form, ref.accession) for ref in result.new] == [

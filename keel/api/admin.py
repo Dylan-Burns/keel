@@ -140,6 +140,42 @@ class Progress(pydantic.BaseModel):
     total: int | None
 
 
+class StepProgress(pydantic.BaseModel):
+    """The counts of 1 step.
+
+    Attributes:
+        done: The units done.
+        total: The units in all, or None when not known.
+        unit: The plural noun of the unit, such as `chunks`, or empty.
+    """
+
+    done: int
+    total: int | None
+    unit: str = ""
+
+
+class JobStep(pydantic.BaseModel):
+    """1 step of a job, with its own log.
+
+    Attributes:
+        key: The stable step key, such as `embed`.
+        name: The step name, such as `Embed`.
+        status: pending, running, succeeded, failed, or skipped.
+        started_at: When it started (UTC), or None.
+        finished_at: When it ended (UTC), or None.
+        progress: The counts the step reported, or None.
+        log: The last log lines of the step (at most 200), oldest first.
+    """
+
+    key: str
+    name: str
+    status: Literal["pending", "running", "succeeded", "failed", "skipped"]
+    started_at: str | None = None
+    finished_at: str | None = None
+    progress: StepProgress | None = None
+    log: list[str] = pydantic.Field(default_factory=list)
+
+
 class JobSummary(pydantic.BaseModel):  # pylint: disable=too-many-instance-attributes
     """1 job without its log.
 
@@ -157,6 +193,8 @@ class JobSummary(pydantic.BaseModel):  # pylint: disable=too-many-instance-attri
         finished_at: When it ended, or None.
         result: The result summary, or None.
         error: The error of a failed job, or None.
+        step_count: The steps of the plan; 0 for a job without steps.
+        current_step: The index of the running step, or None.
     """
 
     id: str
@@ -172,16 +210,21 @@ class JobSummary(pydantic.BaseModel):  # pylint: disable=too-many-instance-attri
     finished_at: str | None
     result: dict[str, Any] | None
     error: str | None
+    step_count: int = 0
+    current_step: int | None = None
 
 
 class JobDetail(JobSummary):
-    """1 job with its log tail.
+    """1 job with its log tail and its steps.
 
     Attributes:
-        log: The last log lines (at most 200), oldest first.
+        log: The last log lines of the job (at most 200), oldest first.
+        steps: The steps in order, each with its own log; empty for a
+            job kind without steps or a job recorded before them.
     """
 
     log: list[str]
+    steps: list[JobStep] = pydantic.Field(default_factory=list)
 
 
 class JobList(pydantic.BaseModel):
@@ -293,6 +336,7 @@ def summary_of(job: admin_store.JobRecord) -> JobSummary:
     Returns:
         The summary.
     """
+    views = steps_of(job)
     return JobSummary(
         id=job.id,
         kind=job.kind,
@@ -307,7 +351,34 @@ def summary_of(job: admin_store.JobRecord) -> JobSummary:
         finished_at=job.finished_at,
         result=job.result,
         error=job.error,
+        step_count=len(views),
+        current_step=next(
+            (
+                index
+                for index, step in enumerate(views)
+                if step.status == "running"
+            ),
+            None,
+        ),
     )
+
+
+def steps_of(job: admin_store.JobRecord) -> list[JobStep]:
+    """The API view of the steps of a job; a malformed step is dropped.
+
+    Args:
+        job: The record.
+
+    Returns:
+        The steps.
+    """
+    views: list[JobStep] = []
+    for step in job.steps:
+        try:
+            views.append(JobStep.model_validate(step))
+        except pydantic.ValidationError:
+            logger.warning("job %s has a malformed step", job.id)
+    return views
 
 
 def detail_of(job: admin_store.JobRecord) -> JobDetail:
@@ -319,7 +390,11 @@ def detail_of(job: admin_store.JobRecord) -> JobDetail:
     Returns:
         The detail.
     """
-    return JobDetail(**summary_of(job).model_dump(), log=list(job.log))
+    return JobDetail(
+        **summary_of(job).model_dump(),
+        log=list(job.log),
+        steps=steps_of(job),
+    )
 
 
 def runner_of(services: state.Services) -> jobs.JobRunner:

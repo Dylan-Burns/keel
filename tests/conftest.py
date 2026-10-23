@@ -77,6 +77,37 @@ class FakeEmbedder:
         )
 
 
+class RecordingReporter:
+    """A `keel.steps` reporter that records each report in order."""
+
+    def __init__(self) -> None:
+        self.events: list[tuple[object, ...]] = []
+
+    def step(self, key: str) -> None:
+        self.events.append(("step", key))
+
+    def skip(self, key: str, reason: str) -> None:
+        self.events.append(("skip", key, reason))
+
+    def log(self, line: str) -> None:
+        self.events.append(("log", line))
+
+    def progress(self, done: int, total: int | None, unit: str = "") -> None:
+        self.events.append(("progress", done, total, unit))
+
+    def of(self, kind: str) -> list[tuple[object, ...]]:
+        """The events of 1 kind, without the kind."""
+        return [event[1:] for event in self.events if event[0] == kind]
+
+    def steps(self) -> list[str]:
+        """The step keys entered, in order."""
+        return [str(event[0]) for event in self.of("step")]
+
+    def lines(self) -> list[str]:
+        """The log lines, in order."""
+        return [str(event[0]) for event in self.of("log")]
+
+
 @dataclasses.dataclass(frozen=True)
 class FakeFiling:
     """The period facts of 1 synthetic filing."""

@@ -8,6 +8,7 @@ reach EDGAR or answer the golden set run with fakes in their place.
 
 from collections.abc import Callable
 from collections.abc import Iterator
+import dataclasses
 import json
 import logging
 import pathlib
@@ -194,6 +195,10 @@ def fake_spec(
     return jobs.JobSpec(kind, spec.params, heavy, run, spec.title)
 
 
+def statuses_of(job: dict) -> dict[str, str]:
+    return {step["key"]: step["status"] for step in job["steps"]}
+
+
 ADMIN_ROUTES = (
     ("get", "/api/admin/jobs", None),
     ("post", "/api/admin/jobs", {"kind": "backup", "params": {}}),
@@ -331,8 +336,11 @@ def test_light_job_queues_and_cancel(client, services, admin) -> None:
         return jobs.JobOutput({})
 
     services.jobs.specs["backup"] = fake_spec("backup", hold)
-    services.jobs.specs["facts"] = fake_spec(
-        "facts", lambda *_: jobs.JobOutput({"lines": []}), heavy=False
+    services.jobs.specs["facts"] = dataclasses.replace(
+        fake_spec(
+            "facts", lambda *_: jobs.JobOutput({"lines": []}), heavy=False
+        ),
+        plan=job_kinds.plan_facts,
     )
     heavy = submit(client, admin, "backup").json()["job"]["id"]
     wait_for(client, admin, heavy, ("running",))
@@ -347,6 +355,12 @@ def test_light_job_queues_and_cancel(client, services, admin) -> None:
     )
     assert cancelled.status_code == 200
     assert cancelled.json()["status"] == "cancelled"
+    # A cancelled job never ran a step.
+    assert statuses_of(cancelled.json()) == {
+        "resolve": "skipped",
+        "map": "skipped",
+        "fetch": "skipped",
+    }
     # A running job cannot be cancelled.
     refused = client.post(f"/api/admin/jobs/{heavy}/cancel", headers=admin)
     assert refused.status_code == 409
@@ -383,6 +397,11 @@ def test_restart_marks_running_jobs_failed(
                 log=(),
                 result=None,
                 error=None,
+                steps=(
+                    {"key": "parse", "name": "Parse", "status": "succeeded"},
+                    {"key": "embed", "name": "Embed", "status": "running"},
+                    {"key": "reload", "name": "Reload", "status": "pending"},
+                ),
             ),
         )
     del tokens
@@ -392,7 +411,18 @@ def test_restart_marks_running_jobs_failed(
     for job_id in ("runn000000000000", "queu000000000000"):
         assert by_id[job_id]["status"] == "failed"
         assert by_id[job_id]["error"] == admin_store.INTERRUPTED
+        assert by_id[job_id]["current_step"] is None
     assert by_id["succ000000000000"]["status"] == "succeeded"
+    assert by_id["succ000000000000"]["current_step"] == 1
+    record = admin_store.get_job(path, "runn000000000000")
+    assert record is not None
+    steps = list(record.steps)
+    assert [step["status"] for step in steps] == [
+        "succeeded",
+        "failed",
+        "skipped",
+    ]
+    assert steps[1]["log"] == [f"error: {admin_store.INTERRUPTED}"]
 
 
 def test_params_and_confirm_rules(client, services, admin) -> None:
@@ -495,9 +525,30 @@ def test_backup_restore_and_download(client, services, api_settings, admin):
     before = services.answerer
     made = submit(client, admin, "backup", {"index_only": True})
     assert made.status_code == 202
-    done = wait_for(client, admin, made.json()["job"]["id"])
+    queued = made.json()["job"]
+    assert [step["status"] for step in queued["steps"]] == ["pending"] * 5
+    assert queued["step_count"] == 5
+    done = wait_for(client, admin, queued["id"])
     assert done["status"] == "succeeded", done
     name = done["result"]["archive"]
+    assert statuses_of(done) == {
+        "build": "succeeded",
+        "index": "succeeded",
+        "logs": "skipped",
+        "archive": "succeeded",
+        "checksum": "succeeded",
+    }
+    by_key = {step["key"]: step for step in done["steps"]}
+    assert by_key["logs"]["log"] == ["skipped: index only"]
+    assert by_key["checksum"]["log"] == [f"sha256 {done['result']['sha256']}"]
+    assert by_key["archive"]["progress"]["unit"] == "members"
+    assert all(
+        step["started_at"] and step["finished_at"]
+        for step in done["steps"]
+        if step["status"] == "succeeded"
+    )
+    assert done["current_step"] is None
+    assert done["progress"] == {"done": 5, "total": 5}
     listing = client.get("/api/admin/backups", headers=admin).json()
     assert [item["name"] for item in listing["items"]] == [name]
     assert len(listing["items"][0]["sha256"]) == 64
@@ -529,6 +580,17 @@ def test_backup_restore_and_download(client, services, api_settings, admin):
     result = wait_for(client, admin, restored.json()["job"]["id"])
     assert result["status"] == "succeeded", result
     assert result["result"]["reloaded"] is True
+    assert statuses_of(result) == {
+        "find": "succeeded",
+        "verify": "succeeded",
+        "extract": "succeeded",
+        "check": "succeeded",
+        "shards": "succeeded",
+        "logs": "skipped",
+        "swap": "succeeded",
+        "reload": "succeeded",
+    }
+    assert result["steps"][-1]["log"] == ["the server serves the new build"]
     # The server serves the restored build without a restart.
     assert services.answerer is not before
     current = indexer.current_build(api_settings.index.dir)
@@ -573,6 +635,25 @@ def test_index_job_rebuilds_and_reloads(client, services, api_settings, admin):
     assert done["status"] == "succeeded", done
     assert done["result"]["reloaded"] is True
     assert done["progress"]["done"] == done["progress"]["total"]
+    assert [step["key"] for step in done["steps"]] == [
+        "corpus",
+        "parse",
+        "chunk",
+        "embed",
+        "store",
+        "publish",
+        "reload",
+    ]
+    assert set(statuses_of(done).values()) == {"succeeded"}
+    embed = done["steps"][3]
+    chunks = done["result"]["counts"]["chunks"]
+    assert embed["progress"] == {
+        "done": chunks,
+        "total": chunks,
+        "unit": "chunks",
+    }
+    assert any(line.startswith("shard 1/") for line in embed["log"])
+    assert done["steps"][1]["log"][0].startswith("parsed ")
     assert services.answerer is not before
     assert indexer.current_build(api_settings.index.dir) != old
 
@@ -595,13 +676,16 @@ def test_add_refresh_and_facts_jobs(client, services, admin, monkeypatch):
         return report
 
     monkeypatch.setattr(add, "add_ticker", fake_add)
-    monkeypatch.setattr(
-        refresh,
-        "run_refresh",
-        lambda *a, **k: refresh.RefreshReport(
+
+    def fake_refresh(*_args, reporter, **_kwargs):
+        reporter.step("check")
+        reporter.log("ZTS: up to date")
+        reporter.skip("add", "dry run")
+        return refresh.RefreshReport(
             dry_run=True, tickers=[refresh.TickerResult(ticker="ZTS")]
-        ),
-    )
+        )
+
+    monkeypatch.setattr(refresh, "run_refresh", fake_refresh)
 
     class FakeClient:
         requests = 2
@@ -636,11 +720,37 @@ def test_add_refresh_and_facts_jobs(client, services, admin, monkeypatch):
     refreshed = submit(client, admin, "refresh", {"dry_run": True})
     result = wait_for(client, admin, refreshed.json()["job"]["id"])
     assert result["result"]["new_count"] == 0
-    assert result["log"] == ["ZTS: up to date"]
+    assert result["log"] == [
+        "ZTS: up to date",
+        "1 tickers, 0 new, 0 added, 0 errors",
+    ]
+    statuses = {step["key"]: step["status"] for step in result["steps"]}
+    assert statuses == {
+        "watch": "skipped",
+        "check": "succeeded",
+        "add": "skipped",
+        "reload": "skipped",
+    }
+    check = result["steps"][1]
+    assert check["log"] == [
+        "ZTS: up to date",
+        "1 tickers, 0 new, 0 added, 0 errors",
+    ]
+    assert result["steps"][2]["log"] == ["skipped: dry run"]
+    assert result["progress"] == {"done": 4, "total": 4}
     facts = submit(client, admin, "facts", {"ticker": "NVDA"})
     failed = wait_for(client, admin, facts.json()["job"]["id"])
     assert failed["status"] == "failed"
     assert failed["error"] == "EdgarFetchError: offline test"
+    # The failed step holds the error; the steps after it are skipped.
+    assert statuses_of(failed) == {
+        "resolve": "succeeded",
+        "fetch": "failed",
+        "map": "skipped",
+    }
+    assert failed["steps"][0]["log"] == ["NVDA is CIK 0001045810"]
+    assert failed["steps"][1]["log"] == ["error: EdgarFetchError: offline test"]
+    assert failed["phase"] == "failed"
 
 
 def test_warm_cache_job_answers_on_the_server_loop(
@@ -680,7 +790,17 @@ def test_warm_cache_job_answers_on_the_server_loop(
     assert done["status"] == "succeeded", done
     answers = done["result"]["answers"]
     assert answers["questions"] == started.json()["estimate"]["questions"]
-    assert done["progress"]["done"] == answers["questions"]
+    # The answer step counts the questions; the job counts the steps.
+    answer_step = done["steps"][-1]
+    assert answer_step["key"] == "answer"
+    assert answer_step["status"] == "succeeded"
+    assert answer_step["progress"] == {
+        "done": answers["questions"],
+        "total": answers["questions"],
+        "unit": "questions",
+    }
+    assert answer_step["log"][-1].startswith(f"[{answers['questions']}/")
+    assert done["progress"] == {"done": 4, "total": 4}
     assert answers["model_requests"] == services.answerer.provider.requests
 
 

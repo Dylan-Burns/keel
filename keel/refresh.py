@@ -45,6 +45,7 @@ from keel import edgar
 from keel import errors
 from keel import indexer
 from keel import inventory
+from keel import steps
 from keel.stores import chunk_store
 from keel.stores import numpy_dense
 from keel.stores import state_store
@@ -59,6 +60,12 @@ _ARCHIVE_FOLDER = re.compile(
 
 Event = Literal["start", "new", "added", "quarantined", "error", "done"]
 Clock = Callable[[], datetime.datetime]
+# The steps of a refresh run, for the step list of an admin job.
+STEPS = (
+    steps.StepDef("watch", "Read the watch list"),
+    steps.StepDef("check", "Check EDGAR for new filings"),
+    steps.StepDef("add", "Add the new filings"),
+)
 
 
 class Adder(Protocol):  # pylint: disable=too-few-public-methods
@@ -74,6 +81,7 @@ class Adder(Protocol):  # pylint: disable=too-few-public-methods
         index_dir: pathlib.Path,
         embedder_factory: indexer.EmbedderFactory,
         forms: Sequence[str] = edgar.ADD_FORMS,
+        reporter: steps.Reporter = steps.NULL,
     ) -> add.AddReport:
         """Add the latest filings of the forms for 1 ticker.
 
@@ -85,6 +93,9 @@ class Adder(Protocol):  # pylint: disable=too-few-public-methods
             index_dir: The index directory.
             embedder_factory: Loads the embedder.
             forms: The forms to add.
+            reporter: Receives the add steps and their log lines;
+                `run_refresh` always passes it, so a custom adder takes
+                the keyword.
 
         Returns:
             The `keel add` report.
@@ -454,19 +465,13 @@ class _Run:
         append_log(self.path, [entry])
 
 
-def _check_ticker(  # pylint: disable=too-many-arguments
+def _check_ticker(
     run: _Run,
-    settings: config.Settings,
     ticker: str,
     known: set[str],
-    *,
     client: edgar.EdgarClient,
-    corpus_dir: pathlib.Path,
-    index_dir: pathlib.Path,
-    embedder_factory: indexer.EmbedderFactory,
-    adder: Adder,
 ) -> TickerResult:
-    """Check 1 ticker and add its new filings unless the run is dry."""
+    """List the new filings of 1 ticker and log each one."""
     cik = client.cik(ticker)
     submissions = client.submissions(cik, refresh=not client.offline).data
     new = new_filings(submissions, known)
@@ -486,16 +491,39 @@ def _check_ticker(  # pylint: disable=too-many-arguments
             filing_date=ref.filing_date,
             url=ref.url,
         )
-    if run.dry_run or not new:
-        return TickerResult(ticker=ticker, new=new)
-    report = adder(
-        settings,
-        ticker,
-        client=client,
-        corpus_dir=corpus_dir,
-        index_dir=index_dir,
-        embedder_factory=embedder_factory,
-        forms=tuple(ref.form for ref in new),
+    return TickerResult(ticker=ticker, new=new)
+
+
+@dataclasses.dataclass(frozen=True)
+class _AddTarget:
+    """Where the new filings of a run go."""
+
+    settings: config.Settings
+    client: edgar.EdgarClient
+    corpus_dir: pathlib.Path
+    index_dir: pathlib.Path
+    embedder_factory: indexer.EmbedderFactory
+    adder: Adder
+
+
+def _add_new(
+    run: _Run,
+    found: TickerResult,
+    target: _AddTarget,
+    reporter: steps.Reporter,
+) -> TickerResult:
+    """Add the new filings of 1 ticker through `keel add`."""
+    report = target.adder(
+        target.settings,
+        found.ticker,
+        client=target.client,
+        corpus_dir=target.corpus_dir,
+        index_dir=target.index_dir,
+        embedder_factory=target.embedder_factory,
+        forms=tuple(ref.form for ref in found.new),
+        reporter=steps.Prefixed(
+            reporter, found.ticker, steps.names_of(add.STEPS)
+        ),
     )
     for filing in report.filings:
         run.log(
@@ -509,7 +537,71 @@ def _check_ticker(  # pylint: disable=too-many-arguments
             filing_id=filing.filing_id,
             detail=filing.quarantine,
         )
-    return TickerResult(ticker=ticker, new=new, added=report.filings)
+    return TickerResult(
+        ticker=found.ticker, new=found.new, added=report.filings
+    )
+
+
+_TICKER_ERRORS = (errors.KeelError, OSError, sqlite3.Error, ValueError)
+
+
+def _failed(
+    run: _Run, ticker: str, error: Exception, reporter: steps.Reporter
+) -> TickerResult:
+    """Log the failure of 1 ticker; the run goes on."""
+    message = f"{type(error).__name__}: {error}"
+    logger.error("refresh %s failed: %s", ticker, message)
+    run.log("error", ticker=ticker, detail=message)
+    reporter.log(f"{ticker}: error: {message}")
+    return TickerResult(ticker=ticker, error=message)
+
+
+def _check_all(
+    run: _Run,
+    tickers: Sequence[str],
+    known: Mapping[str, set[str]],
+    client: edgar.EdgarClient,
+    reporter: steps.Reporter,
+) -> list[TickerResult]:
+    """Check each ticker; a failed ticker is an error result."""
+    results: list[TickerResult] = []
+    for number, ticker in enumerate(tickers, start=1):
+        try:
+            found = _check_ticker(run, ticker, known.get(ticker, set()), client)
+        except errors.StateStoreError:
+            raise
+        except _TICKER_ERRORS as error:
+            found = _failed(run, ticker, error, reporter)
+        else:
+            for ref in found.new:
+                reporter.log(
+                    f"{ticker}: new {ref.form} filed {ref.filing_date}"
+                )
+            if not found.new:
+                reporter.log(f"{ticker}: up to date")
+        results.append(found)
+        reporter.progress(number, len(tickers), "tickers")
+    return results
+
+
+def _add_all(
+    run: _Run,
+    results: list[TickerResult],
+    pending: Sequence[int],
+    target: _AddTarget,
+    reporter: steps.Reporter,
+) -> None:
+    """Add the new filings of each pending result, in place."""
+    for number, place in enumerate(pending, start=1):
+        reporter.progress(number - 1, len(pending), "tickers")
+        found = results[place]
+        try:
+            results[place] = _add_new(run, found, target, reporter)
+        except errors.StateStoreError:
+            raise
+        except _TICKER_ERRORS as error:
+            results[place] = _failed(run, found.ticker, error, reporter)
+        reporter.progress(number, len(pending), "tickers")
 
 
 def run_refresh(  # pylint: disable=too-many-arguments
@@ -522,12 +614,15 @@ def run_refresh(  # pylint: disable=too-many-arguments
     embedder_factory: indexer.EmbedderFactory | None = None,
     adder: Adder = add.add_ticker,
     clock: Clock = _utc_now,
+    reporter: steps.Reporter = steps.NULL,
 ) -> RefreshReport:
     """Check the watched and added tickers for new filings (26.3).
 
     A failure on 1 ticker (an unknown ticker, a fetch, a build error) is
     logged and the run goes on with the next ticker. A dry run still
-    refreshes the cached submissions, so the list is current.
+    refreshes the cached submissions, so the list is current. The run
+    checks every ticker first, then adds the new filings ticker by
+    ticker.
 
     Args:
         settings: The loaded settings.
@@ -542,6 +637,8 @@ def run_refresh(  # pylint: disable=too-many-arguments
             loads the pinned model from the settings when needed.
         adder: The `keel add` path (`add.add_ticker`).
         clock: The UTC clock of the log lines.
+        reporter: Receives the steps of `STEPS`, the line of each ticker,
+            and the tickers checked and added.
 
     Returns:
         The report.
@@ -558,41 +655,26 @@ def run_refresh(  # pylint: disable=too-many-arguments
         lambda: numpy_dense.SentenceEmbedder.from_settings(settings)
     )
     run = _Run(log_path(settings), dry_run, clock)
+    reporter.step("watch")
     tickers = refresh_tickers(settings, corpus)
     known = known_accessions(corpus, index)
+    reporter.log(f"{len(tickers)} tickers: " + " ".join(tickers))
     run.log("start", detail=f"{len(tickers)} tickers: " + " ".join(tickers))
     owned = client is None
     active = client or edgar.EdgarClient.from_settings(settings)
-    results: list[TickerResult] = []
     requests_before = active.requests
+    target = _AddTarget(settings, active, corpus, index, factory, adder)
     try:
-        for ticker in tickers:
-            try:
-                results.append(
-                    _check_ticker(
-                        run,
-                        settings,
-                        ticker,
-                        known.get(ticker, set()),
-                        client=active,
-                        corpus_dir=corpus,
-                        index_dir=index,
-                        embedder_factory=factory,
-                        adder=adder,
-                    )
-                )
-            except errors.StateStoreError:
-                raise
-            except (
-                errors.KeelError,
-                OSError,
-                sqlite3.Error,
-                ValueError,
-            ) as error:
-                message = f"{type(error).__name__}: {error}"
-                logger.error("refresh %s failed: %s", ticker, message)
-                run.log("error", ticker=ticker, detail=message)
-                results.append(TickerResult(ticker=ticker, error=message))
+        reporter.step("check")
+        results = _check_all(run, tickers, known, active, reporter)
+        pending = [i for i, r in enumerate(results) if r.new and not r.error]
+        if dry_run or not pending:
+            reporter.skip(
+                "add", "dry run" if dry_run else "no new filing to add"
+            )
+        else:
+            reporter.step("add")
+            _add_all(run, results, pending, target, reporter)
         report = RefreshReport(
             dry_run=dry_run,
             tickers=results,

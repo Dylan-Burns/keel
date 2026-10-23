@@ -44,6 +44,7 @@ from keel import config
 from keel import errors
 from keel import indexer
 from keel import retriever
+from keel import steps
 from keel import understanding
 from keel.evaluation import answers as answering
 from keel.evaluation import gates
@@ -61,6 +62,13 @@ WRONG_REFUSAL = "wrong_refusal"
 INPUT_ERROR = "input_error"
 ANSWER_ONLY = "answer_only"
 TOP_SHOWN = 5
+# The steps of `evaluate`; `score` runs with the answer step only.
+STEPS = (
+    steps.StepDef("golden", "Load the golden set and labels"),
+    steps.StepDef("harness", "Open the index and load the models"),
+    steps.StepDef("questions", "Run the golden questions"),
+    steps.StepDef("score", "Score the answers"),
+)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -662,6 +670,7 @@ def run(
     *,
     progress: Callable[[str], None] | None = None,
     logs_dir: pathlib.Path | None = None,
+    reporter: steps.Reporter = steps.NULL,
 ) -> tuple[list[QuestionResult], list[answering.AnswerResult]]:
     """Run each question through understanding, every variant, the answer.
 
@@ -672,6 +681,8 @@ def run(
             the answer step when it is on.
         progress: Called with 1 line per question, or None.
         logs_dir: The audit log directory the answer step reads.
+        reporter: Receives the retrieval, answer, and judge line of each
+            question, the questions done, and the score step.
 
     Returns:
         The retrieval results in question and variant order, and the
@@ -679,18 +690,27 @@ def run(
     """
     results: list[QuestionResult] = []
     answered: list[_Answered] = []
-    for question in questions:
+    total = len(questions)
+    reporter.progress(0, total, "questions")
+    for number, question in enumerate(questions, start=1):
         started = time.perf_counter()
         outcome = _run_question(question, labels.get(question.id), harness)
         results += outcome.rows
+        _report_retrieval(reporter, number, total, question, outcome)
         line = ""
         if harness.session is not None:
             done = _answer(question, outcome, harness)
             answered.append(done)
             line = "; answer " + str(done.record.get("outcome", "none"))
+            answered_as = done.record.get("outcome", "none")
+            reporter.log(f"{question.id} answer: {answered_as}")
             faithfulness = done.judged.faithfulness if done.judged else None
             if faithfulness is not None:
                 line += f", faithfulness {faithfulness:.2f}"
+                reporter.log(
+                    f"{question.id} judge: faithfulness {faithfulness:.2f}"
+                )
+        reporter.progress(number, total, "questions")
         if progress is not None:
             main = outcome.rows[0]
             recall = main.metrics.get("recall_at_25")
@@ -700,7 +720,10 @@ def run(
                 f"({time.perf_counter() - started:.1f} s)"
             )
     if not answered or logs_dir is None:
+        reporter.skip("score", "no answer step")
         return results, []
+    reporter.step("score")
+    reporter.log(f"reading the audit records of {len(answered)} answers")
     audit_records = answering.read_audit(
         logs_dir, [str(a.record.get("request_id", "")) for a in answered]
     )
@@ -716,6 +739,23 @@ def run(
         for a in answered
     ]
     return results, scored
+
+
+def _report_retrieval(
+    reporter: steps.Reporter,
+    number: int,
+    total: int,
+    question: golden.GoldenQuestion,
+    outcome: _Outcome,
+) -> None:
+    """Log the retrieval line of 1 question."""
+    main = outcome.rows[0]
+    recall = main.metrics.get("recall_at_25")
+    shown = "n/a" if recall is None else f"{recall:.2f}"
+    reporter.log(
+        f"[{number}/{total}] {question.id} retrieval: {main.outcome}, "
+        f"recall@25 {shown}, {len(outcome.rows)} variants"
+    )
 
 
 def stale_labels(
@@ -749,6 +789,7 @@ def evaluate(  # pylint: disable=too-many-arguments
     variants: Sequence[Variant] = ABLATION,
     progress: Callable[[str], None] | None = None,
     answers: AnswerSetup | None = None,
+    reporter: steps.Reporter = steps.NULL,
 ) -> tuple[EvalRun, tuple[golden.GoldenQuestion, ...]]:
     """Run the golden set end to end (the body of `keel eval`).
 
@@ -762,6 +803,7 @@ def evaluate(  # pylint: disable=too-many-arguments
         progress: Called with 1 line per question, or None.
         answers: The answer step setup, or None for retrieval only (no
             model request).
+        reporter: Receives the steps of `STEPS` and their log lines.
 
     Returns:
         The run and the questions it ran.
@@ -773,9 +815,15 @@ def evaluate(  # pylint: disable=too-many-arguments
         ProviderRequestError: The answer step needs `ANTHROPIC_API_KEY`.
     """
     started = time.perf_counter()
+    reporter.step("golden")
     golden_set = golden.load_golden(golden_path)
     questions = golden_set.select(subset)
     labels = golden.load_labels(labels_dir, [q.id for q in questions])
+    reporter.log(
+        f"golden set {golden_set.version}: {len(questions)} questions"
+        + (f" (subset {subset})" if subset else "")
+        + f", {len(labels)} label files"
+    )
     directory = index_dir or settings.index.dir
     build = indexer.current_build(directory)
     if build is None:
@@ -783,16 +831,28 @@ def evaluate(  # pylint: disable=too-many-arguments
             f"no index at {directory}/current; run keel index"
         )
     info = run_info(settings, golden_set, build, subset)
+    reporter.step("harness")
+    reporter.log(
+        f"index {info.index_version}, build {info.build_id}; variants "
+        + ", ".join(v.name for v in variants)
+    )
     harness = open_harness(settings, directory, variants, answers)
+    if harness.session is not None:
+        reporter.log(
+            "answer step on"
+            + (", judge on" if harness.judge is not None else ", judge off")
+        )
     if harness.judge is not None:
         info = dataclasses.replace(info, judge_model=settings.llm.judge_model)
     try:
+        reporter.step("questions")
         results, answered = run(
             questions,
             labels,
             harness,
             progress=progress,
             logs_dir=settings.logs.dir,
+            reporter=reporter,
         )
     finally:
         harness.conn.close()
