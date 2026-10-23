@@ -765,6 +765,12 @@ Entry format:
 - Built: `deploy-aws.yml` checks out the release, uploads a bundle of the deploy files (the compose file, the Caddyfile, the backup script, the systemd units, `infra/deploy_host.sh`) to `s3://<bucket>/keel/deploy/<version>-<commit>.tgz`, and runs the bundled script through SSM; the deploy role may write only that prefix. `infra/deploy_host.sh` takes the bundle directory and fetches the corpus zip and the index archive from `keel/bootstrap/` in the bucket, so the host needs no GitHub access. The image on GHCR stays public. The CodeQL job and the SARIF uploads of Checkov and Trivy skip if the repository is ever private, since code scanning there needs GitHub Advanced Security; the repository stays public.
 - Attempts: 1.
 
+## Follow-up after stage 22: writable paths for keel add on the host
+
+- Found on the live host (v0.4.0): Add company failed with `ConfigError: cannot write config/companies.yaml: [Errno 30] Read-only file system`. The compose service runs with a read-only root file system and mounted the corpus read-only, while `keel add` and `keel refresh` write the company dictionary and the corpus. The tests run outside that container, so they did not see it.
+- Built: `docker-compose.yml` mounts `./corpus` writable and a new `./state` volume, and sets `KEEL_DICTIONARIES__COMPANIES=/app/state/companies.yaml`; `infra/deploy_host.sh` seeds `state/companies.yaml` from the image once and hands `corpus` and `state` to the app user. `.gitignore` covers `/state/` and local `*-token.txt` copies.
+- Attempts: 1.
+
 ## Gaps
 
 Values that were not available when the build needed them, and what the build did instead.

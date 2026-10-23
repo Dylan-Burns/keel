@@ -179,18 +179,24 @@ main() {
   cd "${ROOT}"
   BUCKET="$(sed -n 's/^KEEL_BACKUP_BUCKET=//p' .env)"
   readonly BUCKET
-  mkdir -p corpus index cache logs demo/answer_cache
+  mkdir -p corpus index cache logs state demo/answer_cache
   fetch_files "${bundle}"
   set_image "${version}"
   log "pulling ${IMAGE}:${version}"
   docker compose pull app
   APP_UID="$(docker run --rm --entrypoint id "${IMAGE}:${version}" -u)"
   readonly APP_UID
-  chown -R "${APP_UID}:${APP_UID}" index cache logs demo
+  # The company dictionary starts as the image's copy; keel add extends
+  # it in state/, which survives deploys.
+  if [[ ! -s state/companies.yaml ]]; then
+    docker run --rm --entrypoint cat "${IMAGE}:${version}" \
+      /app/config/companies.yaml >state/companies.yaml
+  fi
+  chown -R "${APP_UID}:${APP_UID}" index cache logs state demo
   ensure_corpus
   ensure_models
   ensure_index
-  chown -R "${APP_UID}:${APP_UID}" index cache logs demo
+  chown -R "${APP_UID}:${APP_UID}" corpus index cache logs state demo
   docker compose --profile production up -d --remove-orphans
   wait_healthy "${version}"
   enable_timers
