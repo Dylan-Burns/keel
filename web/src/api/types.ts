@@ -581,6 +581,29 @@ export interface JobProgress {
   readonly total: number | null;
 }
 
+/** The status of 1 step of a job. */
+export type JobStepStatus =
+  'pending' | 'running' | 'succeeded' | 'failed' | 'skipped';
+
+/** The counts a step reported, such as 1,240 of 3,400 chunks. */
+export interface StepProgress {
+  readonly done: number;
+  readonly total: number | null;
+  /** The plural noun of the unit, such as `chunks`; may be empty. */
+  readonly unit: string;
+}
+
+/** 1 step of a job with its own log (docs/API_ADMIN.md). */
+export interface JobStep {
+  readonly key: string;
+  readonly name: string;
+  readonly status: JobStepStatus;
+  readonly started_at: string | null;
+  readonly finished_at: string | null;
+  readonly progress: StepProgress | null;
+  readonly log: readonly string[];
+}
+
 /** A job record; `log` is present on the detail and the submit response. */
 export interface Job {
   readonly id: string;
@@ -598,6 +621,12 @@ export interface Job {
   readonly result: Readonly<Record<string, unknown>> | null;
   readonly error: string | null;
   readonly log?: readonly string[];
+  /** The steps with their logs; absent or empty on a job without steps. */
+  readonly steps?: readonly JobStep[];
+  /** The steps of the plan; 0 or absent on a job without steps. */
+  readonly step_count?: number;
+  /** The index of the running step, or null. */
+  readonly current_step?: number | null;
 }
 
 /** `GET /api/admin/jobs`. */
