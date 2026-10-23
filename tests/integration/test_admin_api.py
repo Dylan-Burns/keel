@@ -303,6 +303,18 @@ def test_job_failure_paths(client, services, admin) -> None:
     job_id = submit(client, admin, "backup").json()["job"]["id"]
     crashed = wait_for(client, admin, job_id)
     assert crashed["error"] == "internal error: RuntimeError"
+
+    # An OSError names its errno, reason, and path; secrets stay masked.
+    def read_only(_services, _context, _params):
+        raise OSError(30, "Read-only file system", f"/app/eval/{LEGACY_TOKEN}")
+
+    services.jobs.specs["backup"] = fake_spec("backup", read_only)
+    job_id = submit(client, admin, "backup").json()["job"]["id"]
+    error = wait_for(client, admin, job_id)["error"]
+    assert error.startswith(
+        "internal error: OSError: [Errno 30] Read-only file system: '/app/eval/"
+    )
+    assert LEGACY_TOKEN not in error
     # The worker survives a crash and runs the next job.
     services.jobs.specs["backup"] = fake_spec(
         "backup", lambda *_: jobs.JobOutput({"ok": True})
@@ -899,3 +911,58 @@ def test_bad_state_store_starts_without_jobs(services, api_settings, tokens):
         )
         assert cancel.status_code == 503
         assert client.get("/api/health").status_code == 200
+
+
+def test_eval_report_falls_back_to_the_temporary_dir(
+    services, tmp_path, monkeypatch
+) -> None:
+    """A report folder that fails after the run never loses the report."""
+    temporary = tmp_path / "t"
+    temporary.mkdir()
+    monkeypatch.setattr(job_kinds.tempfile, "tempdir", str(temporary))
+    report_dir = tmp_path / "runs"
+    report_dir.mkdir()
+    lines: list[str] = []
+
+    class Context:
+        def log(self, line: str) -> None:
+            lines.append(line)
+
+    written: list[pathlib.Path] = []
+
+    def fake_write(run, questions, path):
+        if path.parent == report_dir:
+            # The markdown lands, then the JSON fails.
+            path.write_text("half")
+            raise OSError(28, "No space left on device", str(path))
+        written.append(path)
+        return path.with_suffix(".json")
+
+    monkeypatch.setattr(job_kinds.eval_report, "write", fake_write)
+
+    class Info:
+        run_id = "eval-20261022T101500Z"
+
+    class Run:
+        info = Info()
+
+    path = job_kinds.write_eval_report(Run(), (), report_dir, Context())
+    assert path is not None
+    assert path.name == "eval-20261022T101500Z.md"
+    assert path.parent.parent == temporary
+    assert path.parent.name.startswith("keel-eval-")
+    assert written == [path]
+    # The half-written run is gone from the report folder.
+    assert list(report_dir.iterdir()) == []
+    assert (
+        lines[0]
+        == f"report not written to {report_dir}: No space left on device"
+    )
+    assert lines[1] == f"report written to {path} (temporary; copy it)"
+
+    def broken(*_args):
+        raise OSError("full")
+
+    monkeypatch.setattr(job_kinds.eval_report, "write", broken)
+    assert job_kinds.write_eval_report(Run(), (), report_dir, Context()) is None
+    assert lines[-1] == "report not written to the temporary folder: OSError"
