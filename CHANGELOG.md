@@ -4,6 +4,24 @@ All notable changes to this project are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 release-please maintains the released sections from Conventional Commits.
 
+## [0.5.0](https://github.com/Dylan-Burns/keel/compare/v0.4.3...v0.5.0) (2026-10-23)
+
+
+### Features
+
+* **api:** locate cited chunks and add the filing reader route ([07da566](https://github.com/Dylan-Burns/keel/commit/07da566750608402a2f48796293f2b46a9a5e46e))
+* **web:** show the citation location and open the filing reader ([4886cbf](https://github.com/Dylan-Burns/keel/commit/4886cbf37f7533045f49a049ea622de485a8c28f))
+
+
+### Bug fixes
+
+* **web:** render admin jobs that have no progress yet ([1c846ff](https://github.com/Dylan-Burns/keel/commit/1c846ffb84768fe3d41324516160e154b3b04b65))
+
+
+### Documentation
+
+* **docs:** record the citation location and the filing reader ([71ab577](https://github.com/Dylan-Burns/keel/commit/71ab5776a9ec07db5b36ec2c83b780730b8940cc))
+
 ## [0.4.3](https://github.com/Dylan-Burns/keel/compare/v0.4.2...v0.4.3) (2026-10-23)
 
 
