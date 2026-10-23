@@ -35,7 +35,10 @@ FROM ${PYTHON_IMAGE} AS runtime
 LABEL org.opencontainers.image.title="keel" \
       org.opencontainers.image.description="Grounded answers to business questions about SEC filings from one LLM call" \
       org.opencontainers.image.licenses="MIT"
-RUN groupadd --system keel \
+# The app runs from /app/.venv and never installs packages at runtime, so the
+# base image's own pip (and its CVEs) leaves the runtime image.
+RUN python -m pip uninstall --yes pip \
+    && groupadd --system keel \
     && useradd --system --gid keel --home-dir /app --shell /usr/sbin/nologin keel \
     && mkdir -p /app/index /app/cache /app/logs /app/demo/answer_cache \
     && chown -R keel:keel /app
