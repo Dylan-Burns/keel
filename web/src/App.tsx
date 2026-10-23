@@ -22,6 +22,7 @@ import {QuestionArea} from './components/QuestionArea';
 import {RateLimitedCard} from './components/RateLimitedCard';
 import type {SelectedChunk} from './components/RightPanel';
 import {RightPanel} from './components/RightPanel';
+import {FilingReader} from './components/FilingReader';
 import {SharedNotice} from './components/SharedNotice';
 import {StaleIndexBanner} from './components/StaleIndexBanner';
 import {TemplatePicker} from './components/TemplatePicker';
@@ -29,6 +30,7 @@ import {TokenField} from './components/TokenField';
 import {TopBar} from './components/TopBar';
 import {TraceDrawer} from './components/TraceDrawer';
 import {answerToJson, answerToMarkdown} from './lib/answerExport';
+import {citedChunkIds, isChunkId, quoteOf} from './lib/citations';
 import {downloadMemo, saveBlob} from './lib/download';
 import type {Example} from './lib/examples';
 import {EXAMPLES} from './lib/examples';
@@ -77,6 +79,7 @@ export function App(): JSX.Element {
   const sharedId = sharedRequestId(window.location.pathname);
   const [selected, setSelected] = useState<SelectedChunk | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [readerId, setReaderId] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const reduced = useReducedMotion();
 
@@ -94,6 +97,7 @@ export function App(): JSX.Element {
   const onAsk = useCallback(
     (text: string): void => {
       setSelected(null);
+      setReaderId(null);
       setCopyStatus(null);
       ask(text);
     },
@@ -103,9 +107,19 @@ export function App(): JSX.Element {
     setQuestion(example.question);
     onAsk(example.question);
   };
+  const onOpenReader = useCallback((chunkId: string): void => {
+    if (isChunkId(chunkId)) {
+      setReaderId(chunkId);
+    }
+  }, []);
+  const onCloseReader = useCallback((): void => setReaderId(null), []);
   const onSelectCitation = useCallback((chunkId: string): void => {
     setSelected({chunkId, detail: null, error: null});
     setPanelOpen(true);
+    // A chip opens the filing reader on the cited passage, highlighted.
+    if (isChunkId(chunkId)) {
+      setReaderId(chunkId);
+    }
     fetchChunk(chunkId)
       .then(detail =>
         setSelected(current =>
@@ -334,7 +348,20 @@ export function App(): JSX.Element {
             selected={selected}
             open={panelOpen}
             onClose={() => setPanelOpen(false)}
+            onOpenReader={onOpenReader}
           />
+          <AnimatePresence>
+            {readerId !== null && run !== null && (
+              <FilingReader
+                key="filing-reader"
+                chunkId={readerId}
+                order={citedChunkIds(run)}
+                quoteFor={id => quoteOf(run, id)}
+                onNavigate={onOpenReader}
+                onClose={onCloseReader}
+              />
+            )}
+          </AnimatePresence>
         </div>
         <Footer
           requestId={run?.meta?.request_id ?? run?.final?.request_id ?? null}

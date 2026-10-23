@@ -11,6 +11,21 @@ describe('SecLink', () => {
     expect(link).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
+  it('says that a deep link jumps to the excerpt', () => {
+    render(<SecLink url="https://www.sec.gov/a.htm#:~:text=Risk%20factors" />);
+    const link = screen.getByRole('link');
+    expect(link).toHaveAttribute('data-deep', 'true');
+    expect(link).toHaveAttribute('title');
+    expect(screen.getByTestId('excerpt-hint')).toHaveTextContent(
+      'jumps to the excerpt',
+    );
+  });
+
+  it('shows no hint on a plain link', () => {
+    render(<SecLink url="https://www.sec.gov/a.htm" />);
+    expect(screen.queryByTestId('excerpt-hint')).toBeNull();
+  });
+
   it('renders any other URL as text', () => {
     render(<SecLink url="https://evil.example/x" label="Filing" />);
     expect(screen.queryByRole('link')).toBeNull();

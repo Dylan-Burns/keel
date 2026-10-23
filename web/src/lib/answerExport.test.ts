@@ -35,6 +35,10 @@ describe('answerToMarkdown', () => {
     const text = answerToMarkdown(run);
     expect(text).not.toContain('Partial answer');
     expect(text).toContain('## Sources');
+    expect(text).toContain(
+      'Part II, Item 1A. Risk Factors, passage 3 of 7, accession 0000320193-23-000006',
+    );
+    expect(text).toContain('aapl-20221231.htm#:~:text=The%20Company%20depends');
     expect(text).toContain('(unverified)');
     expect(text).toContain('| Company | Main risk |');
   });

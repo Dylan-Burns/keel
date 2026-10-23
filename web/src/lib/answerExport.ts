@@ -5,6 +5,7 @@
  */
 import type {Run} from '../state';
 import {answerText} from '../state';
+import {citationLink, describeLocation} from './fragment';
 
 /**
  * The header line of a partial copy.
@@ -56,10 +57,10 @@ export function answerToMarkdown(run: Run): string {
   if (cited.length > 0) {
     lines.push('## Sources', '');
     for (const c of cited) {
-      const url = c.sec_url === null ? '' : ` ${c.sec_url}`;
-      lines.push(
-        `- [${c.chunk_id}] ${c.filing_name}, ${c.section_title}${url}`,
-      );
+      const link = citationLink(c.sec_url, c.quote ?? '', c.location);
+      const url = link === null ? '' : ` ${link}`;
+      const place = describeLocation(c.location) || c.section_title;
+      lines.push(`- [${c.chunk_id}] ${c.filing_name}, ${place}${url}`);
     }
     lines.push('');
   }

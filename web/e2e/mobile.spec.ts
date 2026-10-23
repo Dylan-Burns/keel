@@ -43,8 +43,16 @@ test('the phone layout: 1 column, the panel as a drawer, every control reachable
   await panel.getByRole('button', {name: 'Close'}).click();
   await expect(panel).toBeHidden();
 
-  // A citation chip opens the drawer on the chunk.
+  // A citation chip opens the filing reader full width over the drawer on
+  // the chunk; closing the reader leaves the drawer open on the chunk.
   await page.getByTestId('citation-chip').first().click();
+  const reader = page.getByTestId('filing-reader');
+  await expect(reader).toBeVisible();
+  const readerBox = await reader.boundingBox();
+  expect(readerBox?.width ?? 0).toBeGreaterThan(width * 0.95);
+  expect(await noSideScroll()).toBe(true);
+  await page.getByTestId('reader-close').click();
+  await expect(reader).toHaveCount(0);
   await expect(page.getByTestId('selected-chunk')).toBeVisible();
   await panel.getByRole('button', {name: 'Close'}).click();
 

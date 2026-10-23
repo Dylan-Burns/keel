@@ -24,7 +24,11 @@ export function CoverageIndicator({
       data-testid="coverage-indicator"
     >
       {coverage.companies_used.map(company => (
-        <li key={company.ticker} className="tag tag-up" data-covered="true">
+        <li
+          key={company.ticker}
+          className="tag tag-up max-w-full whitespace-normal break-words"
+          data-covered="true"
+        >
           {company.ticker}: {company.forms.join(', ')}{' '}
           {company.fiscal_periods.join(', ')}
         </li>

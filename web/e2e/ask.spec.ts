@@ -28,10 +28,12 @@ test('example question 1 streams, lights the steps in order, and opens a citatio
   await expect(page.getByTestId('entity-chip').first()).toBeVisible();
   await expect(page.getByTestId('chunk-row').first()).toBeAttached();
 
-  // A citation chip opens the chunk in the right panel, with the SEC link.
+  // A citation chip opens the chunk in the right panel, with the SEC link,
+  // and the filing reader over the page; Escape closes the reader.
   const chip = page.getByTestId('citation-chip').first();
   await expect(chip).toBeEnabled();
   await chip.click();
+  await page.keyboard.press('Escape');
   const selected = page.getByTestId('selected-chunk');
   await expect(selected).toBeVisible();
   await expect(selected.getByTestId('sec-link')).toHaveAttribute(

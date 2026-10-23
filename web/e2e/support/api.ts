@@ -18,6 +18,7 @@ import type {
   SseEvent,
 } from '../../src/api/types';
 import {
+  CONTEXT_1,
   COVERAGE,
   EVAL_PAGE,
   INDEX_STATUS,
@@ -267,6 +268,18 @@ async function mockApi(page: Page, fault: Fault | null): Promise<void> {
           'Content-Disposition': `attachment; filename="keel-memo-${requestId}.md"`,
         },
         body: `# Keel memo\n\nRequest ${requestId}\n`,
+      });
+    }
+    if (path.startsWith('/api/chunks/') && path.endsWith('/context')) {
+      const chunkId = decodeURIComponent(
+        path.slice('/api/chunks/'.length, -'/context'.length),
+      );
+      return json(route, {
+        ...CONTEXT_1,
+        chunk_id: chunkId,
+        passages: CONTEXT_1.passages.map(p =>
+          p.cited ? {...p, chunk_id: chunkId} : p,
+        ),
       });
     }
     if (path.startsWith('/api/chunks/')) {

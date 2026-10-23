@@ -24,6 +24,8 @@
   --k-up: #04764f;
   --k-down: #b4232a;
   --k-warn: #8f5a00;
+  --k-mark: #ffe17a;
+  --k-on-mark: #0d1520;
   --k-shadow: 0 1px 0 rgb(13 21 32 / 4%);
   color-scheme: light;
 }
@@ -44,6 +46,8 @@
   --k-up: #2fd08c;
   --k-down: #ff6b6b;
   --k-warn: #f4b740;
+  --k-mark: #5f4b0c;
+  --k-on-mark: #fff4cf;
   --k-shadow: none;
   color-scheme: dark;
 }
@@ -65,6 +69,8 @@
     --k-up: #2fd08c;
     --k-down: #ff6b6b;
     --k-warn: #f4b740;
+    --k-mark: #5f4b0c;
+    --k-on-mark: #fff4cf;
     --k-shadow: none;
     color-scheme: dark;
   }
@@ -89,6 +95,8 @@
   --color-up: var(--k-up);
   --color-down: var(--k-down);
   --color-warn: var(--k-warn);
+  --color-mark: var(--k-mark);
+  --color-on-mark: var(--k-on-mark);
   --font-sans:
     ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
     'Helvetica Neue', Arial, sans-serif;
@@ -605,4 +613,75 @@
 
 .meter > * {
   height: 100%;
+}
+
+/* The filing reader: the cited passage and its mark (AA in both themes). */
+.reader-passage {
+  padding: 0.5rem 0.75rem;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.reader-passage + .reader-passage {
+  border-top: 1px dashed var(--k-line);
+}
+
+.reader-passage-cited {
+  border-left: 3px solid var(--k-accent);
+  background: var(--k-raised);
+  color: var(--k-ink);
+}
+
+.reader-text {
+  white-space: pre-wrap;
+}
+
+.reader-mark {
+  background: var(--k-mark);
+  color: var(--k-on-mark);
+  border-radius: 2px;
+  padding: 0 1px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.reader-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.reader-table caption {
+  caption-side: top;
+  text-align: left;
+  font-weight: 600;
+  padding-bottom: 0.25rem;
+  color: var(--k-ink);
+}
+
+.reader-table th,
+.reader-table td {
+  border-bottom: 1px solid var(--k-line);
+  padding: 0.2rem 0.4rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.reader-table th {
+  color: var(--k-muted);
+  font-weight: 600;
+}
+
+.reader-table tr[data-cited='true'] td {
+  background: var(--k-mark);
+}
+
+.reader-table td {
+  white-space: nowrap;
+}
+
+.reader-table td:first-child {
+  white-space: normal;
+  min-width: 9rem;
 }
