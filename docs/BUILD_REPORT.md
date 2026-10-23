@@ -769,6 +769,7 @@ Entry format:
 
 - Found on the live host (v0.4.0): Add company failed with `ConfigError: cannot write config/companies.yaml: [Errno 30] Read-only file system`. The compose service runs with a read-only root file system and mounted the corpus read-only, while `keel add` and `keel refresh` write the company dictionary and the corpus. The tests run outside that container, so they did not see it.
 - Built: `docker-compose.yml` mounts `./corpus` writable and a new `./state` volume, and sets `KEEL_DICTIONARIES__COMPANIES=/app/state/companies.yaml`; `infra/deploy_host.sh` seeds `state/companies.yaml` from the image once and hands `corpus` and `state` to the app user. `.gitignore` covers `/state/` and local `*-token.txt` copies.
+- Also: the users file (`/api/admin/users`, `keel users`) had the same read-only path, so it moves to `KEEL_AUTH__USERS_FILE=/app/state/users.yaml`. The root-run deploy no longer writes into `corpus/` or `state/`, which the app can write: the app user seeds the dictionary and extracts the corpus in a one-off container, and root downloads the corpus zip and the index archive into root-only temp dirs, which the containers read through read-only mounts.
 - Attempts: 1.
 
 ## Gaps
