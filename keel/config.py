@@ -163,12 +163,23 @@ class EmbeddingConfig(_Section):
 
 
 class RerankerConfig(_Section):
-    """The pinned cross-encoder reranker (decision D-10)."""
+    """The pinned cross-encoder reranker (decision D-10).
+
+    `max_length` cuts each (query, passage) pair to that many tokens; None
+    keeps the 512 of the model. `threads` sets the torch CPU threads of
+    the process (the query embedding too): 0 means 1 per CPU the process
+    may use (its affinity, capped by a cgroup quota), None keeps the torch
+    default (1 per physical core). The length trades CPU time against
+    precision (`docs/BUILD_REPORT.md`, latency experiments).
+    """
 
     enabled: bool = True
     model: str = "cross-encoder/ms-marco-MiniLM-L6-v2"
     revision: str
-    top_n: int = 80
+    top_n: int = pydantic.Field(default=80, ge=1, le=80)
+    max_length: int | None = pydantic.Field(default=None, ge=64, le=512)
+    threads: int | None = pydantic.Field(default=None, ge=0, le=64)
+    batch_size: int = pydantic.Field(default=32, ge=1, le=256)
 
 
 MAX_CONTEXT_TOKENS_CAP = 64_000  # control S-04 step 4

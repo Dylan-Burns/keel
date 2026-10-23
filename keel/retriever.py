@@ -23,6 +23,7 @@ import datetime
 import json
 import logging
 import math
+import os
 import pathlib
 import re
 import sqlite3
@@ -43,6 +44,8 @@ from keel.stores import numpy_dense
 from keel.stores import sqlite_fts
 
 logger = logging.getLogger(__name__)
+
+CGROUP_CPU_MAX = pathlib.Path("/sys/fs/cgroup/cpu.max")
 
 UNKNOWN_SECTION_WEIGHT = 0.7
 BOILERPLATE_WEIGHT = 0.5
@@ -134,6 +137,70 @@ def _sigmoid(value: float) -> float:
     return exp / (1.0 + exp)
 
 
+def set_max_length(model: object, tokens: int) -> None:
+    """Cut each (query, passage) pair of the cross-encoder to `tokens`.
+
+    sentence-transformers 6 names the attribute `max_seq_length` (a
+    property); 3.4 reads a plain `max_length` (decision D-37).
+
+    Args:
+        model: The loaded `CrossEncoder`.
+        tokens: The most tokens per pair.
+    """
+    if hasattr(type(model), "max_seq_length"):
+        name = "max_seq_length"
+    elif hasattr(model, "max_length"):
+        name = "max_length"
+    else:
+        logger.warning(
+            "reranker.max_length %d ignored: the cross-encoder has no "
+            "max_seq_length or max_length",
+            tokens,
+        )
+        return
+    setattr(model, name, tokens)
+
+
+def cpu_budget() -> int:
+    """Count the CPUs this process may use.
+
+    The affinity mask (where the platform has one) capped by the cgroup v2
+    CPU quota, so a container with a quota below the host's CPUs gets
+    its quota, not the host count that `os.cpu_count()` reports.
+
+    Returns:
+        The CPU count, at least 1.
+    """
+    count = (
+        len(os.sched_getaffinity(0))
+        if hasattr(os, "sched_getaffinity")
+        else os.cpu_count() or 1
+    )
+    try:
+        quota, period = CGROUP_CPU_MAX.read_text(encoding="utf-8").split()
+        if quota != "max":
+            count = min(count, max(1, math.ceil(int(quota) / int(period))))
+    except (OSError, ValueError):
+        pass
+    return max(1, count)
+
+
+def set_threads(threads: int) -> None:
+    """Set the torch CPU threads; 0 means 1 per CPU of `cpu_budget`.
+
+    torch starts with 1 thread per physical core, which is 1 on a host
+    with 2 vCPUs; the second hyperthread cuts the rerank time by a fifth.
+    The setting is per process and also covers the query embedding.
+
+    Args:
+        threads: The thread count, or 0 for `cpu_budget()`.
+    """
+    # Heavy, so imported only when a reranker is needed.
+    import torch  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
+
+    torch.set_num_threads(threads or cpu_budget())
+
+
 @dataclasses.dataclass(frozen=True)
 class CrossEncoderReranker:
     """The pinned cross-encoder on the CPU (decision D-10).
@@ -152,7 +219,8 @@ class CrossEncoderReranker:
 
         Uses only `CrossEncoder(name, revision=..., device=...)` and
         `.predict(pairs)`, which sentence-transformers 3.4 and 6 share
-        (decision D-37).
+        (decision D-37). `reranker.threads` sets the torch threads of the
+        whole process, so it also covers the query embedding.
 
         Args:
             settings: The loaded settings.
@@ -177,7 +245,11 @@ class CrossEncoderReranker:
                 f"cannot load {reranker.model} at {reranker.revision}: "
                 f"{error}; run keel doctor --download-models"
             ) from error
-        return cls(model=model)
+        if reranker.max_length is not None:
+            set_max_length(model, reranker.max_length)
+        if reranker.threads is not None:
+            set_threads(reranker.threads)
+        return cls(model=model, batch_size=reranker.batch_size)
 
     def score(self, pairs: Sequence[tuple[str, str]]) -> list[float]:
         """Score pairs; the logits pass through a sigmoid.
