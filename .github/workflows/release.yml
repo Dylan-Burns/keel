@@ -67,6 +67,9 @@ jobs:
           format: sarif
           output: trivy.sarif
           severity: HIGH,CRITICAL
+          # Packages only: the secret scanner flags placeholder JSON in the
+          # docstrings of the anthropic SDK; gitleaks scans the repository.
+          scanners: vuln
           exit-code: "1"
           ignore-unfixed: true
       - name: upload scan results
