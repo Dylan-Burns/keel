@@ -76,3 +76,34 @@ def test_parse_gates_chapter_wording() -> None:
     assert gates["Strict"].comparator == ">"
     assert gates["Strict"].passed is False
     assert gates["Strict below"].passed is True
+
+
+def test_load_prefers_the_newest_job_report(tmp_path: pathlib.Path) -> None:
+    committed = tmp_path / "report.md"
+    committed.write_text("committed")
+    runs = tmp_path / "runs"
+    log = tmp_path / "PROMPT_LOG.md"
+    # No run directory yet: the committed report.
+    page = eval_page.load(committed, log, runs)
+    assert page.report.source == eval_page.REPORT_LABEL
+    assert page.report.markdown == "committed"
+    assert eval_page.load(committed, log).report.markdown == "committed"
+    runs.mkdir()
+    (runs / "eval-20261021T090000Z.md").write_text("older")
+    (runs / "eval-20261022T090000Z.md").write_text("newer")
+    (runs / "eval-20261023T090000Z.json").write_text("{}")
+    (runs / "eval-20261024T090000Z.md").symlink_to(committed)
+    page = eval_page.load(committed, log, runs)
+    assert page.report.source == "eval run eval-20261022T090000Z"
+    assert page.report.markdown == "newer"
+
+
+def test_latest_run_report_unreadable_dir(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def broken(*_args: object) -> list[pathlib.Path]:
+        raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(pathlib.Path, "glob", broken)
+    assert eval_page.latest_run_report(tmp_path) is None
+    assert eval_page.latest_run_report(None) is None
