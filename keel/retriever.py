@@ -180,8 +180,10 @@ def cpu_budget() -> int:
         quota, period = CGROUP_CPU_MAX.read_text(encoding="utf-8").split()
         if quota != "max":
             count = min(count, max(1, math.ceil(int(quota) / int(period))))
-    except (OSError, ValueError):
-        pass
+    except (OSError, ValueError) as error:
+        # No cgroup v2 quota file (macOS, cgroup v1) or an unreadable one:
+        # the affinity count stands.
+        logger.debug("no cgroup CPU quota: %s", error)
     return max(1, count)
 
 
