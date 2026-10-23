@@ -11,6 +11,7 @@ The API has 1 answer endpoint that streams server-sent events, 7 read endpoints,
 | `GET /api/ready` | Readiness: index loaded and verified, models loaded, provider key present | None | `{"ready": true, "index_version": "1.0.0", "checks": {...}}` |
 | `GET /api/coverage` | Filings per ticker with forms and fiscal periods, and the quarantine list | Bearer token | JSON |
 | `GET /api/chunks/{chunk_id}` | The full text and metadata of 1 chunk for the citation panel | Bearer token | JSON |
+| `GET /api/chunks/{chunk_id}/context` | The cited chunk with up to 20 neighbours before and after it in the same filing item (`before`, `after`, default 4), the overlap shown once, for the filing reader; no model call | Bearer token | JSON |
 | `GET /api/examples` | The 3 example questions and the golden set questions | Bearer token | JSON |
 | `GET /api/index/status` | The manifest, the corpus checksum match, and the build warnings | Bearer token | JSON |
 | `POST /api/feedback` | Record a thumbs vote and a note (phase 1 of the roadmap) | Bearer token | HTTP 501 in this release |
@@ -43,7 +44,7 @@ The API has 1 answer endpoint that streams server-sent events, 7 read endpoints,
     "token_estimate": 29800
   },
   "answer": { "direct_answer": "...", "company_findings": [], "comparison_table": null, "citations": [], "coverage": {}, "gaps": [], "confidence": "high", "confidence_reason": "...", "next_questions": [], "refusal": null },
-  "citations_resolved": [ {"chunk_id": "...", "filing_name": "...", "section_title": "Risk Factors", "fiscal_label": "FY2025", "sec_url": "https://www.sec.gov/...", "valid": true} ],
+  "citations_resolved": [ {"chunk_id": "...", "filing_name": "...", "section_title": "Risk Factors", "fiscal_label": "FY2025", "sec_url": "https://www.sec.gov/...", "valid": true, "location": {"section_label": "Part I, Item 1A. Risk Factors", "heading": "Risk Factors", "item_label": "Item 1A", "passage": 3, "passages": 36, "is_table": false, "anchor": null, "filing_date": "2025-10-31", "accession": "0000320193-25-000079"}} ],
   "meta": {
     "model": "claude-sonnet-5-5-<snapshot>",
     "prompt_version": "1.0.0",
