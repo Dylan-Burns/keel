@@ -24,6 +24,7 @@ const MOMENTS = [
   'outOfScope',
   'traceDrawer',
   'evalPage',
+  'filingReader',
 ] as const;
 
 function variantPairs(): [string, MotionPreset][] {

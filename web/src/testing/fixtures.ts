@@ -5,6 +5,7 @@
  */
 import type {
   AskResponse,
+  ChunkContext,
   CoverageResponse,
   EvalResponse,
   HistoryResponse,
@@ -205,6 +206,18 @@ export const RESPONSE_1: AskResponse = {
       sec_url:
         'https://www.sec.gov/Archives/edgar/data/320193/000032019323000006/aapl-20221231.htm',
       valid: true,
+      quote: 'The Company depends on component suppliers in Asia.',
+      filing_date: '2023-02-03',
+      location: {
+        section_label: 'Part II, Item 1A. Risk Factors',
+        heading: 'Risk Factors',
+        item_label: 'Part II Item 1A',
+        passage: 3,
+        passages: 7,
+        is_table: false,
+        filing_date: '2023-02-03',
+        accession: '0000320193-23-000006',
+      },
     },
     {
       chunk_id: JPM_CHUNK,
@@ -544,4 +557,54 @@ export const HISTORY_ADMIN: HistoryResponse = {
   ...HISTORY,
   user: 'carol',
   role: 'admin',
+};
+
+/** The reader context of the Apple citation of RESPONSE_1. */
+export const CONTEXT_1: ChunkContext = {
+  chunk_id: 'AAPL_10Q_2022-12-31__risk_factors__0000',
+  filing: {
+    filing_id: 'AAPL_10Q_2022-12-31',
+    ticker: 'AAPL',
+    company: 'Apple Inc.',
+    form: '10-Q',
+    fiscal_label: 'Q1 FY2023',
+    period_end: '2022-12-31',
+    filing_date: '2023-02-03',
+    filing_name: 'Apple Inc. 10-Q Q1 FY2023',
+    sec_url:
+      'https://www.sec.gov/Archives/edgar/data/320193/000032019323000006/aapl-20221231.htm',
+  },
+  location: {
+    section_label: 'Part II, Item 1A. Risk Factors',
+    heading: 'Risk Factors',
+    item_label: 'Part II Item 1A',
+    passage: 3,
+    passages: 7,
+    is_table: false,
+    filing_date: '2023-02-03',
+    accession: '0000320193-23-000006',
+  },
+  passages: [
+    {
+      chunk_id: 'AAPL_10Q_2022-12-31__risk_factors__0001',
+      sequence: 1,
+      is_table: false,
+      text: 'The Company has a large, global business.',
+      cited: false,
+    },
+    {
+      chunk_id: 'AAPL_10Q_2022-12-31__risk_factors__0000',
+      sequence: 2,
+      is_table: false,
+      text: 'Supply is a risk. The Company depends on component suppliers in Asia. Delays may follow.',
+      cited: true,
+    },
+    {
+      chunk_id: 'AAPL_10Q_2022-12-31__risk_factors__0003',
+      sequence: 3,
+      is_table: true,
+      text: 'TABLE: Net Sales by Category | units: $ in millions | columns: Dec 31, 2022 | Dec 25, 2021\nProducts | $ 96,388 | $ 104,429\nServices | 20,766 | 19,516',
+      cited: false,
+    },
+  ],
 };

@@ -6,6 +6,7 @@
 import type {
   AskRequest,
   AskResponse,
+  ChunkContext,
   ChunkResponse,
   CompSetItem,
   CompSetList,
@@ -411,6 +412,24 @@ export const fetchCoverage = (): Promise<CoverageResponse> =>
  */
 export const fetchChunk = (chunkId: string): Promise<ChunkResponse> =>
   getJson(`/api/chunks/${encodeURIComponent(chunkId)}`);
+
+/**
+ * `GET /api/chunks/{id}/context`: the cited chunk with its neighbours in
+ * the same filing item, for the filing reader. No model call.
+ *
+ * @param chunkId The cited chunk ID.
+ * @param before The chunks before it (0 to 20).
+ * @param after The chunks after it (0 to 20).
+ * @return The filing header, the location, and the passages.
+ */
+export const fetchChunkContext = (
+  chunkId: string,
+  before = 4,
+  after = 4,
+): Promise<ChunkContext> =>
+  getJson(
+    `/api/chunks/${encodeURIComponent(chunkId)}/context?before=${before}&after=${after}`,
+  );
 
 /**
  * `GET /api/results/{request_id}`: the stored answer of the caller's own

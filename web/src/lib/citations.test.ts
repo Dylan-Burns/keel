@@ -2,10 +2,20 @@ import {describe, expect, it} from 'vitest';
 
 import type {Run} from '../state';
 import {RESPONSE_1, RETRIEVAL_1} from '../testing/fixtures';
-import {chipFor, fallbackChip, inlineChipFor, isCitationId} from './citations';
+import {
+  chipFor,
+  fallbackChip,
+  inlineChipFor,
+  citedChunkIds,
+  isChunkId,
+  isCitationId,
+  passageBody,
+  quoteOf,
+} from './citations';
 
 const JPM = 'JPM_10K_2025-12-31__risk_factors__0003';
 const FACT = 'facts:NVDA:Revenues:Q1FY2026';
+const AAPL = 'AAPL_10Q_2022-12-31__risk_factors__0000';
 
 function run(overrides: Partial<Run> = {}): Run {
   return {
@@ -96,5 +106,47 @@ describe('inlineChipFor', () => {
     expect(before.label).toBe('TSLA 10-K 2025');
     expect(before.valid).toBe(false);
     expect(inlineChipFor(run({final: RESPONSE_1}), id).valid).toBe(false);
+  });
+});
+
+describe('location in the chip source', () => {
+  it('names the part and item when the citation has a location', () => {
+    const chip = inlineChipFor(run({final: RESPONSE_1}), AAPL);
+    expect(chip.source).toBe(
+      'Apple Inc. 10-Q Q1 FY2023, Part II, Item 1A. Risk Factors',
+    );
+  });
+});
+
+describe('passageBody', () => {
+  it('drops the prefix line of a chunk text', () => {
+    expect(passageBody('Apple Inc | 10-K | FY2025 | Risk Factors\nBody.')).toBe(
+      'Body.',
+    );
+    expect(passageBody('No prefix\nBody.')).toBe('No prefix\nBody.');
+    expect(passageBody('One line')).toBe('One line');
+  });
+});
+
+describe('reader order', () => {
+  it('lists the cited chunk IDs once, without facts', () => {
+    const final = {
+      ...RESPONSE_1,
+      citations_resolved: [
+        ...RESPONSE_1.citations_resolved,
+        {...RESPONSE_1.citations_resolved[0]!},
+        {
+          ...RESPONSE_1.citations_resolved[0]!,
+          chunk_id: FACT,
+          kind: 'fact' as const,
+        },
+      ],
+    };
+    expect(citedChunkIds(run({final}))).toEqual([AAPL, JPM]);
+    expect(citedChunkIds(run())).toEqual([]);
+    expect(isChunkId(FACT)).toBe(false);
+    expect(quoteOf(run({final: RESPONSE_1}), AAPL)).toBe(
+      'The Company depends on component suppliers in Asia.',
+    );
   });
 });

@@ -2,9 +2,17 @@ import {motion, useReducedMotion} from 'motion/react';
 import type {JSX} from 'react';
 
 import type {ChunkResponse} from '../api/types';
-import {findChunk, findCitation, findResolved} from '../lib/citations';
+import {
+  findChunk,
+  findCitation,
+  findResolved,
+  passageBody,
+} from '../lib/citations';
+import {citationLink} from '../lib/fragment';
 import {pick, retrieval as retrievalMotion} from '../motion/presets';
 import type {Run} from '../state';
+import {LocationLines} from './LocationLines';
+import {ReaderButton} from './ReaderButton';
 import {SecLink} from './SecLink';
 
 /** The chunk the user opened from a citation chip. */
@@ -21,6 +29,8 @@ export interface RightPanelProps {
   /** On a phone the panel is a drawer: open or closed. */
   readonly open: boolean;
   readonly onClose: () => void;
+  /** Opens the filing reader on a cited chunk. */
+  readonly onOpenReader?: (chunkId: string) => void;
 }
 
 /**
@@ -36,6 +46,7 @@ export function RightPanel({
   selected,
   open,
   onClose,
+  onOpenReader,
 }: RightPanelProps): JSX.Element {
   const reduced = useReducedMotion();
   const cited = run?.final?.citations_resolved ?? [];
@@ -81,20 +92,32 @@ export function RightPanel({
               findChunk(run, selected.chunkId)?.filing_name ??
               selected.chunkId}
           </p>
-          <p className="num text-[11px] text-muted">
-            {selected.detail?.section_title ??
-              findResolved(run, selected.chunkId)?.section_title ??
-              ''}{' '}
-            {selected.detail?.fiscal_label ?? ''}
-          </p>
-          <SecLink
-            className="text-xs"
-            url={
-              selected.detail?.sec_url ??
-              findResolved(run, selected.chunkId)?.sec_url ??
+          <LocationLines
+            location={
+              selected.detail?.location ??
+              findResolved(run, selected.chunkId)?.location ??
               null
             }
+            fallback={`${
+              selected.detail?.section_title ??
+              findResolved(run, selected.chunkId)?.section_title ??
+              ''
+            } ${selected.detail?.fiscal_label ?? ''}`.trim()}
+            filingDate={findResolved(run, selected.chunkId)?.filing_date}
           />
+          <SecLink
+            className="text-xs"
+            url={citationLink(
+              selected.detail?.sec_url ??
+                findResolved(run, selected.chunkId)?.sec_url ??
+                null,
+              findCitation(run, selected.chunkId)?.quote ??
+                passageBody(selected.detail?.text ?? ''),
+              selected.detail?.location ??
+                findResolved(run, selected.chunkId)?.location,
+            )}
+          />
+          <ReaderButton chunkId={selected.chunkId} onOpen={onOpenReader} />
           {selected.error !== null && (
             <p className="text-xs text-down">{selected.error}</p>
           )}
@@ -111,25 +134,37 @@ export function RightPanel({
             Citations <span className="num">({cited.length})</span>
           </h3>
           <ol className="divide-y divide-line" data-testid="citation-list">
-            {cited.map(c => (
-              <li
-                key={c.chunk_id}
-                className="px-2.5 py-2 text-xs"
-                data-valid={c.valid}
-              >
-                <div className="font-semibold text-ink">{c.filing_name}</div>
-                <div className="num text-[11px] text-muted">
-                  {c.section_title}, {c.fiscal_label}
-                  {c.valid ? '' : ', unverified'}
-                </div>
-                <SecLink url={c.sec_url} className="text-[11px]" />
-                {findCitation(run, c.chunk_id) !== undefined && (
-                  <blockquote className="mt-1 border-l-2 border-accent/50 pl-2 italic text-ink-2">
-                    {findCitation(run, c.chunk_id)?.quote}
-                  </blockquote>
-                )}
-              </li>
-            ))}
+            {cited.map((c, i) => {
+              const quote = c.quote ?? findCitation(run, c.chunk_id)?.quote;
+              return (
+                <li
+                  key={`${c.chunk_id}-${i}`}
+                  className="px-2.5 py-2 text-xs"
+                  data-valid={c.valid}
+                  data-testid="citation-card"
+                >
+                  <div className="font-semibold text-ink">{c.filing_name}</div>
+                  <LocationLines
+                    location={c.location ?? null}
+                    fallback={`${c.section_title}, ${c.fiscal_label}`}
+                    filingDate={c.filing_date}
+                    unverified={!c.valid}
+                  />
+                  <div className="flex flex-wrap items-baseline gap-x-3">
+                    <ReaderButton chunkId={c.chunk_id} onOpen={onOpenReader} />
+                    <SecLink
+                      url={citationLink(c.sec_url, quote ?? '', c.location)}
+                      className="text-[11px]"
+                    />
+                  </div>
+                  {quote !== undefined && (
+                    <blockquote className="mt-1 border-l-2 border-accent/50 pl-2 italic text-ink-2">
+                      {quote}
+                    </blockquote>
+                  )}
+                </li>
+              );
+            })}
           </ol>
         </section>
       )}

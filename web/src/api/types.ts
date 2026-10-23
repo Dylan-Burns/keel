@@ -136,6 +136,26 @@ export interface Answer {
   readonly refusal: Refusal | null;
 }
 
+/** Where a cited chunk sits in its filing (`keel/locations.py`). */
+export interface ChunkLocation {
+  /** Such as `Part I, Item 1A. Risk Factors`. */
+  readonly section_label: string;
+  /** The item heading, such as `Risk Factors`. */
+  readonly heading: string;
+  /** The raw item label, such as `Item 1A` or `Part II Item 1A`. */
+  readonly item_label: string | null;
+  /** The 1-based position of the chunk within its item. */
+  readonly passage: number;
+  /** The chunks of the item. */
+  readonly passages: number;
+  readonly is_table: boolean;
+  /** The table title, the deep link anchor of a table passage. */
+  readonly anchor?: string | null;
+  readonly filing_date: string;
+  /** Such as `0000320193-25-000079`, or null. */
+  readonly accession: string | null;
+}
+
 /** A citation with the server-side metadata (chapter 12.9 step 6). */
 export interface ResolvedCitation {
   readonly chunk_id: string;
@@ -150,6 +170,11 @@ export interface ResolvedCitation {
   readonly ticker?: string;
   /** `chunk` for a filing chunk, `fact` for an XBRL company fact. */
   readonly kind?: 'chunk' | 'fact';
+  /** The quote of the citation, verbatim from the chunk. */
+  readonly quote?: string;
+  readonly filing_date?: string;
+  /** The place in the filing; null for a fact or an unknown chunk. */
+  readonly location?: ChunkLocation | null;
 }
 
 /** The latency breakdown in milliseconds. */
@@ -386,6 +411,38 @@ export interface ChunkResponse {
   readonly filing_name: string;
   readonly sec_url: string | null;
   readonly text: string;
+  /** The place in the filing, when the server reports it. */
+  readonly location?: ChunkLocation | null;
+}
+
+/** The filing of the reader header. */
+export interface ReaderFiling {
+  readonly filing_id: string;
+  readonly ticker: string;
+  readonly company: string;
+  readonly form: string;
+  readonly fiscal_label: string;
+  readonly period_end: string;
+  readonly filing_date: string;
+  readonly filing_name: string;
+  readonly sec_url: string | null;
+}
+
+/** 1 chunk of the filing reader; the overlap with its neighbour is cut. */
+export interface ReaderPassage {
+  readonly chunk_id: string;
+  readonly sequence: number;
+  readonly is_table: boolean;
+  readonly text: string;
+  readonly cited: boolean;
+}
+
+/** `GET /api/chunks/{id}/context`: the cited chunk in its section. */
+export interface ChunkContext {
+  readonly chunk_id: string;
+  readonly filing: ReaderFiling;
+  readonly location: ChunkLocation | null;
+  readonly passages: ReaderPassage[];
 }
 
 /** 1 markdown file of the eval page (`markdown` is null when absent). */

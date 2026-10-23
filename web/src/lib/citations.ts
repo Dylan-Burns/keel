@@ -162,10 +162,64 @@ export function inlineChipFor(run: Run, chunkId: string): InlineChip {
   }
   let source = fallback.source;
   if (resolved !== undefined) {
-    source = `${resolved.filing_name}, ${resolved.section_title}`;
+    const section = resolved.location?.section_label ?? resolved.section_title;
+    source = `${resolved.filing_name}, ${section}`;
   } else if (chunk !== undefined) {
     const title = SECTION_TITLES[chunk.section] ?? chunk.section;
     source = `${chunk.filing_name}, ${title}`;
   }
   return {chunkId, label, source, valid, fact: fallback.fact};
+}
+
+/**
+ * The body of a chunk text: the text after the prefix line
+ * (`Company | form | label | heading`), for the deep link of a passage
+ * opened without a quote.
+ *
+ * @param text The chunk text.
+ * @return The body, or the text when it has no prefix line.
+ */
+export function passageBody(text: string): string {
+  const newline = text.indexOf('\n');
+  const first = newline === -1 ? text : text.slice(0, newline);
+  if (newline === -1 || first.split(' | ').length < 4) {
+    return text;
+  }
+  return text.slice(newline + 1);
+}
+
+/**
+ * True for a filing chunk ID; the filing reader opens only these, never a
+ * fact ID.
+ *
+ * @param id The cited ID.
+ * @return Whether the ID names a filing chunk.
+ */
+export function isChunkId(id: string): boolean {
+  return CHUNK_ID.test(id);
+}
+
+/**
+ * The cited chunk IDs of a run, in citation order, each once: the order of
+ * previous and next in the filing reader.
+ *
+ * @param run The run.
+ * @return The chunk IDs.
+ */
+export function citedChunkIds(run: Run): string[] {
+  const resolved = run.final?.citations_resolved.map(c => c.chunk_id) ?? [];
+  const cited = run.final?.answer.citations.map(c => c.chunk_id) ?? [];
+  const ids = resolved.length > 0 ? resolved : cited;
+  return [...new Set(ids)].filter(isChunkId);
+}
+
+/**
+ * The quote of a cited chunk: the resolved citation's, else the model's.
+ *
+ * @param run The run.
+ * @param chunkId The chunk ID.
+ * @return The quote, or undefined.
+ */
+export function quoteOf(run: Run, chunkId: string): string | undefined {
+  return findResolved(run, chunkId)?.quote ?? findCitation(run, chunkId)?.quote;
 }

@@ -286,6 +286,41 @@ export const traceDrawer = {
 } as const satisfies Record<string, MotionPreset>;
 
 /**
+ * Filing reader: the panel slides in from the right over a fading backdrop
+ * when a citation opens it; the reduced twin shows it at once.
+ */
+export const filingReader = {
+  backdrop: {
+    full: {
+      hidden: {opacity: 0},
+      visible: {opacity: 1, transition: {duration: 0.2}},
+      exit: {opacity: 0, transition: {duration: 0.15}},
+    },
+    reduced: {
+      hidden: {opacity: 1},
+      visible: {opacity: 1, transition: {duration: 0}},
+      exit: {opacity: 1, transition: {duration: 0}},
+    },
+  },
+  panel: {
+    full: {
+      hidden: {opacity: 0, x: 32},
+      visible: {
+        opacity: 1,
+        x: 0,
+        transition: {duration: 0.25, ease: 'easeOut'},
+      },
+      exit: {opacity: 0, x: 32, transition: {duration: 0.15}},
+    },
+    reduced: {
+      hidden: {opacity: 1, x: 0},
+      visible: {opacity: 1, x: 0, transition: {duration: 0}},
+      exit: {opacity: 1, x: 0, transition: {duration: 0}},
+    },
+  },
+} as const satisfies Record<string, MotionPreset>;
+
+/**
  * Eval page (W-02): the metric bars grow to their values on first view; the
  * number is in the DOM before the bar moves, and a value below its gate turns
  * red at the end of the grow.
