@@ -4,9 +4,13 @@ The corpus facts are a hand-written catalog; no index and no model loads.
 """
 
 import datetime
+import logging
+import os
+import pathlib
 import sqlite3
 from typing import Any
 
+import pydantic
 import pytest
 
 from keel import config
@@ -653,6 +657,106 @@ def test_cross_encoder_load_failure(
     monkeypatch.setattr("sentence_transformers.CrossEncoder", fail)
     with pytest.raises(errors.ModelMissingError, match="download-models"):
         retriever.CrossEncoderReranker.from_settings(settings)
+
+
+class FakeCrossEncoder(FakeModel):
+    """Takes the constructor arguments of `CrossEncoder`."""
+
+    max_seq_length = 512
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__()
+        self.args = (args, kwargs)
+
+
+class OldFakeCrossEncoder(FakeModel):
+    """sentence-transformers 3.4: a plain `max_length` attribute."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__()
+        self.max_length: int | None = None
+
+
+def test_reranker_settings_reach_the_model(
+    settings: config.Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    threads: list[int] = []
+    monkeypatch.setattr("sentence_transformers.CrossEncoder", FakeCrossEncoder)
+    monkeypatch.setattr("torch.set_num_threads", threads.append)
+    monkeypatch.setattr(retriever, "cpu_budget", lambda: 2)
+    tuned = settings.model_copy(
+        update={
+            "reranker": settings.reranker.model_copy(
+                update={"max_length": 384, "threads": 0, "batch_size": 16}
+            )
+        }
+    )
+    reranker = retriever.CrossEncoderReranker.from_settings(tuned)
+    assert reranker.model.max_seq_length == 384
+    assert reranker.batch_size == 16
+    assert threads == [2]
+    reranker.score([("q", "a")])
+    assert reranker.model.calls[0][1]["batch_size"] == 16
+
+
+def test_reranker_defaults_leave_the_model_alone(
+    settings: config.Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    threads: list[int] = []
+    monkeypatch.setattr("sentence_transformers.CrossEncoder", FakeCrossEncoder)
+    monkeypatch.setattr("torch.set_num_threads", threads.append)
+    plain = settings.model_copy(
+        update={
+            "reranker": settings.reranker.model_copy(
+                update={"max_length": None, "threads": None}
+            )
+        }
+    )
+    reranker = retriever.CrossEncoderReranker.from_settings(plain)
+    assert reranker.model.max_seq_length == 512
+    assert not threads
+
+
+def test_set_max_length_on_the_old_library() -> None:
+    model = OldFakeCrossEncoder()
+    retriever.set_max_length(model, 256)
+    assert model.max_length == 256
+
+
+def test_set_max_length_without_an_attribute_warns(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    model = FakeModel()
+    with caplog.at_level(logging.WARNING):
+        retriever.set_max_length(model, 384)
+    assert "ignored" in caplog.text
+    assert not hasattr(model, "max_length")
+
+
+def test_cpu_budget_follows_the_cgroup_quota(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cpu_max = tmp_path / "cpu.max"
+    monkeypatch.setattr(retriever, "CGROUP_CPU_MAX", cpu_max)
+    monkeypatch.setattr(
+        os, "sched_getaffinity", lambda pid: {0, 1, 2, 3}, raising=False
+    )
+    assert retriever.cpu_budget() == 4
+    cpu_max.write_text("max 100000\n", encoding="utf-8")
+    assert retriever.cpu_budget() == 4
+    cpu_max.write_text("150000 100000\n", encoding="utf-8")
+    assert retriever.cpu_budget() == 2
+    cpu_max.write_text("50000 100000\n", encoding="utf-8")
+    assert retriever.cpu_budget() == 1
+
+
+def test_rerank_pair_limit_stays_at_most_80(
+    settings: config.Settings,
+) -> None:
+    data = settings.reranker.model_dump()
+    data["top_n"] = 81
+    with pytest.raises(pydantic.ValidationError):
+        config.RerankerConfig(**data)
 
 
 def test_superseded_standing_sections(
