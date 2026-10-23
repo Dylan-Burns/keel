@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 release-please maintains the released sections from Conventional Commits.
 
+## [0.4.1](https://github.com/Dylan-Burns/keel/compare/v0.4.0...v0.4.1) (2026-10-23)
+
+
+### Bug fixes
+
+* **infra:** keep root deploy steps from following app-made symlinks ([ca2ff3e](https://github.com/Dylan-Burns/keel/commit/ca2ff3ef51f3b34723f8c6f53238d0030aee4176))
+* **infra:** writable corpus and company dictionary on the host ([60c2fc3](https://github.com/Dylan-Burns/keel/commit/60c2fc355fca83860e4d92cff3fff1ef5e01f032))
+* **release:** scan the image for package vulnerabilities only ([1c145a9](https://github.com/Dylan-Burns/keel/commit/1c145a967ab3ac9ab02f0de827e6b9c0bf255559))
+
 ## [0.4.0](https://github.com/Dylan-Burns/keel/compare/v0.3.0...v0.4.0) (2026-10-22)
 
 
