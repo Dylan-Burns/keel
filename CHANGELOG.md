@@ -4,6 +4,23 @@ All notable changes to this project are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 release-please maintains the released sections from Conventional Commits.
 
+## [0.6.0](https://github.com/Dylan-Burns/keel/compare/v0.5.0...v0.6.0) (2026-10-23)
+
+
+### Features
+
+* **eval:** report the rerank time of each question ([582cb82](https://github.com/Dylan-Burns/keel/commit/582cb824a82fb374713d8e909c5af20e23c96c89))
+
+
+### Performance
+
+* **retriever:** tune the cross-encoder length, threads, and batch size ([baef6ff](https://github.com/Dylan-Burns/keel/commit/baef6ffb900c43339130ac7a93c00bea71c6edc2))
+
+
+### Documentation
+
+* **docs:** record the latency experiments and the reranker tuning ([6234dc7](https://github.com/Dylan-Burns/keel/commit/6234dc7ba7153c0e1ac7d776eb6069d2135d4fd6))
+
 ## [0.5.0](https://github.com/Dylan-Burns/keel/compare/v0.4.3...v0.5.0) (2026-10-23)
 
 
