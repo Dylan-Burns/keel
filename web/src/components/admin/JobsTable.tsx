@@ -13,6 +13,23 @@ export interface JobsTableProps {
 }
 
 /**
+ * The progress cell of a job row: `done/total`, the step count, or empty.
+ *
+ * @param job The job.
+ * @return The cell text.
+ */
+function jobProgressText(job: Job): string {
+  const progress = job.progress;
+  if (!progress) {
+    return '';
+  }
+  if (progress.total === null) {
+    return progress.done ? String(progress.done) : '';
+  }
+  return `${progress.done}/${progress.total}`;
+}
+
+/**
  * The admin jobs, newest first: the ID (a link to the job), the kind, the
  * status, the phase, the progress, who asked, and when. The table scrolls
  * inside its box on a phone.
@@ -61,11 +78,7 @@ export function JobsTable({jobs, selected}: JobsTableProps): JSX.Element {
                 <JobStatusTag status={job.status} />
               </td>
               <td className="text-[12px] text-ink-2">{job.phase}</td>
-              <td className="cell-num text-[11.5px]">
-                {job.progress.total === null
-                  ? job.progress.done || ''
-                  : `${job.progress.done}/${job.progress.total}`}
-              </td>
+              <td className="cell-num text-[11.5px]">{jobProgressText(job)}</td>
               <td className="font-mono text-[11.5px] text-ink-2">
                 {job.requested_by}
               </td>

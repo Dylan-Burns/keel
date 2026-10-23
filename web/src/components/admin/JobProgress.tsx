@@ -15,7 +15,7 @@ export interface JobProgressProps {
  * @return The bar.
  */
 export function JobProgress({job}: JobProgressProps): JSX.Element {
-  const {done, total} = job.progress;
+  const {done, total} = job.progress ?? {done: 0, total: null};
   const finished = job.status === 'succeeded';
   const ratio =
     total !== null && total > 0 ? Math.min(1, done / total) : finished ? 1 : 0;

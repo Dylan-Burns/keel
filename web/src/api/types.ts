@@ -584,7 +584,8 @@ export interface Job {
   readonly requested_by: string;
   readonly heavy: boolean;
   readonly status: JobStatus;
-  readonly progress: JobProgress;
+  /** Absent on a record created before its first progress report. */
+  readonly progress?: JobProgress;
   readonly phase: string;
   readonly created_at: string;
   readonly started_at: string | null;
