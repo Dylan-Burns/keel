@@ -842,6 +842,14 @@ Method 4, shorter answers, 8 questions with the judge on the laptop, 2 runs each
 - Tests: 5 Python and 3 Vitest; `make test` 1001 passed, coverage 97%; `npm run check` 274 passed.
 - Attempts: 1.
 
+## Follow-up after stage 22: whole-row highlights for table citations
+
+- Found by the engineer on v0.6.1: the row link highlighted only part of the cited row (from its first number unique in the filing), leaving out the label and the first values, for example "Total", "130,497", and "60,922".
+- Built: a range over the whole row, `<prefix>-,<label>,<last value>,-<suffix>`. Measured in Chromium: a text fragment term cannot cross table cells, but the prefix and the suffix may sit in the cells before and after, so each term is 1 cell and the context pins the row. `locate` builds a token index per filing from its chunks in page order (a table cell is 1 token, a leading `$` its own), takes the label when its pair with the cell before it occurs first at this row, and ends on the latest cell whose pair with the next cell is the first such pair after the label; context tokens must come from the same chunk. Fallbacks: the title through the row, then the first unique number, then the title. The reader highlight (`.reader-mark`) is bright yellow `#ffe600`, bold, in both themes; the colour of a highlight on sec.gov is the browser's own and cannot be set by a page.
+- Measured on the SEC HTML: the 5 reported rows (NVDA FY2025 Total, FY2024 Total, Q1, Q2, Q3 FY2025 Revenue) highlight the label and every value; Q1 FY2025 Gross margin and FY2024 Net income per diluted share too; FY2025 Compute & Networking and the FY2024 summary Revenue row (first rows of their table) take the title-through-row range.
+- Tests: 4 new Python tests; `make test` 1011 passed, coverage 97%; `npm run check` 274 passed.
+- Attempts: 1.
+
 ## Gaps
 
 Values that were not available when the build needed them, and what the build did instead.
