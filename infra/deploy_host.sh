@@ -79,34 +79,31 @@ keel_run() {
 # Extract the corpus zip of release corpus-v1 when the corpus is absent.
 #######################################
 ensure_corpus() {
-  local dest="${ROOT}/corpus/edgar"
-  if [[ -f "${dest}/manifest.json" ]]; then
+  if [[ -f "${ROOT}/corpus/edgar/manifest.json" ]]; then
     return
   fi
   log "fetching the corpus from the bucket"
-  # Root runs this step, and the app can write corpus/, so the zip lands in
-  # a root-only temp dir and every write refuses to follow a symlink.
-  if [[ -L "${ROOT}/corpus" || -L "${dest}" ]]; then
-    echo "corpus path is a symlink; refusing to extract" >&2
-    exit 1
-  fi
-  mkdir -p "${dest}"
+  # Root downloads into its own temp dir; the app user extracts it in a
+  # container, so root never writes into corpus/, which the app controls.
   local tmp
   tmp="$(mktemp -d)"
   "${AWS}" s3 cp --only-show-errors \
     "s3://${BUCKET}/keel/bootstrap/edgar_corpus.zip" "${tmp}/corpus.zip"
-  python3 - "${tmp}/corpus.zip" "${dest}" <<'PY'
-import os, sys, zipfile
-archive, dest = sys.argv[1], sys.argv[2]
-flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW
-with zipfile.ZipFile(archive) as z:
+  chmod 755 "${tmp}"
+  chmod 644 "${tmp}/corpus.zip"
+  docker run --rm --user "${APP_UID}" -v "${tmp}:/src:ro" \
+    -v "${ROOT}/corpus:/app/corpus" --entrypoint python "${IMAGE}:${VERSION}" \
+    -c '
+import os, zipfile
+dest = "/app/corpus/edgar"
+os.makedirs(dest, exist_ok=True)
+with zipfile.ZipFile("/src/corpus.zip") as z:
     for name in z.namelist():
         if "/" in name or "\\" in name or name.startswith("."):
             raise SystemExit(f"unexpected member {name!r}")
-        fd = os.open(os.path.join(dest, name), flags, 0o644)
-        with os.fdopen(fd, "wb") as out:
+        with open(os.path.join(dest, name), "wb") as out:
             out.write(z.read(name))
-PY
+'
   rm -r "${tmp}"
 }
 
@@ -183,6 +180,7 @@ enable_timers() {
 
 main() {
   local version="${1:?usage: deploy_host.sh VERSION BUNDLE_DIR}"
+  VERSION="${version}"
   local bundle="${2:?usage: deploy_host.sh VERSION BUNDLE_DIR}"
   if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     echo "version must look like 1.2.3" >&2
@@ -202,7 +200,7 @@ main() {
   docker compose pull app
   APP_UID="$(docker run --rm --entrypoint id "${IMAGE}:${version}" -u)"
   readonly APP_UID
-  chown -R "${APP_UID}:${APP_UID}" index cache logs state demo
+  chown -R "${APP_UID}:${APP_UID}" corpus index cache logs state demo
   # The company dictionary starts as the image's copy; keel add extends it
   # in state/, which survives deploys. The app user copies it inside a
   # container, so root never writes into state/, which the app controls.

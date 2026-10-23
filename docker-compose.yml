@@ -13,6 +13,7 @@ services:
       # so both live on writable volumes (the root file system is
       # read-only).
       KEEL_DICTIONARIES__COMPANIES: /app/state/companies.yaml
+      KEEL_AUTH__USERS_FILE: /app/state/users.yaml
       KEEL_INDEX__DIR: /app/index
       KEEL_LOGS__DIR: /app/logs
       KEEL_CACHE__ANSWERS_DIR: /app/demo/answer_cache
