@@ -32,22 +32,31 @@ shared with `web/src/lib/fragment.ts`:
    `-`, `,`, and `&`, and join as `#:~:text=<start>,<end>`.
 
 A table row gets a better link than its title: `locate` builds 1 fragment
-per row of a table chunk, `row_fragments`. A search term of a text
-fragment cannot cross table cells, and the browser takes the first match
-in the page, so the start is the first number of the row that occurs
-once in the whole filing (counted over the filing's chunks), and the end
-is the last number of the row after it: the browser highlights the cited
-row, not the table title. A row with no such number spans from the table
-title to its rightmost number that does not occur earlier in the table,
-so the highlight runs from the title through the cited row. A row with
-neither keeps the title alone.
+per row of a table chunk, `row_fragments`. The first choice is a range over
+the whole row: `<prefix>-,<start>,<end>,-<suffix>`, where each term is 1
+cell, so it never crosses a table cell (a term that does never matches),
+while the prefix and the suffix may sit in the cell before and after. The
+start is the earliest cell of the row (the label when it qualifies) whose
+pair with the cell before it occurs first at this row in the filing, so
+the browser starts there; the end is the latest cell whose pair with the
+cell after it is the first such pair after the start. The filing's tokens
+come from its chunks in order, so they follow the page. Measured on the
+SEC HTML, this highlights the label, every number, and the change column
+of the cited row. The start must be the row label, and the prefix and
+suffix must come from the same chunk. Otherwise the fallbacks apply in
+order: from the table title to the row's rightmost number that does not
+occur earlier in the table (the title through the cited row); else from
+the first number of the row that occurs once in the filing to its last
+number; else the title alone.
 """
 
 from __future__ import annotations
 
+import bisect
 from collections.abc import Iterable
 from collections.abc import Mapping
 from collections.abc import Sequence
+import dataclasses
 import logging
 import re
 import sqlite3
@@ -255,11 +264,17 @@ def locate(
     rows = conn.execute(_LOCATE.format(marks=marks), wanted).fetchall()
     found = {}
     cache: dict[str, str] = {}
+    streams: dict[str, _Stream] = {}
 
     def texts(filing_id: str) -> str:
         if filing_id not in cache:
             cache[filing_id] = _filing_text(conn, filing_id)
         return cache[filing_id]
+
+    def stream(filing_id: str) -> _Stream:
+        if filing_id not in streams:
+            streams[filing_id] = _stream_of(conn, filing_id)
+        return streams[filing_id]
 
     for row in rows:
         (chunk_id, form, section, item, table, filed) = row[:6]
@@ -279,7 +294,12 @@ def locate(
             filing_date=str(filed),
             accession=accession_of(trusted_url),
             row_fragments=(
-                row_fragments(str(text), texts(str(filing_id)))
+                row_fragments(
+                    str(text),
+                    texts(str(filing_id)),
+                    stream(str(filing_id)),
+                    str(chunk_id),
+                )
                 if table
                 else None
             ),
@@ -338,15 +358,11 @@ def row_fragment(
     """
     numbers = [n for cell in row.split("|") for n in _NUMBER.findall(cell)]
     numbers = [n for n in numbers if len(n.replace(",", "")) >= 2]
-    unique = _unique_start(numbers, filing_text)
-    if unique is not None:
-        return unique
-    if not title:
-        return None
-    for number in reversed(numbers):
-        if _occurrences(before, number) == 0:
-            return f":~:text={_encode(title)},{_encode([number])}"
-    return None
+    if title:
+        for number in reversed(numbers):
+            if _occurrences(before, number) == 0:
+                return f":~:text={_encode(title)},{_encode([number])}"
+    return _unique_start(numbers, filing_text)
 
 
 def _unique_start(numbers: Sequence[str], filing_text: str) -> str | None:
@@ -361,13 +377,138 @@ def _unique_start(numbers: Sequence[str], filing_text: str) -> str | None:
     return None
 
 
-def row_fragments(text: str, filing_text: str) -> dict[str, str]:
+@dataclasses.dataclass(frozen=True)
+class _Stream:
+    """The tokens of a filing in page order, with lookups for the range.
+
+    Attributes:
+        tokens: Every token, as written.
+        low: The tokens lowercased (a text fragment ignores case).
+        first_pair: The first index of each (token before, token).
+        after: The indexes of each (token, token after), ascending.
+        positions: The indexes of each token, ascending.
+        rows: Per chunk, the (line, first index, length) of each line.
+    """
+
+    tokens: list[str]
+    low: list[str]
+    first_pair: dict[tuple[str, str], int]
+    after: dict[tuple[str, str], list[int]]
+    positions: dict[str, list[int]]
+    rows: dict[str, list[tuple[str, int, int]]]
+
+
+def _line_tokens(line: str) -> list[str]:
+    """The tokens of 1 line, as the page splits them into cells.
+
+    A table cell stays 1 token (a label such as `Compute & Networking` is 1
+    cell in the page), except that a leading `$` is its own token: the page
+    puts the currency sign in a cell of its own. A prose line splits on
+    whitespace.
+    """
+    if "|" not in line:
+        return line.split()
+    tokens: list[str] = []
+    for cell in line.split("|"):
+        words = cell.strip()
+        if words.startswith("$ "):
+            tokens.append("$")
+            words = words[2:].strip()
+        if words:
+            tokens.append(" ".join(words.split()))
+    return tokens
+
+
+def _stream_of(conn: sqlite3.Connection, filing_id: str) -> _Stream:
+    """Build the token stream of a filing from its chunks in order."""
+    tokens: list[str] = []
+    rows: dict[str, list[tuple[str, int, int]]] = {}
+    for chunk_id, text in conn.execute(
+        "SELECT chunk_id, text FROM chunks WHERE filing_id = ? "
+        "ORDER BY sequence",
+        (filing_id,),
+    ):
+        for line in str(text).splitlines()[1:]:
+            if _TABLE_TAG.match(line):
+                continue
+            words = _line_tokens(line)
+            rows.setdefault(str(chunk_id), []).append(
+                (line, len(tokens), len(words))
+            )
+            tokens.extend(words)
+    low = [token.lower() for token in tokens]
+    first_pair: dict[tuple[str, str], int] = {}
+    after: dict[tuple[str, str], list[int]] = {}
+    positions: dict[str, list[int]] = {}
+    for index, token in enumerate(low):
+        positions.setdefault(token, []).append(index)
+        if index > 0:
+            first_pair.setdefault((low[index - 1], token), index)
+        if index + 1 < len(low):
+            after.setdefault((token, low[index + 1]), []).append(index)
+    return _Stream(tokens, low, first_pair, after, positions, rows)
+
+
+_TERM = re.compile(r"^[A-Za-z0-9$][A-Za-z0-9,.$% &'-]*$")
+_CONTEXT = re.compile(r"^[^()\[\]]+$|^[A-Za-z][^\d]*\)$")
+
+
+def _row_range(
+    stream: _Stream, first: int, size: int, lo: int, hi: int
+) -> str | None:
+    """The range directive over 1 row, or None (module docstring).
+
+    The prefix and the suffix must come from the same chunk (indexes
+    `lo` to `hi`, excluded): tokens of 2 chunks need not sit side by
+    side in the page.
+    """
+    low, tokens = stream.low, stream.tokens
+    start = None
+    for index in range(first, first + size):
+        if index - 1 < lo or not _TERM.match(tokens[index]):
+            continue
+        if not _CONTEXT.match(tokens[index - 1]):
+            continue
+        if stream.first_pair.get((low[index - 1], low[index])) == index:
+            start = index
+            break
+    if start != first:
+        # Not the row label: the title rule covers the whole row instead.
+        return None
+    directive = (
+        f":~:text={_encode([tokens[start - 1]])}-,{_encode([tokens[start]])}"
+    )
+    for index in range(first + size - 1, start, -1):
+        if not _TERM.match(tokens[index]):
+            continue
+        suffix = index + 1 < hi and _CONTEXT.match(tokens[index + 1])
+        if suffix:
+            hits = stream.after.get((low[index], low[index + 1]), [])
+        else:
+            hits = stream.positions.get(low[index], [])
+        later = hits[bisect.bisect_right(hits, start) :]
+        if later and later[0] == index:
+            end = f"{directive},{_encode([tokens[index]])}"
+            if suffix:
+                return f"{end},-{_encode([tokens[index + 1]])}"
+            return end
+    return directive
+
+
+def row_fragments(
+    text: str,
+    filing_text: str,
+    stream: _Stream | None = None,
+    chunk_id: str | None = None,
+) -> dict[str, str]:
     """Build the text directive of each row of a table chunk.
 
     Args:
         text: The chunk text: a header line, a `TABLE:` line, then 1 row
             per line.
         filing_text: The text of the whole filing.
+        stream: The filing's token stream, for the row range rule.
+        chunk_id: The chunk's ID, to find its rows in the stream.
 
     Returns:
         The directive per row key, for the rows that have one.
@@ -375,11 +516,19 @@ def row_fragments(text: str, filing_text: str) -> dict[str, str]:
     found: dict[str, str] = {}
     title = _anchor(table_title(text))
     lines = text.splitlines()[1:]
+    own = stream.rows.get(chunk_id, []) if stream and chunk_id else []
+    placed = {line: (first, size) for line, first, size in own}
+    lo = own[0][1] if own else 0
+    hi = own[-1][1] + own[-1][2] if own else 0
     for index, line in enumerate(lines):
         if "|" not in line or _TABLE_TAG.match(line):
             continue
-        before = "\n".join(lines[:index])
-        fragment = row_fragment(line, filing_text, title, before)
+        fragment = None
+        if stream is not None and line in placed:
+            fragment = _row_range(stream, *placed[line], lo, hi)
+        if fragment is None:
+            before = "\n".join(lines[:index])
+            fragment = row_fragment(line, filing_text, title, before)
         if fragment is not None:
             found[row_key(line)] = fragment
     return found

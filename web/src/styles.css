@@ -24,7 +24,7 @@
   --k-up: #04764f;
   --k-down: #b4232a;
   --k-warn: #8f5a00;
-  --k-mark: #ffe17a;
+  --k-mark: #ffe600;
   --k-on-mark: #0d1520;
   --k-shadow: 0 1px 0 rgb(13 21 32 / 4%);
   color-scheme: light;
@@ -46,8 +46,8 @@
   --k-up: #2fd08c;
   --k-down: #ff6b6b;
   --k-warn: #f4b740;
-  --k-mark: #5f4b0c;
-  --k-on-mark: #fff4cf;
+  --k-mark: #ffe600;
+  --k-on-mark: #0d1520;
   --k-shadow: none;
   color-scheme: dark;
 }
@@ -69,8 +69,8 @@
     --k-up: #2fd08c;
     --k-down: #ff6b6b;
     --k-warn: #f4b740;
-    --k-mark: #5f4b0c;
-    --k-on-mark: #fff4cf;
+    --k-mark: #ffe600;
+    --k-on-mark: #0d1520;
     --k-shadow: none;
     color-scheme: dark;
   }
@@ -636,11 +636,14 @@
   white-space: pre-wrap;
 }
 
+/* The cited text: bright bold yellow in both themes, so it stands out. */
 .reader-mark {
   background: var(--k-mark);
   color: var(--k-on-mark);
+  font-weight: 700;
   border-radius: 2px;
-  padding: 0 1px;
+  padding: 1px 2px;
+  box-shadow: 0 0 0 2px var(--k-mark);
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }

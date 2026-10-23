@@ -274,12 +274,19 @@ _FY25 = (
 )
 
 
-def test_row_fragment_starts_on_a_number_unique_in_the_filing() -> None:
+def test_row_fragment_without_a_title_starts_on_a_unique_number() -> None:
+    filing = _FY25 + "Revenue was $130,497 million, up from 60,922 and 114."
+    row = "Total | $ 130,497 | $ 60,922 | $ 69,575 | 114 | %"
+    assert locations.row_fragment(row, filing) == ":~:text=69%2C575,114"
+
+
+def test_row_fragment_prefers_the_title_range() -> None:
     filing = _FY25 + "Revenue was $130,497 million, up from 60,922 and 114."
     rows = locations.row_fragments(_FY25, filing)
-    assert rows[
-        locations.row_key("Total | $ 130,497 | $ 60,922 | $ 69,575 | 114 | %")
-    ] == (":~:text=69%2C575,114")
+    total = locations.row_key(
+        "Total | $ 130,497 | $ 60,922 | $ 69,575 | 114 | %"
+    )
+    assert rows[total] == (":~:text=Revenue%20by%20Reportable%20Segments,114")
 
 
 def test_row_fragment_spans_from_the_title_when_no_number_is_unique() -> None:
@@ -318,3 +325,78 @@ def test_deep_link_prefers_the_row_fragment() -> None:
     assert locations.deep_link(url, "Other | $ 2", "Big Title", rows) == (
         f"{url}#:~:text=Big%20Title"
     )
+
+
+def _filing_store(chunks: list[tuple[str, str]]) -> sqlite3.Connection:
+    """An in-memory chunk table of 1 filing: (chunk ID, text) in order."""
+    conn = sqlite3.connect(":memory:")
+    conn.execute(
+        "CREATE TABLE chunks (chunk_id TEXT, filing_id TEXT, "
+        "sequence INTEGER, text TEXT)"
+    )
+    conn.executemany(
+        "INSERT INTO chunks VALUES (?, 'F', ?, ?)",
+        [(cid, seq, text) for seq, (cid, text) in enumerate(chunks)],
+    )
+    return conn
+
+
+_SEGMENTS = (
+    "NVIDIA Corporation | 10-K | FY2025 | MD&A\n"
+    "TABLE: Revenue by Reportable Segments | units: $ in millions\n"
+    "($ in millions)\n"
+    "Compute & Networking | $ 116,193 | $ 47,405 | $ 68,788 | 145 | %\n"
+    "Graphics | 14,304 | 13,517 | 787 | 6 | %\n"
+    "Total | $ 130,497 | $ 60,922 | $ 69,575 | 114 | %\n"
+)
+_EARLIER = (
+    "NVIDIA Corporation | 10-K | FY2025 | MD&A\n"
+    "TABLE: Fiscal Year 2025 Summary | units: $ in millions\n"
+    "Revenue | $ 130,497 | $ 60,922 | Up 114%\n"
+    "Total | $ 11 | $ 22 | 33 | %\n"
+)
+
+
+def test_row_range_covers_the_whole_row() -> None:
+    conn = _filing_store([("A", _EARLIER), ("B", _SEGMENTS)])
+    stream = locations._stream_of(conn, "F")
+    rows = locations.row_fragments(_SEGMENTS, "", stream, "B")
+    total = locations.row_key(
+        "Total | $ 130,497 | $ 60,922 | $ 69,575 | 114 | %"
+    )
+    graphics = locations.row_key("Graphics | 14,304 | 13,517 | 787 | 6 | %")
+    compute = locations.row_key(
+        "Compute & Networking | $ 116,193 | $ 47,405 | $ 68,788 | 145 | %"
+    )
+    # The label starts the range, pinned by the cell before it; the last
+    # number ends it, pinned by the cell after it.
+    assert rows[total] == ":~:text=%25-,Total,114,-%25"
+    assert rows[graphics] == ":~:text=%25-,Graphics,6,-%25"
+    # A multi-word label stays 1 term, as it is 1 cell in the page.
+    assert rows[compute] == (
+        ":~:text=millions%29-,Compute%20%26%20Networking,145,-%25"
+    )
+
+
+def test_row_range_skips_a_label_seen_earlier_with_the_same_neighbour() -> None:
+    # Chunk A already has "%" then "Total" before chunk B does, so the
+    # browser would start in chunk A: B's Total row takes the title rule.
+    late = _SEGMENTS.replace("Graphics | 14,304 | 13,517 | 787 | 6 | %\n", "")
+    first = _EARLIER.replace("Up 114%\n", "Up 114% | %\n")
+    conn = _filing_store([("A", first), ("B", late)])
+    stream = locations._stream_of(conn, "F")
+    rows = locations.row_fragments(late, "x", stream, "B")
+    total = locations.row_key(
+        "Total | $ 130,497 | $ 60,922 | $ 69,575 | 114 | %"
+    )
+    assert rows[total] == ":~:text=Revenue%20by%20Reportable%20Segments,114"
+
+
+def test_row_range_never_uses_context_from_another_chunk() -> None:
+    conn = _filing_store([("A", _EARLIER), ("B", _SEGMENTS)])
+    stream = locations._stream_of(conn, "F")
+    rows = locations.row_fragments(_EARLIER, "", stream, "A")
+    revenue = locations.row_key("Revenue | $ 130,497 | $ 60,922 | Up 114%")
+    # "Revenue" is the first token of chunk A: no prefix in the chunk, so
+    # the title rule applies.
+    assert rows[revenue] == ":~:text=Fiscal%20Year%202025%20Summary,114"
