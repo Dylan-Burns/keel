@@ -421,17 +421,36 @@ class JobRunner:
                 self._run(job_id)
             except Exception as error:  # pylint: disable=broad-exception-caught
                 # The worker outlives any failure; the record says so.
-                logger.error(
-                    "admin job %s crashed: %s", job_id, type(error).__name__
-                )
+                message = self.crash_message(error)
+                logger.error("admin job %s crashed: %s", job_id, message)
                 logger.debug("admin job crash", exc_info=True)
                 self.update(
                     job_id,
                     status="failed",
                     phase="failed",
-                    error=f"internal error: {type(error).__name__}",
+                    error=message,
                     finished_at=admin_store.now_text(),
                 )
+
+    def crash_message(self, error: Exception) -> str:
+        """The job error of an unexpected exception, redacted.
+
+        An `OSError` names its errno, its reason, and its path (such as
+        `[Errno 30] Read-only file system: '/app/eval/report.md'`), so a
+        path that is not writable on the host is plain from the job
+        record; any other exception gives its type name only, because its
+        message can hold arbitrary data.
+
+        Args:
+            error: The exception.
+
+        Returns:
+            `internal error: <type>` with the OSError details.
+        """
+        name = type(error).__name__
+        if isinstance(error, OSError):
+            return self.clean(f"internal error: {name}: {error}")
+        return f"internal error: {name}"
 
     def _claim(self, job_id: str) -> admin_store.JobRecord | None:
         with self._lock:

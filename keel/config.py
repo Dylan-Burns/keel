@@ -291,6 +291,19 @@ class SchedulerConfig(_Section):
     backup_keep: int = pydantic.Field(default=7, ge=1)
 
 
+class EvalConfig(_Section):
+    """Where the admin eval job writes its reports.
+
+    Attributes:
+        report_dir: The directory of the `<run id>.md` and `<run id>.json`
+            reports of the admin eval job, or None for `<logs.dir>/eval`.
+            It must be writable on the host; `keel eval` on the command
+            line keeps writing `eval/report.md` in the checkout.
+    """
+
+    report_dir: pathlib.Path | None = None
+
+
 class DeployConfig(_Section):
     """The deploy target."""
 
@@ -333,6 +346,7 @@ class Settings(pydantic_settings.BaseSettings):
     edgar: EdgarConfig
     demo: DemoConfig = DemoConfig()
     scheduler: SchedulerConfig = SchedulerConfig()
+    eval: EvalConfig = EvalConfig()
     deploy: DeployConfig = DeployConfig()
 
     anthropic_api_key: pydantic.SecretStr | None = pydantic.Field(
@@ -551,3 +565,15 @@ def models_without_prices(settings: Settings, prices: Prices) -> list[str]:
         settings.llm.judge_model,
     ]
     return [model for model in wanted if model not in prices.models]
+
+
+def eval_report_dir(settings: Settings) -> pathlib.Path:
+    """The directory of the admin eval job's reports.
+
+    Args:
+        settings: The loaded settings.
+
+    Returns:
+        `eval.report_dir`, or `<logs.dir>/eval` when it is not set.
+    """
+    return settings.eval.report_dir or settings.logs.dir / "eval"

@@ -128,5 +128,8 @@ scheduler:
   backup_dir: backups          # KEEL_SCHEDULER__BACKUP_DIR=/data/backups on Railway
   backup_keep: 7               # local archives kept
 
+eval:
+  report_dir: null             # the admin eval job writes <run id>.md and .json here; null is <logs.dir>/eval (writable on the host)
+
 deploy:
   host: railway                # railway (default, chapter 29.9), aws (chapter 29.6), or a hostname
