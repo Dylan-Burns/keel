@@ -62,7 +62,10 @@ reranker:
   enabled: true
   model: cross-encoder/ms-marco-MiniLM-L6-v2  # the Hub renamed ms-marco-MiniLM-L-6-v2 to this id
   revision: 233902d25c440f23af6f7d6e94d2946bac0bee0a  # pinned commit on Hugging Face
-  top_n: 80
+  top_n: 80                    # D-10: at most 80 pairs per question
+  max_length: 384              # tokens per pair (model 512): rerank -20%, recall@25 -0.001 on the t3.large host
+  threads: 0                   # torch threads, 0 = 1 per usable CPU (torch default: 1 per core): rerank -20% on 2 vCPUs
+  batch_size: 8                # pairs per predict call (default 32): less padding per batch
 
 retrieval:
   lexical_k: 100
