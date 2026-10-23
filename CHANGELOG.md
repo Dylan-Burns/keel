@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 release-please maintains the released sections from Conventional Commits.
 
+## [0.6.1](https://github.com/Dylan-Burns/keel/compare/v0.6.0...v0.6.1) (2026-10-23)
+
+
+### Bug fixes
+
+* **citations:** link a table citation to the cited row, not the title ([ad984e6](https://github.com/Dylan-Burns/keel/commit/ad984e64f21c11234741e07fdb6ad0b5e9f29c77))
+* **retriever:** log the missing cgroup quota instead of a bare pass ([c242de5](https://github.com/Dylan-Burns/keel/commit/c242de586116404583c86d051969ee685db224c1))
+
 ## [0.6.0](https://github.com/Dylan-Burns/keel/compare/v0.5.0...v0.6.0) (2026-10-23)
 
 
