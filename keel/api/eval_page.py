@@ -1,9 +1,12 @@
 """The data of the `/api/eval` page (chapter 25.2, W-02).
 
-The page shows `eval/report.md` (written by `keel eval`) and
-`docs/PROMPT_LOG.md` read-only. The service sends the markdown as text; the
-front-end renders it through the same `marked` and DOMPurify path as the
-answers, with the allow list of chapter 15, so no HTML leaves the server.
+The page shows the newest report of the admin eval job (`<run id>.md`
+in `eval.report_dir`, `<logs.dir>/eval` by default, which is writable on
+the host) or, before the first run there, the committed `eval/report.md`
+(written by `keel eval`), and `docs/PROMPT_LOG.md`, all read-only. The
+service sends the markdown as text; the front-end renders it through the
+same `marked` and DOMPurify path as the answers, with the allow list of
+chapter 15, so no HTML leaves the server.
 The only parsing here reads the regression gates table of chapter 18.8 for
 the metric bars. A missing file is an empty state, never an error.
 """
@@ -22,6 +25,7 @@ logger = logging.getLogger(__name__)
 MAX_BYTES = 2 * 1024 * 1024  # a report larger than this is cut
 REPORT_LABEL = "eval/report.md"
 PROMPT_LOG_LABEL = "docs/PROMPT_LOG.md"
+RUN_REPORT_GLOB = "eval-*.md"
 _NUMBER = re.compile(r"[-+]?\d+(?:\.\d+)?")
 _COMPARATOR = re.compile(r"^\s*(>=|<=|>|<)")
 _AT_MOST = re.compile(r"\b(or less|at most|or lower|or below)\b", re.IGNORECASE)
@@ -191,17 +195,53 @@ def parse_gates(markdown: str | None) -> list[Gate]:
     return []
 
 
-def load(report: pathlib.Path, prompt_log: pathlib.Path) -> EvalPage:
+def latest_run_report(report_dir: pathlib.Path | None) -> pathlib.Path | None:
+    """The newest report the admin eval job wrote, if any.
+
+    The run ID is `eval-<UTC time>`, so the newest name sorts last.
+
+    Args:
+        report_dir: The report directory of the eval job, or None.
+
+    Returns:
+        The newest `eval-*.md` file, or None when there is none or the
+        directory cannot be read.
+    """
+    if report_dir is None:
+        return None
+    try:
+        found = sorted(
+            path
+            for path in report_dir.glob(RUN_REPORT_GLOB)
+            if path.is_file() and not path.is_symlink()
+        )
+    except OSError as error:
+        logger.warning("the eval page cannot list %s: %s", report_dir, error)
+        return None
+    return found[-1] if found else None
+
+
+def load(
+    report: pathlib.Path,
+    prompt_log: pathlib.Path,
+    report_dir: pathlib.Path | None = None,
+) -> EvalPage:
     """Read both files and the gates for `GET /api/eval`.
 
     Args:
-        report: The eval report path (`server.eval_report`).
+        report: The committed eval report (`server.eval_report`), shown
+            when the eval job has written no report yet.
         prompt_log: The prompt log path (`server.prompt_log`).
+        report_dir: The report directory of the admin eval job, or None.
 
     Returns:
         The page data.
     """
-    document = read_document(report, REPORT_LABEL)
+    latest = latest_run_report(report_dir)
+    if latest is not None:
+        document = read_document(latest, f"eval run {latest.stem}")
+    else:
+        document = read_document(report, REPORT_LABEL)
     return EvalPage(
         report=document,
         prompt_log=read_document(prompt_log, PROMPT_LOG_LABEL),

@@ -30,6 +30,7 @@ from keel import __version__ as keel_version
 from keel import answer
 from keel import cache
 from keel import citations
+from keel import config
 from keel import coverage as coverage_report
 from keel import errors
 from keel import understanding
@@ -553,12 +554,16 @@ async def eval_report(services: Services, caller: Caller) -> eval_page.EvalPage:
 
     Returns:
         Both documents (`markdown` is None for a missing file) and the
-        regression gates read from the report.
+        regression gates read from the report: the newest report of the
+        admin eval job, else the committed `server.eval_report`.
     """
     del caller
-    server = services.settings.server
+    settings = services.settings
     return await asyncio.to_thread(
-        eval_page.load, server.eval_report, server.prompt_log
+        eval_page.load,
+        settings.server.eval_report,
+        settings.server.prompt_log,
+        config.eval_report_dir(settings),
     )
 
 

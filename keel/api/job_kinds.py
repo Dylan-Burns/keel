@@ -24,6 +24,7 @@ from __future__ import annotations
 import collections
 from collections.abc import Sequence
 import pathlib
+import tempfile
 import threading
 from typing import Annotated
 from typing import Any
@@ -409,12 +410,91 @@ def run_warm_cache(
     return jobs.JobOutput(result)
 
 
+def ensure_writable(directory: pathlib.Path) -> None:
+    """Fail fast when a job cannot write its output directory.
+
+    The pilot host runs with a read-only root file system; a job that
+    learns it only at its end has spent its time and its model calls.
+
+    Args:
+        directory: The directory; created when absent.
+
+    Raises:
+        ConfigError: The directory cannot be created or written.
+    """
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(dir=directory, prefix=".probe-"):
+            pass
+    except OSError as error:
+        raise errors.ConfigError(
+            f"cannot write {directory}: {error.strerror or error}; set "
+            "KEEL_EVAL__REPORT_DIR to a writable directory"
+        ) from None
+
+
+def write_eval_report(
+    run: runner.EvalRun,
+    questions: Sequence[golden.GoldenQuestion],
+    report_dir: pathlib.Path,
+    context: jobs.JobContext,
+) -> pathlib.Path | None:
+    """Write `<run id>.md` and `.json`; never lose a finished run.
+
+    When the report directory fails after the run (the probe passed at
+    the start), the report goes to a new private folder of the temporary
+    directory instead (`<tmp>/keel-eval-*`). The eval page does not list
+    that folder and a restart clears the host tmpfs, so the log line and
+    the job result name the path to copy it from; the job result keeps
+    the gates either way.
+
+    Args:
+        run: The finished run.
+        questions: The questions it ran.
+        report_dir: The report directory of the eval job.
+        context: The job, for the log lines.
+
+    Returns:
+        The markdown report, or None when no directory took it.
+    """
+    name = f"{run.info.run_id}.md"
+    path = report_dir / name
+    try:
+        eval_report.write(run, questions, path)
+    except OSError as error:
+        # A half-written run must not become the newest report.
+        path.unlink(missing_ok=True)
+        context.log(
+            f"report not written to {report_dir}: "
+            f"{error.strerror or type(error).__name__}"
+        )
+    else:
+        context.log(f"report written to {path}")
+        return path
+    try:
+        fallback = pathlib.Path(tempfile.mkdtemp(prefix="keel-eval-"))
+        path = fallback / name
+        eval_report.write(run, questions, path)
+    except OSError as error:
+        context.log(
+            "report not written to the temporary folder: "
+            f"{error.strerror or type(error).__name__}"
+        )
+        return None
+    context.log(f"report written to {path} (temporary; copy it)")
+    return path
+
+
 def run_eval(
     services: state.Services, context: jobs.JobContext, params: EvalParams
 ) -> jobs.JobOutput:
     """The `eval` job: the golden set, the gates, and the report.
 
-    The report replaces `server.eval_report`, which the eval page shows.
+    The report goes to `<run id>.md` and `.json` in `eval.report_dir`
+    (`<logs.dir>/eval` by default, writable on the host), never to the
+    committed `eval/report.md` under the application root; the eval page
+    shows the newest one. The directory is checked before the first
+    question, so a read-only path fails before any model request.
 
     Args:
         services: The shared services.
@@ -422,9 +502,14 @@ def run_eval(
         params: The answers, judge, subset, and ablation flags.
 
     Returns:
-        The run ID, the gates, and the spend.
+        The run ID, the gates, the report path, and the spend.
+
+    Raises:
+        ConfigError: The report directory cannot be written.
     """
     settings = services.settings
+    report_dir = config.eval_report_dir(settings)
+    ensure_writable(report_dir)
     golden_path = warm_cache.DEFAULT_GOLDEN
     total = len(golden.load_golden(golden_path).select(params.subset))
     context.progress(0, total)
@@ -440,7 +525,8 @@ def run_eval(
         progress=_counted(context, total),
         answers=setup,
     )
-    report_path = eval_report.write(run, questions, settings.server.eval_report)
+    context.phase("writing the report")
+    report_path = write_eval_report(run, questions, report_dir, context)
     gate_rows = [
         {
             "name": result.gate.name,
@@ -456,8 +542,10 @@ def run_eval(
             "run_id": run.info.run_id,
             "questions": len(questions),
             "seconds": round(run.seconds, 1),
-            "report": str(settings.server.eval_report),
-            "results": report_path.name,
+            "report": str(report_path) if report_path else None,
+            "results": (
+                report_path.with_suffix(".json").name if report_path else None
+            ),
             "gates": gate_rows,
             "answers_usd": round(spend, 4),
             "judge_usd": round(float(judge_cost or 0.0), 4),
