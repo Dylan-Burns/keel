@@ -30,6 +30,17 @@ shared with `web/src/lib/fragment.ts`:
    words.
 6. Percent-encode every character but letters and digits, including
    `-`, `,`, and `&`, and join as `#:~:text=<start>,<end>`.
+
+A table row gets a better link than its title: `locate` builds 1 fragment
+per row of a table chunk, `row_fragments`. A search term of a text
+fragment cannot cross table cells, and the browser takes the first match
+in the page, so the start is the first number of the row that occurs
+once in the whole filing (counted over the filing's chunks), and the end
+is the last number of the row after it: the browser highlights the cited
+row, not the table title. A row with no such number spans from the table
+title to its rightmost number that does not occur earlier in the table,
+so the highlight runs from the title through the cited row. A row with
+neither keeps the title alone.
 """
 
 from __future__ import annotations
@@ -95,6 +106,9 @@ class Location(pydantic.BaseModel):
             such as `Third Quarter of Fiscal Year 2026 Summary`, or None.
         filing_date: The filing date.
         accession: Such as `0000320193-25-000079`, or None.
+        row_fragments: For a table passage, the text directive of each
+            row that has a number unique in the filing, keyed by the row
+            with its whitespace collapsed; None for prose.
     """
 
     model_config = pydantic.ConfigDict(frozen=True, extra="forbid")
@@ -108,6 +122,7 @@ class Location(pydantic.BaseModel):
     anchor: str | None = None
     filing_date: str
     accession: str | None
+    row_fragments: dict[str, str] | None = None
 
 
 def heading_of(text: str) -> str:
@@ -207,7 +222,7 @@ def accession_of(url: str | None) -> str | None:
 _LOCATE = (
     "SELECT c.chunk_id, c.form, c.section, c.item_label, c.is_table, "
     "c.filing_date, "
-    "c.text, f.source_url, f.url_trusted, "
+    "c.text, f.source_url, f.url_trusted, c.filing_id, "
     "(SELECT COUNT(*) FROM chunks o WHERE o.ticker = c.ticker "
     "AND o.form = c.form AND o.period_end_date = c.period_end_date "
     "AND o.section = c.section AND o.filing_id = c.filing_id "
@@ -239,9 +254,16 @@ def locate(
     marks = ",".join("?" * len(wanted))
     rows = conn.execute(_LOCATE.format(marks=marks), wanted).fetchall()
     found = {}
+    cache: dict[str, str] = {}
+
+    def texts(filing_id: str) -> str:
+        if filing_id not in cache:
+            cache[filing_id] = _filing_text(conn, filing_id)
+        return cache[filing_id]
+
     for row in rows:
         (chunk_id, form, section, item, table, filed) = row[:6]
-        text, url, trusted = row[6:9]
+        text, url, trusted, filing_id = row[6:10]
         heading = heading_of(str(text))
         if heading == UNKNOWN_HEADING or heading in SECTION_TITLES:
             heading = SECTION_TITLES.get(str(section), heading)
@@ -250,14 +272,140 @@ def locate(
             section_label=section_label(str(form), item, heading),
             heading=heading,
             item_label=item,
-            passage=int(row[9]),
-            passages=int(row[10]),
+            passage=int(row[10]),
+            passages=int(row[11]),
             is_table=bool(table),
             anchor=table_title(str(text)) if table else None,
             filing_date=str(filed),
             accession=accession_of(trusted_url),
+            row_fragments=(
+                row_fragments(str(text), texts(str(filing_id)))
+                if table
+                else None
+            ),
         )
     return found
+
+
+def _filing_text(conn: sqlite3.Connection, filing_id: str) -> str:
+    """The text of every chunk of a filing, joined by new lines."""
+    rows = conn.execute(
+        "SELECT text FROM chunks WHERE filing_id = ?", (filing_id,)
+    ).fetchall()
+    return "\n".join(str(r[0]) for r in rows)
+
+
+_NUMBER = re.compile(r"\d[\d,]*(?:\.\d+)?")
+
+
+def row_key(row: str) -> str:
+    """The key of a table row in `row_fragments`: whitespace collapsed.
+
+    Args:
+        row: A row such as `Total | $ 130,497 | $ 60,922`.
+
+    Returns:
+        The row with each run of whitespace as 1 space, stripped.
+    """
+    return " ".join(row.split())
+
+
+def _occurrences(text: str, number: str) -> int:
+    """How often a number stands alone in a text (not inside another)."""
+    pattern = re.compile(
+        r"(?<![\d.,])" + re.escape(number) + r"(?![\d]|[.,]\d)"
+    )
+    return len(pattern.findall(text))
+
+
+def row_fragment(
+    row: str,
+    filing_text: str,
+    title: Sequence[str] | None = None,
+    before: str = "",
+) -> str | None:
+    """Build the text directive of 1 table row (module docstring).
+
+    Args:
+        row: The row, cells split by `|`.
+        filing_text: The text of the whole filing.
+        title: The words of the table title, for the fallback range.
+        before: The table text above the row, title and header included.
+
+    Returns:
+        Such as `:~:text=69%2C575,114`, or the title-to-row range such as
+        `:~:text=Fiscal%20Year%202024%20Summary,126`, or None.
+    """
+    numbers = [n for cell in row.split("|") for n in _NUMBER.findall(cell)]
+    numbers = [n for n in numbers if len(n.replace(",", "")) >= 2]
+    unique = _unique_start(numbers, filing_text)
+    if unique is not None:
+        return unique
+    if not title:
+        return None
+    for number in reversed(numbers):
+        if _occurrences(before, number) == 0:
+            return f":~:text={_encode(title)},{_encode([number])}"
+    return None
+
+
+def _unique_start(numbers: Sequence[str], filing_text: str) -> str | None:
+    """The directive from the first number unique in the filing."""
+    for index, number in enumerate(numbers):
+        if _occurrences(filing_text, number) == 1:
+            directive = f":~:text={_encode([number])}"
+            end = numbers[-1] if index < len(numbers) - 1 else None
+            if end is not None and end != number:
+                return f"{directive},{_encode([end])}"
+            return directive
+    return None
+
+
+def row_fragments(text: str, filing_text: str) -> dict[str, str]:
+    """Build the text directive of each row of a table chunk.
+
+    Args:
+        text: The chunk text: a header line, a `TABLE:` line, then 1 row
+            per line.
+        filing_text: The text of the whole filing.
+
+    Returns:
+        The directive per row key, for the rows that have one.
+    """
+    found: dict[str, str] = {}
+    title = _anchor(table_title(text))
+    lines = text.splitlines()[1:]
+    for index, line in enumerate(lines):
+        if "|" not in line or _TABLE_TAG.match(line):
+            continue
+        before = "\n".join(lines[:index])
+        fragment = row_fragment(line, filing_text, title, before)
+        if fragment is not None:
+            found[row_key(line)] = fragment
+    return found
+
+
+def row_fragment_for(quote: str, rows: Mapping[str, str] | None) -> str | None:
+    """The directive of the table row that a quote cites.
+
+    Args:
+        quote: The cited quote: a row, part of a row, or several rows.
+        rows: The `row_fragments` of the location, or None.
+
+    Returns:
+        The directive of the first row that the quote matches, or None.
+    """
+    if not rows:
+        return None
+    lines = [row_key(line) for line in quote.splitlines() if line.strip()]
+    for line in lines:
+        if line in rows:
+            return rows[line]
+    for line in lines:
+        for key, fragment in rows.items():
+            if line and (line in key or key in line):
+                return fragment
+    return None
 
 
 def annotate(
@@ -505,7 +653,10 @@ def text_fragment(quote: str, anchor: str | None = None) -> str | None:
 
 
 def deep_link(
-    url: str | None, quote: str, anchor: str | None = None
+    url: str | None,
+    quote: str,
+    anchor: str | None = None,
+    rows: Mapping[str, str] | None = None,
 ) -> str | None:
     """Add the text fragment of a quote to an SEC URL.
 
@@ -513,6 +664,8 @@ def deep_link(
         url: The trusted SEC URL, or None.
         quote: The cited quote.
         anchor: The anchor of `text_fragment`.
+        rows: The `row_fragments` of a table passage; the cited row's
+            directive wins over the title anchor.
 
     Returns:
         The URL with `#:~:text=...`, the plain URL when no fragment can be
@@ -522,7 +675,8 @@ def deep_link(
         return None
     if not url.startswith(SEC_PREFIX):
         return url
-    fragment = text_fragment(quote, anchor)
+    fragment = row_fragment_for(quote, rows)
+    fragment = fragment or text_fragment(quote, anchor)
     if fragment is None:
         return url
     base = url.split("#", 1)[0]

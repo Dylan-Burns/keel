@@ -294,7 +294,9 @@ def _deep(
     """
     trusted = _trusted(url)
     first = next(iter(quotes), "")
-    deep = locations.deep_link(trusted, first, place.get("anchor"))
+    deep = locations.deep_link(
+        trusted, first, place.get("anchor"), place.get("row_fragments")
+    )
     if deep is None or _URL_FORBIDDEN.search(deep):
         return trusted
     return deep if form_10k_10q.url_trusted(deep) else trusted

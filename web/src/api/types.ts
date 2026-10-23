@@ -154,6 +154,11 @@ export interface ChunkLocation {
   readonly filing_date: string;
   /** Such as `0000320193-25-000079`, or null. */
   readonly accession: string | null;
+  /**
+   * For a table passage, the text directive of each row, keyed by the row
+   * with its whitespace collapsed; it highlights the cited row.
+   */
+  readonly row_fragments?: Readonly<Record<string, string>> | null;
 }
 
 /** A citation with the server-side metadata (chapter 12.9 step 6). */

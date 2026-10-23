@@ -791,6 +791,14 @@ Entry format:
 - Tests: 29 new Python tests (rule vectors, labels, locate, passages, the store error guard, export, the context route; 996 passing in `make test`), 38 new Vitest tests (269 passing), `e2e/reader.spec.ts` in both projects (mocked, and live against `keel serve` with the mock provider), `e2e/mobile.spec.ts` and `e2e/ask.spec.ts` updated for the reader over the page. The review asked for a store error guard on the annotation, a focus trap with focus return in the reader, and the new route and field in chapter 14; all done.
 - Attempts: 1.
 
+## Follow-up after stage 22: table citations link to the cited row
+
+- Found by the engineer on v0.5.0: "Open on sec.gov" on a table citation highlighted the table title, not the cited numbers. A text fragment search term cannot cross table cells, and the browser takes the first match in the page, so the title was the only safe anchor of the old rule.
+- Built: `keel/locations.py` builds `row_fragments` for each row of a cited table chunk: the start is the first number of the row that occurs once in the whole filing (counted over the filing's chunks), the end is the row's last number; a row with no such number spans from the table title to its rightmost number that does not occur earlier in the table. `deep_link` (memo export) and `citationLink` (web) use the cited row's directive and fall back to the title.
+- Measured in Chromium on the SEC HTML of the 2 reported tables: NVDA FY2025 "Total | $ 130,497 | $ 60,922 | $ 69,575 | 114" highlights 69,575 and 114 in the Total row; NVDA FY2024 "Revenue | $ 60,922 | $ 26,974 | Up 126%" (no number unique in the filing) highlights from "Fiscal Year 2024 Summary" through the Revenue row. Rejected shapes: a term across cells (`Total $ 130,497`) never matches; first number to last number starts at an earlier table (130,497 occurs 6 times) and spans paragraphs.
+- Tests: 5 Python and 3 Vitest; `make test` 1001 passed, coverage 97%; `npm run check` 274 passed.
+- Attempts: 1.
+
 ## Gaps
 
 Values that were not available when the build needed them, and what the build did instead.

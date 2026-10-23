@@ -3,6 +3,7 @@ import {describe, expect, it} from 'vitest';
 import type {ChunkLocation} from '../api/types';
 import {
   citationLink,
+  rowFragmentFor,
   deepLink,
   describeLocation,
   positionLabel,
@@ -114,5 +115,42 @@ describe('location labels', () => {
       'Part II, Item 8. Financial Statements, table, passage 12 of 84, accession 0000320193-25-000079',
     );
     expect(describeLocation(null)).toBe('');
+  });
+});
+
+describe('table row deep links', () => {
+  const rows = {
+    'Total | $ 130,497 | $ 60,922 | $ 69,575 | 114 | %': ':~:text=69%2C575,114',
+    'Revenue | $ 60,922 | $ 26,974 | Up 126%':
+      ':~:text=Fiscal%20Year%202024%20Summary,126',
+  };
+
+  it('picks the cited row, with whitespace collapsed', () => {
+    expect(
+      rowFragmentFor(
+        'Total |  $ 130,497 | $ 60,922 | $ 69,575 | 114 | %',
+        rows,
+      ),
+    ).toBe(':~:text=69%2C575,114');
+    expect(rowFragmentFor('$ 60,922 | $ 26,974', rows)).toBe(
+      ':~:text=Fiscal%20Year%202024%20Summary,126',
+    );
+    expect(rowFragmentFor('Other | 1', rows)).toBeNull();
+    expect(rowFragmentFor('Total', undefined)).toBeNull();
+  });
+
+  it('links a table citation to its row instead of the title', () => {
+    expect(
+      citationLink(URL_10K, 'Revenue | $ 60,922 | $ 26,974 | Up 126%', {
+        ...LOCATION,
+        row_fragments: rows,
+      }),
+    ).toBe(`${URL_10K}#:~:text=Fiscal%20Year%202024%20Summary,126`);
+  });
+
+  it('keeps the title anchor for a row without a directive', () => {
+    expect(
+      citationLink(URL_10K, '$ 1 | 2', {...LOCATION, row_fragments: rows}),
+    ).toBe(citationLink(URL_10K, '$ 1 | 2', LOCATION));
   });
 });
