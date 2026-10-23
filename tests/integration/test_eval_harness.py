@@ -111,6 +111,9 @@ def test_run_scores_refuses_and_skips(
     data = json.loads(json_path.read_text(encoding="utf-8"))
     assert len(data["gates"]) == 10
     assert data["summary"]["hybrid"]["recall_at_48"] is not None
+    assert "| Rerank p50 ms | Rerank p95 ms |" in text
+    assert data["summary"]["hybrid"]["rerank_ms_p50"] is not None
+    assert all("rerank_ms" in r for r in data["results"])
 
 
 def test_input_error_scores_zero(

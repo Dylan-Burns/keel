@@ -105,6 +105,7 @@ class QuestionResult:  # pylint: disable=too-many-instance-attributes
         chunks: The chunks in the context.
         relevant: The relevant chunks the labels know.
         retrieval_ms: The retrieval time.
+        rerank_ms: The cross-encoder part of the retrieval time.
         top: The first chunk IDs of the ranking.
         sections: The context chunks per section.
     """
@@ -121,6 +122,7 @@ class QuestionResult:  # pylint: disable=too-many-instance-attributes
     chunks: int = 0
     relevant: int = 0
     retrieval_ms: float = 0.0
+    rerank_ms: float = 0.0
     top: tuple[str, ...] = ()
     sections: Mapping[str, int] = dataclasses.field(default_factory=dict)
 
@@ -200,8 +202,8 @@ class EvalRun:
             kind: A question type, or None for every type.
 
         Returns:
-            The means by metric name, plus `retrieval_ms_p50` and
-            `retrieval_ms_p95`.
+            The means by metric name, plus the p50 and p95 of
+            `retrieval_ms` and `rerank_ms`.
         """
         rows = [r for r in self.scored(variant) if kind in {None, r.type}]
         names = [*(f"recall_at_{k}" for k in metrics.RECALL_KS), "mrr"]
@@ -212,6 +214,9 @@ class EvalRun:
         times = [r.retrieval_ms for r in rows if r.outcome == SCORED]
         values["retrieval_ms_p50"] = metrics.percentile(times, 0.5)
         values["retrieval_ms_p95"] = metrics.percentile(times, 0.95)
+        rerank = [r.rerank_ms for r in rows if r.outcome == SCORED]
+        values["rerank_ms_p50"] = metrics.percentile(rerank, 0.5)
+        values["rerank_ms_p95"] = metrics.percentile(rerank, 0.95)
         return values
 
     def refusals(self) -> list[QuestionResult]:
@@ -506,6 +511,7 @@ def _score(
 ) -> QuestionResult:
     ranked: list[str] = []
     elapsed = 0.0
+    rerank = 0.0
     sections: dict[str, int] = {}
     if result is not None:
         sections = result.context.sections()
@@ -515,6 +521,7 @@ def _score(
         )
         ranked = [c.chunk_id for c in chunks]
         elapsed = result.timings.total_ms
+        rerank = result.timings.rerank_ms
     return QuestionResult(
         question_id=question.id,
         type=question.type,
@@ -532,6 +539,7 @@ def _score(
         chunks=len(ranked),
         relevant=len(judged.relevant),
         retrieval_ms=elapsed,
+        rerank_ms=rerank,
         top=tuple(ranked[:TOP_SHOWN]),
         sections=sections,
     )

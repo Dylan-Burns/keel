@@ -163,6 +163,8 @@ def _ablation(run: runner.EvalRun) -> list[str]:
                 _number(values["recall_at_48"]),
                 _number(values["retrieval_ms_p50"], 0),
                 _number(values["retrieval_ms_p95"], 0),
+                _number(values["rerank_ms_p50"], 0),
+                _number(values["rerank_ms_p95"], 0),
             ]
         )
     return [
@@ -177,6 +179,8 @@ def _ablation(run: runner.EvalRun) -> list[str]:
                 "R@48",
                 "Retrieval p50 ms",
                 "Retrieval p95 ms",
+                "Rerank p50 ms",
+                "Rerank p95 ms",
             ],
             rows,
         ),
@@ -365,6 +369,7 @@ def _per_question(
                 _number(values.get("ndcg_at_10")),
                 _number(values.get("coverage_recall")),
                 _number(r.retrieval_ms, 0),
+                _number(r.rerank_ms, 0),
             ]
         )
     weakest = sorted(
@@ -386,6 +391,7 @@ def _per_question(
     ]
     header = ["Question", "Type", "Outcome", "Labels", "Chunks", "Relevant"]
     header += ["R@25", "MRR", "nDCG@10", "Coverage", "Retrieval ms"]
+    header += ["Rerank ms"]
     return [
         f"## Per question ({main})",
         "",
