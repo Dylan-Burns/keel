@@ -84,6 +84,7 @@ behind a warning until a larger numeric test set holds 0.95.
 
 | Change | Measure that decides | Target date |
 | --- | --- | --- |
+| Done: reranker tuning on the live host (pairs cut to 384 tokens, 1 torch thread per vCPU, 8 pairs per batch): rerank 11.5 s to 6.8 s, time to the full answer on 8 questions 29.0 s to 24.1 s mean, recall at 25 0.861 to 0.860 (`docs/BUILD_REPORT.md`, latency experiments). Open: a c7i.xlarge would save about 4 s more per question for about $70 a month | Rerank time -30% with recall at 25 within 0.01 (met) | 2026-10-23 |
 | Done: judge prompt 1.2.0 (full set: 0.86 to 0.895), then prompt 1.5.1, where a change claim cites both filings and no finding cites an instruction chunk (0.895 to 0.926). Next: rewarm the demo answer cache for 1.5.1 | Faithfulness 0.90 on the full set (met) | 2026-11-05 |
 | Judge thresholds and a summary-claim rule in the prompt; the human rubric of 2 raters | Faithfulness 0.90; judge agreement with the raters | 2026-11-12 |
 | Live EDGAR for coverage (`keel add`, nightly refresh) and a larger numeric set | Companies with 2 or more 10-Ks; 50 gold values at 0.95 | 2026-11-26 |
