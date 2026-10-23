@@ -7,9 +7,12 @@ file of the logs directory.
 
 The `jobs` table holds 1 row per background job of the admin API
 (`keel.api.jobs`): the kind, the parameters, the user who asked, the
-status, the progress, the phase, a bounded log tail, the result summary,
-and the error. A job that was queued or running when the server stopped
-is marked failed at the next start (`fail_interrupted`).
+status, the progress, the phase, a bounded log tail, the steps with
+their own logs (`keel.api.job_steps`), the result summary, and the error.
+A job that was queued or running when the server stopped is marked
+failed at the next start (`fail_interrupted`). A database written before
+the steps existed gets the `steps` column on its first connection; its
+old rows hold no steps.
 
 The `admin_audit` table holds 1 row per admin action: who, what, the
 target, and the parameters without any secret. A token never reaches
@@ -20,6 +23,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from collections.abc import Mapping
+from collections.abc import Sequence
 import contextlib
 import dataclasses
 import datetime
@@ -37,6 +41,8 @@ ACTIVE: tuple[JobStatus, ...] = ("queued", "running")
 INTERRUPTED = "interrupted: the server stopped before the job finished"
 SECRET_PARTS = ("token", "key", "password", "secret")
 DEFAULT_LIMIT = 50
+# The log lines a step keeps (keel.api.job_steps reads it too).
+STEP_LOG_LINES = 200
 MAX_LIMIT = 500
 
 SCHEMA = """
@@ -55,7 +61,8 @@ CREATE TABLE IF NOT EXISTS jobs (
   finished_at TEXT,
   log TEXT NOT NULL DEFAULT '[]',
   result TEXT,
-  error TEXT
+  error TEXT,
+  steps TEXT NOT NULL DEFAULT '[]'
 );
 CREATE INDEX IF NOT EXISTS jobs_created ON jobs (created_at);
 CREATE TABLE IF NOT EXISTS admin_audit (
@@ -71,8 +78,9 @@ CREATE TABLE IF NOT EXISTS admin_audit (
 
 _COLUMNS = (
     "id, kind, params, requested_by, heavy, status, done, total, phase, "
-    "created_at, started_at, finished_at, log, result, error"
+    "created_at, started_at, finished_at, log, result, error, steps"
 )
+_MIGRATED: set[str] = set()
 
 
 @dataclasses.dataclass(frozen=True)
@@ -95,6 +103,9 @@ class JobRecord:  # pylint: disable=too-many-instance-attributes
         log: The last log lines, oldest first.
         result: The result summary, or None.
         error: The error of a failed job, or None.
+        steps: The steps of the plan with their status, times, progress,
+            and log (`keel.api.job_steps`); empty for a job kind without
+            a plan or a row written before the steps existed.
     """
 
     id: str
@@ -112,6 +123,7 @@ class JobRecord:  # pylint: disable=too-many-instance-attributes
     log: tuple[str, ...]
     result: dict[str, Any] | None
     error: str | None
+    steps: tuple[dict[str, Any], ...] = ()
 
     @property
     def active(self) -> bool:
@@ -155,11 +167,30 @@ def _connect(path: pathlib.Path) -> Iterator[sqlite3.Connection]:
     try:
         with conn:
             conn.executescript(SCHEMA)
+            _migrate(conn, path)
             yield conn
     except sqlite3.Error as error:
         raise errors.StateStoreError(f"state store {path}: {error}") from error
     finally:
         conn.close()
+
+
+def _migrate(conn: sqlite3.Connection, path: pathlib.Path) -> None:
+    """Add the `steps` column to a jobs table written before it."""
+    key = str(path)
+    if key in _MIGRATED:
+        return
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(jobs)")}
+    if "steps" not in columns:
+        try:
+            conn.execute(
+                "ALTER TABLE jobs ADD COLUMN steps TEXT NOT NULL DEFAULT '[]'"
+            )
+        except sqlite3.OperationalError as error:
+            # Another connection added it first.
+            if "duplicate column" not in str(error):
+                raise
+    _MIGRATED.add(key)
 
 
 def _loads(text: str | None) -> Any:  # noqa: ANN401
@@ -183,6 +214,7 @@ def _record(row: tuple[Any, ...]) -> JobRecord:
         log,
         result,
         error,
+        steps,
     ) = row
     return JobRecord(
         id=str(job_id),
@@ -200,6 +232,9 @@ def _record(row: tuple[Any, ...]) -> JobRecord:
         log=tuple(str(line) for line in _loads(log) or []),
         result=_loads(result),
         error=error,
+        steps=tuple(
+            dict(step) for step in _loads(steps) or [] if isinstance(step, dict)
+        ),
     )
 
 
@@ -216,7 +251,7 @@ def insert_job(path: pathlib.Path, record: JobRecord) -> None:
     with _connect(path) as conn:
         conn.execute(
             f"INSERT INTO jobs ({_COLUMNS}) "  # noqa: S608
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 record.id,
                 record.kind,
@@ -233,6 +268,7 @@ def insert_job(path: pathlib.Path, record: JobRecord) -> None:
                 json.dumps(list(record.log)),
                 None if record.result is None else json.dumps(record.result),
                 record.error,
+                json.dumps(list(record.steps)),
             ),
         )
 
@@ -248,6 +284,7 @@ _UPDATABLE = frozenset(
         "log",
         "result",
         "error",
+        "steps",
     }
 )
 
@@ -260,8 +297,8 @@ def update_job(
     Args:
         path: The state database.
         job_id: The job ID.
-        **fields: The new values; `log` takes a sequence of lines and
-            `result` a mapping.
+        **fields: The new values; `log` takes a sequence of lines,
+            `steps` a sequence of step mappings, and `result` a mapping.
 
     Returns:
         The job after the change, or None for an unknown ID.
@@ -278,6 +315,9 @@ def update_job(
         if name == "log":
             lines = value if isinstance(value, list | tuple) else ()
             values.append(json.dumps([str(line) for line in lines]))
+        elif name == "steps":
+            items = value if isinstance(value, list | tuple) else ()
+            values.append(json.dumps(list(items)))
         elif name == "result":
             values.append(None if value is None else json.dumps(value))
         else:
@@ -368,13 +408,52 @@ def fail_interrupted(path: pathlib.Path, when: str | None = None) -> int:
     """
     if not path.exists():
         return 0
+    finished = when or now_text()
     with _connect(path) as conn:
-        cursor = conn.execute(
-            "UPDATE jobs SET status = 'failed', error = ?, finished_at = ?, "
-            "phase = 'interrupted' WHERE status IN ('queued', 'running')",
-            (INTERRUPTED, when or now_text()),
-        )
-    return cursor.rowcount
+        rows = conn.execute(
+            "SELECT id, steps FROM jobs WHERE status IN ('queued', 'running')"
+        ).fetchall()
+        for job_id, steps in rows:
+            closed = close_steps(_loads(steps) or [], finished, INTERRUPTED)
+            conn.execute(
+                "UPDATE jobs SET status = 'failed', error = ?, "
+                "finished_at = ?, phase = 'interrupted', steps = ? "
+                "WHERE id = ?",
+                (INTERRUPTED, finished, json.dumps(closed), job_id),
+            )
+    return len(rows)
+
+
+def close_steps(
+    steps: Sequence[Any], when: str, error: str | None = None
+) -> list[dict[str, Any]]:
+    """End the steps of a job that stops before its plan ends.
+
+    The running step failed (with the error as its last log line) and
+    every pending step is skipped.
+
+    Args:
+        steps: The step mappings of the record.
+        when: The finish time.
+        error: The error line of the running step, or None.
+
+    Returns:
+        The closed steps; a value that is not a mapping is dropped.
+    """
+    closed: list[dict[str, Any]] = []
+    for step in steps:
+        if not isinstance(step, Mapping):
+            continue
+        item = dict(step)
+        if item.get("status") == "running":
+            item.update(status="failed", finished_at=when)
+            if error:
+                lines = [*(item.get("log") or []), f"error: {error}"]
+                item["log"] = lines[-STEP_LOG_LINES:]
+        elif item.get("status") == "pending":
+            item["status"] = "skipped"
+        closed.append(item)
+    return closed
 
 
 def clean_params(params: Mapping[str, Any]) -> dict[str, Any]:

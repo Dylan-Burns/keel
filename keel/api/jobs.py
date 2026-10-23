@@ -14,8 +14,15 @@ Every job is a row of the `jobs` table in `state.sqlite` under
 restart: a job that was queued or running when the server stopped is
 marked failed when the runner starts again. The worker writes the status,
 the progress (done of total), the phase, a log tail of the last 200 lines
-(each redacted and cut to 400 characters), the result summary, and the
-error.
+(each redacted, flattened to 1 line, and cut to 400 characters), the
+steps, the result summary, and the error.
+
+A job kind declares its steps up front (`JobSpec.plan`), so the queued
+job lists them as pending; the library functions report each step, its
+log lines, and its counts through the `JobContext` (a `keel.steps`
+reporter), and `keel.api.job_steps` keeps each step's status, times,
+progress, and log of the last 200 lines. With a plan, the progress of
+the job is the finished steps of all steps.
 
 A job that changes the index (an add or a refresh that indexed a filing,
 a restore, a rebuild) calls `Services.reload` at its end, so the server
@@ -33,6 +40,7 @@ import collections
 from collections.abc import Callable
 from collections.abc import Coroutine
 from collections.abc import Mapping
+from collections.abc import Sequence
 import concurrent.futures
 import dataclasses
 import logging
@@ -49,6 +57,8 @@ import pydantic
 
 from keel import errors
 from keel import security
+from keel import steps
+from keel.api import job_steps
 from keel.api import state
 from keel.stores import admin_store
 from keel.stores import state_store
@@ -58,7 +68,9 @@ logger = logging.getLogger(__name__)
 LOG_LINES = 200
 LOG_LINE_CHARS = 400
 FLUSH_SECONDS = 0.5
-_CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
+# Every control character, the line breaks included, so 1 report stays
+# 1 log line and cannot forge another.
+_CONTROL = re.compile(r"[\x00-\x1f\x7f\u2028\u2029]")
 _STOP = ""
 T = TypeVar("T")
 
@@ -87,10 +99,15 @@ class JobContext:
     on that loop, and a build that reports every shard does not write a
     row per shard.
 
+    The context is the `keel.steps.Reporter` of the library functions:
+    `step`, `skip`, `log`, and `progress` update the step list of the
+    job when its kind has a plan.
+
     Args:
         runner: The runner.
         job_id: The job ID.
         clock: The monotonic clock of the write throttle.
+        plan: The step records of the job row.
     """
 
     def __init__(
@@ -98,6 +115,7 @@ class JobContext:
         runner: JobRunner,
         job_id: str,
         clock: Callable[[], float] = time.monotonic,
+        plan: Sequence[Mapping[str, Any]] = (),
     ) -> None:
         self.runner = runner
         self.job_id = job_id
@@ -109,10 +127,19 @@ class JobContext:
         self._fields: dict[str, object] = {}
         self._flushed = 0.0
         self._lock = threading.Lock()
+        self.book = job_steps.StepBook(plan)
+
+    def _steps_fields(self) -> dict[str, object]:
+        """The step fields of the row (under the lock)."""
+        done, total = self.book.counts()
+        return {"steps": self.book.snapshot(), "done": done, "total": total}
 
     def _set(self, **fields: object) -> None:
         with self._lock:
             self._fields.update(fields)
+        self._maybe_flush()
+
+    def _maybe_flush(self) -> None:
         if threading.get_ident() == self.worker:
             self.flush(force=False)
 
@@ -141,19 +168,86 @@ class JobContext:
                 removed.
         """
         clean = self.runner.clean(line)
+        # The snapshot and its write share 1 lock, so an older snapshot
+        # never overwrites a newer one.
         with self._lock:
             self._lines.append(clean)
-            lines = list(self._lines)
-        self._set(log=lines)
+            self._fields["log"] = list(self._lines)
+            if self.book.log(clean):
+                self._fields["steps"] = self.book.snapshot()
+        self._maybe_flush()
 
-    def progress(self, done: int, total: int | None) -> None:
-        """Record the progress.
+    def progress(self, done: int, total: int | None, unit: str = "") -> None:
+        """Record the progress: of the running step, else of the job.
 
         Args:
-            done: The steps done.
-            total: The steps in all, or None when not known.
+            done: The units done.
+            total: The units in all, or None when not known.
+            unit: The plural noun of the unit, such as `chunks`.
         """
-        self._set(done=max(0, done), total=total)
+        with self._lock:
+            if self.book.progress(done, total, self.runner.clean(unit)):
+                self._fields["steps"] = self.book.snapshot()
+            elif not self.book:
+                self._fields.update(done=max(0, done), total=total)
+        self._maybe_flush()
+
+    def step(self, key: str) -> None:
+        """Enter a step of the plan; written at once.
+
+        Args:
+            key: The step key, such as `embed`.
+        """
+        with self._lock:
+            name = self.book.enter(self.runner.clean(key)[:40])
+            if name is None:
+                return
+            self._fields.update(
+                phase=self.runner.clean(name)[:120], **self._steps_fields()
+            )
+        if threading.get_ident() == self.worker:
+            self.flush()
+
+    def skip(self, key: str, reason: str) -> None:
+        """Mark a step that is not reached yet as skipped.
+
+        Args:
+            key: The step key.
+            reason: Why, for the step log.
+        """
+        with self._lock:
+            if not self.book.skip(
+                self.runner.clean(key)[:40], self.runner.clean(reason)
+            ):
+                return
+            self._fields.update(self._steps_fields())
+        self._maybe_flush()
+
+    def finish(self, ok: bool, error: str | None = None) -> None:
+        """End the step list: the running step and the steps not reached.
+
+        Args:
+            ok: True when the job succeeded.
+            error: The error line of the failed step, or None.
+        """
+        with self._lock:
+            if not self.book:
+                return
+            self.book.finish(ok, error)
+            self._fields.update(self._steps_fields())
+        self._maybe_flush()
+
+    def has_step(self, key: str) -> bool:
+        """True when the plan has the step.
+
+        Args:
+            key: The step key.
+
+        Returns:
+            True when it is in the plan.
+        """
+        with self._lock:
+            return self.book.index_of(key) is not None
 
     def phase(self, text: str) -> None:
         """Record what the job does now; written at once.
@@ -203,6 +297,20 @@ class JobContext:
 
 
 JobFunction = Callable[[state.Services, JobContext, Any], JobOutput]
+JobPlan = Callable[[Any], tuple[steps.StepDef, ...]]
+
+
+def no_plan(params: object) -> tuple[steps.StepDef, ...]:
+    """The plan of a job kind without steps.
+
+    Args:
+        params: The parameters.
+
+    Returns:
+        No steps.
+    """
+    del params
+    return ()
 
 
 @dataclasses.dataclass(frozen=True)
@@ -215,6 +323,7 @@ class JobSpec:
         heavy: True when the job holds the maintenance slot.
         run: Runs the job with the validated parameters.
         title: A short description for the API reference.
+        plan: The steps of the job for its parameters, in order.
     """
 
     kind: str
@@ -222,6 +331,7 @@ class JobSpec:
     heavy: bool
     run: JobFunction
     title: str
+    plan: JobPlan = no_plan
 
 
 class JobRunner:
@@ -375,6 +485,7 @@ class JobRunner:
                 log=(),
                 result=None,
                 error=None,
+                steps=tuple(job_steps.plan_records(spec.plan(params))),
             )
             admin_store.insert_job(self.path, record)
         self._queue.put(record.id)
@@ -401,12 +512,14 @@ class JobRunner:
                 raise errors.JobStateError(
                     f"only a queued job can be cancelled; it is {job.status}"
                 )
+            now = admin_store.now_text()
             updated = admin_store.update_job(
                 self.path,
                 job_id,
                 status="cancelled",
                 phase="cancelled",
-                finished_at=admin_store.now_text(),
+                finished_at=now,
+                steps=admin_store.close_steps(job.steps, now),
             )
         if updated is None:  # pragma: no cover  # deleted under the lock
             raise KeyError(job_id)
@@ -469,27 +582,45 @@ class JobRunner:
         job = self._claim(job_id)
         if job is None:
             return
-        context = JobContext(self, job.id)
+        context = JobContext(self, job.id, plan=job.steps)
         logger.info("admin job %s (%s) started", job.id, job.kind)
         try:
             output = self._execute(self.specs[job.kind], context, job)
         except errors.KeelError as error:
+            message = self.clean(f"{type(error).__name__}: {error}")
+            context.finish(False, message)
             context.flush()
             self.update(
                 job.id,
                 status="failed",
                 phase="failed",
-                error=self.clean(f"{type(error).__name__}: {error}"),
+                error=message,
                 finished_at=admin_store.now_text(),
             )
             logger.warning(
                 "admin job %s failed: %s", job.id, type(error).__name__
             )
             return
+        except Exception as error:
+            # The worker records the crash; the steps end here.
+            context.finish(False, self.crash_message(error))
+            context.flush()
+            raise
         result = dict(output.result)
+        reloaded = True
         if output.reload:
-            context.phase("reloading the index")
-            result["reloaded"] = self._reload()
+            if context.has_step(job_steps.RELOAD.key):
+                context.step(job_steps.RELOAD.key)
+            else:
+                context.phase("reloading the index")
+            reloaded = self._reload()
+            result["reloaded"] = reloaded
+            context.log(
+                "the server serves the new build"
+                if reloaded
+                else "the reload failed; the old build keeps serving"
+            )
+        context.finish(reloaded)
         context.flush()
         self.update(
             job.id,

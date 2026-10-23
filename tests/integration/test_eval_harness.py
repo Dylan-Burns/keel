@@ -12,6 +12,7 @@ import re
 import pytest
 import test_eval_labels as fixtures
 
+import conftest
 from keel import answer
 from keel import config
 from keel.evaluation import answers
@@ -63,11 +64,26 @@ def test_run_scores_refuses_and_skips(
         }
     )
     lines: list[str] = []
+    reporter = conftest.RecordingReporter()
     results, _ = runner.run(
-        QUESTIONS, {"G-01": graded}, setup, progress=lines.append
+        QUESTIONS,
+        {"G-01": graded},
+        setup,
+        progress=lines.append,
+        reporter=reporter,
     )
     by_key = {(r.question_id, r.variant): r for r in results}
     assert len(lines) == len(QUESTIONS)
+    # 1 retrieval line per question; no answer step, so no score step.
+    retrieval = [line for line in reporter.lines() if " retrieval: " in line]
+    assert len(retrieval) == len(QUESTIONS)
+    assert retrieval[0].startswith(f"[1/{len(QUESTIONS)}] G-01 retrieval: ")
+    assert reporter.of("progress")[-1] == (
+        len(QUESTIONS),
+        len(QUESTIONS),
+        "questions",
+    )
+    assert reporter.of("skip") == [("score", "no answer step")]
     main = by_key["G-01", "hybrid"]
     assert main.outcome == runner.SCORED
     assert main.label_level == "chunk"

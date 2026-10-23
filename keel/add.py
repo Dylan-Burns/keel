@@ -20,6 +20,7 @@ All fetches happen here, before any question; no model request is made
 from __future__ import annotations
 
 from collections.abc import Sequence
+import dataclasses
 import datetime
 import json
 import logging
@@ -34,6 +35,7 @@ from keel import errors
 from keel import html_text
 from keel import indexer
 from keel import inventory
+from keel import steps
 from keel.parsers import base
 from keel.parsers import corpus as parser_corpus
 from keel.stores import chunk_store
@@ -42,6 +44,17 @@ logger = logging.getLogger(__name__)
 
 MANIFEST = "manifest.json"
 FORM_CODES = {"10-K": "10K", "10-Q": "10Q"}
+# The steps of `add_ticker` before the build steps of `indexer.STEPS`.
+FETCH_STEPS = (
+    steps.StepDef("resolve", "Resolve the ticker"),
+    steps.StepDef("filings", "Fetch the filing list from EDGAR"),
+    *(
+        steps.StepDef(f"download_{code.lower()}", f"Download the {form}")
+        for form, code in FORM_CODES.items()
+    ),
+    steps.StepDef("convert", "Convert to text"),
+)
+STEPS = FETCH_STEPS + indexer.STEPS
 # The ticker part of a corpus file name (inventory.FILENAME_* patterns).
 CORPUS_TICKER = re.compile(r"^[A-Z][A-Z.]{0,9}$")
 _NAME_TOKEN = re.compile(r"[^\w&'.-]+")
@@ -361,6 +374,87 @@ def _report(
     )
 
 
+def _download(
+    client: edgar.EdgarClient,
+    refs: Sequence[edgar.FilingRef],
+    reporter: steps.Reporter,
+) -> list[tuple[edgar.FilingRef, bytes]]:
+    """Download the primary document of each picked filing.
+
+    Each form has its own step; a form without a picked filing is
+    skipped.
+    """
+    documents: list[tuple[edgar.FilingRef, bytes]] = []
+    by_form = {ref.form: ref for ref in refs}
+    for form, code in FORM_CODES.items():
+        key = f"download_{code.lower()}"
+        ref = by_form.get(form)
+        if ref is None:
+            reporter.skip(key, f"no {form} picked")
+            continue
+        reporter.step(key)
+        before = client.requests
+        document = client.filing_document(ref)
+        origin = "EDGAR" if client.requests > before else "the EDGAR cache"
+        reporter.log(
+            f"{ref.form} filed {ref.filing_date}: {len(document):,} bytes "
+            f"from {origin}"
+        )
+        documents.append((ref, document))
+    # The files are converted and reported in the order of the pick.
+    return sorted(documents, key=lambda pair: refs.index(pair[0]))
+
+
+@dataclasses.dataclass(frozen=True)
+class _Origin:
+    """The company of the converted files."""
+
+    company: str
+    ticker: str
+    cik: str
+
+
+def _convert(
+    documents: Sequence[tuple[edgar.FilingRef, bytes]],
+    origin: _Origin,
+    corpus_dir: pathlib.Path,
+    reporter: steps.Reporter,
+) -> tuple[list[tuple[edgar.FilingRef, str, bool]], dict[str, dict[str, str]]]:
+    """Write each document as a corpus file; list the manifest entries."""
+    written: list[tuple[edgar.FilingRef, str, bool]] = []
+    entries: dict[str, dict[str, str]] = {}
+    for ref, document in documents:
+        header = html_text.FilingHeader(
+            company=origin.company,
+            ticker=origin.ticker,
+            form=ref.form,
+            filing_date=ref.filing_date,
+            cik=origin.cik,
+            url=ref.url,
+        )
+        text = html_text.to_corpus_text(document, header)
+        name = file_name(origin.ticker, ref)
+        changed = write_if_changed(corpus_dir / name, text)
+        logger.info(
+            "%s %s: %s (%d characters)",
+            "wrote" if changed else "unchanged",
+            ref.form,
+            name,
+            len(text),
+        )
+        verb = "wrote" if changed else "unchanged"
+        reporter.log(f"{verb} {name} ({len(text):,} characters)")
+        written.append((ref, name, changed))
+        entries[name] = {
+            "source": html_text.SOURCE,
+            "ticker": origin.ticker,
+            "form": ref.form,
+            "accession": ref.accession,
+            "url": ref.url,
+        }
+    return written, entries
+
+
 def add_ticker(  # pylint: disable=too-many-locals
     settings: config.Settings,
     ticker: str,
@@ -370,6 +464,7 @@ def add_ticker(  # pylint: disable=too-many-locals
     index_dir: pathlib.Path,
     embedder_factory: indexer.EmbedderFactory,
     forms: Sequence[str] = edgar.ADD_FORMS,
+    reporter: steps.Reporter = steps.NULL,
 ) -> AddReport:
     """Add the latest 10-K and 10-Q of 1 company (chapter 26.2).
 
@@ -381,6 +476,7 @@ def add_ticker(  # pylint: disable=too-many-locals
         index_dir: The index directory with `current`.
         embedder_factory: Loads the embedder for the new filings.
         forms: The forms to pick.
+        reporter: Receives the steps of `STEPS` and their log lines.
 
     Returns:
         The report.
@@ -402,53 +498,53 @@ def add_ticker(  # pylint: disable=too-many-locals
             f"no current build in {index_dir}: run `keel index` first"
         )
     spelled = corpus_ticker(ticker)
+    reporter.step("resolve")
     cik = client.cik(ticker)
+    reporter.log(f"{spelled} is CIK {cik}")
+    reporter.step("filings")
     submissions = client.submissions(cik).data
     company = str(
         submissions.get("name") or client.ticker_map().lookup(ticker).title
     )
     refs = edgar.pick_latest(submissions, forms)
+    reporter.log(f"{company}: {len(refs)} filings picked")
+    for ref in refs:
+        reporter.log(
+            f"latest {ref.form} filed {ref.filing_date}, accession "
+            f"{ref.accession}"
+        )
     dictionary_added = ensure_company(
         settings.dictionaries.companies, spelled, company
     )
-    written: list[tuple[edgar.FilingRef, str, bool]] = []
-    entries: dict[str, dict[str, str]] = {}
-    for ref in refs:
-        header = html_text.FilingHeader(
-            company=company,
-            ticker=spelled,
-            form=ref.form,
-            filing_date=ref.filing_date,
-            cik=cik,
-            url=ref.url,
-        )
-        text = html_text.to_corpus_text(client.filing_document(ref), header)
-        name = file_name(spelled, ref)
-        changed = write_if_changed(corpus_dir / name, text)
-        logger.info(
-            "%s %s: %s (%d characters)",
-            "wrote" if changed else "unchanged",
-            ref.form,
-            name,
-            len(text),
-        )
-        written.append((ref, name, changed))
-        entries[name] = {
-            "source": html_text.SOURCE,
-            "ticker": spelled,
-            "form": ref.form,
-            "accession": ref.accession,
-            "url": ref.url,
-        }
+    if dictionary_added:
+        reporter.log(f"added {company} to the company dictionary")
+    documents = _download(client, refs, reporter)
+    reporter.step("convert")
+    written, entries = _convert(
+        documents,
+        _Origin(company=company, ticker=spelled, cik=cik),
+        corpus_dir,
+        reporter,
+    )
     manifest_changed = record_in_manifest(corpus_dir / MANIFEST, entries)
+    reporter.step("parse")
     parsed = _parse_ticker(settings, corpus_dir, spelled)
     for name, filing in parsed.items():
-        if name in entries and filing.quarantine is not None:
+        if name not in entries:
+            continue
+        if filing.quarantine is not None:
             logger.warning(
                 "%s quarantined: %s (%s)",
                 name,
                 filing.quarantine.reason,
                 filing.quarantine.detail,
+            )
+            reporter.log(f"{name}: quarantined: {filing.quarantine.reason}")
+        else:
+            meta = filing.metadata
+            reporter.log(
+                f"{name}: fiscal {meta.fiscal_period} {meta.fiscal_year}, "
+                f"period end {meta.period_end_date}"
             )
     # A file written by an earlier run whose build failed is not indexed
     # yet; an indexable picked filing missing from `current` builds too.
@@ -471,6 +567,7 @@ def add_ticker(  # pylint: disable=too-many-locals
             index_dir,
             embedder_factory,
             incremental=True,
+            reporter=reporter,
         )
         build_dir = result.build_dir
         embedded = (
@@ -479,6 +576,7 @@ def add_ticker(  # pylint: disable=too-many-locals
         )
     else:
         logger.info("no new or changed filing: the index stays as it is")
+        reporter.log("no new or changed filing: the index stays as it is")
         build_dir = current
     counts = _chunk_counts(build_dir)
     return AddReport(

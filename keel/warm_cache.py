@@ -31,6 +31,7 @@ from keel import cache
 from keel import config
 from keel import edgar
 from keel import errors
+from keel import steps
 from keel import understanding
 from keel.evaluation import golden
 
@@ -40,6 +41,14 @@ DEFAULT_GOLDEN = pathlib.Path("eval/golden.yaml")
 HELP = "pre-fetch the company facts and fill the demo answer cache"
 
 Printer = Callable[[str], None]
+# The steps of the warm-cache job; `answer` is left out with facts only.
+STEPS = (
+    steps.StepDef("index", "Check the loaded index"),
+    steps.StepDef("facts", "Fetch the company facts"),
+    steps.StepDef("questions", "Select the demo questions"),
+    steps.StepDef("answer", "Answer the demo questions"),
+)
+QUESTION_SHOWN = 90
 
 
 @dataclasses.dataclass(frozen=True)
@@ -123,6 +132,7 @@ def prefetch_facts(
     tickers: Sequence[str],
     *,
     refresh: bool = False,
+    reporter: steps.Reporter = steps.NULL,
 ) -> FactsPrefetch:
     """Cache the company facts file of each ticker.
 
@@ -134,6 +144,7 @@ def prefetch_facts(
         facts_config: The mapped concepts, to count the lines per file.
         tickers: The tickers.
         refresh: Fetch every file again, even when cached.
+        reporter: Receives 1 line and the progress per ticker.
 
     Returns:
         The counts per outcome.
@@ -142,7 +153,9 @@ def prefetch_facts(
     cached: list[str] = []
     no_lines: list[str] = []
     failed: list[str] = []
-    for ticker in tickers:
+    reporter.progress(0, len(tickers), "tickers")
+    for number, ticker in enumerate(tickers, start=1):
+        reporter.progress(number - 1, len(tickers), "tickers")
         try:
             cik = client.cik(ticker)
             before = client.requests
@@ -150,11 +163,16 @@ def prefetch_facts(
         except errors.EdgarError as error:
             logger.warning("no company facts for %s: %s", ticker, error)
             failed.append(f"{ticker}: {error}")
+            reporter.log(f"{ticker}: no facts file: {error}")
             continue
-        (fetched if client.requests > before else cached).append(ticker)
+        fresh = client.requests > before
+        (fetched if fresh else cached).append(ticker)
         block = edgar.facts_lines(document.data, ticker, facts_config)
         if not block.lines:
             no_lines.append(ticker)
+        origin = "fetched" if fresh else "cached"
+        reporter.log(f"{ticker}: {origin}, {len(block.lines)} facts lines")
+    reporter.progress(len(tickers), len(tickers), "tickers")
     return FactsPrefetch(
         tickers=tuple(tickers),
         fetched=tuple(fetched),
@@ -205,6 +223,7 @@ async def warm_answers(
     *,
     refresh: bool = False,
     printer: Printer | None = None,
+    reporter: steps.Reporter = steps.NULL,
 ) -> tuple[WarmResult, ...]:
     """Answer each question that has no cache entry, through the pipeline.
 
@@ -218,22 +237,32 @@ async def warm_answers(
         questions: The questions.
         refresh: Answer every question again, even when cached.
         printer: Called with 1 line per question, or None.
+        reporter: Receives the question before it is answered, its
+            line after, and the questions done.
 
     Returns:
         1 result per question, in order.
     """
     results = []
+    total = len(questions)
+    reporter.progress(0, total, "questions")
     for number, item in enumerate(questions, start=1):
         key = answerer.cache_key(item.text)
         if not refresh and answerer.cache.get(key) is not None:
             result = WarmResult(item.label, "skipped")
         else:
+            reporter.log(
+                f"[{number}/{total}] {item.label}: asking {_shorten(item.text)}"
+            )
             started = time.perf_counter()
             record = await _final(answerer, item.text)
             result = _store(answerer, key, item.label, record, started)
         results.append(result)
+        line = _line(number, total, result)
+        reporter.log(line)
+        reporter.progress(number, total, "questions")
         if printer is not None:
-            printer(_line(number, len(questions), result))
+            printer(line)
     return tuple(results)
 
 
@@ -286,6 +315,14 @@ def _store(
         requests,
         round(time.perf_counter() - started, 1),
     )
+
+
+def _shorten(text: str) -> str:
+    """Cut a question to `QUESTION_SHOWN` characters for a log line."""
+    flat = " ".join(text.split())
+    if len(flat) <= QUESTION_SHOWN:
+        return flat
+    return flat[: QUESTION_SHOWN - 3].rstrip() + "..."
 
 
 def _line(number: int, total: int, result: WarmResult) -> str:
