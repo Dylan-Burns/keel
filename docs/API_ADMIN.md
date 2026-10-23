@@ -95,7 +95,10 @@ Response HTTP 202:
     "finished_at": null,
     "result": null,
     "error": null,
-    "log": []
+    "log": [],
+    "step_count": 12,
+    "current_step": null,
+    "steps": [{"key": "corpus", "name": "Prepare the corpus", "status": "pending", "started_at": null, "finished_at": null, "progress": null, "log": []}, "..."]
   },
   "warnings": ["the restored build replaces the current build; the current build stays as `previous`"],
   "estimate": null
@@ -118,12 +121,41 @@ Response HTTP 202:
 | `requested_by` | string | the admin who asked |
 | `heavy` | bool | true when the job holds the maintenance slot |
 | `status` | string | `queued`, `running`, `succeeded`, `failed`, or `cancelled` |
-| `progress` | object | `done` and `total` (null when not known); the index build counts shards, eval and warm_cache count questions |
-| `phase` | string | a few words: `queued`, `waiting for the nightly job`, `running`, `building the index`, `reloading the index`, `done`, `failed`, `interrupted` |
+| `progress` | object | `done` and `total` (null when not known); for a job with steps, the ended steps of all steps (each step counts its own work in `steps[].progress`) |
+| `phase` | string | a few words: `queued`, `waiting for the nightly job`, `running`, the name of the running step (such as `Embed`), `reloading the index`, `done`, `failed`, `interrupted` |
+| `step_count` | int | the steps of the plan; 0 for a job recorded before the steps existed |
+| `current_step` | int or null | the index of the running step |
 | `created_at`, `started_at`, `finished_at` | string or null | UTC, ISO 8601 |
 | `result` | object or null | the summary of a succeeded job (per kind, below) |
 | `error` | string or null | `<ErrorClass>: <message>` of a failed job, or `internal error: <class>`; an `OSError` adds its errno, reason, and path (`internal error: OSError: [Errno 30] Read-only file system: '/app/eval/report.md'`), with secrets masked |
-| `log` | list of strings | the last 200 lines, oldest first, each at most 400 characters, secrets and control characters masked; only `GET /api/admin/jobs/{id}` and `POST` return it |
+| `log` | list of strings | the last 200 lines, oldest first, each at most 400 characters, secrets masked, control characters and line breaks replaced by spaces (1 report is 1 line); only `GET /api/admin/jobs/{id}` and `POST` return it |
+| `steps` | list of objects | the steps in plan order (below); only `GET /api/admin/jobs/{id}` and `POST` return it; empty for a job recorded before the steps existed |
+
+### Steps
+
+Each job kind declares its steps up front, so a queued job lists them as `pending`. The library function behind the job reports the step it enters, its log lines, and its counts; entering a step ends the running one as `succeeded` and marks the steps it jumps over `skipped`. When the job ends, the running step is `succeeded` or `failed` (its log ends with `error: <the job error>`; a job that fails before its first step fails its first step), and every step not reached is `skipped`. A cancelled or interrupted job skips its pending steps. A failed reload leaves the job `succeeded` with `"reloaded": false` and marks the `reload` step `failed`.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `key` | string | the stable step key, such as `embed` |
+| `name` | string | the step name, such as `Embed` |
+| `status` | string | `pending`, `running`, `succeeded`, `failed`, or `skipped` |
+| `started_at`, `finished_at` | string or null | UTC, ISO 8601 |
+| `progress` | object or null | `done`, `total` (or null), and `unit` (such as `chunks`, `questions`, `tickers`, `members`) |
+| `log` | list of strings | the step's last 200 lines, cleaned like the job log |
+
+The steps per kind (key: name):
+
+- `add`: `corpus` Prepare the corpus, `resolve` Resolve the ticker, `filings` Fetch the filing list from EDGAR, `download_10k` Download the 10-K, `download_10q` Download the 10-Q (skipped when no 10-Q is picked), `convert` Convert to text, `parse` Parse and section, `chunk` Chunk, `embed` Embed (counts chunks, 1 line per shard), `store` Write the chunk store, `publish` Publish the index build, `reload` Reload the server. When no file changed, the steps after `parse` are skipped.
+- `refresh`: `watch` Read the watch list, `check` Check EDGAR for new filings (counts tickers, 1 line per ticker), `add` Add the new filings (counts tickers; the add steps of each ticker are lines such as `ZTS: Embed`; skipped on a dry run or with nothing new), `reload`.
+- `warm_cache`: `index` Check the loaded index, `facts` Fetch the company facts (counts tickers), `questions` Select the demo questions, `answer` Answer the demo questions (counts questions, a line before and after each answer). `facts_only` stops after `facts`.
+- `eval`: `report_dir` Check the report directory, `golden` Load the golden set and labels, `harness` Open the index and load the models, `questions` Run the golden questions (counts questions, a retrieval, answer, and judge line per question), `score` Score the answers (with `answers` only), `report` Write the report (with 1 line per gate).
+- `facts`: `resolve`, `fetch` Fetch the company facts, `map` Map the facts lines.
+- `backup`: `build` Find the current build, `index` Copy and check the index files, `logs` Copy the logs and databases (skipped with `index_only`), `archive` Write the archive (counts members), `checksum` Write the checksum.
+- `restore`: `find` Find the archive, `verify` Verify the archive checksum, `extract`, `check` Check the index files, `shards` Rebuild the shards, `logs` Set the restored logs aside, `swap` Point current at the restored build, `reload`.
+- `index`: `corpus` Prepare the corpus, then the build steps of `add` from `parse` to `publish`, then `reload`.
+
+A database written before the steps gets the `steps` column on its first connection; its old rows have no steps, and the page shows them with the job log as before. The payload stays bounded: at most 24 steps of at most 200 lines of at most 400 characters.
 
 Results: `add` returns the `keel add` report (ticker, CIK, company, filings, index version, embedded counts, EDGAR requests); `refresh` the refresh report plus `new_count`, `added_count`, `error_count`; `warm_cache` the `facts` counts and, unless `facts_only`, the `answers` counts (`answered`, `refusal`, `skipped`, `failed`, `model_requests`, `cost_usd`) and `ok`; `eval` the `run_id`, the `gates` (name, value, status), `report` (the markdown path, null when no folder took it), `results` (the JSON file name), `answers_usd`, and `judge_usd`; `facts` the facts `lines`; `backup` the `archive` name, `sha256`, `members`, and `size_bytes`; `restore` the `build`, `previous`, and `index_version`; `index` the `build`, `index_version`, `counts`, and `seconds`. A job that reloads adds `reloaded`.
 
@@ -131,8 +163,8 @@ Results: `add` returns the `keel add` report (ticker, CIK, company, filings, ind
 
 | Route | Response |
 | --- | --- |
-| `GET /api/admin/jobs?limit=50` (1 to 200) | `{"items": [job without log, ...], "active": job or null}`, newest first; `active` is the heavy job that holds the slot |
-| `GET /api/admin/jobs/{id}` | the job with its log; poll it every 1 to 2 s while it runs |
+| `GET /api/admin/jobs?limit=50` (1 to 200) | `{"items": [job without log and steps, ...], "active": job or null}`, newest first; `active` is the heavy job that holds the slot |
+| `GET /api/admin/jobs/{id}` | the job with its log and steps; poll it every 1 to 2 s while it runs |
 | `POST /api/admin/jobs/{id}/cancel` | the cancelled job; only a `queued` job cancels (409 `not_cancellable` otherwise), a running job runs to its end |
 
 ## Cost preview
