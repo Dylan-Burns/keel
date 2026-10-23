@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 release-please maintains the released sections from Conventional Commits.
 
+## [0.4.3](https://github.com/Dylan-Burns/keel/compare/v0.4.2...v0.4.3) (2026-10-23)
+
+
+### Bug fixes
+
+* **eval:** write the eval job report to a writable folder ([780a8ba](https://github.com/Dylan-Burns/keel/commit/780a8baee9c56c8b5726878e919c6004df817bdc))
+* **infra:** keep backups and eval reports on the host volumes ([fb03ada](https://github.com/Dylan-Burns/keel/commit/fb03adaa3009bae59a2e671b3f232e63eb7c1bb6))
+
+
+### Documentation
+
+* **docs:** record the eval job fix for a read-only host ([653e062](https://github.com/Dylan-Burns/keel/commit/653e06277d4fa36b4520063a78bfb41969c08485))
+
 ## [0.4.2](https://github.com/Dylan-Burns/keel/compare/v0.4.1...v0.4.2) (2026-10-23)
 
 
