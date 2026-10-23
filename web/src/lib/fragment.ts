@@ -196,7 +196,55 @@ export function deepLink(
 }
 
 /**
- * The deep link of a cited passage: a table passage anchors on its title.
+ * The key of a table row in `row_fragments`: whitespace collapsed.
+ *
+ * @param row The row.
+ * @return The key.
+ */
+export function rowKey(row: string): string {
+  return row.split(/\s+/).filter(Boolean).join(' ');
+}
+
+/**
+ * The directive of the table row that a quote cites, the same rule as
+ * `row_fragment_for` in `keel/locations.py`: an exact row first, then the
+ * first row that contains a quote line or that a quote line contains.
+ *
+ * @param quote The cited quote.
+ * @param rows The `row_fragments` of the location.
+ * @return The directive, or null.
+ */
+export function rowFragmentFor(
+  quote: string,
+  rows: Readonly<Record<string, string>> | null | undefined,
+): string | null {
+  if (rows === null || rows === undefined) {
+    return null;
+  }
+  const lines = quote
+    .split('\n')
+    .map(rowKey)
+    .filter(line => line !== '');
+  for (const line of lines) {
+    const exact = rows[line];
+    if (exact !== undefined) {
+      return exact;
+    }
+  }
+  for (const line of lines) {
+    for (const [key, fragment] of Object.entries(rows)) {
+      if (key.includes(line) || line.includes(key)) {
+        return fragment;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * The deep link of a cited passage. A table row with a server-built
+ * directive (`row_fragments`) lands on that row; any other table passage
+ * anchors on its title.
  *
  * @param url The SEC URL.
  * @param quote The quote, or the passage text.
@@ -208,6 +256,10 @@ export function citationLink(
   quote: string,
   location?: ChunkLocation | null,
 ): string | null {
+  const row = rowFragmentFor(quote, location?.row_fragments);
+  if (row !== null && url !== null && url !== undefined && isSecUrl(url)) {
+    return `${url.split('#')[0]}#${row}`;
+  }
   const anchor = location?.is_table === true ? location.anchor : null;
   return deepLink(url, quote, anchor);
 }

@@ -256,3 +256,65 @@ def test_annotate_survives_a_store_error() -> None:
         {"chunk_id": "x", "location": None}
     ]
     conn.close()
+
+
+_FY24 = (
+    "NVIDIA Corporation | 10-K | FY2024 | MD&A\n"
+    "TABLE: Fiscal Year 2024 Summary | units: $ in millions | "
+    "columns: Jan 28, 2024 | Jan 29, 2023 | Change\n"
+    "Revenue | $ 60,922 | $ 26,974 | Up 126%\n"
+    "Net income per diluted share | $ 11.93 | $ 1.74 | Up 586%\n"
+)
+_FY25 = (
+    "NVIDIA Corporation | 10-K | FY2025 | MD&A\n"
+    "TABLE: Revenue by Reportable Segments | units: $ in millions | "
+    "columns: Jan 26, 2025 | Jan 28, 2024 | $Change | %Change\n"
+    "Graphics | 14,304 | 13,517 | 787 | 6 | %\n"
+    "Total | $ 130,497 | $ 60,922 | $ 69,575 | 114 | %\n"
+)
+
+
+def test_row_fragment_starts_on_a_number_unique_in_the_filing() -> None:
+    filing = _FY25 + "Revenue was $130,497 million, up from 60,922 and 114."
+    rows = locations.row_fragments(_FY25, filing)
+    assert rows[
+        locations.row_key("Total | $ 130,497 | $ 60,922 | $ 69,575 | 114 | %")
+    ] == (":~:text=69%2C575,114")
+
+
+def test_row_fragment_spans_from_the_title_when_no_number_is_unique() -> None:
+    filing = _FY24 + "Revenue was $60,922 million vs 26,974, up 126%."
+    rows = locations.row_fragments(_FY24, filing)
+    revenue = locations.row_key("Revenue | $ 60,922 | $ 26,974 | Up 126%")
+    assert rows[revenue] == ":~:text=Fiscal%20Year%202024%20Summary,126"
+
+
+def test_row_fragment_never_ends_on_a_number_above_the_row() -> None:
+    before = "TABLE: Summary\nA | 126 | 7\n"
+    fragment = locations.row_fragment(
+        "B | 126 | 55", "126 55 126 55", ["Summary"], before
+    )
+    assert fragment == ":~:text=Summary,55"
+
+
+def test_row_fragment_for_matches_the_cited_row() -> None:
+    rows = {"Total | $ 130,497": ":~:text=130%2C497"}
+    assert locations.row_fragment_for("Total |  $ 130,497", rows) == (
+        ":~:text=130%2C497"
+    )
+    assert locations.row_fragment_for("$ 130,497", rows) == (
+        ":~:text=130%2C497"
+    )
+    assert locations.row_fragment_for("Other | 1", rows) is None
+    assert locations.row_fragment_for("Total", None) is None
+
+
+def test_deep_link_prefers_the_row_fragment() -> None:
+    url = "https://www.sec.gov/Archives/x.htm"
+    rows = {"Total | $ 130,497": ":~:text=130%2C497"}
+    assert locations.deep_link(url, "Total | $ 130,497", "Title", rows) == (
+        f"{url}#:~:text=130%2C497"
+    )
+    assert locations.deep_link(url, "Other | $ 2", "Big Title", rows) == (
+        f"{url}#:~:text=Big%20Title"
+    )
