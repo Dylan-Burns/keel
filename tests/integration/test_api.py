@@ -260,6 +260,11 @@ def test_ask_json(client, api_settings) -> None:
     assert {"tickers", "primary_type", "time_scope"} <= set(body.analysis)
     assert body.citations_resolved
     assert all(c["valid"] for c in body.citations_resolved)
+    assert all(
+        c["location"]["section_label"]
+        for c in body.citations_resolved
+        if c.get("kind", "chunk") == "chunk"
+    )
     # Without Accept: text/event-stream the answer is JSON too.
     plain = client.post(
         "/api/ask", json={"question": question(api_settings)}, headers=AUTH
@@ -454,9 +459,39 @@ def test_chunk_lookup(client) -> None:
     assert body["section_title"] == "Risk Factors"
     assert body["filing_name"] == "JPM Inc 10-K FY2025"
     assert "privacy risk" in body["text"]
+    location = body["location"]
+    # The synthetic chunks carry no item label: the section title alone.
+    assert location["section_label"] == "Risk Factors"
+    assert location["passage"] == 3
+    assert location["passages"] >= location["passage"]
     missing = client.get("/api/chunks/JPM_10K_2025-12-31__x__9", headers=AUTH)
     assert missing.status_code == 404
     assert missing.json()["detail"]["code"] == "not_found"
+
+
+def test_chunk_context_for_the_reader(client) -> None:
+    chunk_id = "AAPL_10K_2025-09-27__risk_factors__0002"
+    response = client.get(
+        f"/api/chunks/{chunk_id}/context?before=1&after=2", headers=AUTH
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["filing"]["filing_name"] == "AAPL Inc 10-K FY2025"
+    assert body["filing"]["sec_url"] == TRUSTED_URL
+    assert body["location"]["passage"] == 3
+    ids = [p["chunk_id"] for p in body["passages"]]
+    assert ids == [
+        f"AAPL_10K_2025-09-27__risk_factors__000{n}" for n in range(1, 5)
+    ]
+    assert [p["cited"] for p in body["passages"]] == [False, True, False, False]
+    assert "AAPL Inc |" not in body["passages"][1]["text"]
+    missing = client.get("/api/chunks/AAPL_x/context", headers=AUTH)
+    assert missing.status_code == 404
+    too_many = client.get(
+        f"/api/chunks/{chunk_id}/context?before=99", headers=AUTH
+    )
+    assert too_many.status_code == 422
+    assert client.get(f"/api/chunks/{chunk_id}/context").status_code == 401
 
 
 def test_sec_url_only(client) -> None:

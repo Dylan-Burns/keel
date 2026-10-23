@@ -7,6 +7,7 @@ import json
 import os
 import pathlib
 import re
+import sqlite3
 import types
 
 import docx
@@ -65,7 +66,8 @@ def test_export_markdown() -> None:
         "[^1]: Apple Inc. 10-K FY2025, Risk Factors, FY2025, period ended "
         '2025-09-27, filed 2025-10-31. Quote: "net sales of $416,161 '
         'million". Quote: "second quote". Chunk '
-        f"{AAPL.replace('_', chr(92) + '_')}. SEC filing: <{AAPL_URL}>"
+        f"{AAPL.replace('_', chr(92) + '_')}. SEC filing: "
+        f"<{AAPL_URL}#:~:text=net%20sales%20of>"
     )
     # A chunk from the retrieval list: its section title and link.
     assert sources[2].startswith(
@@ -90,7 +92,9 @@ def test_export_docx(tmp_path: pathlib.Path) -> None:
         "1. Apple Inc. 10-K FY2025, Risk Factors, FY2025, period ended "
         "2025-09-27"
     )
-    assert sources[0].endswith(f"SEC filing: {AAPL_URL}")
+    deep = {s.chunk_id: s.sec_url for s in memo.sources}
+    assert str(deep[AAPL]).startswith(f"{AAPL_URL}#:~:text=")
+    assert sources[0].endswith(f"SEC filing: {deep[AAPL]}")
     # The superscript markers in the direct answer follow citation order.
     answer = document.paragraphs[texts.index("Answer") + 1]
     marks = [r.text for r in answer.runs if r.font.superscript]
@@ -102,11 +106,16 @@ def test_export_docx(tmp_path: pathlib.Path) -> None:
         for p in document.paragraphs[texts.index("Sources") + 1 :]
         for link in p.hyperlinks
     ]
-    assert links == [AAPL_URL, MSFT_URL, AAPL_URL]
+    assert links == [s.sec_url for s in memo.sources if s.sec_url]
+    assert [link.split("#")[0] for link in links] == [
+        AAPL_URL,
+        MSFT_URL,
+        AAPL_URL,
+    ]
     targets = {
         rel.target_ref for rel in document.part.rels.values() if rel.is_external
     }
-    assert targets == {AAPL_URL, MSFT_URL}
+    assert targets == set(links)
     table = document.tables[0]
     assert [c.text for c in table.rows[0].cells] == ["Company", "Risk | theme"]
     assert table.rows[1].cells[1].text == "Suppliers <b>Asia</b>1"
@@ -360,7 +369,9 @@ def test_export_sec_link_is_encoded() -> None:
     url = "https://www.sec.gov/Archives/a>b)c[d].htm"
     memo = export.build_memo(make_record(msft_url=url), "req-1")
     msft = next(s for s in memo.sources if s.chunk_id == MSFT)
-    assert msft.sec_url == ("https://www.sec.gov/Archives/a%3Eb%29c%5Bd%5D.htm")
+    assert str(msft.sec_url).split("#")[0] == (
+        "https://www.sec.gov/Archives/a%3Eb%29c%5Bd%5D.htm"
+    )
     text = export.render_markdown(memo)
     assert f"<{msft.sec_url}>" in text
     assert "a>b" not in text
@@ -425,3 +436,38 @@ def test_export_log_failure_never_fails_the_export(
     assert "cli-1" not in caplog.text
     written = export.log_export(blocked, "cli-1", export.DOCX, "cli")
     assert written is False
+
+
+def test_export_names_the_location() -> None:
+    record = make_record()
+    record["citations_resolved"][1]["location"] = {
+        "section_label": "Part I, Item 1A. Risk Factors",
+        "heading": "Risk Factors",
+        "item_label": "Item 1A",
+        "passage": 3,
+        "passages": 36,
+        "is_table": False,
+        "filing_date": "2025-10-31",
+        "accession": "0000320193-25-000079",
+    }
+    memo = export.build_memo(record, "req-1")
+    apple = next(s for s in memo.sources if s.chunk_id == AAPL)
+    assert apple.location == (
+        "Part I, Item 1A. Risk Factors, passage 3 of 36, "
+        "accession 0000320193-25-000079"
+    )
+    assert export.source_note(apple).startswith(
+        "Apple Inc. 10-K FY2025, Part I, Item 1A. Risk Factors, passage 3 "
+        "of 36, accession 0000320193-25-000079, FY2025"
+    )
+
+
+def test_export_with_locations_needs_a_store() -> None:
+    record = make_record()
+    assert export.with_locations(record, None) == record
+    conn = sqlite3.connect(":memory:")
+    annotated = export.with_locations(record, conn)  # no chunks table
+    assert [c["location"] for c in annotated["citations_resolved"]] == [
+        None
+    ] * len(record["citations_resolved"])
+    conn.close()

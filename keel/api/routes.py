@@ -33,6 +33,7 @@ from keel import citations
 from keel import config
 from keel import coverage as coverage_report
 from keel import errors
+from keel import locations
 from keel import understanding
 from keel import users
 from keel.api import auth
@@ -398,8 +399,9 @@ async def chunk(
         caller: The Principal.
 
     Returns:
-        The chunk fields of chapter 14.2, the section title, and the text.
-        `sec_url` is None unless the filing URL is trusted (E-D-28).
+        The chunk fields of chapter 14.2, the section title, the text, and
+        the location (part, item, passage, accession). `sec_url` is None
+        unless the filing URL is trusted (E-D-28).
 
     Raises:
         HTTPException: 404 for an unknown chunk ID.
@@ -430,6 +432,7 @@ async def chunk(
     ) = row
     label = coverage_report.fiscal_label(year, period)
     urls = answer.sec_urls(answerer.retriever.conn, [filing_id])
+    place = locations.locate(answerer.retriever.conn, [found_id]).get(found_id)
     return {
         "chunk_id": found_id,
         "ticker": ticker,
@@ -442,6 +445,71 @@ async def chunk(
         "filing_name": f"{company} {form} {label}",
         "sec_url": urls.get(filing_id),
         "text": text,
+        "location": place.model_dump() if place is not None else None,
+    }
+
+
+@router.get("/chunks/{chunk_id}/context")
+async def chunk_context(
+    chunk_id: str,
+    services: Services,
+    caller: Caller,
+    before: Annotated[
+        int, fastapi.Query(ge=0, le=locations.MAX_NEIGHBOURS)
+    ] = 4,
+    after: Annotated[int, fastapi.Query(ge=0, le=locations.MAX_NEIGHBOURS)] = 4,
+) -> dict[str, Any]:
+    """The cited chunk in its section, for the filing reader.
+
+    Read-only and with no model call: the neighbouring chunks of the same
+    filing item come from the chunk store, in order, with the overlap of
+    adjacent chunks shown once.
+
+    Args:
+        chunk_id: The cited chunk ID.
+        services: The shared services.
+        caller: The Principal.
+        before: The chunks before the cited chunk (0 to 20).
+        after: The chunks after the cited chunk (0 to 20).
+
+    Returns:
+        The filing header (company, form, fiscal label, filing date, SEC
+        URL), the location, and the passages, the cited one marked.
+
+    Raises:
+        HTTPException: 404 for an unknown chunk ID.
+        HTTPException: 503 when no index is loaded.
+    """
+    del caller
+    answerer = require_answerer(services)
+    conn = answerer.retriever.conn
+    found = locations.passages(conn, chunk_id, before, after)
+    row = conn.execute(
+        "SELECT filing_id, ticker, company, form, fiscal_year, "
+        "fiscal_period, period_end_date, filing_date FROM chunks "
+        "WHERE chunk_id = ?",
+        (chunk_id,),
+    ).fetchone()
+    if found is None or row is None:
+        raise http_error(404, "not_found", "no chunk with this ID")
+    filing_id, ticker, company, form, year, period, period_end, filed = row
+    label = coverage_report.fiscal_label(year, period)
+    place = locations.locate(conn, [chunk_id]).get(chunk_id)
+    return {
+        "chunk_id": chunk_id,
+        "filing": {
+            "filing_id": filing_id,
+            "ticker": ticker,
+            "company": company,
+            "form": form,
+            "fiscal_label": label,
+            "period_end": period_end,
+            "filing_date": filed,
+            "filing_name": f"{company} {form} {label}",
+            "sec_url": answer.sec_urls(conn, [filing_id]).get(filing_id),
+        },
+        "location": place.model_dump() if place is not None else None,
+        "passages": [p.model_dump() for p in found],
     }
 
 
@@ -621,6 +689,14 @@ async def _stored(
         )
     if cached is None:
         return None, None
+    # A stored answer from before the location field gets it here.
+    cited = cached.get("citations_resolved") or []
+    cached = {
+        **cached,
+        "citations_resolved": locations.annotate(
+            answerer.retriever.conn, cited
+        ),
+    }
     return response_body(cached), owner
 
 

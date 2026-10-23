@@ -28,6 +28,7 @@ import pydantic
 from keel import context
 from keel import edgar
 from keel import errors
+from keel import locations
 
 MAX_NEXT_QUESTIONS = 4
 INVALID_SHARE_LIMIT = 0.30
@@ -35,17 +36,7 @@ INCOMPLETE_GAP = (
     "The citations were incomplete: {invalid} of {total} pointed to text "
     "outside the context and were removed."
 )
-SECTION_TITLES = {
-    "business": "Business",
-    "risk_factors": "Risk Factors",
-    "legal_proceedings": "Legal Proceedings",
-    "mdna": "Management's Discussion and Analysis",
-    "market_risk": "Quantitative and Qualitative Disclosures About Market Risk",
-    "financial_statements": "Financial Statements",
-    "controls": "Controls and Procedures",
-    "other": "Other",
-    "unknown": "Unclassified section",
-}
+SECTION_TITLES = locations.SECTION_TITLES
 FACTS_SECTION = "XBRL company facts"
 SEC_URL_PREFIX = "https://www.sec.gov/"
 CHUNK_ID = re.compile(
@@ -205,6 +196,8 @@ class ResolvedCitation(_Model):
         quote_mismatch: True when a number of the quote is not in the chunk.
         valid: Always True; invalid citations are removed.
         kind: `chunk`, or `fact` for a fact ID of the `<facts>` block.
+        location: The part, item, and passage of the chunk in its filing;
+            the response adds it from the chunk store, None for a fact.
     """
 
     chunk_id: str
@@ -221,6 +214,7 @@ class ResolvedCitation(_Model):
     quote_mismatch: bool
     valid: bool = True
     kind: Literal["chunk", "fact"] = "chunk"
+    location: locations.Location | None = None
 
 
 class ValidationReport(_Model):
