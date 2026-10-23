@@ -9,11 +9,18 @@ services:
     env_file: .env
     environment:
       KEEL_CORPUS__DIR: /app/corpus/edgar
-      # keel add and refresh write the company dictionary and the corpus,
-      # so both live on writable volumes (the root file system is
-      # read-only).
+      # The root file system is read-only: every path a job writes lives
+      # on a volume below. keel add and refresh write the company
+      # dictionary and the corpus; keel users writes the users file; the
+      # backup job writes its archives to state/backups; the eval job
+      # writes its reports to logs/eval (eval.report_dir, null is
+      # <logs.dir>/eval).
+      # tests/integration/test_read_only_host.py runs every job kind with
+      # these paths.
       KEEL_DICTIONARIES__COMPANIES: /app/state/companies.yaml
       KEEL_AUTH__USERS_FILE: /app/state/users.yaml
+      KEEL_SCHEDULER__BACKUP_DIR: /app/state/backups
+      KEEL_EVAL__REPORT_DIR: /app/logs/eval
       KEEL_INDEX__DIR: /app/index
       KEEL_LOGS__DIR: /app/logs
       KEEL_CACHE__ANSWERS_DIR: /app/demo/answer_cache
