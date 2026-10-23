@@ -4,7 +4,13 @@
  */
 import {vi} from 'vitest';
 
-import type {BackupList, CostEstimate, Job, SystemResponse} from '../api/types';
+import type {
+  BackupList,
+  CostEstimate,
+  Job,
+  JobStep,
+  SystemResponse,
+} from '../api/types';
 
 /** A recorded call of the stub: method, path, and parsed JSON body. */
 export interface Call {
@@ -84,6 +90,25 @@ export function job(fields: Partial<Job> = {}): Job {
     finished_at: null,
     result: null,
     error: null,
+    log: [],
+    ...fields,
+  };
+}
+
+/**
+ * A job step.
+ *
+ * @param fields The fields to change.
+ * @return The step.
+ */
+export function jobStep(fields: Partial<JobStep> = {}): JobStep {
+  return {
+    key: 'parse',
+    name: 'Parse and section',
+    status: 'pending',
+    started_at: null,
+    finished_at: null,
+    progress: null,
     log: [],
     ...fields,
   };

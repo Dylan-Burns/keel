@@ -340,6 +340,62 @@ export const evalPage = {
 } as const satisfies Record<string, MotionPreset>;
 
 /**
+ * Job steps (the admin job view): the running step's ring turns (8 dashes,
+ * 45 degrees per 300 ms, so the loop has no seam), a finished step's icon
+ * pops in, a step log opens with a height animation, and the progress bars
+ * grow to their value. The reduced twins hold still: the ring stays put, the
+ * icon and the log show at once, and the bars jump to their value.
+ */
+export const jobSteps = {
+  spinner: {
+    full: {
+      idle: {rotate: 0},
+      spin: {
+        rotate: [0, 45],
+        transition: {duration: 0.3, ease: 'linear', repeat: Infinity},
+      },
+    },
+    reduced: {
+      idle: {rotate: 0},
+      spin: {rotate: 0, transition: {duration: 0}},
+    },
+  },
+  icon: {
+    full: {
+      hidden: {opacity: 0, scale: 0.6},
+      visible: {
+        opacity: 1,
+        scale: 1,
+        transition: {duration: 0.2, ease: 'easeOut'},
+      },
+    },
+    reduced: STILL,
+  },
+  log: {
+    full: {
+      hidden: {height: 0, opacity: 0},
+      visible: {
+        height: 'auto',
+        opacity: 1,
+        transition: {duration: 0.2, ease: 'easeOut'},
+      },
+      exit: {height: 0, opacity: 0, transition: {duration: 0.15}},
+    },
+    reduced: {
+      hidden: {height: 'auto', opacity: 1},
+      visible: {height: 'auto', opacity: 1, transition: {duration: 0}},
+      exit: {height: 'auto', opacity: 1, transition: {duration: 0}},
+    },
+  },
+} as const satisfies Record<string, MotionPreset>;
+
+/** Job steps: a progress bar grows to its new value (a transition pair). */
+export const jobBar: TransitionPreset = {
+  full: {duration: 0.3, ease: 'easeOut'},
+  reduced: {duration: 0},
+};
+
+/**
  * State change: a `layout="position"` animation on the answer container keeps
  * the question area in place when the answer area changes height. Position
  * only: a size layout animation scales the container, which squashed the

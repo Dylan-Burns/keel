@@ -8,7 +8,23 @@ import {isLive, openKeel} from './support/api';
 // specs check stays the mini corpus. Serial: 1 heavy job at a time.
 test.describe.configure({mode: 'serial'});
 
-test('adding a ticker runs the add job to succeeded', async ({page}) => {
+/** The steps of an add job that indexes its filings, in plan order. */
+const ADD_STEPS = [
+  'corpus',
+  'resolve',
+  'filings',
+  'download_10k',
+  'download_10q',
+  'convert',
+  'parse',
+  'chunk',
+  'embed',
+  'store',
+  'publish',
+  'reload',
+];
+
+test('adding a ticker turns its steps to checks in order', async ({page}) => {
   test.skip(!isLive, 'the add job needs keel serve');
   test.setTimeout(240_000);
   await openKeel(page, {path: '/companies'});
@@ -16,9 +32,49 @@ test('adding a ticker runs the add job to succeeded', async ({page}) => {
   await page.getByTestId('add-submit').click();
   const card = page.getByTestId('job-card');
   await expect(card).toBeVisible();
+  // The plan is there from the start, every step pending or running.
+  const steps = card.getByTestId('job-step');
+  await expect(steps).toHaveCount(ADD_STEPS.length);
+  await expect(steps.first()).toContainText('Prepare the corpus');
+  expect(
+    await steps.evaluateAll(rows => rows.map(r => r.getAttribute('data-key'))),
+  ).toEqual(ADD_STEPS);
+  // Sample the marks while the job runs: the steps that ended always come
+  // first, in plan order, and at most 1 step runs at a time.
+  const seen = new Set<string>();
+  for (let i = 0; i < 1200; i++) {
+    const marks = await steps.evaluateAll(rows =>
+      rows.map(row => row.getAttribute('data-status') ?? ''),
+    );
+    seen.add(marks.join(','));
+    const firstOpen = marks.findIndex(m => m === 'pending' || m === 'running');
+    if (firstOpen >= 0) {
+      expect(
+        marks.slice(firstOpen + 1).every(m => m === 'pending'),
+        marks.join(','),
+      ).toBe(true);
+    }
+    expect(marks.filter(m => m === 'running').length).toBeLessThanOrEqual(1);
+    if ((await card.getAttribute('data-status')) === 'succeeded') {
+      break;
+    }
+    await page.waitForTimeout(100);
+  }
   await expect(card).toHaveAttribute('data-status', 'succeeded', {
     timeout: 180_000,
   });
+  // More than 1 state was seen on the way: the marks moved step by step.
+  expect(seen.size).toBeGreaterThan(1);
+  await expect(steps.locator('[data-testid="job-step-icon"]')).toHaveText(
+    ADD_STEPS.map(() => 'succeeded'),
+  );
+  await expect(card.getByTestId('job-progress')).toContainText(
+    `${ADD_STEPS.length} of ${ADD_STEPS.length} steps`,
+  );
+  // A finished step opens its log on a click.
+  const embed = card.locator('[data-testid="job-step"][data-key="embed"]');
+  await embed.getByTestId('job-step-toggle').click();
+  await expect(embed.getByRole('log')).toContainText('chunks embedded');
   await expect(card.getByTestId('job-result')).toContainText('ZTS');
   await expect(card.getByTestId('job-phase')).toHaveText('done');
   // The job page shows the same job.

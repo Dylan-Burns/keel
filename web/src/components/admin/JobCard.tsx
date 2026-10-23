@@ -9,6 +9,7 @@ import {jobPath} from '../../lib/links';
 import {JobProgress} from './JobProgress';
 import {JobResult} from './JobResult';
 import {JobStatusTag} from './JobStatusTag';
+import {JobSteps} from './JobSteps';
 import {isFinal, useJob} from './useJob';
 
 /** Props of JobCard. */
@@ -29,8 +30,10 @@ export interface JobCardProps {
  * 1 admin job with live progress: it polls the job every 1.5 s while it is
  * queued or running and stops at its final status. It shows the kind, the
  * status, the phase, a progress bar, the times, the parameters, the error,
- * the result, and the log tail, and cancels a queued job. The log and the
- * result are JSX text nodes.
+ * and the result, and cancels a queued job. A job with steps shows them as
+ * a CI run does, each with its mark, duration, counts, and own log; a job
+ * recorded without steps shows the log tail instead. The log and the result
+ * are JSX text nodes.
  *
  * @param props The props.
  * @return The card.
@@ -60,6 +63,7 @@ export function JobCard({
   };
   const params = Object.entries(job?.params ?? {});
   const log = job?.log ?? [];
+  const steps = job?.steps ?? [];
   return (
     <section
       className="panel"
@@ -115,6 +119,7 @@ export function JobCard({
         {job !== null && (
           <>
             <JobProgress job={job} />
+            {steps.length > 0 && <JobSteps jobId={id} steps={steps} />}
             <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 font-mono text-[11.5px] sm:grid-cols-[auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
               <dt className="text-muted">requested by</dt>
               <dd className="truncate text-ink">{job.requested_by}</dd>
@@ -143,7 +148,7 @@ export function JobCard({
             {job.status === 'succeeded' && job.result !== null && (
               <JobResult result={job.result} />
             )}
-            {log.length > 0 && (
+            {steps.length === 0 && log.length > 0 && (
               <div>
                 <h4 className="section-title mb-1">
                   Log{' '}
