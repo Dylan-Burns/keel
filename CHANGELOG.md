@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 release-please maintains the released sections from Conventional Commits.
 
+## [0.6.2](https://github.com/Dylan-Burns/keel/compare/v0.6.1...v0.6.2) (2026-10-23)
+
+
+### Bug fixes
+
+* **citations:** highlight the whole cited table row on sec.gov ([a564a46](https://github.com/Dylan-Burns/keel/commit/a564a46015bf2bd72ccb56922771e03573b62eff))
+
 ## [0.6.1](https://github.com/Dylan-Burns/keel/compare/v0.6.0...v0.6.1) (2026-10-23)
 
 
