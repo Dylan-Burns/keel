@@ -73,7 +73,7 @@ class Reporter(Protocol):
         """
 
 
-class NullReporter:
+class NullReporter:  # pylint: disable=unused-argument
     """A reporter that drops every report (the CLI default)."""
 
     def step(self, key: str) -> None:
@@ -82,7 +82,6 @@ class NullReporter:
         Args:
             key: The step key.
         """
-        del key
 
     def skip(self, key: str, reason: str) -> None:
         """Drop a skip report.
@@ -91,7 +90,6 @@ class NullReporter:
             key: The step key.
             reason: Why.
         """
-        del key, reason
 
     def log(self, line: str) -> None:
         """Drop a log line.
@@ -99,7 +97,6 @@ class NullReporter:
         Args:
             line: The line.
         """
-        del line
 
     def progress(self, done: int, total: int | None, unit: str = "") -> None:
         """Drop a progress report.
@@ -109,13 +106,12 @@ class NullReporter:
             total: The units in all.
             unit: The unit.
         """
-        del done, total, unit
 
 
 NULL: Reporter = NullReporter()
 
 
-class Prefixed:
+class Prefixed:  # pylint: disable=unused-argument
     """Folds the steps of a nested operation into log lines of 1 step.
 
     The refresh adds each ticker's new filings inside its own `add` step;
@@ -177,7 +173,6 @@ class Prefixed:
             total: The units in all.
             unit: The unit.
         """
-        del done, total, unit
 
 
 def names_of(*plans: tuple[StepDef, ...]) -> dict[str, str]:
