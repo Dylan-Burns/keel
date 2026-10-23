@@ -833,6 +833,13 @@ Method 4, shorter answers, 8 questions with the judge on the laptop, 2 runs each
 - Spend: live answers $8.01 of the $12 cap (method 4: $5.07 with the judge; end to end on the host: $2.94); the temporary instance about $0.08.
 - `reranker.threads: 0` counts the CPUs the process may use: its affinity mask, capped by a cgroup v2 quota (`/sys/fs/cgroup/cpu.max`), so a container on a shared host such as Railway does not start a thread per host CPU.
 - Also: `keel eval` reports the rerank time per question and its p50 and p95 per variant, beside the retrieval time, in the report and its JSON. `reranker.top_n` is now capped at 80 in the config model, the D-10 limit.
+
+## Follow-up after stage 22: table citations link to the cited row
+
+- Found by the engineer on v0.5.0: "Open on sec.gov" on a table citation highlighted the table title, not the cited numbers. A text fragment search term cannot cross table cells, and the browser takes the first match in the page, so the title was the only safe anchor of the old rule.
+- Built: `keel/locations.py` builds `row_fragments` for each row of a cited table chunk: the start is the first number of the row that occurs once in the whole filing (counted over the filing's chunks), the end is the row's last number; a row with no such number spans from the table title to its rightmost number that does not occur earlier in the table. `deep_link` (memo export) and `citationLink` (web) use the cited row's directive and fall back to the title.
+- Measured in Chromium on the SEC HTML of the 2 reported tables: NVDA FY2025 "Total | $ 130,497 | $ 60,922 | $ 69,575 | 114" highlights 69,575 and 114 in the Total row; NVDA FY2024 "Revenue | $ 60,922 | $ 26,974 | Up 126%" (no number unique in the filing) highlights from "Fiscal Year 2024 Summary" through the Revenue row. Rejected shapes: a term across cells (`Total $ 130,497`) never matches; first number to last number starts at an earlier table (130,497 occurs 6 times) and spans paragraphs.
+- Tests: 5 Python and 3 Vitest; `make test` 1001 passed, coverage 97%; `npm run check` 274 passed.
 - Attempts: 1.
 
 ## Gaps
