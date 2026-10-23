@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 release-please maintains the released sections from Conventional Commits.
 
+## [0.4.2](https://github.com/Dylan-Burns/keel/compare/v0.4.1...v0.4.2) (2026-10-23)
+
+
+### Bug fixes
+
+* **infra:** drop pip from the runtime image ([db60477](https://github.com/Dylan-Burns/keel/commit/db604774c449686d9759f8231efa275c42967ab3))
+* **infra:** users file on the state volume, corpus extracted as the app ([0163790](https://github.com/Dylan-Burns/keel/commit/0163790f3203827bb82959a36b036b2a4e8b6a61))
+
 ## [0.4.1](https://github.com/Dylan-Burns/keel/compare/v0.4.0...v0.4.1) (2026-10-23)
 
 
