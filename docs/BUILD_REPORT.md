@@ -791,6 +791,50 @@ Entry format:
 - Tests: 29 new Python tests (rule vectors, labels, locate, passages, the store error guard, export, the context route; 996 passing in `make test`), 38 new Vitest tests (269 passing), `e2e/reader.spec.ts` in both projects (mocked, and live against `keel serve` with the mock provider), `e2e/mobile.spec.ts` and `e2e/ask.spec.ts` updated for the reader over the page. The review asked for a store error guard on the annotation, a focus trap with focus return in the reader, and the new route and field in chapter 14; all done.
 - Attempts: 1.
 
+## Follow-up after stage 22: latency experiments
+
+- Question: the live host (t3.large, 2 vCPU, image 0.4.0, index 1.2.0, prompt 1.5.1) took 23.0 s for "What was NVIDIA total revenue in its latest fiscal year?", 12.1 s of it in the cross-encoder. 4 methods were tested against a rule set before the runs: adopt a method only if it cuts the end-to-end p50 by 15% or more (or the rerank time by 30% or more), recall at 25 stays at 0.85 or more and drops by 0.01 or less, and for shorter answers faithfulness stays at 0.90 or more and drops by 0.01 or less, with the numeric, schema, and refusal gates at 1.00.
+- Method: retrieval runs on the production host through SSM, in a one-off container of the app image with the model, the index, and the 23 scored golden questions loaded once; every variant runs every question, interleaved per repeat, 2 or 3 repeats each. A temporary c7i.xlarge (`keel-exp-temp`, i-075c4a6ed84ffd2e3, about 25 minutes, terminated) ran the same script on the same image and on the `index-v1` archive. The answer runs used 8 fixed questions (G-01, G-06, G-12, G-13, G-14, G-15, G-20, G-28), on the laptop with the judge for method 4 and on the host without the judge for the end-to-end check.
+
+Retrieval, 23 questions, rerank and retrieval time per question (mean of the repeat means; p95 over all runs):
+
+| Variant | Host | Recall@25 | MRR | nDCG@10 | Rerank mean (repeats) | Rerank p95 | Retrieval mean | Rule |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| baseline (512 tokens, 1 thread, batch 32) | t3.large | 0.861 | 0.963 | 0.886 | 12.3 s (12.6, 12.1); 12.4 s (13.7, 12.5, 11.0); 11.5 s (11.5, 11.5) | 13.9 to 16.3 s | 12.0 to 13.0 s | |
+| 1. max length 384 | t3.large | 0.860 | 0.963 | 0.888 | 9.8 s (9.6, 10.0), -20% | 11.4 s | 10.4 s | quality passes, latency short of the bar alone |
+| 1. max length 256 | t3.large | 0.840 | 0.941 | 0.885 | 6.0 s (6.1, 5.8), -52% | 6.8 s | 6.5 s | fails: recall -0.021, below 0.85 |
+| 2. 40 pairs for single company and numeric | t3.large | 0.835 | 0.965 | 0.888 | 9.5 s (9.1, 9.9), -23% | 14.7 s | 10.1 s | fails: recall -0.026 (G-03, G-04, G-17, G-27) |
+| 3. torch threads 2 (1 per vCPU) | t3.large | 0.861 | 0.963 | 0.886 | 9.9 s (9.9, 9.9), -19% | 12.1 s | 10.6 s | quality passes, latency short of the bar alone |
+| 1+3. length 384, 2 threads, batch 32 | t3.large | 0.860 | 0.963 | 0.888 | 8.6 s (9.0, 9.0, 7.9), -30% | 11.7 s | 9.4 s | passes |
+| 1+3. length 384, 2 threads, batch 80 | t3.large | 0.860 | 0.963 | 0.888 | 10.1 s (10.1, 10.0) | 10.3 s | 10.7 s | |
+| 1+3. length 384, 2 threads, batch 16 | t3.large | 0.860 | 0.963 | 0.888 | 7.5 s; 8.0 s (7.4, 8.5) | 11.6 s | 8.7 s | passes |
+| 1+3. length 384, 2 threads, batch 8 (adopted) | t3.large | 0.860 | 0.963 | 0.888 | 6.8 s (6.8, 6.8), -41% against the paired baseline of 11.5 s | 8.0 s | 7.4 s | passes |
+| 3. baseline (torch default: 2 threads) | c7i.xlarge | 0.861 | 0.963 | 0.886 | 3.5 s (3.6, 3.4) | 4.3 s | 3.8 s | |
+| 3. 1 thread | c7i.xlarge | 0.861 | 0.963 | 0.886 | 6.5 s (6.5, 6.6) | 7.9 s | 6.8 s | |
+| 3. 4 threads | c7i.xlarge | 0.861 | 0.963 | 0.886 | 3.2 s (3.2, 3.2) | 3.9 s | 3.5 s | |
+| 3. length 384, 4 threads | c7i.xlarge | 0.860 | 0.963 | 0.888 | 2.7 s (2.7, 2.7) | 3.0 s | 3.0 s | |
+
+End to end on the host, 8 questions with answers, 2 runs each, the branch code mounted read-only into the 0.4.0 image (no judge):
+
+| Variant | Latency p50 | Latency mean | Latency p95 | Rerank mean | Output tokens | Numeric / schema | Cost (16 answers) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| baseline | 29.5 s | 29.0 s | 38.6 s | 10.2 s | 2,718 | 1.00 / 1.00 | $1.48 |
+| adopted reranker settings | 25.5 s (-14%) | 24.1 s (-17%) | 32.6 s (-16%) | 6.4 s (-37%) | 2,653 | 1.00 / 1.00 | $1.46 |
+
+Method 4, shorter answers, 8 questions with the judge on the laptop, 2 runs each. Variant prompt 1.5.2 (not committed): at most 2 findings per company, no repeat of the direct answer, the whole answer under 350 words, citation claims of at most 12 words, at most 2 next questions:
+
+| Variant | Faithfulness (runs) | Citation precision | Numeric / schema | Output tokens | Model time p50 | Cost with judge |
+| --- | --- | --- | --- | --- | --- | --- |
+| prompt 1.5.1 | 0.851 (0.854, 0.848) | 0.98 | 1.00 / 1.00 | 2,635 | 17.4 s | $2.70 |
+| prompt 1.5.2 variant | 0.860 (0.887, 0.833) | 1.00 | 1.00 / 1.00 | 2,054 (-22%) | 13.7 s | $2.37 |
+
+- Decisions by the rule: method 1 at 384 tokens and method 3's thread count each keep recall (0.860, -0.001; 0.861) but cut the rerank by only about 20% alone; together with batch 8 they cut it by 37% to 41% and the end-to-end mean by 17% on the host, so the combination is adopted: `reranker.max_length: 384`, `reranker.threads: 0` (1 per vCPU), `reranker.batch_size: 8`. A smaller batch pads less: a batch is padded to its longest pair, and batch 80 was slower than batch 32. Max length 256 and the 40-pair budget fail the recall rule and are not adopted. Method 4 is not adopted: the shorter prompt cut the output tokens by 22% and the model time by about 3.7 s, but the end-to-end latency on the laptop moved by about 2% (25.9 s to 25.4 s mean of the run p50s), and faithfulness on the subset is under 0.90 for both prompts with a spread of 0.05 between runs, so the 0.01 rule cannot be shown. The output cap stays 8,000: the full live run `eval-20261022T145423Z` has answers up to 5,161 output tokens, so a 4,000 cap would cut 4 of 24 answers into invalid JSON.
+- Method 3, a faster instance: the c7i.xlarge (4 vCPU, 2 cores) reranks in 3.5 s at the torch default and 2.7 s with the adopted length and 4 threads, against 12.3 s and 6.8 s on the t3.large: 4.1 s less per question on top of the adopted settings, at the on-demand list prices of us-east-2 $0.1785 an hour against $0.0832 (about $130 against $61 a month, +$70). Not changed here: the instance type is the engineer's call in `infra/terraform/`.
+- Spend: live answers $8.01 of the $12 cap (method 4: $5.07 with the judge; end to end on the host: $2.94); the temporary instance about $0.08.
+- `reranker.threads: 0` counts the CPUs the process may use: its affinity mask, capped by a cgroup v2 quota (`/sys/fs/cgroup/cpu.max`), so a container on a shared host such as Railway does not start a thread per host CPU.
+- Also: `keel eval` reports the rerank time per question and its p50 and p95 per variant, beside the retrieval time, in the report and its JSON. `reranker.top_n` is now capped at 80 in the config model, the D-10 limit.
+- Attempts: 1.
+
 ## Gaps
 
 Values that were not available when the build needed them, and what the build did instead.
@@ -862,6 +906,7 @@ Decisions that CLAUDE.md says to ask about, taken in unattended mode. One line e
 - Prompt 1.5.1 becomes the default on 1 full live eval (faithfulness 0.926, every gate and both adversarial checks pass) without a rewarm of the committed demo answer cache, whose 28 entries are keyed to 1.4.0 and miss until `keel warm-cache` runs (about 2.2 USD, past the 5 USD cap of the follow-up). Follow-up after stage 22: prompt 1.5.1.
 - The 28 demo cache entries keyed to prompt 1.4.0 are replaced by a rewarm under prompt 1.5.1 (2.14 USD) instead of kept beside them. Follow-up after stage 22: answer cache for prompt 1.5.1.
 - The Stream moment of chapter 14.8 fades each markdown block once instead of each delta, and the answer container animates its position only, to end the flicker and the scale squash of the streamed answer. Follow-up after stage 22: terminal theme and dark mode.
+- D-10 gains a latency note: the reranker now reads 384 tokens per pair (`reranker.max_length`), not 512, with 1 torch thread per CPU and 8 pairs per batch. The model, the 80-pair limit, and the weights stay; recall at 25 moved from 0.861 to 0.860. The settings are config keys, so `reranker.max_length: null`, `threads: null`, and `batch_size: 32` restore the old behavior. Follow-up after stage 22 (latency experiments).
 
 ## Placeholders resolved
 
