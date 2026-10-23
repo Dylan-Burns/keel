@@ -84,19 +84,30 @@ ensure_corpus() {
     return
   fi
   log "fetching the corpus from the bucket"
+  # Root runs this step, and the app can write corpus/, so the zip lands in
+  # a root-only temp dir and every write refuses to follow a symlink.
+  if [[ -L "${ROOT}/corpus" || -L "${dest}" ]]; then
+    echo "corpus path is a symlink; refusing to extract" >&2
+    exit 1
+  fi
   mkdir -p "${dest}"
+  local tmp
+  tmp="$(mktemp -d)"
   "${AWS}" s3 cp --only-show-errors \
-    "s3://${BUCKET}/keel/bootstrap/edgar_corpus.zip" "${ROOT}/cache/corpus.zip"
-  python3 - "${ROOT}/cache/corpus.zip" "${dest}" <<'PY'
-import pathlib, sys, zipfile
-archive, dest = sys.argv[1], pathlib.Path(sys.argv[2])
+    "s3://${BUCKET}/keel/bootstrap/edgar_corpus.zip" "${tmp}/corpus.zip"
+  python3 - "${tmp}/corpus.zip" "${dest}" <<'PY'
+import os, sys, zipfile
+archive, dest = sys.argv[1], sys.argv[2]
+flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW
 with zipfile.ZipFile(archive) as z:
     for name in z.namelist():
         if "/" in name or "\\" in name or name.startswith("."):
             raise SystemExit(f"unexpected member {name!r}")
-        (dest / name).write_bytes(z.read(name))
+        fd = os.open(os.path.join(dest, name), flags, 0o644)
+        with os.fdopen(fd, "wb") as out:
+            out.write(z.read(name))
 PY
-  rm -f "${ROOT}/cache/corpus.zip"
+  rm -r "${tmp}"
 }
 
 #######################################
@@ -126,14 +137,19 @@ ensure_index() {
   local name
   name="$("${AWS}" s3 ls "s3://${BUCKET}/keel/bootstrap/index-v1/" |
     awk '$4 ~ /\.tar\.gz$/ {print $4}' | sort | tail -n 1)"
+  # Root downloads into its own temp dir (not the app's cache/), which the
+  # restore container reads through a read-only mount.
+  local tmp
+  tmp="$(mktemp -d)"
   "${AWS}" s3 cp --only-show-errors \
-    "s3://${BUCKET}/keel/bootstrap/index-v1/${name}" "${ROOT}/cache/${name}"
+    "s3://${BUCKET}/keel/bootstrap/index-v1/${name}" "${tmp}/${name}"
   "${AWS}" s3 cp --only-show-errors \
     "s3://${BUCKET}/keel/bootstrap/index-v1/${name}.sha256" \
-    "${ROOT}/cache/${name}.sha256"
-  chown -R "${APP_UID}:${APP_UID}" "${ROOT}/cache"
-  keel_run app restore "/app/cache/${name}"
-  rm -f "${ROOT}/cache/${name}" "${ROOT}/cache/${name}.sha256"
+    "${tmp}/${name}.sha256"
+  chmod 755 "${tmp}"
+  chmod 644 "${tmp}/${name}" "${tmp}/${name}.sha256"
+  keel_run -v "${tmp}:/restore:ro" app restore "/restore/${name}"
+  rm -r "${tmp}"
 }
 
 #######################################
@@ -186,13 +202,13 @@ main() {
   docker compose pull app
   APP_UID="$(docker run --rm --entrypoint id "${IMAGE}:${version}" -u)"
   readonly APP_UID
-  # The company dictionary starts as the image's copy; keel add extends
-  # it in state/, which survives deploys.
-  if [[ ! -s state/companies.yaml ]]; then
-    docker run --rm --entrypoint cat "${IMAGE}:${version}" \
-      /app/config/companies.yaml >state/companies.yaml
-  fi
   chown -R "${APP_UID}:${APP_UID}" index cache logs state demo
+  # The company dictionary starts as the image's copy; keel add extends it
+  # in state/, which survives deploys. The app user copies it inside a
+  # container, so root never writes into state/, which the app controls.
+  docker run --rm --user "${APP_UID}" -v "${ROOT}/state:/app/state" \
+    --entrypoint cp "${IMAGE}:${version}" -n /app/config/companies.yaml \
+    /app/state/companies.yaml
   ensure_corpus
   ensure_models
   ensure_index
