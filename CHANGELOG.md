@@ -4,6 +4,24 @@ All notable changes to this project are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 release-please maintains the released sections from Conventional Commits.
 
+## [0.7.0](https://github.com/Dylan-Burns/keel/compare/v0.6.2...v0.7.0) (2026-10-23)
+
+
+### Features
+
+* **api:** report admin job steps with their own logs ([962070f](https://github.com/Dylan-Burns/keel/commit/962070fd02c99ed00cddb9e9a99bc20d85c13090))
+* **web:** show admin job steps the way a ci run does ([ccd3c27](https://github.com/Dylan-Burns/keel/commit/ccd3c2722472cbc92e663a7101500bd74f03605a))
+
+
+### Bug fixes
+
+* **api:** drop the del statements of the no-op reporters ([58dd750](https://github.com/Dylan-Burns/keel/commit/58dd7500130d4ffe0a6a7b954873c885b3ad7579))
+
+
+### Documentation
+
+* **docs:** document the job steps and record the follow-up ([81c72ca](https://github.com/Dylan-Burns/keel/commit/81c72cab63459af07f48469c70ff0f3b014da7e4))
+
 ## [0.6.2](https://github.com/Dylan-Burns/keel/compare/v0.6.1...v0.6.2) (2026-10-23)
 
 
