@@ -40,3 +40,7 @@ config/users.yaml
 *.tfstate.*
 *.tfvars
 tfplan
+
+# Host state of the compose deploy and local token copies
+/state/
+*-token.txt

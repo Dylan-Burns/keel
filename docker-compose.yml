@@ -9,6 +9,10 @@ services:
     env_file: .env
     environment:
       KEEL_CORPUS__DIR: /app/corpus/edgar
+      # keel add and refresh write the company dictionary and the corpus,
+      # so both live on writable volumes (the root file system is
+      # read-only).
+      KEEL_DICTIONARIES__COMPANIES: /app/state/companies.yaml
       KEEL_INDEX__DIR: /app/index
       KEEL_LOGS__DIR: /app/logs
       KEEL_CACHE__ANSWERS_DIR: /app/demo/answer_cache
@@ -16,7 +20,8 @@ services:
       HF_HOME: /app/cache/hf
       HF_HUB_OFFLINE: "1"
     volumes:
-      - ./corpus:/app/corpus:ro
+      - ./corpus:/app/corpus
+      - ./state:/app/state
       - ./index:/app/index
       - ./cache:/app/cache
       - ./logs:/app/logs
