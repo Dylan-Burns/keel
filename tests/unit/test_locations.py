@@ -1,0 +1,258 @@
+"""The location of a cited chunk and the text fragment deep link."""
+
+import pathlib
+import sqlite3
+
+import pytest
+import test_chunk_store
+
+from keel import locations
+from keel.stores import chunk_store
+
+pytestmark = pytest.mark.unit
+
+AAPL_URL = (
+    "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/"
+    "aapl-20250927.htm"
+)
+
+# The vectors that web/src/lib/fragment.test.ts checks with the same rule.
+FRAGMENTS = [
+    (
+        "sales outside the U.S. representing a majority of the Company's "
+        "total net sales",
+        ":~:text=representing%20a%20majority%20of%20the,total%20net%20sales",
+    ),
+    (
+        "We face strong competition for our products and services from a "
+        "growing list of established and new competitors.",
+        ":~:text=We%20face%20strong%20competition%20for%20our,"
+        "established%20and%20new%20competitors",
+    ),
+    (
+        "subject to complex and changing laws",
+        ":~:text=subject%20to%20complex%20and%20changing%20laws",
+    ),
+    ("Total net sales | 416,161 | 391,035", ":~:text=Total%20net%20sales"),
+    (
+        "TABLE: **Products** | $ 307,003 | Services and other | 109,158",
+        ":~:text=Services%20and%20other",
+    ),
+    ("$ 416,161 | 391,035", None),
+    ("A-1 “B”", None),
+]
+
+
+@pytest.mark.parametrize(("quote", "expected"), FRAGMENTS)
+def test_text_fragment_rule(quote: str, expected: str | None) -> None:
+    assert locations.text_fragment(quote) == expected
+
+
+def test_text_fragment_encodes_every_symbol() -> None:
+    fragment = locations.text_fragment("x", anchor="Item 7A. R&D, a-b")
+    assert fragment == ":~:text=Item%207A"
+    assert locations.text_fragment("", anchor="R&D costs, net-of-tax") == (
+        ":~:text=costs"
+    )
+    # Only letters, digits, `%` and the separators ever reach the URL.
+    for quote, _ in FRAGMENTS:
+        fragment = locations.text_fragment(quote) or ""
+        body = fragment.removeprefix(":~:text=")
+        assert all(c.isalnum() or c in "%," for c in body)
+
+
+def test_table_anchor_comes_first() -> None:
+    title = "Third Quarter of Fiscal Year 2026 Summary"
+    assert locations.text_fragment("Revenue | $ 57,006 | 22 | %", title) == (
+        ":~:text=Third%20Quarter%20of%20Fiscal%20Year%202026%20Summary"
+    )
+    assert locations.text_fragment("Total net sales | 1", "Net Sales") == (
+        ":~:text=Net%20Sales"
+    )
+    assert locations.text_fragment("$ 1 | 2") is None
+    assert locations.text_fragment("$ 1", "Segment Results") == (
+        ":~:text=Segment%20Results"
+    )
+
+
+def test_table_title() -> None:
+    text = (
+        "NVIDIA Corp | 10-Q | Q3 FY2026 | MD&A\n"
+        'TABLE: Item 1A. Risk Factors" for a discussion. Third Quarter of '
+        "Fiscal Year 2026 Summary | columns: Three Months Ended\n"
+        "Revenue | $ 57,006"
+    )
+    assert locations.table_title(text) == (
+        "Third Quarter of Fiscal Year 2026 Summary"
+    )
+    assert locations.table_title("TABLE: $ | columns: a") is None
+    assert locations.table_title("no table") is None
+
+
+def test_deep_link() -> None:
+    quote = "The Company has a minority market share in the global market"
+    deep = locations.deep_link(AAPL_URL, quote)
+    assert deep == (
+        f"{AAPL_URL}#:~:text=The%20Company%20has%20a%20minority%20market,"
+        "in%20the%20global%20market"
+    )
+    assert locations.deep_link(f"{AAPL_URL}#old", quote) == deep
+    assert locations.deep_link(AAPL_URL, "$ 1") == AAPL_URL
+    assert locations.deep_link(None, quote) is None
+    assert locations.deep_link("https://evil.example/x", quote) == (
+        "https://evil.example/x"
+    )
+
+
+@pytest.mark.parametrize(
+    ("form", "item", "heading", "label"),
+    [
+        ("10-K", "Item 1A", "Risk Factors", "Part I, Item 1A. Risk Factors"),
+        ("10-K", "Item 7", "MD&A", "Part II, Item 7. MD&A"),
+        ("10-K", "Item 10", "Directors", "Part III, Item 10. Directors"),
+        ("10-K", "Item 15", "Exhibits", "Part IV, Item 15. Exhibits"),
+        ("10-K", "Item 99", "Odd", "Item 99. Odd"),
+        (
+            "10-Q",
+            "Part II Item 1A",
+            "Risk Factors",
+            "Part II, Item 1A. Risk Factors",
+        ),
+        ("10-Q", "Part I Item 2", "MD&A", "Part I, Item 2. MD&A"),
+        ("10-Q", "Item 2", "MD&A", "Item 2. MD&A"),
+        ("10-K", None, "Unknown section", "Unknown section"),
+        ("10-K", "Signatures", "Signatures", "Signatures"),
+    ],
+)
+def test_section_label(
+    form: str, item: str | None, heading: str, label: str
+) -> None:
+    assert locations.section_label(form, item, heading) == label
+
+
+def test_heading_and_accession() -> None:
+    text = "Apple Inc | 10-K | FY2025 | Risk Factors\nItem 1A. Risk Factors"
+    assert locations.heading_of(text) == "Risk Factors"
+    assert locations.heading_of("no prefix") == "Unknown section"
+    assert locations.accession_of(AAPL_URL) == "0000320193-25-000079"
+    assert locations.accession_of("https://www.sec.gov/x.htm") is None
+    assert locations.accession_of(None) is None
+
+
+def test_describe() -> None:
+    place = {
+        "section_label": "Part II, Item 8. Financial Statements",
+        "is_table": True,
+        "passage": 12,
+        "passages": 84,
+        "accession": "0000320193-25-000079",
+    }
+    assert locations.describe(place) == (
+        "Part II, Item 8. Financial Statements, table, passage 12 of 84, "
+        "accession 0000320193-25-000079"
+    )
+    assert locations.describe(None) == ""
+    assert locations.describe({"section_label": ""}) == ""
+
+
+@pytest.fixture(name="store")
+def fixture_store(tmp_path: pathlib.Path) -> sqlite3.Connection:
+    conn = chunk_store.create(tmp_path / chunk_store.FILE_NAME)
+    filing = test_chunk_store.make_filing("AAA")
+    meta = filing.metadata.model_copy(update={"url": AAPL_URL})
+    chunk_store.write_filings(
+        conn, [filing.model_copy(update={"metadata": meta})], "1.0.0"
+    )
+    prefix = "AAA Inc | 10-K | FY2024 | Risk Factors\n"
+    chunks = [
+        test_chunk_store.make_chunk(
+            "AAA_10K_2024-12-31", "risk_factors", n, prefix + "x", "AAA"
+        )
+        for n in range(3)
+    ]
+    chunk_store.write_chunks(conn, chunks)
+    conn.commit()
+    return conn
+
+
+def test_locate_and_annotate(store: sqlite3.Connection) -> None:
+    second = "AAA_10K_2024-12-31__risk_factors__0001"
+    found = locations.locate(store, [second, "facts:AAA:Revenues:FY2024"])
+    assert list(found) == [second]
+    place = found[second]
+    assert place.section_label == "Part I, Item 1A. Risk Factors"
+    assert (place.passage, place.passages) == (2, 3)
+    assert place.is_table is False
+    assert place.filing_date == "2025-02-01"
+    assert place.accession == "0000320193-25-000079"
+    annotated = locations.annotate(
+        store,
+        [{"chunk_id": second}, {"chunk_id": "facts:AAA:Revenues:FY2024"}],
+    )
+    assert annotated[0]["location"]["passage"] == 2
+    assert annotated[1]["location"] is None
+    assert locations.locate(store, []) == {}
+
+
+def overlapping_store(tmp_path: pathlib.Path) -> sqlite3.Connection:
+    conn = chunk_store.create(tmp_path / "overlap.sqlite")
+    filing = test_chunk_store.make_filing("AAA")
+    chunk_store.write_filings(conn, [filing], "1.0.0")
+    prefix = "AAA Inc | 10-K | FY2024 | Risk Factors\n"
+    bodies = [
+        (0, "Alpha beta gamma. Delta epsilon.", False),
+        (18, "Delta epsilon. Zeta eta.", False),
+        (43, "TABLE: Totals | columns: A\nNet | 1", True),
+    ]
+    chunks = []
+    for n, (start, body, table) in enumerate(bodies):
+        chunk = test_chunk_store.make_chunk(
+            "AAA_10K_2024-12-31", "risk_factors", n, prefix + body, "AAA"
+        )
+        chunks.append(
+            chunk.model_copy(
+                update={
+                    "char_start": start,
+                    "char_end": start + len(body),
+                    "is_table": table,
+                }
+            )
+        )
+    chunk_store.write_chunks(conn, chunks)
+    conn.commit()
+    return conn
+
+
+def test_passages_show_the_overlap_once(tmp_path: pathlib.Path) -> None:
+    conn = overlapping_store(tmp_path)
+    first, second, table = (
+        f"AAA_10K_2024-12-31__risk_factors__000{n}" for n in range(3)
+    )
+    found = locations.passages(conn, second, 5, 5)
+    assert found is not None
+    assert [p.chunk_id for p in found] == [first, second, table]
+    assert [p.text for p in found] == [
+        "Alpha beta gamma.",
+        "Delta epsilon. Zeta eta.",
+        "TABLE: Totals | columns: A\nNet | 1",
+    ]
+    assert [p.cited for p in found] == [False, True, False]
+    assert found[2].is_table
+    around_first = locations.passages(conn, first, 0, 1)
+    assert around_first is not None
+    assert [p.text for p in around_first] == [
+        "Alpha beta gamma. Delta epsilon.",
+        "Zeta eta.",
+    ]
+    only = locations.passages(conn, second, 0, 0)
+    assert only is not None
+    assert [p.chunk_id for p in only] == [second]
+    assert locations.passages(conn, "nope", 1, 1) is None
+
+
+def test_annotate_survives_a_store_error() -> None:
+    conn = sqlite3.connect(":memory:")  # no chunks table
+    assert locations.annotate(conn, [{"chunk_id": "x"}]) == [
+        {"chunk_id": "x", "location": None}
+    ]
+    conn.close()

@@ -45,6 +45,7 @@ from keel import context
 from keel import edgar
 from keel import errors
 from keel import indexer
+from keel import locations
 from keel import partial_json
 from keel import prompt
 from keel import reliability
@@ -554,6 +555,10 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             latency_ms={"total": self._elapsed(run)},
         )
         record.update(request_id=run.request_id, meta=meta)
+        # An entry cached before the location field gets it here.
+        record["citations_resolved"] = locations.annotate(
+            self.retriever.conn, record.get("citations_resolved") or []
+        )
         # The cached record holds the context the answer used; a fresh
         # retrieval before a provider failure does not describe it.
         run.result = None
@@ -917,9 +922,10 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             else None,
             "retrieval": self._retrieval(run.result) if run.result else None,
             "answer": validated.answer.model_dump() if validated else None,
-            "citations_resolved": [
-                c.model_dump() for c in validated.citations_resolved
-            ]
+            "citations_resolved": locations.annotate(
+                self.retriever.conn,
+                [c.model_dump() for c in validated.citations_resolved],
+            )
             if validated
             else [],
             "outcome": run.outcome,

@@ -43,6 +43,7 @@ import logging
 import os
 import pathlib
 import re
+import sqlite3
 import sys
 from typing import TYPE_CHECKING
 from typing import Any
@@ -53,7 +54,10 @@ from keel import cache
 from keel import citations
 from keel import config
 from keel import errors
+from keel import indexer
+from keel import locations
 from keel.parsers import form_10k_10q
+from keel.stores import chunk_store
 
 if TYPE_CHECKING:
     from docx import document as docx_document
@@ -173,8 +177,11 @@ class Source:
         fiscal_label: Such as `FY2025`.
         period_end: The period end date.
         filing_date: The filing date, or an empty string.
-        sec_url: The trusted SEC URL, or None.
+        sec_url: The trusted SEC URL, with a text fragment that scrolls
+            to the first quote when one can be built, or None.
         quotes: The quotes the citations of the chunk carry.
+        location: Such as `Part I, Item 1A. Risk Factors, passage 3 of
+            36, accession 0000320193-25-000079`, or an empty string.
     """
 
     number: int
@@ -186,6 +193,7 @@ class Source:
     filing_date: str
     sec_url: str | None
     quotes: tuple[str, ...]
+    location: str = ""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -268,6 +276,59 @@ def _trusted(url: object) -> str | None:
     return encoded
 
 
+def _deep(
+    url: object, quotes: Iterable[str], place: Mapping[str, Any]
+) -> str | None:
+    """The trusted URL with the text fragment of the first quote.
+
+    The fragment is only letters, digits, `%`, and `,`, so the encoded
+    URL passes the checks of `_trusted` again.
+
+    Args:
+        url: The stored URL.
+        quotes: The quotes of the chunk, first quote first.
+        place: The location of the chunk, for the table anchor.
+
+    Returns:
+        The deep link, the trusted URL without a fragment, or None.
+    """
+    trusted = _trusted(url)
+    first = next(iter(quotes), "")
+    deep = locations.deep_link(trusted, first, place.get("anchor"))
+    if deep is None or _URL_FORBIDDEN.search(deep):
+        return trusted
+    return deep if form_10k_10q.url_trusted(deep) else trusted
+
+
+def with_locations(
+    record: Mapping[str, Any], conn: sqlite3.Connection | None
+) -> dict[str, Any]:
+    """Add the chunk locations to a stored record that lacks them.
+
+    Args:
+        record: The stored answer.
+        conn: The chunk store, or None when no index is loaded.
+
+    Returns:
+        The record, its citations annotated when the store answers.
+    """
+    if conn is None:
+        return dict(record)
+    cited = record.get("citations_resolved") or []
+    return {**record, "citations_resolved": locations.annotate(conn, cited)}
+
+
+def _index_conn(settings: config.Settings) -> sqlite3.Connection | None:
+    """Open the current chunk store read-only, or None."""
+    build = indexer.current_build(settings.index.dir)
+    if build is None:
+        return None
+    try:
+        return chunk_store.open_read_only(build / chunk_store.FILE_NAME)
+    except (errors.IndexMissingError, sqlite3.Error):
+        return None
+
+
 def _flat(text: object) -> str:
     """Collapse the whitespace of a field, so no newline starts a block.
 
@@ -294,6 +355,7 @@ def _source_facts(record: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
         }
     for cited in record.get("citations_resolved") or []:
         chunk_id = str(cited.get("chunk_id"))
+        place = cited.get("location") or {}
         known = facts.get(chunk_id, {})
         quotes = list(known.get("quotes", []))
         quote = _flat(cited.get("quote", ""))
@@ -305,8 +367,10 @@ def _source_facts(record: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
             "fiscal_label": _flat(cited.get("fiscal_label", "")),
             "period_end": _flat(cited.get("period_end", "")),
             "filing_date": _flat(cited.get("filing_date", "")),
-            "sec_url": _trusted(cited.get("sec_url")),
+            "sec_url": _deep(cited.get("sec_url"), quotes, place),
             "quotes": quotes,
+            "location": _flat(locations.describe(place))
+            or known.get("location", ""),
         }
     return facts
 
@@ -452,6 +516,7 @@ def build_memo(record: Mapping[str, Any], request_id: str) -> Memo:
                 filing_date=fact.get("filing_date", ""),
                 sec_url=fact.get("sec_url"),
                 quotes=tuple(fact.get("quotes", [])),
+                location=fact.get("location", ""),
             )
         )
     refusal = answer.get("refusal") or {}
@@ -485,7 +550,9 @@ def source_note(source: Source) -> str:
         ended 2025-09-27, filed 2025-10-31. Quote: "..."`.
     """
     parts = [source.filing_name]
-    if source.section_title:
+    if source.location:
+        parts.append(source.location)
+    elif source.section_title:
         parts.append(source.section_title)
     if source.fiscal_label:
         parts.append(source.fiscal_label)
@@ -927,6 +994,12 @@ def run(settings: config.Settings, args: argparse.Namespace) -> int:
             cannot be written.
     """
     record = find_record(settings, args.request_id, args.record)
+    conn = _index_conn(settings)
+    try:
+        record = with_locations(record, conn)
+    finally:
+        if conn is not None:
+            conn.close()
     memo = build_memo(record, args.request_id)
     data = render(memo, args.memo_format)
     out: pathlib.Path = args.out or pathlib.Path(

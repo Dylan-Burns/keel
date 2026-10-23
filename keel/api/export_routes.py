@@ -68,7 +68,11 @@ async def export_memo(
                 None,
                 False,
             )
-        memo = export.build_memo(record, request_id)
+        answerer = services.answerer
+        conn = answerer.retriever.conn if answerer is not None else None
+        memo = export.build_memo(
+            export.with_locations(record, conn), request_id
+        )
     except export.ExportError:
         logger.info("no stored answer for a memo request")
         raise routes.http_error(
