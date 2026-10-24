@@ -31,13 +31,14 @@ Every error has the body of chapter 14.3 under `detail`, and some add fields:
 | 400, 413 | `invalid_question` | a debug question fails the input checks of `/api/ask` | |
 | 401 | `unauthorized` | no token or a wrong token | |
 | 403 | `forbidden` | the route is for admins | |
-| 404 | `not_found`, `archive_not_found` | an unknown job, user, watch row, or archive | |
+| 404 | `not_found`, `archive_not_found`, `unknown_industry` | an unknown job, user, watch row, archive, or SIC code | |
 | 409 | `job_running` | a heavy job is queued or running, or the first-start bootstrap or a nightly refresh or backup runs | `job_id`: the job that holds the slot (null for the bootstrap and the nightly jobs) |
 | 409 | `not_cancellable` | cancel of a job that is not queued | |
 | 409 | `user_exists`, `self_delete` | the user exists; an admin removes their own user | |
 | 422 | (FastAPI) | the body is not JSON of the right shape, an unknown job kind, a bad path or query value | |
+| 502 | `sec_unavailable` | the company browser asked SEC EDGAR, it failed, and no older copy is cached | |
 | 429 | `rate_limited` | the debug routes count against the question rate limit | `retry_after` and the `Retry-After` header |
-| 503 | `jobs_unavailable`, `store_unavailable`, `users_unavailable`, `prices_unavailable`, `index_not_built`, `index_corrupt` | a store, file, or the index is not available | |
+| 503 | `jobs_unavailable`, `store_unavailable`, `users_unavailable`, `prices_unavailable`, `index_not_built`, `index_corrupt`, `directory_unavailable`, `directory_offline` | a store, file, or the index is not available; the server is offline (`KEEL_OFFLINE=1`) and holds no cached company list | |
 
 ## Jobs
 
@@ -222,6 +223,21 @@ The price of 1 answer is measured: the mean `cost_usd` of the newest 200 answere
 
 `keel refresh` (and the `refresh` job) checks the union of every user's tickers.
 
+## Company browser
+
+The companies page lists the SEC industries so an admin can find a company to add. The SEC files every registrant under an industry (an SIC code) and each code under the office of the Division of Corporation Finance that reviews it; each office is a sector here (an office of 2 names, such as `Office of Finance or Office of Crypto Assets`, files under the first). `config/sic_codes.yaml` holds the 444 codes with their titles and offices, generated once from the [SEC SIC code list](https://www.sec.gov/search-filings/standard-industrial-classification-sic-code-list) by `scripts/fetch_sic_codes.py`.
+
+| Route (admin) | Request | Response |
+| --- | --- | --- |
+| `GET /api/admin/directory` | | `{"sectors": [{"name": "Manufacturing", "industries": [{"code": "3674", "title": "SEMICONDUCTORS & RELATED DEVICES", "office": "Office of Manufacturing", "companies": 113}]}], "industry_count": 444}`; `companies` is null until the industry's list is cached. No request to the SEC. |
+| `GET /api/admin/directory/sic/{code}` | `code`: 4 digits (422 otherwise; 404 `unknown_industry` for a code the list does not have) | `{"code": "3674", "title": "...", "sector": "Manufacturing", "companies": [{"cik": "0001045810", "ticker": "NVDA", "tickers": ["NVDA"], "name": "NVIDIA CORP", "indexed": true, "watched": false, "addable": true}], "registrants": 506, "fetched_at": "...", "stale": false, "truncated": false, "sec_requests": 0}` |
+| `GET /api/admin/directory/search?q=` | `q`: 2 to 64 characters, a ticker or a name | `{"items": [...]}`: at most 50 companies of the SEC ticker map, the exact ticker first, then ticker prefixes, then names that start with or hold the text |
+
+- The company list of an industry comes from the EDGAR company feed (`/cgi-bin/browse-edgar?action=getcompany&SIC=<code>&type=10-K&count=100&start=<n>&output=atom`), 1 request per 100 registrants that file a 10-K, at most 30 pages, through the EDGAR client (the allow list, `edgar.min_request_interval_seconds`, and `edgar.user_agent`). Semiconductors (3674) takes 6 requests for 506 registrants. The CIKs land in `<edgar.cache_dir>/sic/<code>.json` with the fetch time; a later call reads the cache (`sec_requests: 0`) until the list is `edgar.directory_ttl_days` old (30 by default). A failed refresh serves the old copy with `stale: true`. With `KEEL_OFFLINE=1` only the cache serves.
+- The feed's name field is broken (`ARRAY(0x...)`), so the names and tickers come from the SEC ticker map; a CIK without a ticker is left out (`registrants` counts them all). A company with share classes lists every ticker; the first one is the one Add sends.
+- `indexed`: the current build holds a filing with the company's CIK or ticker. `watched`: a user watches 1 of its tickers. `addable`: `keel add` takes the ticker (letters and a share class only). Add on the page starts the `add` job with the ticker; an indexed company shows Update, which fetches its latest filings the same way.
+- The feed body is bounded (the read stops past 2 MB of decoded bytes) and parsed only in an ASCII-compatible encoding with no document type and no entity. The log lines carry counts, never the search text.
+
 ## Debug
 
 Both routes take `{"question": "..."}` with the length checks of `/api/ask`, run on the pipeline the server loaded, make no model request (decision D-02), and count against the caller's question rate limit.
@@ -239,6 +255,7 @@ Both routes take `{"question": "..."}` with the length checks of `/api/ask`, run
 | Admin jobs | `keel jobs [ID] [--limit N] [--json]` lists the jobs or shows 1 with its log |
 | Admin job kinds | `keel add`, `keel refresh`, `keel warm-cache`, `keel eval`, `keel facts`, `keel backup`, `keel restore`, `keel index` |
 | Users, watch list | `keel users`, `keel watch` |
+| Company browser | no CLI twin; Add runs `keel add TICKER` |
 | System | `keel doctor`, `keel inventory` |
 | Debug | `keel understand`, `keel retrieve --summary` |
 
