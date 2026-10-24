@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 release-please maintains the released sections from Conventional Commits.
 
+## [0.9.0](https://github.com/Dylan-Burns/keel/compare/v0.8.1...v0.9.0) (2026-10-24)
+
+
+### Features
+
+* **edgar:** show only active 10-K and 10-Q filers in the browser ([5922115](https://github.com/Dylan-Burns/keel/commit/592211510048aec809249f148321a1a565ab6b43))
+* **web:** gate the app on a token and move the pages to a top nav ([5da4ea1](https://github.com/Dylan-Burns/keel/commit/5da4ea1b7bfaf3f491f10661cd1cd2b05199d9a3))
+
+
+### Documentation
+
+* **docs:** record the browser filter, access gate, and page chrome ([a03936a](https://github.com/Dylan-Burns/keel/commit/a03936a36cd57097c5272fcf12780eb688fbdddf))
+
 ## [0.8.1](https://github.com/Dylan-Burns/keel/compare/v0.8.0...v0.8.1) (2026-10-24)
 
 
