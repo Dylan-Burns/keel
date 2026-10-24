@@ -35,6 +35,7 @@ import yaml
 import conftest
 from keel import answer
 from keel import config
+from keel import directory
 from keel import edgar
 from keel import indexer
 from keel import retriever
@@ -416,3 +417,31 @@ def test_job_error_names_the_read_only_path(host: Host) -> None:
     assert job.error is not None
     assert "Read-only file system" in job.error
     assert "backups" in job.error
+
+
+def test_company_browser_cache_is_on_a_volume(host: Host) -> None:
+    """The company list of an industry lands on the EDGAR cache volume."""
+    feed = conftest.FIXTURES / "edgar_sic"
+
+    def pages(request: httpx.Request) -> httpx.Response:
+        start = request.url.params.get("start")
+        name = f"atom_3674_start{start}.xml"
+        return httpx.Response(200, content=(feed / name).read_bytes())
+
+    industries = directory.load_sic_codes(host.settings.edgar.sic_codes)
+    assert any(i.code == "3674" for i in industries)
+    cached = directory.cache_path(host.settings.edgar.cache_dir, "3674")
+    cached.unlink()
+    client = edgar.EdgarClient(
+        host.settings.edgar.user_agent,
+        host.settings.edgar.cache_dir,
+        min_interval=0.0,
+        transport=conftest.peer_transport(pages),
+        resolver=lambda name: ["93.184.215.14"],
+    )
+    with client:
+        listed = directory.industry_ciks(client, "3674", ttl_days=30)
+    assert listed.requests == 2
+    assert cached.is_file()
+    assert os.path.realpath(cached).startswith(host.writable)
+    assert GUARD.violations == []
