@@ -84,6 +84,8 @@ export function CompanyBrowser({onDone}: CompanyBrowserProps): JSX.Element {
   );
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState<Search>({kind: 'idle'});
+  // Bumped when an add job ends, so open search results load again.
+  const [searchRun, setSearchRun] = useState(0);
   const loadIndustry = useCallback((code: string): void => {
     setLoads(current => ({...current, [code]: {kind: 'loading'}}));
     fetchIndustry(code)
@@ -105,6 +107,7 @@ export function CompanyBrowser({onDone}: CompanyBrowserProps): JSX.Element {
   // marks change) and the closed ones load when they open.
   const reloadAll = useCallback((): void => {
     setLoads({});
+    setSearchRun(n => n + 1);
     for (const code of openIndustries) {
       loadIndustry(code);
     }
@@ -159,7 +162,7 @@ export function CompanyBrowser({onDone}: CompanyBrowserProps): JSX.Element {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [text]);
+  }, [text, searchRun]);
 
   const onToggleIndustry = (code: string): void => {
     const opening = !openIndustries.has(code);
@@ -182,7 +185,7 @@ export function CompanyBrowser({onDone}: CompanyBrowserProps): JSX.Element {
           The SEC files every registrant under an industry code, and each code
           under the office that reviews it; the offices are the sectors here.
           Opening an industry asks SEC EDGAR for its 10-K filers once and keeps
-          the list for 30 days. Add starts the same job as{' '}
+          the list for the configured period. Add starts the same job as{' '}
           <code className="font-mono text-[11.5px]">keel add</code>.
         </p>
         <label className="flex min-w-0 flex-col gap-1">

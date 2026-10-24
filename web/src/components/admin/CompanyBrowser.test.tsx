@@ -337,6 +337,31 @@ describe('CompanyBrowser', () => {
     expect(screen.getAllByTestId('sector-row')).toHaveLength(2);
   });
 
+  it('searches again when an add from the results ends', async () => {
+    const calls = routeFetch({
+      'GET /api/admin/directory': {body: DIRECTORY},
+      'GET /api/admin/directory/search': {body: {items: [AMD]}},
+      'POST /api/admin/jobs': {
+        status: 202,
+        body: submitted({params: {ticker: 'AMD'}}),
+      },
+      'GET /api/admin/jobs/3f2a9c0d1e4b5a67': {
+        body: job({params: {ticker: 'AMD'}, status: 'succeeded'}),
+      },
+    });
+    render(<CompanyBrowser onDone={() => undefined} />);
+    await screen.findAllByTestId('sector-row');
+    fireEvent.change(screen.getByTestId('browse-search'), {
+      target: {value: 'amd'},
+    });
+    fireEvent.click(await screen.findByTestId('company-add'));
+    await waitFor(() =>
+      expect(
+        calls.filter(c => c.path.startsWith('/api/admin/directory/search')),
+      ).toHaveLength(2),
+    );
+  });
+
   it('shows the error when the sectors cannot load', async () => {
     routeFetch({
       'GET /api/admin/directory': {
