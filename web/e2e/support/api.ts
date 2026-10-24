@@ -32,6 +32,11 @@ import {
   eventsFor,
   toSseText,
 } from '../../src/testing/fixtures';
+import {
+  FIN_COMPANIES,
+  FIN_NVDA_ANNUAL,
+  FIN_NVDA_QUARTERLY,
+} from '../../src/testing/financials';
 
 /** True when the specs run against a real `keel serve`. */
 export const isLive = process.env['KEEL_E2E_BASE_URL'] !== undefined;
@@ -246,6 +251,17 @@ async function mockApi(page: Page, fault: Fault | null): Promise<void> {
     }
     if (path === '/api/coverage') {
       return json(route, COVERAGE);
+    }
+    if (path === '/api/financials') {
+      return json(route, FIN_COMPANIES);
+    }
+    if (path === '/api/financials/NVDA') {
+      return json(
+        route,
+        url.searchParams.get('period') === 'quarterly'
+          ? FIN_NVDA_QUARTERLY
+          : FIN_NVDA_ANNUAL,
+      );
     }
     if (path === '/api/eval') {
       return json(route, EVAL_PAGE);

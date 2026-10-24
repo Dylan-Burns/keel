@@ -169,6 +169,13 @@ describe('CompanyBrowser', () => {
     expect(
       within(rows[2] as HTMLElement).getByTestId('company-add'),
     ).toHaveTextContent('Update');
+    // An indexed company links to its financials page; the others do not.
+    expect(
+      within(rows[2] as HTMLElement).getByTestId('company-financials'),
+    ).toHaveAttribute('href', '/financials?ticker=NVDA');
+    expect(
+      within(rows[0] as HTMLElement).queryByTestId('company-financials'),
+    ).toBeNull();
     // Closing and opening again reads the loaded list, no new request.
     fireEvent.click(industryToggle);
     expect(screen.queryByTestId('company-row')).toBeNull();

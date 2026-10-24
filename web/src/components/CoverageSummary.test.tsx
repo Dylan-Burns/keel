@@ -11,6 +11,11 @@ describe('CoverageSummary', () => {
       '3 companies, 3 filings, 0 quarantined',
     );
     expect(
+      screen
+        .getAllByTestId('coverage-financials-link')
+        .map(a => a.getAttribute('href')),
+    ).toContain('/financials?ticker=NVDA');
+    expect(
       coverageLine({
         ...COVERAGE,
         filing_count: 245,
