@@ -493,7 +493,7 @@ def pick_latest(
         latest.setdefault(ref.form, ref)
     if not latest:
         raise errors.EdgarError(
-            "the submissions list no " + " or ".join(forms) + " filing"
+            "the submissions list has no " + " or ".join(forms) + " filing"
         )
     return [latest[form] for form in forms if form in latest]
 

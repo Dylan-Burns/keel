@@ -271,6 +271,7 @@ class EdgarConfig(_Section):
     facts: pathlib.Path = pathlib.Path("config/facts.yaml")
     sic_codes: pathlib.Path = pathlib.Path("config/sic_codes.yaml")
     directory_ttl_days: int = pydantic.Field(default=30, ge=1)
+    directory_since_year: int = pydantic.Field(default=2022, ge=2009)
     financials: pathlib.Path = pathlib.Path("config/financials.yaml")
 
 

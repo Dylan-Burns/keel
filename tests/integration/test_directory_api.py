@@ -9,6 +9,7 @@ a fetch goes to a mock transport that serves the recorded feed pages of
 
 from collections.abc import Callable
 from collections.abc import Iterator
+import json
 import logging
 import pathlib
 import shutil
@@ -22,6 +23,7 @@ import test_users_api as base
 import conftest
 from keel import config
 from keel import edgar
+from keel import errors
 from keel import users
 from keel.api import app as api_app
 from keel.api import directory as directory_api
@@ -117,6 +119,40 @@ def feed(monkeypatch: pytest.MonkeyPatch) -> Feed:
 
     monkeypatch.setattr(directory_api, "edgar_client", client_of)
     return handler
+
+
+TICKERS = json.loads(
+    (conftest.FIXTURES / "edgar" / "company_tickers.json").read_text(
+        encoding="utf-8"
+    )
+)
+ALL_CIKS = frozenset(
+    f"{int(row['cik_str']):010d}" for row in TICKERS["data"].values()
+)
+AMD_CIK = "0000002488"
+
+
+class Active:
+    """The active filers the routes see; a test narrows them."""
+
+    def __init__(self) -> None:
+        self.ciks = ALL_CIKS
+        self.calls = 0
+
+    def __call__(
+        self, settings: config.Settings, client: edgar.EdgarClient
+    ) -> frozenset[str]:
+        del settings, client
+        self.calls += 1
+        return self.ciks
+
+
+@pytest.fixture(autouse=True)
+def active(monkeypatch: pytest.MonkeyPatch) -> Active:
+    """Every recorded company is an active filer unless a test says not."""
+    holder = Active()
+    monkeypatch.setattr(directory_api, "active_filers", holder)
+    return holder
 
 
 @pytest.fixture
@@ -300,4 +336,60 @@ def test_search_and_its_limits(
         r.getMessage() for r in caplog.records if not r.name.startswith("httpx")
     ]
     assert not any(MARKED_QUERY in line for line in server_lines)
+    assert feed.urls == []
+
+
+def test_only_active_filers_show(
+    make_client: Callable[..., testclient.TestClient],
+    tokens: dict[str, str],
+    active: Active,
+    feed: Feed,
+) -> None:
+    """A company that stopped filing a 10-K or 10-Q drops out everywhere."""
+    active.ciks = ALL_CIKS - {AMD_CIK}
+    headers = bearer(tokens["carol"])
+    client = make_client()
+    overview = client.get("/api/admin/directory", headers=headers).json()
+    industries = {
+        i["code"]: i for s in overview["sectors"] for i in s["industries"]
+    }
+    assert industries["3674"]["companies"] == 2
+    industry = client.get(
+        "/api/admin/directory/sic/3674", headers=headers
+    ).json()
+    assert [c["ticker"] for c in industry["companies"]] == ["INTC", "NVDA"]
+    # The registrant count stays the raw feed count.
+    assert industry["registrants"] == 506
+    found = client.get(
+        "/api/admin/directory/search", params={"q": "amd"}, headers=headers
+    ).json()
+    assert found == {"items": []}
+    assert feed.urls == []
+
+
+def test_overview_counts_wait_for_the_filer_list(
+    make_client: Callable[..., testclient.TestClient],
+    tokens: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+    feed: Feed,
+) -> None:
+    """Without a cached filer list the overview sends no request."""
+
+    def missing(
+        settings: config.Settings, client: edgar.EdgarClient
+    ) -> frozenset[str]:
+        del settings
+        assert client.offline
+        raise errors.EdgarCacheMissError("no cached XBRL index")
+
+    monkeypatch.setattr(directory_api, "active_filers", missing)
+    overview = (
+        make_client()
+        .get("/api/admin/directory", headers=bearer(tokens["carol"]))
+        .json()
+    )
+    counts = {
+        i["companies"] for s in overview["sectors"] for i in s["industries"]
+    }
+    assert counts == {None}
     assert feed.urls == []
