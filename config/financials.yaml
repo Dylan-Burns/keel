@@ -1,0 +1,178 @@
+# The financial statements of the financials page (/financials). Each
+# statement is an ordered tree of line items: `parent` names an earlier
+# item of the same statement. `names` lists the XBRL concepts
+# (taxonomy:Name) in priority order: for each period the first name with a
+# value wins, and among the rows of that name the latest filing wins.
+# `unit` is the XBRL unit to read. `sign: -1` shows an outflow as a
+# negative number. `hidden` items feed a derivation and never show.
+#
+# Derivations (`derive`) run on the signed values of 2 items with the same
+# period label: `add` or `subtract`. `mode: replace` computes every point,
+# `mode: gaps` only fills the periods the filings leave empty. A derived
+# point carries the source of its left item and the flag `derived`.
+#
+# `calendar` names the concepts that define the fiscal years and quarter
+# ends of a company, in priority order.
+#
+# `split_evidence` lists the share counts that `detect_splits` reads
+# besides the per-share items: a restated share count shows a split even
+# when the per-share values are too small to measure it.
+#
+# `splits` is the per-company override of the stock splits that
+# `keel.financials.detect_splits` finds in the filings themselves. Leave it
+# empty unless the detection misses a split; an entry replaces the
+# detection for that CIK.
+calendar:
+  - - us-gaap:Revenues
+    - us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax
+    - us-gaap:RevenueFromContractWithCustomerIncludingAssessedTax
+    - us-gaap:RevenuesNetOfInterestExpense
+    - us-gaap:SalesRevenueNet
+    - us-gaap:SalesRevenueGoodsNet
+  - - us-gaap:NetIncomeLoss
+    - us-gaap:ProfitLoss
+split_evidence:
+  - us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding
+  - us-gaap:WeightedAverageNumberOfSharesOutstandingBasic
+splits: {}
+statements:
+  - id: income
+    label: Income Statement
+    kind: duration
+    defaults: [revenue, net_income]
+    items:
+      - id: revenue
+        label: Total revenue
+        names:
+          - us-gaap:Revenues
+          - us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax
+          - us-gaap:RevenueFromContractWithCustomerIncludingAssessedTax
+          - us-gaap:RevenuesNetOfInterestExpense
+          - us-gaap:SalesRevenueNet
+          - us-gaap:SalesRevenueGoodsNet
+      - id: cost_of_revenue
+        label: Cost of revenue
+        names:
+          - us-gaap:CostOfRevenue
+          - us-gaap:CostOfGoodsAndServicesSold
+          - us-gaap:CostOfGoodsSold
+      - id: gross_profit
+        label: Gross profit
+        names: [us-gaap:GrossProfit]
+        derive:
+          op: subtract
+          left: revenue
+          right: cost_of_revenue
+          mode: gaps
+          note: total revenue minus cost of revenue
+      - id: opex
+        label: Operating expenses
+        names: [us-gaap:OperatingExpenses]
+      - id: rnd
+        label: Research and development
+        parent: opex
+        names:
+          - us-gaap:ResearchAndDevelopmentExpense
+          - us-gaap:ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost
+      - id: sga
+        label: Sales, general and admin
+        parent: opex
+        names: [us-gaap:SellingGeneralAndAdministrativeExpense]
+      - id: operating_income
+        label: Operating income
+        names: [us-gaap:OperatingIncomeLoss]
+      - id: net_income
+        label: Net income
+        names:
+          - us-gaap:NetIncomeLoss
+          - us-gaap:ProfitLoss
+          - us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic
+      - id: eps_diluted
+        label: Diluted EPS
+        unit: USD/shares
+        names:
+          - us-gaap:EarningsPerShareDiluted
+          - us-gaap:EarningsPerShareBasicAndDiluted
+  - id: balance
+    label: Balance Sheet
+    kind: instant
+    defaults: [total_assets, total_liabilities]
+    items:
+      - id: cash
+        label: Cash and equivalents
+        names:
+          - us-gaap:CashAndCashEquivalentsAtCarryingValue
+          - us-gaap:Cash
+      - id: total_assets
+        label: Total assets
+        names: [us-gaap:Assets]
+      - id: total_liabilities
+        label: Total liabilities
+        names: [us-gaap:Liabilities]
+        derive:
+          op: subtract
+          left: liabilities_and_equity
+          right: equity
+          mode: gaps
+          note: total liabilities and equity minus stockholders' equity
+      - id: lt_debt
+        label: Long-term debt
+        parent: total_liabilities
+        names:
+          - us-gaap:LongTermDebtNoncurrent
+          - us-gaap:LongTermDebt
+      - id: equity
+        label: Stockholders' equity
+        names:
+          - us-gaap:StockholdersEquity
+          - us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest
+      - id: liabilities_and_equity
+        label: Total liabilities and equity
+        hidden: true
+        names: [us-gaap:LiabilitiesAndStockholdersEquity]
+  - id: cash
+    label: Cash Flow
+    kind: duration
+    defaults: [ocf, fcf]
+    items:
+      - id: ocf
+        label: Operating cash flow
+        names:
+          - us-gaap:NetCashProvidedByUsedInOperatingActivities
+          - us-gaap:NetCashProvidedByUsedInOperatingActivitiesContinuingOperations
+      - id: capex
+        label: Capital expenditures
+        sign: -1
+        names:
+          - us-gaap:PaymentsToAcquireProductiveAssets
+          - us-gaap:PaymentsToAcquirePropertyPlantAndEquipment
+      - id: fcf
+        label: Free cash flow
+        derive:
+          op: add
+          left: ocf
+          right: capex
+          mode: replace
+          note: operating cash flow minus capital expenditures
+      - id: icf
+        label: Investing cash flow
+        names:
+          - us-gaap:NetCashProvidedByUsedInInvestingActivities
+          - us-gaap:NetCashProvidedByUsedInInvestingActivitiesContinuingOperations
+      - id: financing
+        label: Financing cash flow
+        names:
+          - us-gaap:NetCashProvidedByUsedInFinancingActivities
+          - us-gaap:NetCashProvidedByUsedInFinancingActivitiesContinuingOperations
+      - id: buybacks
+        label: Share buybacks
+        parent: financing
+        sign: -1
+        names: [us-gaap:PaymentsForRepurchaseOfCommonStock]
+      - id: dividends_paid
+        label: Dividends paid
+        parent: financing
+        sign: -1
+        names:
+          - us-gaap:PaymentsOfDividends
+          - us-gaap:PaymentsOfDividendsCommonStock
