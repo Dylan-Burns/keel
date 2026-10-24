@@ -7,9 +7,11 @@ count of each industry whose list is cached; it sends no request.
 that have a ticker, fetched from EDGAR on the first call and cached for
 `edgar.directory_ttl_days` (`keel.directory`). `GET
 /api/admin/directory/search?q=` finds companies in the SEC ticker map by
-ticker or name. Each company says whether the index holds its filings and
-whether a user watches it; the Add button of the page starts the `add`
-job with its ticker.
+ticker or name. Both show only the active filers of `keel.filers`: a
+ticker, and a 10-K or 10-Q every year since `edgar.directory_since_year`
+and in the last 365 days. Each company says whether the index holds its
+filings and whether a user watches it; the Add button of the page starts
+the `add` job with its ticker.
 
 Every route needs the admin role. The log lines carry fixed words and
 counts, never the query or a value of the request.
@@ -30,6 +32,7 @@ from keel import config
 from keel import directory
 from keel import edgar
 from keel import errors
+from keel import filers
 from keel.api import admin
 from keel.api import routes
 from keel.stores import state_store
@@ -214,17 +217,53 @@ def _cached_ticker_map(settings: config.Settings) -> edgar.TickerMap | None:
             return None
 
 
+def active_filers(
+    settings: config.Settings, client: edgar.EdgarClient
+) -> frozenset[str]:
+    """The CIKs the browser shows; tests replace it.
+
+    Args:
+        settings: The loaded settings.
+        client: The EDGAR client.
+
+    Returns:
+        The active 10-K and 10-Q filers (`keel.filers`).
+
+    Raises:
+        EdgarError: A quarter of the XBRL index cannot load.
+    """
+    return filers.active_ciks(client, settings.edgar.directory_since_year)
+
+
+def _cached_active(settings: config.Settings) -> frozenset[str] | None:
+    """The active filers when the cache holds them, without a request."""
+    with edgar_client(settings.model_copy(update={"offline": True})) as c:
+        try:
+            return active_filers(settings, c)
+        except errors.EdgarError:
+            return None
+
+
 def _overview(settings: config.Settings) -> DirectoryResponse:
     industries = _industries(settings)
     tickers = _cached_ticker_map(settings)
+    allowed = _cached_active(settings)
     sectors = []
     for name, rows in directory.sectors(industries.values()):
         items = []
         for row in rows:
             count = None
             cached = directory.read_industry(settings.edgar.cache_dir, row.code)
-            if cached is not None and tickers is not None:
-                count = sum(1 for cik in cached.ciks if tickers.by_cik(cik))
+            if (
+                cached is not None
+                and tickers is not None
+                and allowed is not None
+            ):
+                count = sum(
+                    1
+                    for cik in cached.ciks
+                    if cik in allowed and tickers.by_cik(cik)
+                )
             items.append(
                 DirectoryIndustry(
                     code=row.code,
@@ -269,10 +308,15 @@ def _industry(settings: config.Settings, code: str) -> IndustryCompanies:
                 client, code, ttl_days=settings.edgar.directory_ttl_days
             )
             tickers = client.ticker_map()
+            allowed = active_filers(settings, client)
         except errors.EdgarError as error:
             raise _edgar_failure(error) from error
         requests = client.requests
-    companies = directory.join_companies(listed.ciks, tickers, _marks(settings))
+    companies = directory.join_companies(
+        [cik for cik in listed.ciks if cik in allowed],
+        tickers,
+        _marks(settings),
+    )
     logger.info(
         "directory industry: %d companies, %d SEC requests",
         len(companies),
@@ -320,9 +364,12 @@ def _search(settings: config.Settings, query: str) -> SearchResults:
     with _FETCH_LOCK, edgar_client(settings) as client:
         try:
             tickers = client.ticker_map()
+            allowed = active_filers(settings, client)
         except errors.EdgarError as error:
             raise _edgar_failure(error) from error
-    found = directory.search(tickers, query, _marks(settings), MAX_RESULTS)
+    found = directory.search(
+        tickers, query, _marks(settings), MAX_RESULTS, allowed
+    )
     return SearchResults(items=[_company(c) for c in found])
 
 

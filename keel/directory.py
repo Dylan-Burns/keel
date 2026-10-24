@@ -503,7 +503,11 @@ def join_companies(
 
 
 def search(
-    tickers: edgar.TickerMap, query: str, marks: Marks, limit: int = 50
+    tickers: edgar.TickerMap,
+    query: str,
+    marks: Marks,
+    limit: int = 50,
+    allowed: Collection[str] | None = None,
 ) -> list[Company]:
     """Find companies by ticker or name.
 
@@ -516,6 +520,8 @@ def search(
         query: The text; case and the `.` of a share class do not matter.
         marks: The indexed and watched sets.
         limit: The most companies returned.
+        allowed: The CIKs that may show, or None for every CIK. The
+            filter runs before the limit.
 
     Returns:
         The companies, best first.
@@ -526,6 +532,8 @@ def search(
         return []
     ranked: dict[str, tuple[int, str]] = {}
     for entry in tickers:
+        if allowed is not None and entry.cik not in allowed:
+            continue
         name = entry.title.upper()
         if entry.ticker == key:
             rank = 0
