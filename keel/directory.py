@@ -58,6 +58,11 @@ SIC_CODE = re.compile(r"^\d{4}$")
 ATOM = "{http://www.w3.org/2005/Atom}"
 _OFFICE_PREFIX = "Office of "
 _FORBIDDEN_MARKUP = (b"<!doctype", b"<!entity")
+# The encodings in which the byte check below sees every declaration.
+_ENCODINGS = frozenset({"iso-8859-1", "latin-1", "utf-8", "us-ascii"})
+_XML_ENCODING = re.compile(
+    rb"""^\s*<\?xml[^>]*?encoding\s*=\s*["']([^"']+)["']"""
+)
 
 
 class _Model(pydantic.BaseModel):
@@ -258,24 +263,32 @@ def parse_feed(body: bytes) -> FeedPage:
         The CIKs and whether a next page exists.
 
     Raises:
-        EdgarFetchError: The body is too large, declares a document type
-            or an entity, or is not XML.
+        EdgarFetchError: The body is too large, has an unexpected
+            encoding, declares a document type or an entity, or is not XML.
     """
     if len(body) > MAX_FEED_BYTES:
         raise errors.EdgarFetchError(
             f"the company feed page has {len(body)} bytes, more than "
             f"{MAX_FEED_BYTES}"
         )
-    # A NUL byte means a UTF-16 or UTF-32 body, where the byte check below
-    # would miss a declaration; the feed is ISO-8859-1.
+    # The byte check sees a declaration only in an ASCII-compatible
+    # encoding: a NUL byte (UTF-16, UTF-32) or another declared encoding
+    # (EBCDIC) is refused first. The feed is ISO-8859-1.
+    declared = _XML_ENCODING.match(body)
+    encoding = declared.group(1).decode("ascii", "replace") if declared else ""
+    if b"\x00" in body or (encoding and encoding.lower() not in _ENCODINGS):
+        raise errors.EdgarFetchError(
+            "the company feed has an unexpected encoding"
+        )
     lowered = body.lower()
-    if b"\x00" in body or any(m in lowered for m in _FORBIDDEN_MARKUP):
+    if any(m in lowered for m in _FORBIDDEN_MARKUP):
         raise errors.EdgarFetchError(
             "the company feed declares a document type or an entity"
         )
     try:
-        # Safe without defusedxml: with no document type, no entity can be
-        # declared, so nothing expands and nothing is fetched.
+        # With no document type, no entity can be declared, so nothing
+        # expands and nothing is fetched; the expat guard against entity
+        # expansion stays the backstop.
         root = ElementTree.fromstring(body)  # noqa: S314
     except ElementTree.ParseError as error:
         raise errors.EdgarFetchError(
@@ -358,7 +371,10 @@ def _fetch(client: edgar.EdgarClient, sic: str) -> edgar.CachedDocument:
     pages = 0
     truncated = False
     while True:
-        page = parse_feed(client.fetch(feed_url(sic, pages * PAGE_SIZE)))
+        body = client.fetch(
+            feed_url(sic, pages * PAGE_SIZE), max_bytes=MAX_FEED_BYTES
+        )
+        page = parse_feed(body)
         pages += 1
         ciks.update(dict.fromkeys(page.ciks))
         if not page.has_next or not page.ciks:

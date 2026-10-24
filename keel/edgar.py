@@ -773,11 +773,14 @@ class EdgarClient:
         write_cached(path, document)
         return document
 
-    def fetch(self, url: str) -> bytes:
+    def fetch(self, url: str, max_bytes: int | None = None) -> bytes:
         """GET 1 allow-listed URL with the rate limit and redirect checks.
 
         Args:
             url: The URL.
+            max_bytes: The most bytes of the decoded body; the read stops
+                past it, so a compressed body cannot expand in memory
+                without a bound. None reads the whole body.
 
         Returns:
             The response body.
@@ -785,17 +788,18 @@ class EdgarClient:
         Raises:
             OutboundBlockedError: The URL or a redirect target fails S-11.
             EdgarFetchError: The request fails, a redirect has no target,
-                there are too many redirects, or the status is not 200.
+                there are too many redirects, the status is not 200, or
+                the body passes `max_bytes`.
         """
         for _ in range(MAX_REDIRECTS + 1):
             check_url(url, self._resolver)
-            response = self._get(url)
+            response, body = self._get(url, max_bytes)
             if not response.is_redirect:
                 if response.status_code != httpx.codes.OK:
                     raise errors.EdgarFetchError(
                         f"HTTP {response.status_code} from {url}"
                     )
-                return response.content
+                return body
             location = response.headers.get("location")
             if not location:
                 raise errors.EdgarFetchError(f"redirect without target: {url}")
@@ -803,7 +807,9 @@ class EdgarClient:
             logger.info("EDGAR redirect to %s", url)
         raise errors.EdgarFetchError(f"more than {MAX_REDIRECTS} redirects")
 
-    def _get(self, url: str) -> httpx.Response:
+    def _get(
+        self, url: str, max_bytes: int | None = None
+    ) -> tuple[httpx.Response, bytes]:
         """Send 1 GET after the minimum interval since the last request."""
         if self._last_request is not None:
             wait = self.min_interval - (self._clock() - self._last_request)
@@ -817,8 +823,9 @@ class EdgarClient:
                 # so the address of the open socket is checked too, before
                 # the body is read.
                 net.check_peer(response, host)
-                response.read()
-                return response
+                if max_bytes is None:
+                    return response, response.read()
+                return response, _bounded_body(response, max_bytes, url)
         except errors.HostNotAllowedError as error:
             raise errors.OutboundBlockedError(str(error)) from error
         except httpx.HTTPError as error:
@@ -826,6 +833,20 @@ class EdgarClient:
         finally:
             self._last_request = self._clock()
             self.requests += 1
+
+
+def _bounded_body(response: httpx.Response, max_bytes: int, url: str) -> bytes:
+    """Read a streamed body; stop and raise past `max_bytes` decoded bytes."""
+    parts: list[bytes] = []
+    size = 0
+    for part in response.iter_bytes():
+        size += len(part)
+        if size > max_bytes:
+            raise errors.EdgarFetchError(
+                f"the body of {url} has more than {max_bytes} bytes"
+            )
+        parts.append(part)
+    return b"".join(parts)
 
 
 def read_cached(path: pathlib.Path) -> CachedDocument:

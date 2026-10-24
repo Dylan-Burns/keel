@@ -25,6 +25,7 @@ import tempfile
 
 from keel import config
 from keel import edgar
+from keel import errors
 
 SIC_LIST_URL = (
     "https://www.sec.gov/search-filings/"
@@ -82,7 +83,7 @@ def parse_sic_table(page: str) -> list[dict[str, str]]:
         `title`, in code order.
 
     Raises:
-        ValueError: The page has no SIC table.
+        ConfigError: The page has no SIC table.
     """
     parser = _TableParser()
     parser.feed(page)
@@ -93,7 +94,7 @@ def parse_sic_table(page: str) -> list[dict[str, str]]:
         code, office, title = row
         rows.append({"code": code.zfill(4), "office": office, "title": title})
     if not rows:
-        raise ValueError(f"no SIC table in {SIC_LIST_URL}")
+        raise errors.ConfigError(f"no SIC table in {SIC_LIST_URL}")
     return sorted(rows, key=lambda r: r["code"])
 
 

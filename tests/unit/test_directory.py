@@ -151,12 +151,37 @@ def test_parse_feed_recorded_pages() -> None:
     [
         b'<?xml version="1.0"?><!DOCTYPE feed [<!ENTITY a "x">]><feed/>',
         b'<?xml version="1.0"?><!doctype feed SYSTEM "http://x/"><feed/>',
-        '<?xml version="1.0" encoding="UTF-16"?><feed/>'.encode("utf-16"),
     ],
 )
 def test_parse_feed_rejects_doctype_and_entities(body: bytes) -> None:
     with pytest.raises(errors.EdgarFetchError, match="document type"):
         directory.parse_feed(body)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        '<?xml version="1.0" encoding="UTF-16"?><feed/>'.encode("utf-16"),
+        b'<?xml version="1.0" encoding="cp037"?>'
+        + '<!DOCTYPE feed [<!ENTITY a "x">]><feed/>'.encode("cp037"),
+    ],
+)
+def test_parse_feed_rejects_other_encodings(body: bytes) -> None:
+    """A declaration in a non-ASCII encoding would pass the byte check."""
+    with pytest.raises(errors.EdgarFetchError, match="encoding"):
+        directory.parse_feed(body)
+
+
+def test_fetch_stops_past_the_byte_limit(tmp_path: pathlib.Path) -> None:
+    """The client stops reading the decoded body past the limit."""
+    with (
+        make_client(tmp_path, Feed()) as client,
+        pytest.raises(errors.EdgarFetchError, match="more than 100 bytes"),
+    ):
+        client.fetch(directory.feed_url("3674", 0), max_bytes=100)
+    with make_client(tmp_path, Feed()) as client:
+        body = client.fetch(directory.feed_url("3674", 0), max_bytes=10**6)
+    assert body == PAGE_1
 
 
 def test_parse_feed_rejects_large_and_broken_bodies(
