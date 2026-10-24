@@ -31,6 +31,10 @@ describe('EntitiesLine', () => {
     expect(
       screen.getAllByTestId('entity-chip').map(c => c.textContent),
     ).toEqual(['JPM', 'AAPL']);
+    expect(screen.getAllByTestId('entity-chip')[0]).toHaveAttribute(
+      'href',
+      '/financials?ticker=JPM',
+    );
     expect(screen.getByText(/Did you mean JPMorgan Chase/)).toBeInTheDocument();
   });
 
