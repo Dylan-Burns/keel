@@ -76,8 +76,8 @@ FACT_FORMS = frozenset({"10-K", "10-K/A", "10-Q", "10-Q/A"})
 # A fiscal year runs 52 or 53 weeks, a quarter 13 or 14 weeks. Durations
 # outside both ranges (the 6- and 9-month year-to-date values of a 10-Q)
 # get no fact line.
-_ANNUAL_DAYS = range(350, 381)
-_QUARTER_DAYS = range(84, 99)
+ANNUAL_DAYS = range(350, 381)
+QUARTER_DAYS = range(84, 99)
 
 Resolver = Callable[[str], Sequence[str]]
 Clock = Callable[[], float]
@@ -1105,9 +1105,9 @@ def _kind(start: datetime.date | None, end: datetime.date) -> PeriodKind | None:
     if start is None:
         return "instant"
     days = (end - start).days + 1
-    if days in _ANNUAL_DAYS:
+    if days in ANNUAL_DAYS:
         return "annual"
-    if days in _QUARTER_DAYS:
+    if days in QUARTER_DAYS:
         return "quarter"
     return None
 
@@ -1208,6 +1208,25 @@ def _current_labels(
         if entry.kind == "annual" or entry.fiscal_period != "FY":
             labels.setdefault(("instant", entry.end), label)
     return labels
+
+
+def fiscal_labels(
+    document: Mapping[str, Any], concept: FactConcept
+) -> dict[tuple[PeriodKind, datetime.date], tuple[int, str]]:
+    """The fiscal labels the filings give their current periods.
+
+    The financials page (`keel.financials`) numbers its fiscal years the
+    way the company does, from the same rule as the facts lines.
+
+    Args:
+        document: The company facts body.
+        concept: The concept whose values carry the periods.
+
+    Returns:
+        (kind, period end) to (fiscal year, fiscal period), as
+        `_current_labels` builds it.
+    """
+    return _current_labels(_entries(document, [concept]))
 
 
 def _label(

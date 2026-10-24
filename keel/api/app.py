@@ -38,6 +38,7 @@ from keel.api import background
 from keel.api import debug
 from keel.api import directory
 from keel.api import export_routes
+from keel.api import financials
 from keel.api import job_kinds
 from keel.api import jobs
 from keel.api import routes
@@ -189,6 +190,7 @@ def create_app(services: Services) -> fastapi.FastAPI:
     app.include_router(routes.router)
     app.include_router(export_routes.router)
     app.include_router(workspace.router)
+    app.include_router(financials.router)
     app.include_router(admin.router)
     app.include_router(admin_system.router)
     app.include_router(directory.router)
