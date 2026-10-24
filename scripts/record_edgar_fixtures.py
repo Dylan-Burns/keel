@@ -21,7 +21,17 @@ import tempfile
 from keel import config
 from keel import edgar
 
-TICKERS = ("NVDA", "AAPL", "MSFT", "JPM", "ZTS", "WDAY", "BRK-B")
+TICKERS = (
+    "NVDA",
+    "AAPL",
+    "MSFT",
+    "JPM",
+    "ZTS",
+    "WDAY",
+    "BRK-B",
+    "AMD",
+    "INTC",
+)
 FACTS_TICKER = "NVDA"
 DEFAULT_OUT = pathlib.Path("tests/fixtures/edgar")
 

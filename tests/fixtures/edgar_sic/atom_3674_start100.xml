@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+  <feed xmlns="http://www.w3.org/2005/Atom">
+    <author>
+      <email>webmaster@sec.gov</email>
+      <name>Webmaster</name>
+    </author>
+    <entry title="ARRAY(0x55f511e38290)">
+      <content type="text/xml">
+        <company-info name="ARRAY(0x55f51211c8f8)">
+          <addresses>
+            <address type="business">
+              <state>F4</state>
+            </address>
+            <address type="mailing" />
+          </addresses>
+          <cik>0001394029</cik>
+          <irs-number></irs-number>
+          <sic>3674</sic>
+          <state>F4</state>
+        </company-info>
+      </content>
+      <id>urn:tag:www.sec.gov:cik=0001394029</id>
+      <link href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&amp;CIK=0001394029&amp;owner=exclude&amp;hidefilings=0" type="text/html" />
+      <summary type="html">&lt;strong&gt;CIK:&lt;/strong&gt; 0001394029, &lt;strong&gt;State:&lt;/strong&gt; F4</summary>
+      <updated>2026-10-24T16:11:44-04:00</updated>
+    </entry>
+    <entry title="ARRAY(0x55f5120af570)">
+      <content type="text/xml">
+        <company-info name="ARRAY(0x55f512127780)">
+          <addresses>
+            <address type="business">
+              <state>A6</state>
+            </address>
+            <address type="mailing" />
+          </addresses>
+          <cik>0000352435</cik>
+          <irs-number>
+            <former-name-0 DATE="2001-02-09" NAME="MITEL CORP" />
+          </irs-number>
+          <sic>3674</sic>
+          <state>A6</state>
+        </company-info>
+      </content>
+      <id>urn:tag:www.sec.gov:cik=0000352435</id>
+      <link href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&amp;CIK=0000352435&amp;owner=exclude&amp;hidefilings=0" type="text/html" />
+      <summary type="html">&lt;strong&gt;CIK:&lt;/strong&gt; 0000352435, &lt;strong&gt;State:&lt;/strong&gt; A6</summary>
+      <updated>2026-10-24T16:11:44-04:00</updated>
+    </entry>
+    <entry title="ARRAY(0x55f5120ace48)">
+      <content type="text/xml">
+        <company-info name="ARRAY(0x55f5120af948)">
+          <addresses>
+            <address type="business">
+              <state>CA</state>
+            </address>
+            <address type="mailing" />
+          </addresses>
+          <cik>0000319450</cik>
+          <irs-number></irs-number>
+          <sic>3674</sic>
+          <state>CA</state>
+        </company-info>
+      </content>
+      <id>urn:tag:www.sec.gov:cik=0000319450</id>
+      <link href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&amp;CIK=0000319450&amp;owner=exclude&amp;hidefilings=0" type="text/html" />
+      <summary type="html">&lt;strong&gt;CIK:&lt;/strong&gt; 0000319450, &lt;strong&gt;State:&lt;/strong&gt; CA</summary>
+      <updated>2026-10-24T16:11:44-04:00</updated>
+    </entry>
+    <entry title="ARRAY(0x55f512163348)">
+      <content type="text/xml">
+        <company-info name="ARRAY(0x55f5120daa40)">
+          <addresses>
+            <address type="business">
+              <state>MN</state>
+            </address>
+            <address type="mailing" />
+          </addresses>
+          <cik>0001057096</cik>
+          <irs-number></irs-number>
+          <sic>3674</sic>
+          <state>MN</state>
+        </company-info>
+      </content>
+      <id>urn:tag:www.sec.gov:cik=0001057096</id>
+      <link href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&amp;CIK=0001057096&amp;owner=exclude&amp;hidefilings=0" type="text/html" />
+      <summary type="html">&lt;strong&gt;CIK:&lt;/strong&gt; 0001057096, &lt;strong&gt;State:&lt;/strong&gt; MN</summary>
+      <updated>2026-10-24T16:11:44-04:00</updated>
+    </entry>
+    <entry title="ARRAY(0x55f5120af4f8)">
+      <content type="text/xml">
+        <company-info name="ARRAY(0x55f5120ad190)">
+          <addresses>
+            <address type="business">
+              <state>NY</state>
+            </address>
+            <address type="mailing" />
+          </addresses>
+          <cik>0000756055</cik>
+          <irs-number></irs-number>
+          <sic>3674</sic>
+          <state>NY</state>
+        </company-info>
+      </content>
+      <id>urn:tag:www.sec.gov:cik=0000756055</id>
+      <link href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&amp;CIK=0000756055&amp;owner=exclude&amp;hidefilings=0" type="text/html" />
+      <summary type="html">&lt;strong&gt;CIK:&lt;/strong&gt; 0000756055, &lt;strong&gt;State:&lt;/strong&gt; NY</summary>
+      <updated>2026-10-24T16:11:44-04:00</updated>
+    </entry>
+    <entry title="ARRAY(0x55f5120afa68)">
+      <content type="text/xml">
+        <company-info name="ARRAY(0x55f5120aff90)">
+          <addresses>
+            <address type="business">
+              <state>CA</state>
+            </address>
+            <address type="mailing" />
+          </addresses>
+          <cik>0001003022</cik>
+          <irs-number></irs-number>
+          <sic>3674</sic>
+          <state>CA</state>
+        </company-info>
+      </content>
+      <id>urn:tag:www.sec.gov:cik=0001003022</id>
+      <link href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&amp;CIK=0001003022&amp;owner=exclude&amp;hidefilings=0" type="text/html" />
+      <summary type="html">&lt;strong&gt;CIK:&lt;/strong&gt; 0001003022, &lt;strong&gt;State:&lt;/strong&gt; CA</summary>
+      <updated>2026-10-24T16:11:44-04:00</updated>
+    </entry>
+    <id>https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&amp;SIC=3674&amp;type=10-K&amp;owner=include&amp;count=100</id>
+    <link href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&amp;SIC=3674&amp;type=10-K&amp;owner=include&amp;count=100&amp;start=100&amp;output=atom" rel="self" type="application/atom+xml" />
+    <link href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&amp;SIC=3674&amp;type=10-K&amp;owner=include&amp;count=100&amp;start=100" rel="alternate" type="text/html" />
+    <link href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&amp;SIC=3674&amp;type=10-K&amp;owner=include&amp;count=100&amp;output=atom&amp;start=0" rel="prev" type="application/atom+xml" />
+    <title>Company Search Feed</title>
+    <updated>2026-10-24T16:11:44-04:00</updated>
+  </feed>
