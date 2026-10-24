@@ -38,12 +38,29 @@ describe('Footer', () => {
     expect(onMemo.mock.calls).toEqual([['markdown'], ['docx']]);
   });
 
-  it('turns the buttons off without an answer', () => {
-    render(
+  it('hides until a question has an answer', () => {
+    const {container} = render(
       <Footer
         requestId={null}
         promptVersion={null}
         hasAnswer={false}
+        copyStatus={null}
+        onCopy={vi.fn()}
+        onExport={vi.fn()}
+        canShare={false}
+        onShare={vi.fn()}
+        onMemo={vi.fn()}
+      />,
+    );
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('keeps the memo and share buttons off until the answer is stored', () => {
+    render(
+      <Footer
+        requestId={null}
+        promptVersion={null}
+        hasAnswer
         copyStatus={null}
         onCopy={vi.fn()}
         onExport={vi.fn()}
@@ -54,60 +71,10 @@ describe('Footer', () => {
     );
     expect(
       screen.getByRole('button', {name: 'Copy as markdown'}),
-    ).toBeDisabled();
+    ).toBeEnabled();
     expect(screen.getByTestId('share-link')).toBeDisabled();
     expect(screen.getByTestId('memo-markdown')).toBeDisabled();
     expect(screen.getByTestId('memo-docx')).toBeDisabled();
-  });
-
-  it('opens the history page and the data use page', () => {
-    const assign = vi.fn();
-    vi.stubGlobal('location', {...window.location, assign});
-    render(
-      <Footer
-        requestId={null}
-        promptVersion={null}
-        hasAnswer={false}
-        copyStatus={null}
-        onCopy={vi.fn()}
-        onExport={vi.fn()}
-        canShare={false}
-        onShare={vi.fn()}
-        onMemo={vi.fn()}
-      />,
-    );
-    fireEvent.click(screen.getByTestId('history-link'));
-    expect(assign).toHaveBeenCalledWith('/history');
-    fireEvent.click(screen.getByTestId('compsets-link'));
-    expect(assign).toHaveBeenCalledWith('/compsets');
-    fireEvent.click(screen.getByTestId('help-link'));
-    expect(assign).toHaveBeenCalledWith('/help');
-    fireEvent.click(screen.getByTestId('financials-link'));
-    expect(assign).toHaveBeenCalledWith('/financials');
-    vi.unstubAllGlobals();
-  });
-
-  it('shows the admin links only to an admin', () => {
-    const props = {
-      requestId: null,
-      promptVersion: null,
-      hasAnswer: false,
-      copyStatus: null,
-      onCopy: vi.fn(),
-      onExport: vi.fn(),
-      canShare: false,
-      onShare: vi.fn(),
-      onMemo: vi.fn(),
-    };
-    const {rerender} = render(<Footer {...props} />);
-    expect(screen.getByTestId('companies-link')).toBeInTheDocument();
-    expect(screen.getByTestId('debug-link')).toBeInTheDocument();
-    expect(screen.queryByTestId('jobs-link')).toBeNull();
-    expect(screen.queryByTestId('users-link')).toBeNull();
-    expect(screen.queryByTestId('system-link')).toBeNull();
-    rerender(<Footer {...props} isAdmin />);
-    expect(screen.getByTestId('jobs-link')).toBeInTheDocument();
-    expect(screen.getByTestId('users-link')).toBeInTheDocument();
-    expect(screen.getByTestId('system-link')).toBeInTheDocument();
+    expect(screen.queryByTestId('history-link')).toBeNull();
   });
 });

@@ -2,6 +2,7 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 
 import {App} from './App';
+import {AccessGate} from './components/AccessGate';
 import {CompSetsPage} from './components/CompSetsPage';
 import {EvalPage} from './components/EvalPage';
 import {HelpPage} from './components/HelpPage';
@@ -62,4 +63,9 @@ const page =
   ) : (
     <App />
   );
-createRoot(container).render(<StrictMode>{page}</StrictMode>);
+// No page shows until the server accepts an access token.
+createRoot(container).render(
+  <StrictMode>
+    <AccessGate>{page}</AccessGate>
+  </StrictMode>,
+);

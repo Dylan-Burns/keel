@@ -1,10 +1,9 @@
 import type {JSX} from 'react';
 import {useEffect, useState} from 'react';
 
-import type {ThemeChoice} from '../lib/theme';
+import type {Theme, ThemeChoice} from '../lib/theme';
 import {
   DARK_QUERY,
-  THEME_CHOICES,
   applyTheme,
   readThemeChoice,
   resolveTheme,
@@ -12,35 +11,39 @@ import {
   systemPrefersDark,
 } from '../lib/theme';
 
-const LABELS: Readonly<Record<ThemeChoice, string>> = {
-  system: 'Auto',
+/** The themes the toggle offers; the system theme is only the default. */
+const OPTIONS: readonly Theme[] = ['light', 'dark'];
+
+const LABELS: Readonly<Record<Theme, string>> = {
   light: 'Light',
   dark: 'Dark',
 };
 
-const TITLES: Readonly<Record<ThemeChoice, string>> = {
-  system: 'Follow the system theme',
+const TITLES: Readonly<Record<Theme, string>> = {
   light: 'Light theme',
   dark: 'Dark theme',
 };
 
 /**
- * The theme toggle of the top bar: Auto (the system setting, the default),
- * Light, or Dark. The choice persists in local storage; with Auto the page
- * follows a change of the system setting at once.
+ * The theme toggle of the top bar: Light or Dark. Before a choice the page
+ * follows the system setting, and the toggle marks the theme it shows. The
+ * choice persists in local storage.
  *
  * @return The toggle.
  */
 export function ThemeToggle(): JSX.Element {
   const [choice, setChoice] = useState<ThemeChoice>(readThemeChoice);
+  const [systemDark, setSystemDark] = useState(systemPrefersDark);
+  const shown = resolveTheme(choice, systemDark);
   useEffect(() => {
-    applyTheme(resolveTheme(choice, systemPrefersDark()));
+    applyTheme(shown);
+  }, [shown]);
+  useEffect(() => {
     if (choice !== 'system' || typeof window.matchMedia !== 'function') {
       return;
     }
     const query = window.matchMedia(DARK_QUERY);
-    const follow = (): void =>
-      applyTheme(resolveTheme('system', query.matches));
+    const follow = (): void => setSystemDark(query.matches);
     query.addEventListener('change', follow);
     return () => query.removeEventListener('change', follow);
   }, [choice]);
@@ -56,12 +59,12 @@ export function ThemeToggle(): JSX.Element {
       data-testid="theme-toggle"
       data-choice={choice}
     >
-      {THEME_CHOICES.map(option => (
+      {OPTIONS.map(option => (
         <button
           key={option}
           type="button"
           className="segmented-option"
-          aria-pressed={choice === option}
+          aria-pressed={shown === option}
           title={TITLES[option]}
           data-testid={`theme-${option}`}
           onClick={() => pick(option)}

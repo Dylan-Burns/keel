@@ -21,10 +21,10 @@ test('the page loads with the coverage of the mini corpus and a green dot', asyn
   await expect(page.getByTestId('example-chip')).toHaveCount(3);
 });
 
-test('without a token the page asks for it', async ({page}) => {
+test('without a token only the access gate shows', async ({page}) => {
   await openKeel(page, {withToken: false});
-  await expect(page.getByLabel('Access token')).toBeVisible();
-  await expect(page.getByTestId('coverage-summary')).toContainText(
-    'Enter the access token',
-  );
+  await expect(page.getByTestId('no-access')).toBeVisible();
+  await expect(page.getByLabel('Access token', {exact: true})).toBeVisible();
+  await expect(page.getByTestId('coverage-summary')).toHaveCount(0);
+  await expect(page.getByTestId('example-chip')).toHaveCount(0);
 });

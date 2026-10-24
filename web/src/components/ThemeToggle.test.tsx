@@ -48,14 +48,16 @@ describe('ThemeToggle', () => {
       'data-choice',
       'system',
     );
-    expect(screen.getByTestId('theme-system')).toHaveAttribute(
+    // No Auto option: the toggle marks the theme the system picked.
+    expect(screen.queryByTestId('theme-system')).toBeNull();
+    expect(screen.getByTestId('theme-dark')).toHaveAttribute(
       'aria-pressed',
       'true',
     );
     expect(theme()).toBe('dark');
   });
 
-  it('follows a change of the system setting while on Auto', () => {
+  it('follows a change of the system setting before a choice', () => {
     const query = fakeSystem(false);
     render(<ThemeToggle />);
     expect(theme()).toBe('light');
@@ -81,10 +83,10 @@ describe('ThemeToggle', () => {
       'true',
     );
     expect(theme()).toBe('dark');
-    // Back to Auto removes the key: the system decides again.
-    fireEvent.click(screen.getByRole('button', {name: 'Auto'}));
-    expect(window.localStorage.getItem(THEME_KEY)).toBeNull();
+    fireEvent.click(screen.getByRole('button', {name: 'Light'}));
+    expect(window.localStorage.getItem(THEME_KEY)).toBe('light');
     expect(theme()).toBe('light');
+    expect(screen.queryByRole('button', {name: 'Auto'})).toBeNull();
   });
 
   it('works when the storage throws', () => {

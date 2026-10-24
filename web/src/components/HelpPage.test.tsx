@@ -53,7 +53,9 @@ describe('HelpPage', () => {
     expect(screen.getAllByRole('heading', {level: 2})).toHaveLength(
       DATA_USE_SECTIONS.length,
     );
-    expect(container.querySelectorAll('a[href]')).toHaveLength(0);
+    // The only link is the logo back to the questions page.
+    const links = [...container.querySelectorAll('a[href]')];
+    expect(links.map(a => a.getAttribute('href'))).toEqual(['/']);
   });
 
   it('goes back to the question page', () => {

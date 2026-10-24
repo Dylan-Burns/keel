@@ -13,6 +13,7 @@ import {AnswerArea} from './components/AnswerArea';
 import {CoverageSummary} from './components/CoverageSummary';
 import {FeedbackBar} from './components/FeedbackBar';
 import {Footer} from './components/Footer';
+import {PageNav} from './components/PageNav';
 import {IndexNotBuiltCard} from './components/IndexNotBuiltCard';
 import {OfflineBanner} from './components/OfflineBanner';
 import {OutOfScopeCard} from './components/OutOfScopeCard';
@@ -63,7 +64,7 @@ function memoFailure(error: unknown): string {
  */
 export function App(): JSX.Element {
   const {state, hasToken, shared, ask, saveToken, reload} = useKeel();
-  // The role only picks the footer links; the API checks it on every call.
+  // The role only picks the page links; the API checks it on every call.
   const [tokenVersion, setTokenVersion] = useState(0);
   const role = useAdminRole(tokenVersion);
   const onSaveToken = useCallback(
@@ -79,6 +80,8 @@ export function App(): JSX.Element {
   const sharedId = sharedRequestId(window.location.pathname);
   const [selected, setSelected] = useState<SelectedChunk | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  // The request ID whose sources the user collapsed; a new answer opens.
+  const [collapsedFor, setCollapsedFor] = useState<string | null>(null);
   const [readerId, setReaderId] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const reduced = useReducedMotion();
@@ -116,6 +119,7 @@ export function App(): JSX.Element {
   const onSelectCitation = useCallback((chunkId: string): void => {
     setSelected({chunkId, detail: null, error: null});
     setPanelOpen(true);
+    setCollapsedFor(null);
     // A chip opens the filing reader on the cited passage, highlighted.
     if (isChunkId(chunkId)) {
       setReaderId(chunkId);
@@ -191,6 +195,7 @@ export function App(): JSX.Element {
           indexVersion={indexVersion}
           health={health(state)}
           lastMeta={null}
+          nav={<PageNav isAdmin={role.kind === 'admin'} />}
         />
         <IndexNotBuiltCard onRecheck={reload} />
       </div>
@@ -201,6 +206,19 @@ export function App(): JSX.Element {
     run !== null &&
     base.kind !== 'out_of_scope' &&
     (base.kind !== 'rate_limited' || run.final !== null);
+  // The sources side nav shows once an answer is final, expanded. When the
+  // model is down no answer comes, so the retrieved chunks show at once.
+  const answeredId = !showAnswer
+    ? null
+    : (run?.final?.request_id ??
+      (base.kind === 'provider_down' && run?.retrieval ? run.requestId : null));
+  const sourcesCollapsed = answeredId !== null && collapsedFor === answeredId;
+  const columns =
+    answeredId === null
+      ? ''
+      : sourcesCollapsed
+        ? 'lg:grid-cols-[minmax(0,1fr)_2.75rem]'
+        : 'lg:grid-cols-[minmax(0,1fr)_25rem] xl:grid-cols-[minmax(0,1fr)_28rem]';
 
   return (
     <MotionConfig reducedMotion="user">
@@ -219,6 +237,7 @@ export function App(): JSX.Element {
             health={health(state)}
             lastMeta={meta}
             modelRequests={run?.final?.audit?.model_requests ?? null}
+            nav={<PageNav isAdmin={role.kind === 'admin'} />}
           >
             <TokenField
               hasToken={hasToken}
@@ -233,7 +252,9 @@ export function App(): JSX.Element {
             warnings={state.service.indexStatus?.warnings ?? []}
           />
         )}
-        <div className="grid w-full flex-1 grid-cols-1 items-start gap-2 p-2 lg:grid-cols-[minmax(0,1fr)_25rem] xl:grid-cols-[minmax(0,1fr)_28rem]">
+        <div
+          className={`grid w-full flex-1 grid-cols-1 items-start gap-2 p-2 ${columns}`}
+        >
           <main className="min-w-0 space-y-2">
             <motion.section
               className="panel"
@@ -323,7 +344,7 @@ export function App(): JSX.Element {
                   requestId={run.final.request_id}
                 />
               )}
-              {run?.retrieval !== undefined && run?.retrieval !== null && (
+              {answeredId !== null && (
                 <button
                   type="button"
                   className="btn w-full lg:hidden"
@@ -343,13 +364,19 @@ export function App(): JSX.Element {
               )}
             </AnimatePresence>
           </main>
-          <RightPanel
-            run={run}
-            selected={selected}
-            open={panelOpen}
-            onClose={() => setPanelOpen(false)}
-            onOpenReader={onOpenReader}
-          />
+          {answeredId !== null && (
+            <RightPanel
+              run={run}
+              selected={selected}
+              open={panelOpen}
+              onClose={() => setPanelOpen(false)}
+              onOpenReader={onOpenReader}
+              collapsed={sourcesCollapsed}
+              onToggleCollapsed={() =>
+                setCollapsedFor(sourcesCollapsed ? null : answeredId)
+              }
+            />
+          )}
           <AnimatePresence>
             {readerId !== null && run !== null && (
               <FilingReader
@@ -377,7 +404,6 @@ export function App(): JSX.Element {
           canShare={run?.final !== null && run?.final !== undefined}
           onShare={onShare}
           onMemo={onMemo}
-          isAdmin={role.kind === 'admin'}
         />
       </div>
     </MotionConfig>

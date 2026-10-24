@@ -2,6 +2,7 @@ import type {JSX, ReactNode} from 'react';
 
 import type {ResponseMeta} from '../api/types';
 import type {Health} from '../state';
+import {BrandLink} from './BrandLink';
 import {CostBadge} from './CostBadge';
 import {ThemeToggle} from './ThemeToggle';
 
@@ -15,6 +16,8 @@ export interface TopBarProps {
   readonly modelRequests?: number | null;
   /** The token field. */
   readonly children?: ReactNode;
+  /** The page links, as a row under the strip. */
+  readonly nav?: ReactNode;
 }
 
 const DOT: Readonly<Record<Health, string>> = {
@@ -41,8 +44,8 @@ const STATUS_COLOR: Readonly<Record<Health, string>> = {
 /**
  * The top bar (chapter 14.5) as a market-status strip: the name, the service
  * state with its health dot, the index version, the model requests and the
- * latency and cost badge of the last answer, the theme toggle, and the token
- * field.
+ * latency and cost badge of the last answer, the theme toggle, the token
+ * field, and the page links under it.
  *
  * @param props The props.
  * @return The top bar.
@@ -53,17 +56,14 @@ export function TopBar({
   lastMeta,
   modelRequests = null,
   children,
+  nav,
 }: TopBarProps): JSX.Element {
   return (
     <header className="border-b border-line bg-panel">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-3 py-1.5">
         <div className="flex items-center gap-2">
-          <span
-            className="inline-block h-2.5 w-2.5 bg-accent"
-            aria-hidden="true"
-          />
-          <h1 className="font-mono text-[15px] font-bold uppercase tracking-[0.2em] text-ink">
-            Keel
+          <h1>
+            <BrandLink />
           </h1>
           <span className="hidden font-mono text-[10px] uppercase tracking-[0.14em] text-muted md:inline">
             SEC filings desk
@@ -118,6 +118,7 @@ export function TopBar({
           {children}
         </div>
       </div>
+      {nav}
     </header>
   );
 }

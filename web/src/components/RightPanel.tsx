@@ -31,12 +31,36 @@ export interface RightPanelProps {
   readonly onClose: () => void;
   /** Opens the filing reader on a cited chunk. */
   readonly onOpenReader?: (chunkId: string) => void;
+  /** On a wide screen: true shows the panel as a thin rail. */
+  readonly collapsed?: boolean;
+  /** Collapses or expands the panel on a wide screen. */
+  readonly onToggleCollapsed?: () => void;
+}
+
+/** A chevron that points left (expand) or right (collapse). */
+function Chevron({left}: {readonly left: boolean}): JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 12 12"
+      className={`h-3 w-3 shrink-0 ${left ? 'rotate-180' : ''}`}
+      aria-hidden="true"
+    >
+      <path
+        d="M4 2l4 4-4 4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+    </svg>
+  );
 }
 
 /**
  * The right panel (chapter 14.5): the opened chunk, the citation list, and
  * the retrieved chunks with scores and the collapsed near-duplicate count.
- * On a phone it is a drawer. Every string is a JSX text node.
+ * The page shows it once an answer is final. On a wide screen it is a side
+ * nav that collapses to a rail; on a phone it is a drawer. Every string is
+ * a JSX text node.
  *
  * @param props The props.
  * @return The panel.
@@ -47,17 +71,45 @@ export function RightPanel({
   open,
   onClose,
   onOpenReader,
+  collapsed = false,
+  onToggleCollapsed,
 }: RightPanelProps): JSX.Element {
   const reduced = useReducedMotion();
   const cited = run?.final?.citations_resolved ?? [];
   const retrieval = run?.retrieval ?? null;
   const top = Math.max(0.0001, ...(retrieval?.chunks.map(c => c.score) ?? [0]));
+  if (collapsed && !open) {
+    return (
+      <aside
+        className="panel hidden lg:sticky lg:top-12 lg:flex lg:h-[calc(100dvh-4.25rem)] lg:self-start"
+        aria-label="Sources"
+        data-testid="right-panel"
+        data-collapsed="true"
+      >
+        <button
+          type="button"
+          className="flex w-full flex-col items-center gap-3 py-3 text-ink-2 hover:bg-raised hover:text-accent"
+          aria-expanded={false}
+          aria-label={`Expand sources (${cited.length} cited)`}
+          data-testid="sources-toggle"
+          onClick={onToggleCollapsed}
+        >
+          <Chevron left />
+          <span className="section-title rotate-180 [writing-mode:vertical-rl]">
+            Sources
+          </span>
+          <span className="num text-[10.5px] text-muted">{cited.length}</span>
+        </button>
+      </aside>
+    );
+  }
   return (
     <aside
       className={`${open ? 'fixed' : 'hidden'} panel inset-x-0 bottom-0 z-40 max-h-[80vh] overflow-y-auto shadow-2xl lg:sticky lg:top-12 lg:z-auto lg:block lg:max-h-[calc(100dvh-4.25rem)] lg:self-start lg:shadow-none`}
       aria-label="Sources"
       data-testid="right-panel"
       data-open={open}
+      data-collapsed="false"
     >
       <div className="panel-head sticky top-0 z-10">
         <h2 className="panel-title">Sources</h2>
@@ -73,13 +125,20 @@ export function RightPanel({
         >
           Close
         </button>
+        {onToggleCollapsed !== undefined && (
+          <button
+            type="button"
+            className="btn ml-auto hidden items-center gap-1.5 lg:inline-flex"
+            aria-expanded={true}
+            aria-label="Collapse sources"
+            data-testid="sources-toggle"
+            onClick={onToggleCollapsed}
+          >
+            Collapse
+            <Chevron left={false} />
+          </button>
+        )}
       </div>
-      {run === null && (
-        <p className="panel-body text-xs text-muted">
-          No question yet. The cited passages and the retrieved context of an
-          answer appear here.
-        </p>
-      )}
       {selected !== null && run !== null && (
         <section
           className="m-2 border border-line border-l-[3px] border-l-accent bg-raised p-2.5"

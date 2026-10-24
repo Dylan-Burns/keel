@@ -104,9 +104,10 @@ describe('App', () => {
     );
     const isAsk = ([path]: unknown[]): boolean => path === '/api/ask';
     expect(fetchMock.mock.calls.filter(isAsk)).toHaveLength(0);
-    const share = screen.getByTestId('share-link');
-    expect(share).toBeDisabled();
+    // Before an answer the footer and its buttons do not show.
+    expect(screen.queryByTestId('share-link')).toBeNull();
     fireEvent.click(screen.getByRole('button', {name: 'Ask'}));
+    const share = await screen.findByTestId('share-link');
     await waitFor(() => expect(share).toBeEnabled());
     const asks = fetchMock.mock.calls.filter(isAsk);
     expect(asks).toHaveLength(1);
