@@ -36,6 +36,7 @@ from keel.api import admin
 from keel.api import admin_system
 from keel.api import background
 from keel.api import debug
+from keel.api import directory
 from keel.api import export_routes
 from keel.api import job_kinds
 from keel.api import jobs
@@ -190,6 +191,7 @@ def create_app(services: Services) -> fastapi.FastAPI:
     app.include_router(workspace.router)
     app.include_router(admin.router)
     app.include_router(admin_system.router)
+    app.include_router(directory.router)
     app.include_router(watch.router)
     app.include_router(debug.router)
     _frontend(app, services.settings.server.web_dist)
