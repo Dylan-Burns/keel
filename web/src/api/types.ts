@@ -917,3 +917,67 @@ export type CostQuery =
       readonly refresh: boolean;
       readonly facts_only: boolean;
     };
+
+// The company browser of the companies page (docs/API_ADMIN.md).
+
+/** 1 company of an SEC industry or of a search. */
+export interface DirectoryCompany {
+  /** The CIK, 10 digits. */
+  readonly cik: string;
+  /** The main ticker in the SEC spelling (`BRK-B`): the one Add sends. */
+  readonly ticker: string;
+  /** Every ticker of the company, the main one first. */
+  readonly tickers: readonly string[];
+  readonly name: string;
+  /** True when the index holds a filing of the company. */
+  readonly indexed: boolean;
+  /** True when a user watches 1 of its tickers. */
+  readonly watched: boolean;
+  /** True when `keel add` takes the main ticker (letters and a dot only). */
+  readonly addable: boolean;
+}
+
+/** 1 SEC industry (an SIC code) of a sector. */
+export interface DirectoryIndustry {
+  /** The SIC code, 4 digits. */
+  readonly code: string;
+  readonly title: string;
+  /** The SEC office that reviews its filings. */
+  readonly office: string;
+  /** The companies with a ticker when the list is cached, else null. */
+  readonly companies: number | null;
+}
+
+/** 1 sector: an SEC office and its industries. */
+export interface DirectorySector {
+  readonly name: string;
+  readonly industries: readonly DirectoryIndustry[];
+}
+
+/** `GET /api/admin/directory`. */
+export interface DirectoryResponse {
+  readonly sectors: readonly DirectorySector[];
+  readonly industry_count: number;
+}
+
+/** `GET /api/admin/directory/sic/{code}`. */
+export interface IndustryCompanies {
+  readonly code: string;
+  readonly title: string;
+  readonly sector: string;
+  readonly companies: readonly DirectoryCompany[];
+  /** The registrants that file a 10-K, with or without a ticker. */
+  readonly registrants: number;
+  readonly fetched_at: string;
+  /** True when a refresh failed and an older copy served. */
+  readonly stale: boolean;
+  /** True when the list stopped at the page limit. */
+  readonly truncated: boolean;
+  /** The SEC requests this call sent. */
+  readonly sec_requests: number;
+}
+
+/** `GET /api/admin/directory/search`. */
+export interface DirectorySearch {
+  readonly items: readonly DirectoryCompany[];
+}

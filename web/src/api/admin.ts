@@ -11,6 +11,9 @@ import type {
   CostQuery,
   DebugRetrieve,
   DebugUnderstand,
+  DirectoryResponse,
+  DirectorySearch,
+  IndustryCompanies,
   Job,
   JobList,
   JobRequest,
@@ -308,3 +311,34 @@ export function memoPath(requestId: string, format: MemoFormat): string {
 export function backupPath(name: string): string {
   return `/api/admin/backups/${encodeURIComponent(name)}`;
 }
+
+/**
+ * `GET /api/admin/directory`: the sectors and their industries.
+ *
+ * @return The sectors, with the company count of each cached industry.
+ */
+export const fetchDirectory = (): Promise<DirectoryResponse> =>
+  getJson('/api/admin/directory');
+
+/**
+ * `GET /api/admin/directory/sic/{code}`: the companies of 1 industry. The
+ * first call of a code asks SEC EDGAR; later calls read the server cache.
+ *
+ * @param code The SIC code, 4 digits.
+ * @return The companies with a ticker.
+ */
+export const fetchIndustry = (code: string): Promise<IndustryCompanies> =>
+  getJson(`/api/admin/directory/sic/${encodeURIComponent(code)}`);
+
+/**
+ * `GET /api/admin/directory/search`: companies by ticker or name.
+ *
+ * @param query The text, 2 to 64 characters.
+ * @param signal Aborts the request when the text changes.
+ * @return At most 50 companies, best match first.
+ */
+export const searchDirectory = (
+  query: string,
+  signal?: AbortSignal,
+): Promise<DirectorySearch> =>
+  getJson(`/api/admin/directory/search?q=${encodeURIComponent(query)}`, signal);
