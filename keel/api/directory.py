@@ -317,7 +317,7 @@ async def industry_companies(
 
 
 def _search(settings: config.Settings, query: str) -> SearchResults:
-    with edgar_client(settings) as client:
+    with _FETCH_LOCK, edgar_client(settings) as client:
         try:
             tickers = client.ticker_map()
         except errors.EdgarError as error:

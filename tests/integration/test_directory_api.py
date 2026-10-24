@@ -154,7 +154,10 @@ ROUTES = (
 )
 
 
-def test_directory_routes_need_the_admin_role(make_client, tokens) -> None:
+def test_directory_routes_need_the_admin_role(
+    make_client: Callable[..., testclient.TestClient],
+    tokens: dict[str, str],
+) -> None:
     client = make_client()
     for path in ROUTES:
         assert client.get(path).status_code == 401
@@ -164,7 +167,9 @@ def test_directory_routes_need_the_admin_role(make_client, tokens) -> None:
 
 
 def test_directory_lists_sectors_and_cached_counts(
-    make_client, tokens, feed
+    make_client: Callable[..., testclient.TestClient],
+    tokens: dict[str, str],
+    feed: Feed,
 ) -> None:
     """The overview reads the yaml and the cache; it sends no request."""
     body = make_client().get(
@@ -186,7 +191,10 @@ def test_directory_lists_sectors_and_cached_counts(
 
 
 def test_industry_from_the_cache_marks_indexed_and_watched(
-    make_client, tokens, api_settings, feed
+    make_client: Callable[..., testclient.TestClient],
+    tokens: dict[str, str],
+    api_settings: config.Settings,
+    feed: Feed,
 ) -> None:
     state_store.add_watch(state_store.state_path(api_settings), "INTC", "carol")
     response = make_client(offline=True).get(
@@ -208,7 +216,10 @@ def test_industry_from_the_cache_marks_indexed_and_watched(
 
 
 def test_industry_fetch_pages_once_then_caches(
-    make_client, tokens, api_settings, feed
+    make_client: Callable[..., testclient.TestClient],
+    tokens: dict[str, str],
+    api_settings: config.Settings,
+    feed: Feed,
 ) -> None:
     (api_settings.edgar.cache_dir / "sic" / "3674.json").unlink()
     client = make_client()
@@ -225,7 +236,11 @@ def test_industry_fetch_pages_once_then_caches(
     assert len(feed.urls) == 2
 
 
-def test_industry_errors(make_client, tokens, feed) -> None:
+def test_industry_errors(
+    make_client: Callable[..., testclient.TestClient],
+    tokens: dict[str, str],
+    feed: Feed,
+) -> None:
     headers = bearer(tokens["carol"])
     client = make_client()
     for code in ("36a4", "12345", "367"):
@@ -248,7 +263,12 @@ def test_industry_errors(make_client, tokens, feed) -> None:
     assert len(feed.urls) == 1
 
 
-def test_search_and_its_limits(make_client, tokens, feed, caplog) -> None:
+def test_search_and_its_limits(
+    make_client: Callable[..., testclient.TestClient],
+    tokens: dict[str, str],
+    feed: Feed,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     caplog.set_level(logging.DEBUG)
     headers = bearer(tokens["carol"])
     client = make_client()
