@@ -67,6 +67,9 @@ jobs:
           format: sarif
           output: trivy.sarif
           severity: HIGH,CRITICAL
+          # In SARIF mode the action scans every severity unless this is
+          # set, so a LOW or UNKNOWN advisory would fail the gate.
+          limit-severities-for-sarif: true
           # Packages only: the secret scanner flags placeholder JSON in the
           # docstrings of the anthropic SDK; gitleaks scans the repository.
           scanners: vuln
