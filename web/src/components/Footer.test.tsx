@@ -82,6 +82,8 @@ describe('Footer', () => {
     expect(assign).toHaveBeenCalledWith('/compsets');
     fireEvent.click(screen.getByTestId('help-link'));
     expect(assign).toHaveBeenCalledWith('/help');
+    fireEvent.click(screen.getByTestId('financials-link'));
+    expect(assign).toHaveBeenCalledWith('/financials');
     vi.unstubAllGlobals();
   });
 

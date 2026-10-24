@@ -26,6 +26,7 @@ const MOMENTS = [
   'evalPage',
   'filingReader',
   'jobSteps',
+  'financials',
 ] as const;
 
 function variantPairs(): [string, MotionPreset][] {

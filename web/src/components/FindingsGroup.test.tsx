@@ -25,9 +25,28 @@ describe('FindingsGroup', () => {
       .querySelector('summary');
     expect(summary).toHaveTextContent('JPM');
     expect(summary).toHaveTextContent('JPMorgan Chase & Co.');
+    expect(screen.getByTestId('company-financials-link')).toHaveAttribute(
+      'href',
+      '/financials?ticker=JPM',
+    );
     expect(screen.getByTestId('citation-unverified')).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('citation-chip'));
     expect(onSelect).toHaveBeenCalledWith(JPM.findings[0]?.citations[0]);
+  });
+
+  it('links only a ticker-shaped company to its financials', () => {
+    if (JPM === undefined) {
+      throw new Error('fixture');
+    }
+    render(
+      <FindingsGroup
+        run={runOf(RESPONSE_1)}
+        company={{...JPM, ticker: 'JPM"><x'}}
+        onSelectCitation={vi.fn()}
+      />,
+    );
+    expect(screen.queryByTestId('company-financials-link')).toBeNull();
+    expect(screen.getByText('JPM"><x')).toBeInTheDocument();
   });
 
   it('keeps the chips off while streaming', () => {

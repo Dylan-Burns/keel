@@ -27,10 +27,14 @@ test('test_ui_escapes_model_text: a script in the answer renders as text', async
   expect(pwned).toBeUndefined();
   expect(dialogs).toEqual([]);
 
-  // Every link on the page goes to https://www.sec.gov and opens a new tab.
+  // Every link on the page goes to https://www.sec.gov and opens a new tab,
+  // except the company tags, which open the page's own financials route.
   await expect(page.locator('a[href]').first()).toBeAttached();
   for (const link of await page.locator('a[href]').all()) {
     const href = (await link.getAttribute('href')) ?? '';
+    if (/^\/financials\?ticker=[A-Za-z][A-Za-z0-9.-]{0,9}$/.test(href)) {
+      continue;
+    }
     expect(href.startsWith('https://www.sec.gov/'), href).toBe(true);
     await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
   }
