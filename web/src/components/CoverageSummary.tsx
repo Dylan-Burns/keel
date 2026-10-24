@@ -1,6 +1,7 @@
 import type {JSX} from 'react';
 
 import type {CoverageResponse} from '../api/types';
+import {financialsPath} from '../lib/links';
 
 /** Props of CoverageSummary. */
 export interface CoverageSummaryProps {
@@ -58,9 +59,14 @@ export function CoverageSummary({
                 className="flex min-w-0 items-center gap-2 px-2.5 py-1.5 shadow-[inset_0_-1px_0_var(--k-line),inset_-1px_0_0_var(--k-line)] hover:bg-raised"
                 title={company.fiscal_periods.join(', ')}
               >
-                <span className="w-12 shrink-0 font-mono text-[11.5px] font-semibold text-accent">
+                <a
+                  className="w-12 shrink-0 font-mono text-[11.5px] font-semibold text-accent hover:underline"
+                  href={financialsPath(company.ticker)}
+                  title={`Financial statements of ${company.ticker}`}
+                  data-testid="coverage-financials-link"
+                >
                   {company.ticker}
-                </span>
+                </a>
                 <span className="min-w-0 truncate text-xs text-ink-2">
                   {company.company}
                 </span>

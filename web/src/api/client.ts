@@ -14,6 +14,9 @@ import type {
   ErrorEvent,
   EvalResponse,
   FeedbackSaved,
+  FinancialsCompanies,
+  FinancialsPeriod,
+  FinancialsResponse,
   HealthResponse,
   HistoryResponse,
   HistoryScope,
@@ -461,6 +464,28 @@ export const fetchHistory = (
   scope: HistoryScope = 'own',
 ): Promise<HistoryResponse> =>
   getJson(`/api/history?scope=${encodeURIComponent(scope)}`);
+
+/** `GET /api/financials`. @return The companies the page can open. */
+export const fetchFinancialsCompanies = (): Promise<FinancialsCompanies> =>
+  getJson('/api/financials');
+
+/**
+ * `GET /api/financials/{ticker}`: the statements of 1 company.
+ *
+ * @param ticker The ticker.
+ * @param period `annual` or `quarterly`.
+ * @param signal An optional abort signal.
+ * @return The statements with their sources.
+ */
+export const fetchFinancials = (
+  ticker: string,
+  period: FinancialsPeriod,
+  signal?: AbortSignal,
+): Promise<FinancialsResponse> =>
+  getJson(
+    `/api/financials/${encodeURIComponent(ticker)}?period=${period}`,
+    signal,
+  );
 
 /**
  * `GET /api/eval`: the eval report, the prompt log, and the gates (W-02).

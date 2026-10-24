@@ -389,6 +389,32 @@ export const jobSteps = {
   },
 } as const satisfies Record<string, MotionPreset>;
 
+/**
+ * The financials page: the bars of a chart fade in when its series or its
+ * periods change, and the tooltip fades in where the pointer is. The
+ * reduced twins show both at once.
+ */
+export const financials = {
+  bars: {
+    full: {
+      hidden: {opacity: 0},
+      visible: {opacity: 1, transition: {duration: 0.2, ease: 'easeOut'}},
+    },
+    reduced: STILL,
+  },
+  tooltip: {
+    full: {
+      hidden: {opacity: 0, y: 4},
+      visible: {
+        opacity: 1,
+        y: 0,
+        transition: {duration: 0.12, ease: 'easeOut'},
+      },
+    },
+    reduced: STILL,
+  },
+} as const satisfies Record<string, MotionPreset>;
+
 /** Job steps: a progress bar grows to its new value (a transition pair). */
 export const jobBar: TransitionPreset = {
   full: {duration: 0.3, ease: 'easeOut'},

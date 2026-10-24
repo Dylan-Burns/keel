@@ -981,3 +981,78 @@ export interface IndustryCompanies {
 export interface DirectorySearch {
   readonly items: readonly DirectoryCompany[];
 }
+
+/** A period kind of the financials page. */
+export type FinancialsPeriod = 'annual' | 'quarterly';
+
+/** 1 company of `GET /api/financials`. */
+export interface FinancialsCompany {
+  readonly ticker: string;
+  readonly company: string;
+  readonly cik: string | null;
+}
+
+/** `GET /api/financials`: the indexed companies. */
+export interface FinancialsCompanies {
+  readonly companies: FinancialsCompany[];
+}
+
+/** 1 filing behind values of the financials page. */
+export interface FilingSource {
+  readonly form: string;
+  readonly accession: string;
+  /** The filing date, `YYYY-MM-DD`. */
+  readonly filed: string;
+  /** The filing index page on www.sec.gov. */
+  readonly url: string;
+}
+
+/** 1 value of a line item for 1 fiscal period. */
+export interface FinancialsPoint {
+  /** `FY2025` or `Q3 FY2025`. */
+  readonly label: string;
+  /** The first day of the period, null for a balance. */
+  readonly start: string | null;
+  readonly end: string;
+  readonly value: number;
+  /** The index of the filing in `sources`. */
+  readonly source: number;
+  readonly derived: boolean;
+  readonly note: string | null;
+}
+
+/** The XBRL unit of a line item. */
+export type FinancialsUnit = 'USD' | 'USD/shares' | 'shares';
+
+/** 1 row of a statement. */
+export interface FinancialsItem {
+  readonly id: string;
+  readonly label: string;
+  readonly parent: string | null;
+  readonly unit: FinancialsUnit;
+  /** The derivation note of a computed row, or null. */
+  readonly rule: string | null;
+  readonly points: FinancialsPoint[];
+}
+
+/** 1 statement: a tab of the page. */
+export interface FinancialsStatement {
+  readonly id: string;
+  readonly label: string;
+  /** The rows charted when the tab opens. */
+  readonly defaults: string[];
+  readonly items: FinancialsItem[];
+}
+
+/** `GET /api/financials/{ticker}?period=`. */
+export interface FinancialsResponse {
+  readonly ticker: string;
+  readonly company: string;
+  readonly cik: string;
+  readonly period: FinancialsPeriod;
+  readonly fetched_at: string;
+  readonly fiscal_year_end_month: number | null;
+  readonly splits: {readonly date: string; readonly ratio: number}[];
+  readonly sources: FilingSource[];
+  readonly statements: FinancialsStatement[];
+}
