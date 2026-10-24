@@ -1,6 +1,7 @@
 import type {JSX, ReactNode} from 'react';
 
 import {ThemeToggle} from './ThemeToggle';
+import {BrandLink} from './BrandLink';
 
 /** Props of PageBar. */
 export interface PageBarProps {
@@ -22,13 +23,7 @@ export function PageBar({title, children}: PageBarProps): JSX.Element {
   return (
     <header className="z-30 border-b border-line bg-panel md:sticky md:top-0">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-1.5">
-        <span
-          className="inline-block h-2.5 w-2.5 bg-accent"
-          aria-hidden="true"
-        />
-        <span className="font-mono text-[15px] font-bold uppercase tracking-[0.2em] text-ink">
-          Keel
-        </span>
+        <BrandLink />
         <span className="font-mono text-muted" aria-hidden="true">
           /
         </span>

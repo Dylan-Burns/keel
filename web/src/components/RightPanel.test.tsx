@@ -96,4 +96,59 @@ describe('RightPanel', () => {
       RESPONSE_1.citations_resolved[0]?.chunk_id,
     );
   });
+
+  it('collapses to a rail and expands again on a wide screen', () => {
+    const toggle = vi.fn();
+    const run = runOf(RESPONSE_1);
+    const {rerender} = render(
+      <RightPanel
+        run={run}
+        selected={null}
+        open={false}
+        onClose={vi.fn()}
+        collapsed={false}
+        onToggleCollapsed={toggle}
+      />,
+    );
+    const panel = screen.getByTestId('right-panel');
+    expect(panel).toHaveAttribute('data-collapsed', 'false');
+    fireEvent.click(screen.getByRole('button', {name: 'Collapse sources'}));
+    expect(toggle).toHaveBeenCalledOnce();
+    rerender(
+      <RightPanel
+        run={run}
+        selected={null}
+        open={false}
+        onClose={vi.fn()}
+        collapsed
+        onToggleCollapsed={toggle}
+      />,
+    );
+    expect(screen.getByTestId('right-panel')).toHaveAttribute(
+      'data-collapsed',
+      'true',
+    );
+    expect(screen.queryByTestId('citation-list')).toBeNull();
+    const expand = screen.getByTestId('sources-toggle');
+    expect(expand).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(expand);
+    expect(toggle).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows the whole panel as the phone drawer even when collapsed', () => {
+    render(
+      <RightPanel
+        run={runOf(RESPONSE_1)}
+        selected={null}
+        open
+        onClose={vi.fn()}
+        collapsed
+        onToggleCollapsed={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('right-panel')).toHaveAttribute(
+      'data-collapsed',
+      'false',
+    );
+  });
 });

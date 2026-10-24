@@ -247,17 +247,15 @@ describe('CompanyBrowser', () => {
       kind: 'add',
       params: {ticker: 'AMD'},
     });
-    await waitFor(() =>
-      expect(screen.getByTestId('job-card')).toHaveAttribute(
-        'data-status',
-        'succeeded',
-      ),
-    );
-    // The job shows under the row it came from.
-    expect(
-      screen.getByTestId('company-job').previousElementSibling,
-    ).toHaveAttribute('data-ticker', 'AMD');
+    // The row of the job reads Adding with a spinner; no row is added.
+    const adding = await screen.findByTestId('company-adding');
+    expect(adding).toHaveTextContent('Adding');
+    expect(adding.closest('tr')).toHaveAttribute('data-ticker', 'AMD');
+    expect(screen.queryByTestId('company-job')).toBeNull();
+    expect(screen.queryByTestId('job-card')).toBeNull();
     await waitFor(() => expect(done).toHaveBeenCalledTimes(1));
+    expect(screen.queryByTestId('company-adding')).toBeNull();
+    expect(screen.queryByTestId('company-add-failed')).toBeNull();
     // The open industry loads again for its new marks; Add is back on.
     await waitFor(() =>
       expect(
@@ -290,14 +288,55 @@ describe('CompanyBrowser', () => {
     await openIndustry('Manufacturing', '3674');
     const rows = await screen.findAllByTestId('company-row');
     fireEvent.click(within(rows[1] as HTMLElement).getByTestId('company-add'));
-    expect(await screen.findByTestId('job-busy-link')).toHaveAttribute(
-      'href',
-      '/jobs/3f2a9c0d1e4b5a67',
+    // The row links to the job that holds the slot.
+    const failed = await within(rows[1] as HTMLElement).findByTestId(
+      'company-add-failed',
+    );
+    expect(failed).toHaveAttribute('href', '/jobs/3f2a9c0d1e4b5a67');
+    expect(failed).toHaveAttribute(
+      'title',
+      'the index job 3f2a9c0d1e4b5a67 is running',
     );
     // The refused job leaves the buttons on.
     for (const button of screen.getAllByTestId('company-add')) {
       expect(button).toBeEnabled();
     }
+  });
+
+  it('marks the row Failed with a link to the job when the add fails', async () => {
+    routeFetch({
+      'GET /api/admin/directory': {body: DIRECTORY},
+      'GET /api/admin/directory/sic/3674': {body: SEMIS},
+      'POST /api/admin/jobs': {
+        status: 202,
+        body: submitted({params: {ticker: 'AMD'}}),
+      },
+      'GET /api/admin/jobs/3f2a9c0d1e4b5a67': {
+        body: job({
+          params: {ticker: 'AMD'},
+          status: 'failed',
+          phase: 'failed',
+          error: 'EdgarError: the submissions list has no 10-K or 10-Q filing',
+        }),
+      },
+    });
+    render(<CompanyBrowser onDone={() => undefined} />);
+    await openIndustry('Manufacturing', '3674');
+    const rows = await screen.findAllByTestId('company-row');
+    const row = rows[0] as HTMLElement;
+    fireEvent.click(within(row).getByTestId('company-add'));
+    const failed = await within(row).findByTestId('company-add-failed');
+    expect(failed).toHaveAttribute('href', '/jobs/3f2a9c0d1e4b5a67');
+    expect(failed).toHaveAttribute(
+      'title',
+      'EdgarError: the submissions list has no 10-K or 10-Q filing',
+    );
+    // The button reads Add again and takes a retry.
+    await waitFor(() =>
+      expect(within(row).getByTestId('company-add')).toBeEnabled(),
+    );
+    expect(within(row).getByTestId('company-add')).toHaveTextContent('Add');
+    expect(screen.queryByTestId('company-job')).toBeNull();
   });
 
   it('turns off Add for a ticker keel add cannot take', async () => {

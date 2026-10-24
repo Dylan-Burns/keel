@@ -188,6 +188,10 @@ export function CompanyBrowser({onDone}: CompanyBrowserProps): JSX.Element {
           the list for the configured period. Add starts the same job as{' '}
           <code className="font-mono text-[11.5px]">keel add</code>.
         </p>
+        <p className="text-[12px] text-muted" data-testid="browse-filter">
+          Shows companies with a ticker that filed a 10-K or 10-Q in every year
+          since 2022 and in the last 12 months.
+        </p>
         <label className="flex min-w-0 flex-col gap-1">
           <span className="section-title">Find a company</span>
           <input

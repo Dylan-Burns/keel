@@ -383,6 +383,16 @@
     color: var(--k-ink);
   }
 
+  /* A select draws its own chevron, inset from the border. */
+  select.input {
+    appearance: none;
+    padding-right: 1.75rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%237b8796' stroke-width='1.6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center;
+    background-size: 0.75rem;
+  }
+
   .input:focus {
     border-color: var(--k-accent);
     outline: none;
@@ -838,4 +848,12 @@
   margin-left: 1px;
   font-style: normal;
   color: var(--k-warn);
+}
+
+/* The Keel logo, filled with the accent color so it follows the theme. */
+.keel-mark {
+  display: inline-block;
+  background-color: var(--k-accent);
+  -webkit-mask: url('/keel-logo-128.png') center / contain no-repeat;
+  mask: url('/keel-logo-128.png') center / contain no-repeat;
 }
