@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 release-please maintains the released sections from Conventional Commits.
 
+## [0.8.1](https://github.com/Dylan-Burns/keel/compare/v0.8.0...v0.8.1) (2026-10-24)
+
+
+### Bug fixes
+
+* **release:** limit the image scan gate to high and critical ([f7aaae7](https://github.com/Dylan-Burns/keel/commit/f7aaae7fa9772f9b9ddb300727c7dad8717e222b))
+
 ## [0.8.0](https://github.com/Dylan-Burns/keel/compare/v0.7.0...v0.8.0) (2026-10-24)
 
 
