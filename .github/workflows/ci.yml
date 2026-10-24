@@ -164,6 +164,9 @@ jobs:
           # responses and writes into a copy of the mini corpus: no network.
           KEEL_CORPUS__DIR: ${{ runner.temp }}/e2e-corpus
           KEEL_EDGAR__CACHE_DIR: ${{ runner.temp }}/e2e-edgar
+          # The recorded company list of SIC 3674 never expires, so the
+          # company browser spec sends no request to the SEC.
+          KEEL_EDGAR__DIRECTORY_TTL_DAYS: "36500"
           # The specs ask about 30 questions from 1 address within minutes.
           KEEL_LIMITS__RATE_PER_MINUTE: "1000"
           KEEL_LIMITS__RATE_PER_HOUR: "10000"

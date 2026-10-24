@@ -1,4 +1,10 @@
-import {fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {TOKEN_KEY} from '../../api/client';
@@ -94,7 +100,10 @@ describe('CompaniesPage', () => {
       target: {value: 'BAD TICKER'},
     });
     fireEvent.click(screen.getByTestId('add-submit'));
-    expect(screen.getByRole('alert')).toHaveTextContent('1 to 10 letters');
+    const panel = screen.getByRole('region', {name: 'Add a company'});
+    expect(within(panel).getByRole('alert')).toHaveTextContent(
+      '1 to 10 letters',
+    );
     expect(calls.some(c => c.method === 'POST')).toBe(false);
   });
 
