@@ -26,6 +26,16 @@
   --k-warn: #8f5a00;
   --k-mark: #ffe600;
   --k-on-mark: #0d1520;
+  --k-s1: #2a78d6;
+  --k-s2: #eb6834;
+  --k-s3: #1baf7a;
+  --k-s4: #eda100;
+  --k-s5: #e87ba4;
+  --k-s6: #008300;
+  --k-s7: #6250d6;
+  --k-s8: #e34948;
+  --k-grid: #e6eaf0;
+  --k-hover: rgb(11 106 162 / 7%);
   --k-shadow: 0 1px 0 rgb(13 21 32 / 4%);
   color-scheme: light;
 }
@@ -48,6 +58,16 @@
   --k-warn: #f4b740;
   --k-mark: #ffe600;
   --k-on-mark: #0d1520;
+  --k-s1: #3987e5;
+  --k-s2: #d95926;
+  --k-s3: #199e70;
+  --k-s4: #c98500;
+  --k-s5: #d55181;
+  --k-s6: #008300;
+  --k-s7: #9085e9;
+  --k-s8: #e66767;
+  --k-grid: #18212d;
+  --k-hover: rgb(56 182 240 / 9%);
   --k-shadow: none;
   color-scheme: dark;
 }
@@ -71,6 +91,16 @@
     --k-warn: #f4b740;
     --k-mark: #ffe600;
     --k-on-mark: #0d1520;
+    --k-s1: #3987e5;
+    --k-s2: #d95926;
+    --k-s3: #199e70;
+    --k-s4: #c98500;
+    --k-s5: #d55181;
+    --k-s6: #008300;
+    --k-s7: #9085e9;
+    --k-s8: #e66767;
+    --k-grid: #18212d;
+    --k-hover: rgb(56 182 240 / 9%);
     --k-shadow: none;
     color-scheme: dark;
   }
@@ -687,4 +717,125 @@
 .reader-table td:first-child {
   white-space: normal;
   min-width: 9rem;
+}
+
+/*
+ * The financials page: the 8 series colors (--k-s1 to --k-s8 above, 1 set
+ * per theme), the SVG chart text and gridlines, and the 2-thumb range
+ * slider, whose thumbs need the vendor pseudo-elements.
+ */
+.fin-chart {
+  position: relative;
+  width: 100%;
+}
+
+.fin-chart svg {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+
+.fin-chart text {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  fill: var(--k-muted);
+}
+
+.fin-chart .fin-grid {
+  stroke: var(--k-grid);
+  stroke-width: 1;
+}
+
+.fin-chart .fin-zero {
+  stroke: var(--k-line-strong);
+  stroke-width: 1;
+}
+
+.fin-chart .fin-band {
+  fill: transparent;
+  cursor: crosshair;
+  outline: none;
+}
+
+.fin-chart .fin-band[data-on='true'] {
+  fill: var(--k-hover);
+}
+
+.fin-chart .fin-band:focus-visible {
+  stroke: var(--k-accent);
+  stroke-width: 2;
+}
+
+.fin-range {
+  position: relative;
+  height: 28px;
+  margin: 0 8px;
+}
+
+.fin-range-track,
+.fin-range-fill {
+  position: absolute;
+  top: 12px;
+  height: 4px;
+}
+
+.fin-range-track {
+  left: 0;
+  right: 0;
+  background: var(--k-line);
+}
+
+.fin-range-fill {
+  background: var(--k-accent);
+}
+
+.fin-range input {
+  position: absolute;
+  top: 4px;
+  left: -8px;
+  width: calc(100% + 16px);
+  height: 20px;
+  margin: 0;
+  background: none;
+  pointer-events: none;
+  appearance: none;
+}
+
+.fin-range input::-webkit-slider-thumb {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--k-accent);
+  border-radius: 50%;
+  background: var(--k-panel);
+  cursor: grab;
+  pointer-events: auto;
+  appearance: none;
+}
+
+.fin-range input::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--k-accent);
+  border-radius: 50%;
+  background: var(--k-panel);
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.fin-range input:focus-visible {
+  outline: none;
+}
+
+.fin-range input:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--k-accent);
+  outline-offset: 1px;
+}
+
+/* The derived mark of a table cell. */
+.fin-derived::after {
+  content: '*';
+  margin-left: 1px;
+  font-style: normal;
+  color: var(--k-warn);
 }

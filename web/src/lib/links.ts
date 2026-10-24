@@ -27,6 +27,35 @@ export const SYSTEM_PATH = '/system';
 /** The path of the debug page: understand and retrieve, no model call. */
 export const DEBUG_PATH = '/debug';
 
+/** The path of the financials page; `?ticker=` names the company. */
+export const FINANCIALS_PATH = '/financials';
+
+/** The shape of a ticker the financials page accepts. */
+export const TICKER_SHAPE = /^[A-Za-z][A-Za-z0-9.-]{0,9}$/;
+
+/**
+ * The link of the financials page of 1 company.
+ *
+ * @param ticker The ticker, or null for the last viewed company.
+ * @return `/financials?ticker=NVDA`, or `/financials`.
+ */
+export function financialsPath(ticker: string | null = null): string {
+  return ticker === null
+    ? FINANCIALS_PATH
+    : `${FINANCIALS_PATH}?ticker=${encodeURIComponent(ticker)}`;
+}
+
+/**
+ * The ticker of a financials page query string.
+ *
+ * @param search The location search, such as `?ticker=nvda`.
+ * @return The ticker in upper case, or null when absent or malformed.
+ */
+export function financialsTickerOf(search: string): string | null {
+  const ticker = new URLSearchParams(search).get('ticker')?.trim() ?? '';
+  return TICKER_SHAPE.test(ticker) ? ticker.toUpperCase() : null;
+}
+
 /** The client route of 1 admin job: `/jobs/{id}` with a 16-hex ID. */
 export const JOB_ROUTE = /^\/jobs\/([0-9a-f]{16})\/?$/;
 

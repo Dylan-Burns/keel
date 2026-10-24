@@ -5,6 +5,7 @@ import {
   COMPANIES_PATH,
   COMPSETS_PATH,
   DEBUG_PATH,
+  FINANCIALS_PATH,
   HELP_PATH,
   HISTORY_PATH,
   JOBS_PATH,
@@ -56,6 +57,12 @@ const PAGE_LINKS: readonly PageLink[] = [
     adminOnly: false,
   },
   {label: 'Eval report', path: '/eval', testId: 'eval-link', adminOnly: false},
+  {
+    label: 'Financials',
+    path: FINANCIALS_PATH,
+    testId: 'financials-link',
+    adminOnly: false,
+  },
   {
     label: 'Companies',
     path: COMPANIES_PATH,

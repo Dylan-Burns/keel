@@ -1,6 +1,7 @@
 import type {JSX} from 'react';
 
 import type {DirectoryCompany} from '../../api/types';
+import {financialsPath} from '../../lib/links';
 import {JobFeedback} from './JobFeedback';
 import type {CompanyAdder} from './useCompanyAdder';
 
@@ -17,7 +18,8 @@ export interface CompanyRowProps {
 
 /**
  * 1 company of the browser: name, ticker, CIK, the Indexed and Watched
- * marks, and the Add button that starts `keel add` with its ticker. The
+ * marks, a link to the financials page of an indexed company, and the Add
+ * button that starts `keel add` with its ticker. The
  * row of the last Add shows the job card under it.
  *
  * @param props The company, the adder, and the indent.
@@ -67,7 +69,17 @@ export function CompanyRow({
             )}
           </span>
         </td>
-        <td className="text-right">
+        <td className="whitespace-nowrap text-right">
+          {company.indexed && (
+            <a
+              className="btn mr-1.5"
+              href={financialsPath(company.ticker)}
+              aria-label={`Financials of ${company.ticker} (${company.name})`}
+              data-testid="company-financials"
+            >
+              Financials
+            </a>
+          )}
           <button
             type="button"
             className={company.indexed ? 'btn' : 'btn btn-primary'}

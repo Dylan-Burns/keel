@@ -2,6 +2,7 @@ import {motion, useReducedMotion} from 'motion/react';
 import type {JSX} from 'react';
 
 import type {AnalysisSummary} from '../api/types';
+import {financialsPath} from '../lib/links';
 import {entitiesResolved, pick} from '../motion/presets';
 
 /** Props of EntitiesLine. */
@@ -34,14 +35,16 @@ export function EntitiesLine({
     >
       <span className="section-title mr-1">Companies</span>
       {analysis.tickers.map(ticker => (
-        <motion.span
+        <motion.a
           key={ticker}
           variants={pick(entitiesResolved.chip, reduced)}
-          className="tag tag-accent font-semibold"
+          className="tag tag-accent font-semibold hover:underline"
+          href={financialsPath(ticker)}
+          title={`Financial statements of ${ticker}`}
           data-testid="entity-chip"
         >
           {ticker}
-        </motion.span>
+        </motion.a>
       ))}
       {(analysis.comp_sets ?? []).map(set => (
         <span
