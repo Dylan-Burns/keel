@@ -4,6 +4,23 @@ All notable changes to this project are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 release-please maintains the released sections from Conventional Commits.
 
+## [0.8.0](https://github.com/Dylan-Burns/keel/compare/v0.7.0...v0.8.0) (2026-10-24)
+
+
+### Features
+
+* **api:** add the admin company browser routes ([6340dac](https://github.com/Dylan-Burns/keel/commit/6340dac98a817c8d470c1365f6232ac1221ee97e))
+* **api:** serve financial statements from the sec company facts ([a50eb4e](https://github.com/Dylan-Burns/keel/commit/a50eb4e3d59ee69332197b155dc94fc4d1456ec9))
+* **edgar:** list the companies of an SEC industry ([d1e6127](https://github.com/Dylan-Burns/keel/commit/d1e6127d078ba44e8184f9f827dff6df2fdefdf2))
+* **web:** add the financials page with statement charts ([2f20dfd](https://github.com/Dylan-Burns/keel/commit/2f20dfd79a18b609a7e6a408aa4e6f026858d087))
+* **web:** browse companies by sector and industry ([7b7068b](https://github.com/Dylan-Burns/keel/commit/7b7068b892f92f7c5160b1f125f428e1c94107f3))
+
+
+### Documentation
+
+* **docs:** document the company browser routes and build entry ([6f96146](https://github.com/Dylan-Burns/keel/commit/6f961468647a3b67d9d73457d42df7f3bdbdf445))
+* **docs:** record the financials page follow-up ([5cc99ee](https://github.com/Dylan-Burns/keel/commit/5cc99eedb4f3233bca412693737ba217fec77182))
+
 ## [0.7.0](https://github.com/Dylan-Burns/keel/compare/v0.6.2...v0.7.0) (2026-10-23)
 
 
