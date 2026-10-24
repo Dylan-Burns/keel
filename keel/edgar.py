@@ -25,6 +25,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from collections.abc import Iterable
+from collections.abc import Iterator
 from collections.abc import Mapping
 from collections.abc import Sequence
 import dataclasses
@@ -234,6 +235,7 @@ class TickerMap:
 
     def __init__(self, entries: Iterable[TickerEntry]) -> None:
         self._entries: dict[str, TickerEntry] = {}
+        self._by_cik: dict[str, tuple[TickerEntry, ...]] | None = None
         for entry in entries:
             self._entries.setdefault(entry.ticker, entry)
 
@@ -271,6 +273,31 @@ class TickerMap:
 
     def __len__(self) -> int:
         return len(self._entries)
+
+    def __iter__(self) -> Iterator[TickerEntry]:
+        return iter(self._entries.values())
+
+    def by_cik(self, cik: str) -> tuple[TickerEntry, ...]:
+        """Find the rows of a CIK: 1 per ticker, in map order.
+
+        The SEC map lists the main ticker of a company first, so the first
+        row is the one to add; a company with share classes has more.
+
+        Args:
+            cik: The CIK (any zero padding).
+
+        Returns:
+            The rows, empty when the company has no ticker.
+
+        Raises:
+            EdgarError: The value is not a CIK.
+        """
+        if self._by_cik is None:
+            index: dict[str, list[TickerEntry]] = {}
+            for entry in self._entries.values():
+                index.setdefault(entry.cik, []).append(entry)
+            self._by_cik = {key: tuple(rows) for key, rows in index.items()}
+        return self._by_cik.get(cik10(cik), ())
 
     def __contains__(self, ticker: object) -> bool:
         return (

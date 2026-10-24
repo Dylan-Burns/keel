@@ -269,6 +269,8 @@ class EdgarConfig(_Section):
     cache_dir: pathlib.Path = pathlib.Path("cache/edgar")
     min_request_interval_seconds: float = 0.2
     facts: pathlib.Path = pathlib.Path("config/facts.yaml")
+    sic_codes: pathlib.Path = pathlib.Path("config/sic_codes.yaml")
+    directory_ttl_days: int = pydantic.Field(default=30, ge=1)
 
 
 class DemoConfig(_Section):

@@ -115,6 +115,8 @@ edgar:
   cache_dir: cache/edgar
   min_request_interval_seconds: 0.2
   facts: config/facts.yaml     # the 8 company facts concepts and their XBRL names (chapter 26.1)
+  sic_codes: config/sic_codes.yaml  # the SEC industries of the admin company browser
+  directory_ttl_days: 30       # the company list of an industry is fetched again after this
 
 demo:
   example_questions:
