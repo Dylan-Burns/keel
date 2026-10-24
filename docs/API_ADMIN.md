@@ -236,7 +236,7 @@ The companies page lists the SEC industries so an admin can find a company to ad
 - The company list of an industry comes from the EDGAR company feed (`/cgi-bin/browse-edgar?action=getcompany&SIC=<code>&type=10-K&count=100&start=<n>&output=atom`), 1 request per 100 registrants that file a 10-K, at most 30 pages, through the EDGAR client (the allow list, `edgar.min_request_interval_seconds`, and `edgar.user_agent`). Semiconductors (3674) takes 6 requests for 506 registrants. The CIKs land in `<edgar.cache_dir>/sic/<code>.json` with the fetch time; a later call reads the cache (`sec_requests: 0`) until the list is `edgar.directory_ttl_days` old (30 by default). A failed refresh serves the old copy with `stale: true`. With `KEEL_OFFLINE=1` only the cache serves.
 - The feed's name field is broken (`ARRAY(0x...)`), so the names and tickers come from the SEC ticker map; a CIK without a ticker is left out (`registrants` counts them all). A company with share classes lists every ticker; the first one is the one Add sends.
 - `indexed`: the current build holds a filing with the company's CIK or ticker. `watched`: a user watches 1 of its tickers. `addable`: `keel add` takes the ticker (letters and a share class only). Add on the page starts the `add` job with the ticker; an indexed company shows Update, which fetches its latest filings the same way.
-- The feed body is bounded (2 MB per page) and parsed only when it declares no document type and no entity. The log lines carry counts, never the search text.
+- The feed body is bounded (the read stops past 2 MB of decoded bytes) and parsed only in an ASCII-compatible encoding with no document type and no entity. The log lines carry counts, never the search text.
 
 ## Debug
 
