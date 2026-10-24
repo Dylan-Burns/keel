@@ -11,10 +11,12 @@ import {DebugPage} from './components/admin/DebugPage';
 import {JobsPage} from './components/admin/JobsPage';
 import {SystemPage} from './components/admin/SystemPage';
 import {UsersPage} from './components/admin/UsersPage';
+import {FinancialsPage} from './components/financials/FinancialsPage';
 import {
   COMPANIES_PATH,
   COMPSETS_PATH,
   DEBUG_PATH,
+  FINANCIALS_PATH,
   HELP_PATH,
   HISTORY_PATH,
   JOBS_PATH,
@@ -30,7 +32,8 @@ if (container === null) {
 }
 // The client routes: `/eval` is the eval page (W-02), `/history` the history
 // page and `/compsets` the comp sets page (27.2), `/help` the data use page
-// (27.2), `/companies` the watch list and the company jobs, `/jobs` and
+// (27.2), `/financials` the financial statements of 1 company,
+// `/companies` the watch list and the company jobs, `/jobs` and
 // `/jobs/{id}` the admin jobs, `/users` and `/system` the other admin
 // pages, `/debug` the debug page; every other path is the question page,
 // which reads the shared answer route `/a/{request_id}` itself.
@@ -44,6 +47,8 @@ const page =
     <CompSetsPage />
   ) : path === HELP_PATH ? (
     <HelpPage />
+  ) : path === FINANCIALS_PATH ? (
+    <FinancialsPage />
   ) : path === COMPANIES_PATH ? (
     <CompaniesPage />
   ) : path === JOBS_PATH || jobIdOf(path) !== null ? (
