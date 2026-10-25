@@ -1,6 +1,6 @@
 [project]
 name = "keel"
-version = "0.9.0"
+version = "0.10.0"
 description = "Grounded answers to business questions about SEC filings from one LLM call."
 readme = "README.md"
 license = { file = "LICENSE" }

@@ -4,6 +4,23 @@ All notable changes to this project are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 release-please maintains the released sections from Conventional Commits.
 
+## [0.10.0](https://github.com/Dylan-Burns/keel/compare/v0.9.0...v0.10.0) (2026-10-25)
+
+
+### Features
+
+* **web:** stream the sources panel from the moment a question is sent ([176b7b1](https://github.com/Dylan-Burns/keel/commit/176b7b1a0c8858d92e9d0905ffe6f5b328597cbc))
+
+
+### Bug fixes
+
+* **web:** keep the access gate from flashing on each page load ([b62d43e](https://github.com/Dylan-Burns/keel/commit/b62d43e9ec8789aca7241500f6aa95e7c70ebd80))
+
+
+### Documentation
+
+* **docs:** record the streamed sources panel and the gate fix ([389b6b5](https://github.com/Dylan-Burns/keel/commit/389b6b573feee1c3bb490a24a1bc86cf8e506cd4))
+
 ## [0.9.0](https://github.com/Dylan-Burns/keel/compare/v0.8.1...v0.9.0) (2026-10-24)
 
 
