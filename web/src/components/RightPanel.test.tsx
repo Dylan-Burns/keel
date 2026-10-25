@@ -3,7 +3,7 @@ import {describe, expect, it, vi} from 'vitest';
 
 import {RESPONSE_1} from '../testing/fixtures';
 import {runOf} from '../testing/runs';
-import {RightPanel} from './RightPanel';
+import {RightPanel, liveCitations} from './RightPanel';
 
 describe('RightPanel', () => {
   it('lists the retrieved chunks with scores and the collapse count while loading', () => {
@@ -149,6 +149,47 @@ describe('RightPanel', () => {
     expect(screen.getByTestId('right-panel')).toHaveAttribute(
       'data-collapsed',
       'false',
+    );
+  });
+
+  it('streams the cited passages before the final answer', () => {
+    const streaming = runOf(RESPONSE_1, 3);
+    const first = streaming.retrieval?.chunks[0];
+    if (first === undefined) {
+      throw new Error('the fixture has no retrieved chunk');
+    }
+    const run = {
+      ...streaming,
+      final: null,
+      findings: [
+        {
+          ticker: first.ticker,
+          company: first.ticker,
+          findings: [
+            {point: 'a', citations: [first.chunk_id, 'not-retrieved']},
+            {point: 'b', citations: [first.chunk_id]},
+          ],
+        },
+      ],
+    };
+    expect(liveCitations(run).map(c => c.chunk_id)).toEqual([first.chunk_id]);
+    render(
+      <RightPanel run={run} selected={null} open={false} onClose={vi.fn()} />,
+    );
+    expect(screen.getAllByTestId('live-citation-card')).toHaveLength(1);
+    expect(screen.getByTestId('live-citation-list')).toHaveTextContent(
+      first.filing_name,
+    );
+    expect(screen.queryByTestId('citation-list')).toBeNull();
+  });
+
+  it('says it is finding the passages before retrieval returns', () => {
+    const run = {...runOf(RESPONSE_1, 3), retrieval: null, final: null};
+    render(
+      <RightPanel run={run} selected={null} open={false} onClose={vi.fn()} />,
+    );
+    expect(screen.getByTestId('sources-pending')).toHaveTextContent(
+      'Finding the passages.',
     );
   });
 });
