@@ -1,10 +1,15 @@
 import {motion, useReducedMotion} from 'motion/react';
 import type {JSX} from 'react';
-import {useEffect, useState} from 'react';
+import {useEffect, useMemo, useState} from 'react';
 
 import {ApiError, fetchEval, getToken, setToken} from '../api/client';
 import type {EvalResponse} from '../api/types';
+import {guideFor} from '../lib/evalGuide';
+import {parseReport, reportJson} from '../lib/evalReport';
+import {saveBlob} from '../lib/download';
 import {evalPage, pick} from '../motion/presets';
+import {EvalGuide} from './eval/EvalGuide';
+import {EvalOverview} from './eval/EvalOverview';
 import {GateBar} from './GateBar';
 import {MarkdownDocument} from './MarkdownDocument';
 import {PageBar} from './PageBar';
@@ -19,7 +24,9 @@ type Load =
 
 /**
  * The eval page at `/eval` (W-02, chapter 25.2): the regression gates as
- * metric bars, then `eval/report.md` and `docs/PROMPT_LOG.md`, read-only,
+ * metric bars, the headline numbers and charts of the run, then
+ * `eval/report.md` with a plain-language note under each section and its
+ * Markdown and JSON downloads, then `docs/PROMPT_LOG.md`, read-only,
  * through the answer renderer and DOMPurify. The page has no logic beyond
  * the render; `keel eval` writes the report.
  *
@@ -56,6 +63,12 @@ export function EvalPage(): JSX.Element {
       cancelled = true;
     };
   }, [tokenCount]);
+  const markdown = load.kind === 'ready' ? load.data.report.markdown : null;
+  const parsed = useMemo(
+    () => (markdown === null ? null : parseReport(markdown)),
+    [markdown],
+  );
+  const stem = `keel-${parsed?.run['Run ID'] ?? 'eval-report'}`;
   const onSave = (token: string): void => {
     setToken(token);
     setLoad({kind: 'loading'});
@@ -74,7 +87,7 @@ export function EvalPage(): JSX.Element {
           onSave={onSave}
         />
       </PageBar>
-      <main className="mx-auto w-full max-w-5xl space-y-3 px-3 py-3">
+      <main className="mx-auto w-full max-w-[1400px] space-y-3 px-3 py-3">
         {load.kind === 'no_token' && (
           <p className="text-[13px] text-muted">
             Enter the access token to read the eval report.
@@ -114,11 +127,62 @@ export function EvalPage(): JSX.Element {
                 </motion.ul>
               )}
             </section>
+            {parsed !== null && (
+              <EvalOverview report={parsed} gates={load.data.gates} />
+            )}
             <MarkdownDocument
               title="Eval report"
               document={load.data.report}
               empty="No eval report yet. Run keel eval to write eval/report.md, then reload this page."
               testId="eval-report"
+              noteFor={heading => {
+                const guide = guideFor(heading);
+                return guide === null ? null : <EvalGuide guide={guide} />;
+              }}
+              {...(markdown === null || parsed === null
+                ? {}
+                : {
+                    actions: (
+                      <>
+                        <span className="font-mono text-[10.5px] uppercase tracking-[0.08em] text-muted">
+                          Download
+                        </span>
+                        <button
+                          type="button"
+                          className="btn"
+                          title="The report file as keel eval writes it"
+                          data-testid="eval-download-md"
+                          onClick={() =>
+                            saveBlob(
+                              `${stem}.md`,
+                              new Blob([markdown], {type: 'text/markdown'}),
+                            )
+                          }
+                        >
+                          Markdown
+                        </button>
+                        <button
+                          type="button"
+                          className="btn"
+                          title="The run details and every table as rows of named fields"
+                          data-testid="eval-download-json"
+                          onClick={() =>
+                            saveBlob(
+                              `${stem}.json`,
+                              new Blob(
+                                [
+                                  `${JSON.stringify(reportJson(parsed), null, 2)}\n`,
+                                ],
+                                {type: 'application/json'},
+                              ),
+                            )
+                          }
+                        >
+                          JSON
+                        </button>
+                      </>
+                    ),
+                  })}
             />
             <MarkdownDocument
               title="Prompt log"

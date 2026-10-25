@@ -1,8 +1,15 @@
-import {render, screen, waitFor, within} from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import {TOKEN_KEY} from '../api/client';
 import type {EvalResponse} from '../api/types';
+import {SAMPLE_REPORT} from '../testing/evalReport';
 import {EVAL_PAGE, EVAL_PAGE_EMPTY} from '../testing/fixtures';
 import {EvalPage} from './EvalPage';
 
@@ -106,5 +113,50 @@ describe('EvalPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'could not load',
     );
+  });
+
+  it('explains each section and downloads the report as Markdown and JSON', async () => {
+    window.sessionStorage.setItem(TOKEN_KEY, 'token');
+    serve({
+      ...EVAL_PAGE,
+      report: {
+        source: 'eval/report.md',
+        markdown: SAMPLE_REPORT,
+        truncated: false,
+      },
+    });
+    const blobs: Blob[] = [];
+    const names: string[] = [];
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: (blob: Blob) => {
+        blobs.push(blob);
+        return 'blob:test';
+      },
+      revokeObjectURL: () => undefined,
+    });
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        names.push(this.download);
+      });
+    render(<EvalPage />);
+    expect(await screen.findByTestId('eval-overview')).toBeInTheDocument();
+    const report = screen.getByTestId('eval-report');
+    // 1 note per known section: run details, gates, retrieval, ablation,
+    // answer metrics, per question answers.
+    expect(within(report).getAllByTestId('eval-guide')).toHaveLength(6);
+    fireEvent.click(screen.getByTestId('eval-download-md'));
+    fireEvent.click(screen.getByTestId('eval-download-json'));
+    expect(names).toEqual([
+      'keel-eval-20261022T111922Z.md',
+      'keel-eval-20261022T111922Z.json',
+    ]);
+    expect(await blobs[0]?.text()).toBe(SAMPLE_REPORT);
+    const json = JSON.parse((await blobs[1]?.text()) ?? '{}') as {
+      run: Record<string, string>;
+    };
+    expect(json.run['Questions']).toBe('4');
+    click.mockRestore();
   });
 });
