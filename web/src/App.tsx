@@ -206,12 +206,9 @@ export function App(): JSX.Element {
     run !== null &&
     base.kind !== 'out_of_scope' &&
     (base.kind !== 'rate_limited' || run.final !== null);
-  // The sources side nav shows once an answer is final, expanded. When the
-  // model is down no answer comes, so the retrieved chunks show at once.
-  const answeredId = !showAnswer
-    ? null
-    : (run?.final?.request_id ??
-      (base.kind === 'provider_down' && run?.retrieval ? run.requestId : null));
+  // The sources side nav shows from the moment a question is sent, expanded;
+  // the retrieved chunks and the citations stream into it.
+  const answeredId = showAnswer ? (run?.requestId ?? null) : null;
   const sourcesCollapsed = answeredId !== null && collapsedFor === answeredId;
   const columns =
     answeredId === null

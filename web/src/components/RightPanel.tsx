@@ -1,7 +1,7 @@
 import {motion, useReducedMotion} from 'motion/react';
 import type {JSX} from 'react';
 
-import type {ChunkResponse} from '../api/types';
+import type {ChunkResponse, RetrievedChunk} from '../api/types';
 import {
   findChunk,
   findCitation,
@@ -37,6 +37,34 @@ export interface RightPanelProps {
   readonly onToggleCollapsed?: () => void;
 }
 
+/**
+ * The passages the streamed findings cite so far, before the validator
+ * checks them: each cited chunk once, in the order the findings name it,
+ * with its filing details from the retrieved chunks.
+ *
+ * @param run The run.
+ * @return The cited chunks.
+ */
+export function liveCitations(run: Run): readonly RetrievedChunk[] {
+  const byId = new Map(
+    (run.retrieval?.chunks ?? []).map(chunk => [chunk.chunk_id, chunk]),
+  );
+  const seen = new Set<string>();
+  const found: RetrievedChunk[] = [];
+  for (const company of run.findings) {
+    for (const finding of company.findings) {
+      for (const id of finding.citations) {
+        const chunk = byId.get(id);
+        if (chunk !== undefined && !seen.has(id)) {
+          seen.add(id);
+          found.push(chunk);
+        }
+      }
+    }
+  }
+  return found;
+}
+
 /** A chevron that points left (expand) or right (collapse). */
 function Chevron({left}: {readonly left: boolean}): JSX.Element {
   return (
@@ -58,8 +86,10 @@ function Chevron({left}: {readonly left: boolean}): JSX.Element {
 /**
  * The right panel (chapter 14.5): the opened chunk, the citation list, and
  * the retrieved chunks with scores and the collapsed near-duplicate count.
- * The page shows it once an answer is final. On a wide screen it is a side
- * nav that collapses to a rail; on a phone it is a drawer. Every string is
+ * The page shows it from the moment a question is sent: the retrieved
+ * chunks arrive, then the passages the streamed findings cite ("checking"),
+ * then the validated citations of the final answer. On a wide screen it is
+ * a side nav that collapses to a rail; on a phone it is a drawer. Every string is
  * a JSX text node.
  *
  * @param props The props.
@@ -77,6 +107,7 @@ export function RightPanel({
   const reduced = useReducedMotion();
   const cited = run?.final?.citations_resolved ?? [];
   const retrieval = run?.retrieval ?? null;
+  const live = run !== null && run.final === null ? liveCitations(run) : [];
   const top = Math.max(0.0001, ...(retrieval?.chunks.map(c => c.score) ?? [0]));
   if (collapsed && !open) {
     return (
@@ -185,6 +216,55 @@ export function RightPanel({
               {selected.detail.text}
             </p>
           )}
+        </section>
+      )}
+      {run !== null && retrieval === null && run.final === null && (
+        <p
+          className="panel-body text-xs text-muted"
+          role="status"
+          data-testid="sources-pending"
+        >
+          Finding the passages.
+        </p>
+      )}
+      {live.length > 0 && (
+        <section className="border-b border-line">
+          <h3 className="section-title px-2.5 pb-1 pt-2.5">
+            Citations <span className="num">({live.length})</span>{' '}
+            <span className="font-normal normal-case tracking-normal text-muted">
+              checking
+            </span>
+          </h3>
+          <motion.ol
+            className="divide-y divide-line"
+            data-testid="live-citation-list"
+            variants={pick(retrievalMotion.list, reduced)}
+            initial="hidden"
+            animate="visible"
+          >
+            {live.map(chunk => (
+              <motion.li
+                key={chunk.chunk_id}
+                variants={pick(retrievalMotion.item, reduced)}
+                className="px-2.5 py-2 text-xs"
+                data-testid="live-citation-card"
+              >
+                <div className="font-semibold text-ink">
+                  {chunk.filing_name}
+                </div>
+                <div className="text-ink-2">
+                  {chunk.section}, {chunk.fiscal_label}
+                </div>
+                <div className="flex flex-wrap items-baseline gap-x-3">
+                  <ReaderButton
+                    chunkId={chunk.chunk_id}
+                    onOpen={onOpenReader}
+                  />
+                  <SecLink url={chunk.sec_url} className="text-[11px]" />
+                </div>
+              </motion.li>
+            ))}
+          </motion.ol>
         </section>
       )}
       {cited.length > 0 && run !== null && (
