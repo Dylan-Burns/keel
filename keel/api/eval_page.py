@@ -3,7 +3,9 @@
 The page shows the newest report of the admin eval job (`<run id>.md`
 in `eval.report_dir`, `<logs.dir>/eval` by default, which is writable on
 the host) or, before the first run there, the committed `eval/report.md`
-(written by `keel eval`), and `docs/PROMPT_LOG.md`, all read-only. The
+(written by `keel eval`), `docs/PROMPT_LOG.md`, and the text of each
+answer prompt version (`prompts/answer_system_v*.md` and
+`prompts/answer_user_v*.md`), all read-only. The
 service sends the markdown as text; the front-end renders it through the
 same `marked` and DOMPurify path as the answers, with the allow list of
 chapter 15, so no HTML leaves the server.
@@ -26,6 +28,8 @@ MAX_BYTES = 2 * 1024 * 1024  # a report larger than this is cut
 REPORT_LABEL = "eval/report.md"
 PROMPT_LOG_LABEL = "docs/PROMPT_LOG.md"
 RUN_REPORT_GLOB = "eval-*.md"
+MAX_PROMPT_BYTES = 64 * 1024  # a prompt file is about 5 KB
+_PROMPT_FILE = re.compile(r"^answer_system_v(\d+)\.(\d+)\.(\d+)\.md$")
 _NUMBER = re.compile(r"[-+]?\d+(?:\.\d+)?")
 _COMPARATOR = re.compile(r"^\s*(>=|<=|>|<)")
 _AT_MOST = re.compile(r"\b(or less|at most|or lower|or below)\b", re.IGNORECASE)
@@ -78,6 +82,23 @@ class Gate(pydantic.BaseModel):
     passed: bool | None
 
 
+class PromptVersion(pydantic.BaseModel):
+    """The text of 1 answer prompt version.
+
+    Attributes:
+        version: The version, such as `1.5.1`.
+        system: The system block (`answer_system_v<version>.md`).
+        user: The user template (`answer_user_v<version>.md`), or None.
+        current: True for the version the service answers with
+            (`llm.prompt_version`).
+    """
+
+    version: str
+    system: str
+    user: str | None
+    current: bool
+
+
 class EvalPage(pydantic.BaseModel):
     """The response of `GET /api/eval`.
 
@@ -85,11 +106,13 @@ class EvalPage(pydantic.BaseModel):
         report: The eval report.
         prompt_log: The prompt log.
         gates: The gates of the report, in report order.
+        prompts: The answer prompt versions, oldest first.
     """
 
     report: EvalDocument
     prompt_log: EvalDocument
     gates: list[Gate]
+    prompts: list[PromptVersion] = pydantic.Field(default_factory=list)
 
 
 def read_document(path: pathlib.Path, source: str) -> EvalDocument:
@@ -221,10 +244,63 @@ def latest_run_report(report_dir: pathlib.Path | None) -> pathlib.Path | None:
     return found[-1] if found else None
 
 
+def _read_text(path: pathlib.Path) -> str | None:
+    """Read a small text file, or None when it is missing or too large."""
+    try:
+        if path.stat().st_size > MAX_PROMPT_BYTES:
+            logger.warning("prompt file over the size limit skipped")
+            return None
+        return path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+
+def read_prompts(
+    prompts_dir: pathlib.Path | None, current: str | None
+) -> list[PromptVersion]:
+    """Read the text of every answer prompt version.
+
+    Args:
+        prompts_dir: The prompt directory (`llm.prompts_dir`), or None.
+        current: The version in use (`llm.prompt_version`), or None.
+
+    Returns:
+        The versions with a system block, oldest first; empty when the
+        directory is missing.
+    """
+    if prompts_dir is None or not prompts_dir.is_dir():
+        return []
+    found: list[tuple[tuple[int, int, int], PromptVersion]] = []
+    for path in prompts_dir.iterdir():
+        match = _PROMPT_FILE.match(path.name)
+        if match is None:
+            continue
+        system = _read_text(path)
+        if system is None:
+            continue
+        major, minor, patch = (int(part) for part in match.groups())
+        version = f"{major}.{minor}.{patch}"
+        user = _read_text(prompts_dir / f"answer_user_v{version}.md")
+        found.append(
+            (
+                (major, minor, patch),
+                PromptVersion(
+                    version=version,
+                    system=system,
+                    user=user,
+                    current=version == current,
+                ),
+            )
+        )
+    return [prompt for _, prompt in sorted(found, key=operator.itemgetter(0))]
+
+
 def load(
     report: pathlib.Path,
     prompt_log: pathlib.Path,
     report_dir: pathlib.Path | None = None,
+    prompts_dir: pathlib.Path | None = None,
+    current_prompt: str | None = None,
 ) -> EvalPage:
     """Read both files and the gates for `GET /api/eval`.
 
@@ -233,6 +309,8 @@ def load(
             when the eval job has written no report yet.
         prompt_log: The prompt log path (`server.prompt_log`).
         report_dir: The report directory of the admin eval job, or None.
+        prompts_dir: The prompt directory (`llm.prompts_dir`), or None.
+        current_prompt: The prompt version in use, or None.
 
     Returns:
         The page data.
@@ -246,4 +324,5 @@ def load(
         report=document,
         prompt_log=read_document(prompt_log, PROMPT_LOG_LABEL),
         gates=parse_gates(document.markdown),
+        prompts=read_prompts(prompts_dir, current_prompt),
     )

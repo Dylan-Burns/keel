@@ -5,6 +5,7 @@ import pathlib
 
 import pytest
 
+import conftest
 from keel.api import eval_page
 
 
@@ -107,3 +108,40 @@ def test_latest_run_report_unreadable_dir(
     monkeypatch.setattr(pathlib.Path, "glob", broken)
     assert eval_page.latest_run_report(tmp_path) is None
     assert eval_page.latest_run_report(None) is None
+
+
+def test_read_prompts_in_version_order(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for version in ("1.10.0", "1.2.0", "1.9.1"):
+        (tmp_path / f"answer_system_v{version}.md").write_text(
+            f"system {version}", encoding="utf-8"
+        )
+    (tmp_path / "answer_user_v1.2.0.md").write_text("user", encoding="utf-8")
+    (tmp_path / "judge_v1.0.0.md").write_text("judge", encoding="utf-8")
+    (tmp_path / "answer_system_v2.0.0.md").write_text("x" * 20, "utf-8")
+    monkeypatch.setattr(eval_page, "MAX_PROMPT_BYTES", 16)
+    prompts = eval_page.read_prompts(tmp_path, "1.9.1")
+    # Numeric order, not text order; the judge and the oversize file stay out.
+    assert [p.version for p in prompts] == ["1.2.0", "1.9.1", "1.10.0"]
+    assert prompts[0].user == "user"
+    assert prompts[1].user is None
+    assert [p.current for p in prompts] == [False, True, False]
+
+
+def test_read_prompts_without_a_directory(tmp_path: pathlib.Path) -> None:
+    assert not eval_page.read_prompts(None, "1.0.0")
+    assert not eval_page.read_prompts(tmp_path / "missing", "1.0.0")
+
+
+def test_load_includes_the_committed_prompts(tmp_path: pathlib.Path) -> None:
+    page = eval_page.load(
+        tmp_path / "report.md",
+        tmp_path / "log.md",
+        prompts_dir=conftest.REPO_ROOT / "prompts",
+        current_prompt="1.5.1",
+    )
+    versions = [p.version for p in page.prompts]
+    assert versions[0] == "1.0.0"
+    assert "1.5.1" in versions
+    assert [p.version for p in page.prompts if p.current] == ["1.5.1"]

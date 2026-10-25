@@ -10,6 +10,7 @@ import {saveBlob} from '../lib/download';
 import {evalPage, pick} from '../motion/presets';
 import {EvalGuide} from './eval/EvalGuide';
 import {EvalOverview} from './eval/EvalOverview';
+import {PromptChanges} from './eval/PromptChanges';
 import {GateBar} from './GateBar';
 import {MarkdownDocument} from './MarkdownDocument';
 import {PageBar} from './PageBar';
@@ -184,8 +185,11 @@ export function EvalPage(): JSX.Element {
                     ),
                   })}
             />
+            {(load.data.prompts ?? []).length > 0 && (
+              <PromptChanges prompts={load.data.prompts ?? []} />
+            )}
             <MarkdownDocument
-              title="Prompt log"
+              title="Prompt log, full detail"
               document={load.data.prompt_log}
               empty="No prompt log in this deployment."
               testId="eval-prompt-log"
