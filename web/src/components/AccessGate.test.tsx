@@ -2,7 +2,7 @@ import {fireEvent, render, screen, waitFor} from '@testing-library/react';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {TOKEN_KEY} from '../api/client';
-import {AccessGate} from './AccessGate';
+import {ACCEPTED_KEY, AccessGate, fingerprint} from './AccessGate';
 
 /** Stubs fetch: the admin probe answers with the given status. */
 function probe(status: number): ReturnType<typeof vi.fn> {
@@ -66,5 +66,63 @@ describe('AccessGate', () => {
       </AccessGate>,
     );
     expect(await screen.findByText('the page')).toBeInTheDocument();
+  });
+
+  it('renders the page at once on a later load of an accepted token', async () => {
+    window.sessionStorage.setItem(TOKEN_KEY, 'good-token');
+    window.sessionStorage.setItem(ACCEPTED_KEY, fingerprint('good-token'));
+    probe(200);
+    render(
+      <AccessGate>
+        <p>the page</p>
+      </AccessGate>,
+    );
+    // No gate while the check runs again.
+    expect(screen.getByText('the page')).toBeInTheDocument();
+    expect(screen.queryByTestId('no-access')).toBeNull();
+    expect(await screen.findByText('the page')).toBeInTheDocument();
+  });
+
+  it('returns to the gate when a remembered token is refused', async () => {
+    window.sessionStorage.setItem(TOKEN_KEY, 'old-token');
+    window.sessionStorage.setItem(ACCEPTED_KEY, fingerprint('old-token'));
+    probe(401);
+    render(
+      <AccessGate>
+        <p>the page</p>
+      </AccessGate>,
+    );
+    expect(screen.getByText('the page')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', {name: 'Access token rejected'}),
+    ).toBeInTheDocument();
+    expect(window.sessionStorage.getItem(ACCEPTED_KEY)).toBeNull();
+  });
+
+  it('checks a token the tab has not seen accepted before', () => {
+    window.sessionStorage.setItem(TOKEN_KEY, 'new-token');
+    window.sessionStorage.setItem(ACCEPTED_KEY, fingerprint('old-token'));
+    probe(200);
+    render(
+      <AccessGate>
+        <p>the page</p>
+      </AccessGate>,
+    );
+    expect(screen.getByTestId('no-access')).toBeInTheDocument();
+    expect(screen.queryByText('the page')).toBeNull();
+  });
+
+  it('remembers a token the server accepted', async () => {
+    window.sessionStorage.setItem(TOKEN_KEY, 'good-token');
+    probe(200);
+    render(
+      <AccessGate>
+        <p>the page</p>
+      </AccessGate>,
+    );
+    await screen.findByText('the page');
+    expect(window.sessionStorage.getItem(ACCEPTED_KEY)).toBe(
+      fingerprint('good-token'),
+    );
   });
 });
