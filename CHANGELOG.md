@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 release-please maintains the released sections from Conventional Commits.
 
+## [0.12.0](https://github.com/Dylan-Burns/keel/compare/v0.11.0...v0.12.0) (2026-10-25)
+
+
+### Features
+
+* **web:** show each prompt version's rule changes before and after ([4444f41](https://github.com/Dylan-Burns/keel/commit/4444f416373f0f2badcf5e56dacf3c4247fe52c7))
+
+
+### Documentation
+
+* **docs:** record the prompt changes panel ([e3cda72](https://github.com/Dylan-Burns/keel/commit/e3cda72a49b0d5a3f40498f2c5eb5accfc65f04a))
+
 ## [0.11.0](https://github.com/Dylan-Burns/keel/compare/v0.10.0...v0.11.0) (2026-10-25)
 
 
