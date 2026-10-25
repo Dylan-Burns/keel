@@ -20,6 +20,7 @@
   --k-ink-2: #29374a;
   --k-muted: #546173;
   --k-accent: #0b6aa2;
+  --k-deemph: #8a96a6;
   --k-on-accent: #ffffff;
   --k-up: #04764f;
   --k-down: #b4232a;
@@ -52,6 +53,7 @@
   --k-ink-2: #bcc7d5;
   --k-muted: #8796aa;
   --k-accent: #38b6f0;
+  --k-deemph: #5b6b80;
   --k-on-accent: #031019;
   --k-up: #2fd08c;
   --k-down: #ff6b6b;
@@ -85,6 +87,7 @@
     --k-ink-2: #bcc7d5;
     --k-muted: #8796aa;
     --k-accent: #38b6f0;
+    --k-deemph: #5b6b80;
     --k-on-accent: #031019;
     --k-up: #2fd08c;
     --k-down: #ff6b6b;
@@ -856,4 +859,10 @@
   background-color: var(--k-accent);
   -webkit-mask: url('/keel-logo-128.png') center / contain no-repeat;
   mask: url('/keel-logo-128.png') center / contain no-repeat;
+}
+
+/* The tables of the eval report keep each header on 1 line; a wide table
+   scrolls inside its panel. */
+.nowrap-heads th {
+  white-space: nowrap;
 }

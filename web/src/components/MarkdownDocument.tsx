@@ -1,4 +1,4 @@
-import type {JSX} from 'react';
+import type {JSX, ReactNode} from 'react';
 
 import type {EvalDocument} from '../api/types';
 import {AnswerMarkdown} from './AnswerMarkdown';
@@ -54,6 +54,10 @@ export interface MarkdownDocumentProps {
   readonly document: EvalDocument;
   readonly empty: string;
   readonly testId: string;
+  /** A note shown under a section heading, such as the eval guide. */
+  readonly noteFor?: (heading: string | null) => ReactNode;
+  /** Buttons for the panel head, such as the downloads. */
+  readonly actions?: ReactNode;
 }
 
 /**
@@ -67,6 +71,8 @@ export function MarkdownDocument({
   document,
   empty,
   testId,
+  noteFor,
+  actions,
 }: MarkdownDocumentProps): JSX.Element {
   return (
     <section className="panel" aria-label={title} data-testid={testId}>
@@ -77,6 +83,11 @@ export function MarkdownDocument({
             {document.source}
           </span>
         </h2>
+        {actions !== undefined && (
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {actions}
+          </div>
+        )}
       </div>
       {document.markdown === null ? (
         <p
@@ -86,7 +97,7 @@ export function MarkdownDocument({
           {empty}
         </p>
       ) : (
-        <div className="panel-body space-y-4 overflow-x-auto">
+        <div className="nowrap-heads panel-body space-y-4 overflow-x-auto">
           {splitSections(document.markdown).map((section, index) => (
             <div
               key={`${section.heading ?? ''}-${index}`}
@@ -102,6 +113,7 @@ export function MarkdownDocument({
                     {section.heading}
                   </h4>
                 ))}
+              {noteFor?.(section.heading)}
               {section.body !== '' && (
                 <AnswerMarkdown markdown={section.body} />
               )}
