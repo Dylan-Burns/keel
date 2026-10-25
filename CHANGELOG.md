@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 release-please maintains the released sections from Conventional Commits.
 
+## [0.11.0](https://github.com/Dylan-Burns/keel/compare/v0.10.0...v0.11.0) (2026-10-25)
+
+
+### Features
+
+* **web:** explain, chart, and download the eval report ([13ca37a](https://github.com/Dylan-Burns/keel/commit/13ca37aa8f23262f70a24d57224920f9be47511b))
+
+
+### Documentation
+
+* **docs:** record the explained eval report ([364f5ee](https://github.com/Dylan-Burns/keel/commit/364f5ee95467b92f581061274c48f8bc91e3a5be))
+
 ## [0.10.0](https://github.com/Dylan-Burns/keel/compare/v0.9.0...v0.10.0) (2026-10-25)
 
 
