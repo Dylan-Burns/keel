@@ -905,6 +905,14 @@ Method 4, shorter answers, 8 questions with the judge on the laptop, 2 runs each
 - Tests: Vitest 12 new (parser, guide coverage of every heading `keel eval` writes, tiles, gate lines, sort order, keyboard tooltip, downloads); `npm run check` 357 passed; e2e 58 passed, 6 skipped (mock).
 - Attempts: 1.
 
+## Follow-up after stage 22: prompt changes before and after
+
+- Asked by the engineer: the prompt log did not show which rules each version changed or the prompt text before and after. The eval page now has a "Prompt changes" panel above the log: 1 card per answer prompt version, newest first, with its status (in use, kept, rejected, first), what changed, why, and the measured result in plain words (`web/src/lib/promptNotes.ts`, from `docs/PROMPT_LOG.md`), then each changed rule before and after, side by side, removed words struck through and added words marked. Rules whose meaning changed come first; rules only reworded to keep the system block within its token limit fold under them (1.5.0 changed 4 rules in meaning and reworded 18; 1.5.1 changed rule 4 and reworded 9). The full text of each version folds at the end.
+- `GET /api/eval` gains `prompts`: the system block and the user template of every `prompts/answer_system_v*.md`, in version order (1.10.0 after 1.9.1), 64 KB per file at most, with the version in use (`llm.prompt_version`) marked. `web/src/lib/promptDiff.ts` splits a system block into its opening, headings, and numbered rules and diffs them by rule number, then by word.
+- The raw prompt log stays below the panel as "Prompt log, full detail".
+- Tests: Python 3 (version order, the size limit, the judge prompt left out, the committed prompts); Vitest 7 (rule split, rule diff, user template, word diff, card order and status, meaning before wording). `make test` 1114 passed, coverage 97%; `npm run check` 364 passed; e2e 58 passed, 6 skipped (mock).
+- Attempts: 1.
+
 ## Gaps
 
 Values that were not available when the build needed them, and what the build did instead.
