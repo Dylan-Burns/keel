@@ -896,6 +896,15 @@ Method 4, shorter answers, 8 questions with the judge on the laptop, 2 runs each
 - Tests: Python 12 unit (`test_filers.py`: quarters, parser, the coverage rule with the January case, complete and current quarter caching, stale fallback, offline miss, bad cache file, the day memo) and 2 API (the filter on industry, overview, and search; overview counts without a cached list). Vitest: `AccessGate`, `NoAccess`, `PageNav`, `BrandLink`, the side nav rail, the footer before an answer, the Add button states; `smoke.spec.ts` expects the gate without a token and `security.spec.ts` lets the app's own page links through (every other link still goes to `www.sec.gov`). `make test` 1111 passed, coverage 97%; `npm run check` 341 passed; e2e 58 passed, 6 skipped (mock).
 - Attempts: 1.
 
+## Follow-up after stage 22: eval report explained, charted, and downloadable
+
+- Asked by the engineer: the eval page was hard to read. Each section of `eval/report.md` now has a plain-language note under its heading (`web/src/lib/evalGuide.ts`): what it shows, what a good result looks like, and every column; the definitions follow chapter 18. The note is open by default and folds.
+- Charts (`EvalOverview`, `BarList`), drawn from the report tables (`web/src/lib/evalReport.ts` parses them): the headline numbers (gates passed and the failed gate, questions, recall at 25, faithfulness, slow-case answer time, cost per answer, each with its gate from the report); recall at 25 by question type and the faithfulness of each answer, weakest first, each with its gate line and the rows below it in the accent color; the accuracy and the speed of the 6 search setups as 2 charts (2 scales, so no shared axis), the setup in use in the accent color. Each bar has a tooltip on hover and keyboard focus, and its value is printed beside it. The accent and the new gray `--k-deemph` were checked with the dataviz palette validator against both panel colors: color-blind separation and 3:1 contrast pass.
+- Table headers no longer wrap (`.nowrap-heads th`); the page is 1400 px wide at most, and a wider table scrolls inside its panel.
+- Downloads: Markdown (the report file as `keel eval` writes it) and JSON (the run details and every table as rows of named fields), built in the browser. DOCX is left out: it needs a server route, and it adds nothing a Markdown file does not.
+- Tests: Vitest 12 new (parser, guide coverage of every heading `keel eval` writes, tiles, gate lines, sort order, keyboard tooltip, downloads); `npm run check` 357 passed; e2e 58 passed, 6 skipped (mock).
+- Attempts: 1.
+
 ## Gaps
 
 Values that were not available when the build needed them, and what the build did instead.
