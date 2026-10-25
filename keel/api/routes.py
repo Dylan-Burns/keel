@@ -632,6 +632,8 @@ async def eval_report(services: Services, caller: Caller) -> eval_page.EvalPage:
         settings.server.eval_report,
         settings.server.prompt_log,
         config.eval_report_dir(settings),
+        settings.llm.prompts_dir,
+        settings.llm.prompt_version,
     )
 
 

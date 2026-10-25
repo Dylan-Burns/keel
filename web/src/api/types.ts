@@ -475,6 +475,17 @@ export interface EvalResponse {
   readonly report: EvalDocument;
   readonly prompt_log: EvalDocument;
   readonly gates: EvalGate[];
+  /** The answer prompt versions, oldest first; absent on an older server. */
+  readonly prompts?: PromptVersion[];
+}
+
+/** The text of 1 answer prompt version (`prompts/answer_*_v<version>.md`). */
+export interface PromptVersion {
+  readonly version: string;
+  readonly system: string;
+  readonly user: string | null;
+  /** True for the version the service answers with. */
+  readonly current: boolean;
 }
 
 /** 1 question of `GET /api/history` (chapter 27.2). */
