@@ -27,24 +27,27 @@ the rule in CI.
 
 ## Example request
 
-The script sends the request the web page sends to the live site: a
-streamed `POST /api/ask` with the answer cache off, so each run is a
-live answer from 1 model request. It needs `curl` and `jq`, and
-`KEEL_API_TOKEN` exported with the token from the email.
+One command, with the access token from the email in place of the
+placeholder. It needs `curl` and `jq`.
 
 ```bash
-export KEEL_API_TOKEN=...
-scripts/example_request.sh --url https://d1otueg71oygkx.cloudfront.net
-scripts/example_request.sh --url https://d1otueg71oygkx.cloudfront.net "How has NVIDIA's revenue and growth outlook changed over the last two years?"
-scripts/example_request.sh --url https://d1otueg71oygkx.cloudfront.net --json   # the full record: answer, retrieval, audit
+KEEL_API_TOKEN=<access token from the email> scripts/example_request.sh
 ```
 
-Without `--url` the script targets a local `keel serve` on port 8000.
+The script sends the request the web page sends to the live site: a
+streamed `POST /api/ask` with the answer cache off, so the run is a live
+answer from 1 model request. It prints the stream events, then the direct
+answer, the findings per company, the gaps, and the audit line with the
+model request count. The token is the same one the page takes as its
+access token. A question in quotes after the script replaces the default
+one, `--json` prints the full record, and `--local` sends the request to
+a local `keel serve` instead.
+
 The same request with curl:
 
 ```bash
 curl -N -X POST https://d1otueg71oygkx.cloudfront.net/api/ask \
-  -H "Authorization: Bearer $KEEL_API_TOKEN" \
+  -H "Authorization: Bearer <access token from the email>" \
   -H "Content-Type: application/json" \
   -H "Accept: text/event-stream" \
   -d '{"question": "What are the primary risk factors facing Apple, Tesla, and JPMorgan, and how do they compare?", "options": {"use_cache": false}}'
