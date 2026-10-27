@@ -6,12 +6,12 @@ Grounded answers to business questions about SEC filings, from 1 LLM call.
 
 | Deliverable | Where |
 | --- | --- |
-| README with setup and run instructions | This file: [Setup](#setup) and [Run](#run) |
+| README with setup and run instructions | This file: [Live site](#live-site), [Local setup](#local-setup), and [Run locally](#run-locally) |
 | Indexing code | [`keel/parsers/`](keel/parsers/), [`keel/sections.py`](keel/sections.py), [`keel/chunker.py`](keel/chunker.py), [`keel/indexer.py`](keel/indexer.py), [`keel/stores/`](keel/stores/) |
 | Retrieval code | [`keel/understanding.py`](keel/understanding.py), [`keel/retriever.py`](keel/retriever.py), [`keel/context.py`](keel/context.py) |
 | Log of prompt iterations | [`docs/PROMPT_LOG.md`](docs/PROMPT_LOG.md) |
 | Final prompt template | [`prompts/answer_system_v1.5.1.md`](prompts/answer_system_v1.5.1.md), [`prompts/answer_user_v1.5.1.md`](prompts/answer_user_v1.5.1.md), [`prompts/answer_schema_v1.5.1.json`](prompts/answer_schema_v1.5.1.json) |
-| Front-end | [`web/`](web/), served by `keel serve` at `http://localhost:8000` |
+| Front-end | [`web/`](web/), deployed at the [live site](#live-site) and served locally by `keel serve` |
 | Example request ready to execute | [`scripts/example_request.sh`](scripts/example_request.sh); see [Example request](#example-request) |
 | Notes on how quality was evaluated | [Evaluation](#evaluation) below; method in [`docs/18_evaluation.md`](docs/18_evaluation.md), last run in [`eval/report.md`](eval/report.md) |
 | Assumptions and decisions | [`docs/04_assumptions_and_decisions_log.md`](docs/04_assumptions_and_decisions_log.md) |
@@ -23,7 +23,39 @@ retrieval, reranking, and citation validation are code with no LLM in
 them. The mock provider counts requests and `test_single_request` guards
 the rule in CI.
 
-## Setup
+## Live site
+
+Keel runs at <https://d1otueg71oygkx.cloudfront.net> with the full
+index of 54 companies. The access token comes separately with the
+submission. Open the site, paste the token into **Access token**, and
+ask a question or pick one of the 3 examples.
+
+## Example request
+
+The script sends the request the web page sends: a streamed
+`POST /api/ask` with the answer cache off, so each run is a live answer
+from 1 model request. It needs `curl` and `jq`, and `KEEL_API_TOKEN`
+exported with the token from the submission.
+
+```bash
+export KEEL_API_TOKEN=...
+scripts/example_request.sh --url https://d1otueg71oygkx.cloudfront.net
+scripts/example_request.sh --url https://d1otueg71oygkx.cloudfront.net "How has NVIDIA's revenue and growth outlook changed over the last two years?"
+scripts/example_request.sh --url https://d1otueg71oygkx.cloudfront.net --json   # the full record: answer, retrieval, audit
+```
+
+Without `--url` the script targets a local `keel serve` on port 8000.
+The same request with curl:
+
+```bash
+curl -N -X POST https://d1otueg71oygkx.cloudfront.net/api/ask \
+  -H "Authorization: Bearer $KEEL_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -d '{"question": "What are the primary risk factors facing Apple, Tesla, and JPMorgan, and how do they compare?", "options": {"use_cache": false}}'
+```
+
+## Local setup
 
 Requirements: Python 3.12, `uv`, Node 22, and the corpus zip at
 `corpus/edgar_corpus.zip`.
@@ -36,7 +68,7 @@ uv run keel doctor --download-models   # the 2 pinned Hugging Face models
 
 `uv run keel doctor` checks FTS5, the models, the keys, and the port.
 
-## Run
+## Run locally
 
 ```bash
 make demo                   # builds the front-end and, on the first run, the index
@@ -54,29 +86,6 @@ The steps behind `make demo`, each runnable on its own:
 uv run keel index           # parse, chunk, embed, and write the index
 uv run keel serve           # the API and the front-end on port 8000
 uv run keel ask "question"  # one answer in the terminal; --json for the record
-```
-
-## Example request
-
-With `keel serve` running and `KEEL_API_TOKEN` exported, the script sends
-the request the web page sends: a streamed `POST /api/ask` with the
-answer cache off, so each run is a live answer from 1 model request.
-
-```bash
-scripts/example_request.sh            # question 1: stream events, then a summary
-scripts/example_request.sh "How has NVIDIA's revenue and growth outlook changed over the last two years?"
-scripts/example_request.sh --json     # the full final record: answer, retrieval, audit
-scripts/example_request.sh --url https://d1otueg71oygkx.cloudfront.net   # the deployed pilot
-```
-
-The same request with curl:
-
-```bash
-curl -N -X POST http://localhost:8000/api/ask \
-  -H "Authorization: Bearer $KEEL_API_TOKEN" \
-  -H "Content-Type: application/json" \
-  -H "Accept: text/event-stream" \
-  -d '{"question": "What are the primary risk factors facing Apple, Tesla, and JPMorgan, and how do they compare?", "options": {"use_cache": false}}'
 ```
 
 ## Evaluation
