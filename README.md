@@ -66,7 +66,10 @@ uv sync --all-extras
 uv run keel doctor --download-models   # the 2 pinned Hugging Face models
 ```
 
-`uv run keel doctor` checks FTS5, the models, the keys, and the port.
+`KEEL_API_TOKEN` is any string you choose; the local server accepts it
+as the bearer token, and you paste the same value into the page. It is
+not the token of the live site. `uv run keel doctor` checks FTS5, the
+models, the keys, and the port.
 
 ## Run locally
 
