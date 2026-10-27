@@ -1,17 +1,19 @@
 # Keel
 
 Grounded answers to business questions about SEC filings, from 1 LLM call.
+Live at <https://d1otueg71oygkx.cloudfront.net>; the access token was
+sent by email.
 
 ## Submission deliverables
 
 | Deliverable | Where |
 | --- | --- |
-| README with setup and run instructions | This file: [Live site](#live-site), [Local setup](#local-setup), and [Run locally](#run-locally) |
+| README with setup and run instructions | This file: the live site above, [Local setup](#local-setup), and [Run locally](#run-locally) |
 | Indexing code | [`keel/parsers/`](keel/parsers/), [`keel/sections.py`](keel/sections.py), [`keel/chunker.py`](keel/chunker.py), [`keel/indexer.py`](keel/indexer.py), [`keel/stores/`](keel/stores/) |
 | Retrieval code | [`keel/understanding.py`](keel/understanding.py), [`keel/retriever.py`](keel/retriever.py), [`keel/context.py`](keel/context.py) |
 | Log of prompt iterations | [`docs/PROMPT_LOG.md`](docs/PROMPT_LOG.md) |
 | Final prompt template | [`prompts/answer_system_v1.5.1.md`](prompts/answer_system_v1.5.1.md), [`prompts/answer_user_v1.5.1.md`](prompts/answer_user_v1.5.1.md), [`prompts/answer_schema_v1.5.1.json`](prompts/answer_schema_v1.5.1.json) |
-| Front-end | [`web/`](web/), deployed at the [live site](#live-site) and served locally by `keel serve` |
+| Front-end | [`web/`](web/), deployed at the live site above and served locally by `keel serve` |
 | Example request ready to execute | [`scripts/example_request.sh`](scripts/example_request.sh); see [Example request](#example-request) |
 | Notes on how quality was evaluated | [Evaluation](#evaluation) below; method in [`docs/18_evaluation.md`](docs/18_evaluation.md), last run in [`eval/report.md`](eval/report.md) |
 | Assumptions and decisions | [`docs/04_assumptions_and_decisions_log.md`](docs/04_assumptions_and_decisions_log.md) |
@@ -23,19 +25,12 @@ retrieval, reranking, and citation validation are code with no LLM in
 them. The mock provider counts requests and `test_single_request` guards
 the rule in CI.
 
-## Live site
-
-Keel runs at <https://d1otueg71oygkx.cloudfront.net> with the full
-index of 54 companies. The access token comes separately with the
-submission. Open the site, paste the token into **Access token**, and
-ask a question or pick one of the 3 examples.
-
 ## Example request
 
-The script sends the request the web page sends: a streamed
-`POST /api/ask` with the answer cache off, so each run is a live answer
-from 1 model request. It needs `curl` and `jq`, and `KEEL_API_TOKEN`
-exported with the token from the submission.
+The script sends the request the web page sends to the live site: a
+streamed `POST /api/ask` with the answer cache off, so each run is a
+live answer from 1 model request. It needs `curl` and `jq`, and
+`KEEL_API_TOKEN` exported with the token from the email.
 
 ```bash
 export KEEL_API_TOKEN=...
