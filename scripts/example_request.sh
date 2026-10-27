@@ -5,26 +5,32 @@
 # answer (server-sent events) and skips the answer cache, so the server
 # makes exactly 1 model request for it (about 0.10 USD).
 #
-# Usage: scripts/example_request.sh [--json | --raw] [--url URL] ["question"]
+# Usage: scripts/example_request.sh [--json | --raw] [--local | --url URL]
+#                                   ["question"]
 #   --json    print the full final record (answer, retrieval, audit)
 #   --raw     print the raw server-sent events as they arrive
-#   --url     the base URL of Keel (default http://127.0.0.1:8000); the
-#             deployed site works too
+#   --local   send to a local keel serve (http://127.0.0.1:8000)
+#   --url     send to another base URL
 #   question  default: the Apple, Tesla, and JPMorgan risk factor question
+#
+# Without --local or --url the request goes to the deployed site.
 #
 # Without a flag the script shows each stream event on stderr as it arrives,
 # then prints a summary: the direct answer, the findings per company, the
 # gaps, the citation count, and the audit line with the model request count.
 #
-# Start the server first: `make demo`, or `uv run keel serve`, with
-# ANTHROPIC_API_KEY set and KEEL_OFFLINE unset.
+# For --local, start the server first: `make demo`, or `uv run keel serve`,
+# with ANTHROPIC_API_KEY set and KEEL_OFFLINE unset.
 #
-# The bearer token comes from KEEL_API_TOKEN in the environment. The script
-# never prints it.
+# The bearer token comes from KEEL_API_TOKEN in the environment: the same
+# access token the web page takes. The script never prints it.
 #
 # Requires: curl, jq.
 
 set -euo pipefail
+
+readonly LIVE_URL=https://d1otueg71oygkx.cloudfront.net
+readonly LOCAL_URL=http://127.0.0.1:8000
 
 readonly DEFAULT_QUESTION="What are the primary risk factors facing Apple, \
 Tesla, and JPMorgan, and how do they compare?"
@@ -57,7 +63,7 @@ readonly SUMMARY_FILTER='
 #######################################
 usage() {
   echo 'Usage: scripts/example_request.sh [--json | --raw]' \
-    '[--url URL] ["question"]' >&2
+    '[--local | --url URL] ["question"]' >&2
   exit "$1"
 }
 
@@ -115,13 +121,14 @@ read_stream() {
 #######################################
 main() {
   local mode=summary
-  local base_url=http://127.0.0.1:8000
+  local base_url="${LIVE_URL}"
   local question="${DEFAULT_QUESTION}"
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --json) mode=json ;;
       --raw) mode=raw ;;
+      --local) base_url="${LOCAL_URL}" ;;
       --url)
         [[ $# -ge 2 ]] || usage 2
         base_url="${2%/}"
