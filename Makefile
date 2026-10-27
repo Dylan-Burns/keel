@@ -1,12 +1,15 @@
-.PHONY: sync inventory index serve test eval warm-cache demo web web-check web-e2e
+.PHONY: sync inventory index serve test eval warm-cache demo web web-sync web-check web-e2e
 
-web:
+web-sync:
+	@test -d web/node_modules || npm ci --prefix web --no-audit --no-fund
+
+web: web-sync
 	npm run build --prefix web
 
-web-check:
+web-check: web-sync
 	npm run check --prefix web
 
-web-e2e:
+web-e2e: web-sync
 	npm run test:e2e --prefix web
 
 sync:
