@@ -2,6 +2,24 @@
 
 Grounded answers to business questions about SEC filings, from 1 LLM call.
 
+## Submission deliverables
+
+Each item of the assessment brief and where it lives in this repository.
+
+| Deliverable | Where |
+| --- | --- |
+| README with setup and run instructions | This file: [Quick start](#quick-start) and [Commands](#commands); the long form is [`docs/START_GUIDE.md`](docs/START_GUIDE.md) |
+| Indexing code | [`keel/parsers/`](keel/parsers/), [`keel/sections.py`](keel/sections.py), [`keel/chunker.py`](keel/chunker.py), [`keel/indexer.py`](keel/indexer.py), [`keel/stores/`](keel/stores/) (SQLite FTS5 and the NumPy dense index) |
+| Retrieval code | [`keel/understanding.py`](keel/understanding.py) (question understanding with no LLM), [`keel/retriever.py`](keel/retriever.py) (hybrid search, fusion, rerank, collapse), [`keel/context.py`](keel/context.py) (the context budget) |
+| Log of prompt iterations | [`docs/PROMPT_LOG.md`](docs/PROMPT_LOG.md): versions 1.0.0 to 1.5.1, what changed, why, and the measured before and after |
+| Final prompt template | [`prompts/answer_system_v1.5.1.md`](prompts/answer_system_v1.5.1.md), [`prompts/answer_user_v1.5.1.md`](prompts/answer_user_v1.5.1.md), and the output schema [`prompts/answer_schema_v1.5.1.json`](prompts/answer_schema_v1.5.1.json); [`keel/prompt.py`](keel/prompt.py) fills them |
+| Front-end | [`web/`](web/) (React 19 and TypeScript), served by `keel serve` at `http://localhost:8000` |
+| Example request ready to execute | [`scripts/example_request.sh`](scripts/example_request.sh); see [Example request](#example-request) |
+| Notes on how quality was evaluated | [Evaluation](#evaluation) below, [`docs/18_evaluation.md`](docs/18_evaluation.md) (method), [`eval/report.md`](eval/report.md) (last run), [`docs/PERFORMANCE_MEMO.md`](docs/PERFORMANCE_MEMO.md) (what each number means) |
+| Assumptions and decisions | [`docs/04_assumptions_and_decisions_log.md`](docs/04_assumptions_and_decisions_log.md) |
+| Business value for a PE firm | [`docs/02_business_context_and_value_creation_for_a_pe_firm.md`](docs/02_business_context_and_value_creation_for_a_pe_firm.md) |
+| Future state and capabilities | [`docs/22_future_state_roadmap.md`](docs/22_future_state_roadmap.md) |
+
 ## What Keel does
 
 - Answers business questions about the SEC 10-K and 10-Q filings of 54 companies, plus any company that `keel add` fetches from EDGAR.
@@ -36,19 +54,31 @@ The first run needs the corpus zip at `corpus/edgar_corpus.zip` and the 2 pinned
 
 ## Example request
 
+The script sends the request the web page sends: a streamed `POST /api/ask` with `{"use_cache": false}`, so each run is a live answer from 1 model request (about 0.10 USD). With `keel serve` running and `KEEL_API_TOKEN` exported:
+
+```bash
+scripts/example_request.sh            # question 1: stream events on stderr, then a summary
+scripts/example_request.sh "How has NVIDIA's revenue and growth outlook changed over the last two years?"
+scripts/example_request.sh --json     # the full final record: answer, retrieval, audit
+scripts/example_request.sh --raw      # the raw server-sent events
+scripts/example_request.sh --url https://d1otueg71oygkx.cloudfront.net   # the deployed pilot
+```
+
+The summary ends with the audit line, `Model requests: 1`, the cost, and the request ID. The same requests with curl:
+
 ```bash
 # Streamed (server-sent events)
 curl -N -X POST http://localhost:8000/api/ask \
   -H "Authorization: Bearer $KEEL_API_TOKEN" \
   -H "Content-Type: application/json" \
   -H "Accept: text/event-stream" \
-  -d '{"question": "What are the primary risk factors facing Apple, Tesla, and JPMorgan, and how do they compare?"}'
+  -d '{"question": "What are the primary risk factors facing Apple, Tesla, and JPMorgan, and how do they compare?", "options": {"use_cache": false}}'
 
 # Non-streamed JSON
 curl -s -X POST http://localhost:8000/api/ask \
   -H "Authorization: Bearer $KEEL_API_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"question": "How has NVIDIA'"'"'s revenue and growth outlook changed over the last two years?", "options": {"stream": false}}' | jq .answer.direct_answer
+  -d '{"question": "How has NVIDIA'"'"'s revenue and growth outlook changed over the last two years?", "options": {"stream": false, "use_cache": false}}' | jq .answer.direct_answer
 ```
 
 The stream sends `meta`, `analysis`, `retrieval`, `answer_delta`, `findings`, `final` (with the audit record), and `done` (chapter 14.3). From the terminal: `uv run keel ask "question"`, or `--json` for the full record.
