@@ -110,3 +110,29 @@ The last full run, index 1.2.0 and prompt 1.5.1:
 
 Each prompt version in [`docs/PROMPT_LOG.md`](docs/PROMPT_LOG.md) records
 1 hypothesis and the measured before and after on the 3 example questions.
+
+## Pages and features
+
+The question page is `/`. The footer links the other pages; the 3 admin
+pages show only to an admin token.
+
+| Page | What it does |
+| --- | --- |
+| Question (`/`) | Ask a question or pick one of the 3 examples or a template. The answer streams in: the direct answer, findings per company with citation chips, the comparison table, the coverage statement, and the gaps list. The right panel shows the retrieved passages with their scores, and the trace drawer shows the audit record with `model requests: 1`, tokens, cost, and latency |
+| Filing reader | Opens from a citation chip: the cited section of the filing from Keel's own index, with previous and next, the fiscal period, and the SEC link. No model call |
+| History (`/history`) | Your own questions, newest first, with Open answer, Copy link, and Re-run |
+| Shared answer (`/a/<request ID>`) | A read-only answer that any token holder can open from a copied link |
+| Comp sets (`/compsets`) | Named ticker lists shared by the firm. A question names one with `my <name> comps` |
+| Financials (`/financials`) | The income statement, balance sheet, and cash flow of an indexed company from its XBRL, annual or quarterly, as a line-item table and bar charts with a link to each source filing |
+| Companies (`/companies`) | The indexed companies, the watch list, and for an admin: Add company from EDGAR, Fetch facts, Dry run, and Run refresh |
+| Eval report (`/eval`) | The regression gates as metric bars, the numbers of the last `keel eval` run, the report, and the prompt log with each version's rule changes |
+| Debug (`/debug`) | How Keel reads a question (companies, type, time scope) and which chunks it would send, with scores. 0 model requests |
+| Data use (`/help`) | What Keel sends where, what it logs, and who sees it |
+| Jobs (`/jobs`, admin) | Every admin job with its status, progress, log tail, and result |
+| Users (`/users`, admin) | Add a user (the token shows once) and remove one |
+| System (`/system`, admin) | The doctor checks, the inventory, Rebuild index, Warm cache, Run eval, the backups with Back up now and Restore, and the budget |
+
+Under each finished answer: thumbs up or down with a note, **Memo .md**
+and **Memo .docx** (a memo with numbered footnotes and SEC links),
+**Export JSON**, and **Copy as markdown**. The access token lives in the
+tab's session storage and goes when the tab closes.
