@@ -4,6 +4,29 @@ All notable changes to this project are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 release-please maintains the released sections from Conventional Commits.
 
+## [0.12.1](https://github.com/Dylan-Burns/keel/compare/v0.12.0...v0.12.1) (2026-10-27)
+
+
+### Bug fixes
+
+* **api:** raise the question rate limits for the demo ([2c0c43f](https://github.com/Dylan-Burns/keel/commit/2c0c43f9d985d8d9c89c4997b0864a5edbcfb56f))
+
+
+### Documentation
+
+* **docs:** lead the readme with the live site ([43b1b86](https://github.com/Dylan-Burns/keel/commit/43b1b8680ac71911094c0e75efb7d3dd89fb018a))
+* **docs:** list the pages and features at the end of the readme ([18e6d05](https://github.com/Dylan-Burns/keel/commit/18e6d05dfab6522c3d7ee7244cd9b0a407a3ae04))
+* **docs:** make the example request one command ([a947a02](https://github.com/Dylan-Burns/keel/commit/a947a0296e05d5cf201da91f529f2c8d344641ae))
+* **docs:** map the submission deliverables in the readme ([555895b](https://github.com/Dylan-Burns/keel/commit/555895b06afe57b18c5d576ed8e167f3086937bf))
+* **docs:** put the live site in the opening line ([a4d8e8c](https://github.com/Dylan-Burns/keel/commit/a4d8e8c327338465564a1dce8b8a26fbd01879c6))
+* **docs:** say the local token is any chosen string ([69bce8c](https://github.com/Dylan-Burns/keel/commit/69bce8cf42f5ed8aec604ca1002cb18709020737))
+* **docs:** scope the readme to the submission deliverables ([c972afb](https://github.com/Dylan-Burns/keel/commit/c972afbed99d0871e73c9627285144cadd45b443))
+
+
+### Build and dependencies
+
+* **web:** install the web packages before the front-end build ([0f525ba](https://github.com/Dylan-Burns/keel/commit/0f525bad503b5759d850359f26c6db11dfd82e5d))
+
 ## [0.12.0](https://github.com/Dylan-Burns/keel/compare/v0.11.0...v0.12.0) (2026-10-25)
 
 
