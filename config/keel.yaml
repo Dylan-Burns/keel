@@ -99,8 +99,8 @@ llm:
 limits:
   question_min_chars: 3
   question_max_chars: 1000
-  rate_per_minute: 10
-  rate_per_hour: 100
+  rate_per_minute: 30   # raised from 10 for the demo: 1 bucket per named user
+  rate_per_hour: 300    # raised from 100 for the demo
   daily_budget_usd: 20
 
 auth:
