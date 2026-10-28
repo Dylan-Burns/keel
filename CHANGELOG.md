@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 release-please maintains the released sections from Conventional Commits.
 
+## [0.12.2](https://github.com/Dylan-Burns/keel/compare/v0.12.1...v0.12.2) (2026-10-28)
+
+
+### Documentation
+
+* **docs:** move the evaluation notes into their own file ([0d0d054](https://github.com/Dylan-Burns/keel/commit/0d0d0544a2d221e7e6d09845349f56800175e721))
+* **docs:** show each prompt version's rule changes in the log ([c249fec](https://github.com/Dylan-Burns/keel/commit/c249fec57c25b0c8f54f2d74761a8bb4db0a9026))
+* **eval:** report of the full run on prompt 1.5.1 ([60420ca](https://github.com/Dylan-Burns/keel/commit/60420ca876600de1086996cc8677066c99277282))
+
 ## [0.12.1](https://github.com/Dylan-Burns/keel/compare/v0.12.0...v0.12.1) (2026-10-27)
 
 
