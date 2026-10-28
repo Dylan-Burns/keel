@@ -13,6 +13,8 @@ The single call sends a static system block, which the provider caches, and a us
 
 ### 12.2 Final prompt template
 
+NOTE: This section is the planned 1.0.0 template. The shipped template is version 1.5.1: [`prompts/answer_system_v1.5.1.md`](../prompts/answer_system_v1.5.1.md), [`prompts/answer_user_v1.5.1.md`](../prompts/answer_user_v1.5.1.md), and [`prompts/answer_schema_v1.5.1.json`](../prompts/answer_schema_v1.5.1.json). [`docs/PROMPT_LOG.md`](PROMPT_LOG.md) shows every rule change from 1.0.0 to 1.5.1.
+
 The system block is `prompts/answer_system_v1.0.0.md`. The builder of the user block is `keel/prompt.py` from `prompts/answer_user_v1.0.0.md`. The prompt hash is the sha256 of both files plus the schema.
 
 ```

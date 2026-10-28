@@ -1,5 +1,7 @@
 ## 13. Prompt iteration log
 
+NOTE: This chapter is the plan. The measured history, versions 1.0.0 to 1.5.1 with each rule's before and after, is [`docs/PROMPT_LOG.md`](PROMPT_LOG.md); the shipped version is 1.5.1.
+
 The prompt moves from a naive version 0.1.0 to version 1.0.0 in 8 planned iterations. Each row names the hypothesis, the change, the evidence that the eval harness collects, the expected result, and the decision rule. The first version is naive on purpose, so the log shows what each rule fixes. After each eval run, the engineer writes the measured values and the run ID into the Result column of `docs/PROMPT_LOG.md`.
 
 | Version | Hypothesis | Change | Evaluation evidence | Result (expected, then measured) | Decision |

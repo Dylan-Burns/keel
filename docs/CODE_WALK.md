@@ -155,10 +155,11 @@ files, 245 indexed, 1 quarantined, 63,688 chunks).
   `weigh`, `collapse`, `cap_companies`, `rerank_share`).
 - Corpus fact: example 1 has 3 sub-queries (1 per company), 513
   candidates, 64 collapsed as near-duplicates by SimHash.
-- Q: Why hybrid? A: the ablation on index 1.2.0: hybrid R@25 0.74 against
-  0.69 lexical and 0.67 dense, and 0.68 for hybrid without the reranker.
-- Q: The reranker takes 5 s. A: yes, 80 pairs on the Intel CPU (retrieval
-  p50 6.2 s against 0.1 s without it); it buys 6 points of recall.
+- Q: Why hybrid? A: the ablation on index 1.2.0 (`eval-20261028T012734Z`):
+  hybrid R@25 0.86 against 0.79 lexical and 0.82 dense, and 0.81 for hybrid
+  without the reranker.
+- Q: The reranker takes 7 s. A: yes, 80 pairs on the Intel CPU (retrieval
+  p50 7.7 s against 0.6 s without it); it buys 5 points of recall.
   `reranker.enabled: false` turns it off.
 
 ## 7b. Context budget
