@@ -15,7 +15,7 @@ sent by email.
 | Final prompt template | [`prompts/answer_system_v1.5.1.md`](prompts/answer_system_v1.5.1.md), [`prompts/answer_user_v1.5.1.md`](prompts/answer_user_v1.5.1.md), [`prompts/answer_schema_v1.5.1.json`](prompts/answer_schema_v1.5.1.json) |
 | Front-end | [`web/`](web/), deployed at the live site above and served locally by `keel serve` |
 | Example request ready to execute | [`scripts/example_request.sh`](scripts/example_request.sh); see [Example request](#example-request) |
-| Notes on how quality was evaluated | [Evaluation](#evaluation) below; method in [`docs/18_evaluation.md`](docs/18_evaluation.md), last run in [`eval/report.md`](eval/report.md) |
+| Notes on how quality was evaluated | [`docs/EVALUATION.md`](docs/EVALUATION.md); the full last run in [`eval/report.md`](eval/report.md) |
 | Assumptions and decisions | [`docs/04_assumptions_and_decisions_log.md`](docs/04_assumptions_and_decisions_log.md) |
 | Business value for a PE firm | [`docs/02_business_context_and_value_creation_for_a_pe_firm.md`](docs/02_business_context_and_value_creation_for_a_pe_firm.md) |
 | Future state and capabilities | [`docs/22_future_state_roadmap.md`](docs/22_future_state_roadmap.md) |
@@ -91,28 +91,15 @@ uv run keel ask "question"  # one answer in the terminal; --json for the record
 
 ## Evaluation
 
-`uv run keel eval` runs the 28 questions of `eval/golden.yaml` against
-the index and writes `eval/report.md`: recall at 10, 25, and 48, MRR,
-nDCG, the retrieval ablations, and the gates. `--answers` adds the live
-answers and an LLM judge (`claude-opus-5-5`) for faithfulness, citation
-precision, and numeric accuracy.
+[`docs/EVALUATION.md`](docs/EVALUATION.md) explains how quality was
+measured; [`eval/report.md`](eval/report.md) is the full last run. That run
+(`eval-20261028T012734Z`, prompt 1.5.1, index 1.2.0) passes all 10 gates on
+28 golden questions: faithfulness 0.94, citation precision 1.00, numeric
+accuracy 1.00, recall at 25 0.86, p95 latency 34.2 s, and a mean cost of
+0.091 USD per question.
 
-The last full run, index 1.2.0 and prompt 1.5.1:
-
-| Gate | Threshold | Value | Status |
-| --- | --- | --- | --- |
-| Recall at 25 | >= 0.85 | 0.86 | pass |
-| MRR | >= 0.60 | 0.96 | pass |
-| Faithfulness | >= 0.90 | 0.926 | pass |
-| Citation precision | >= 0.90 | 1.00 | pass |
-| Numeric accuracy | >= 0.90 | 1.00 | pass |
-| Schema validity | 1.00 | 1.00 | pass |
-| Refusal correctness | 1.00 | 1.00 | pass |
-| Latency p95 | <= 40 s | 35.9 s | pass |
-| Mean cost per question | <= 0.25 USD | 0.093 USD | pass |
-
-Each prompt version in [`docs/PROMPT_LOG.md`](docs/PROMPT_LOG.md) records
-1 hypothesis and the measured before and after on the 3 example questions.
+Each version in [`docs/PROMPT_LOG.md`](docs/PROMPT_LOG.md) records its
+hypothesis, its measured result, and every changed rule before and after.
 
 ## Pages and features
 
