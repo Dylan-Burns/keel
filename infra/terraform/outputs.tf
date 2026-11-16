@@ -29,6 +29,11 @@ output "hostname" {
 }
 
 output "cloudfront_url" {
-  description = "Public HTTPS address of the pilot (the free *.cloudfront.net name); the GitHub variable KEEL_PUBLIC_URL."
-  value       = "https://${aws_cloudfront_distribution.keel.domain_name}"
+  description = "Public HTTPS address of the pilot: https://<domain_name> when set, else the free *.cloudfront.net name; the GitHub variable KEEL_PUBLIC_URL."
+  value       = "https://${local.custom_domain ? var.domain_name : aws_cloudfront_distribution.keel.domain_name}"
+}
+
+output "name_servers" {
+  description = "Route 53 name servers of domain_name; set them at the registrar. Empty without domain_name."
+  value       = local.custom_domain ? aws_route53_zone.keel[0].name_servers : []
 }

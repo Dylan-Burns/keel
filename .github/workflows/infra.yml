@@ -73,6 +73,7 @@ jobs:
       TF_VAR_ssh_key_name: ${{ vars.TF_SSH_KEY_NAME }}
       TF_VAR_backup_bucket_name: ${{ vars.TF_BACKUP_BUCKET }}
       TF_VAR_admin_cidr: ${{ secrets.TF_ADMIN_CIDR }}
+      TF_VAR_domain_name: ${{ vars.TF_DOMAIN_NAME }}
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3

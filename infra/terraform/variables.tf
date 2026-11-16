@@ -56,6 +56,12 @@ variable "route53_zone_id" {
 }
 
 
+variable "domain_name" {
+  description = "Apex domain of the public address, for example keeldd.com. Leave empty to keep the free *.cloudfront.net name (dns.tf)."
+  type        = string
+  default     = ""
+}
+
 variable "github_environment" {
   description = "GitHub environment whose jobs may assume the deploy role."
   type        = string
