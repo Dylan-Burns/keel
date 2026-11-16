@@ -913,6 +913,12 @@ Method 4, shorter answers, 8 questions with the judge on the laptop, 2 runs each
 - Tests: Python 3 (version order, the size limit, the judge prompt left out, the committed prompts); Vitest 7 (rule split, rule diff, user template, word diff, card order and status, meaning before wording). `make test` 1114 passed, coverage 97%; `npm run check` 364 passed; e2e 58 passed, 6 skipped (mock).
 - Attempts: 1.
 
+## Follow-up after stage 22: custom domain keeldd.com
+
+- Built: `infra/terraform/dns.tf` (D-40): with the new variable `domain_name` set, a Route 53 hosted zone, an ACM certificate for the apex and `www` in `us-east-1` (a second provider alias in `versions.tf`) validated through DNS, `A` and `AAAA` alias records for both names to the CloudFront distribution, a `CAA` record (`amazon.com`, `letsencrypt.org`), a null `MX`, `v=spf1 -all`, and DMARC `p=reject`. `cloudfront.tf` takes both names as aliases with the ACM certificate and `TLSv1.2_2021`; with `domain_name` empty it keeps the default certificate. New output `name_servers`; `cloudfront_url` reads `https://<domain_name>` when set. `infra.yml` passes the repository variable `TF_DOMAIN_NAME` to the nightly plan. `infra/README.md` has the 2-step first apply (zone, delegation at the registrar, then the rest). The validation records are keyed by the configured names, so the plan knows every key before the certificate exists. The checkov rules for DNSSEC and query logging on the zone are skipped with their reason.
+- Measured: `terraform fmt -check` and `terraform validate` (Terraform 1.17.0, AWS provider 5.100.0) clean. A `terraform test` run against mock providers, outside the repository, passed both cases: with `domain_name = "keeldd.com"` the distribution has the 2 aliases, 4 alias records exist, and `cloudfront_url` is `https://keeldd.com`; with it empty, no zone and no alias. Not applied: the apply and the delegation at the registrar are the engineer's steps.
+- Attempts: 1.
+
 ## Gaps
 
 Values that were not available when the build needed them, and what the build did instead.

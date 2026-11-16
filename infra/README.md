@@ -133,8 +133,43 @@ free `*.cloudfront.net` name with its certificate (the `cloudfront_url`
 output, the GitHub variable `KEEL_PUBLIC_URL`). Caching is off and every
 viewer header but `Host` reaches the origin, so the bearer token and the SSE
 streams pass through unchanged. The origin is Caddy on the host over HTTPS
-under its `sslip.io` name. A custom domain later needs an ACM certificate in
-`us-east-1` and an alias on the distribution.
+under its `sslip.io` name.
+
+## AWS: the custom domain
+
+`dns.tf` serves the distribution under `domain_name` (D-40: `keeldd.com`)
+and `www.<domain_name>`. With `domain_name` set, Terraform creates a Route 53
+hosted zone, an ACM certificate for both names in `us-east-1` (validated
+through DNS), the CloudFront aliases with the policy `TLSv1.2_2021`, `A` and
+`AAAA` alias records for both names, a `CAA` record (ACM and Let's Encrypt
+only), and records that say the domain sends no mail: a null `MX`,
+`v=spf1 -all`, and a DMARC policy `p=reject`. With `domain_name` empty,
+nothing changes and the pilot keeps the `*.cloudfront.net` name. The origin
+stays Caddy on the host under its `sslip.io` name, so `KEEL_HOSTNAME` and the
+host `.env` do not change.
+
+The certificate validates only once the registrar delegates to the zone, so
+the first apply runs in 2 steps:
+
+1. Add `domain_name = "keeldd.com"` to `terraform.tfvars`, then
+   `terraform apply -target=aws_route53_zone.keel`. Read the 4 name servers
+   with `terraform output name_servers`, or in the Route 53 console.
+2. At the registrar of the domain, replace the name servers of `keeldd.com`
+   with those 4 (custom DNS, not the registrar's own DNS). Turn off any
+   parking or forwarding there. Check the delegation with
+   `dig +short NS keeldd.com`; it can take from minutes to a few hours.
+3. `terraform apply`. The run waits for ACM to issue the certificate, then
+   updates the distribution in place (a few minutes).
+4. In GitHub, set the repository variable `TF_DOMAIN_NAME` to `keeldd.com`
+   (`infra.yml` passes it to the nightly plan, so the plan shows no drift),
+   and set `KEEL_PUBLIC_URL` on the `production` environment to
+   `https://keeldd.com` (the `cloudfront_url` output), so `deploy-aws.yml`
+   smoke tests the new address.
+5. Check `curl -fsS https://keeldd.com/api/health` and
+   `curl -fsSI https://www.keeldd.com/`.
+
+The read-only plan role already reads Route 53 and ACM through
+`ReadOnlyAccess`. The zone costs 0.50 USD a month; the certificate is free.
 
 ## AWS: CI and CD
 
