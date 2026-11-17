@@ -4,6 +4,25 @@ All notable changes to this project are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 release-please maintains the released sections from Conventional Commits.
 
+## [0.13.0](https://github.com/Dylan-Burns/keel/compare/v0.12.2...v0.13.0) (2026-11-17)
+
+
+### Features
+
+* **api:** let public visitors ask with their own Anthropic key ([aa86d1d](https://github.com/Dylan-Burns/keel/commit/aa86d1d0c4c2ffd8f008d42e6ed6030910b04824))
+* **infra:** serve keeldd.com from Railway ([0c572f8](https://github.com/Dylan-Burns/keel/commit/0c572f831b4e43a3ba566805680e0ecb3cbd23b7))
+
+
+### Bug fixes
+
+* **api:** reserve the visitor names in the users file ([c76c117](https://github.com/Dylan-Burns/keel/commit/c76c1175541ea211c8f7593ab8802ef6d0e143d4))
+* **deps:** bump opentelemetry-api to 1.45.2 ([b95f236](https://github.com/Dylan-Burns/keel/commit/b95f2365abe075c42b8b7643fff6c429645f59c7))
+
+
+### Documentation
+
+* **docs:** replace the planning spec with portfolio docs ([285fac2](https://github.com/Dylan-Burns/keel/commit/285fac22b865b9fcfbdad43192ad523b19efb897))
+
 ## [0.12.2](https://github.com/Dylan-Burns/keel/compare/v0.12.1...v0.12.2) (2026-10-28)
 
 
