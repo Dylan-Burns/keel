@@ -1,4 +1,4 @@
-"""The provider interface and its events (chapter 17.1).
+"""The provider interface and its events.
 
 A provider sends exactly 1 request per call of `answer` and yields events:
 `JsonDelta` for each fragment of the answer JSON (the `answer` tool input
@@ -43,7 +43,7 @@ class TextDelta:
 
 @dataclasses.dataclass(frozen=True)
 class UsageReport:
-    """The token counts of 1 request (chapter 16.10).
+    """The token counts of 1 request.
 
     Attributes:
         input_tokens: The uncached input tokens.
@@ -83,7 +83,7 @@ ProviderEvent = JsonDelta | TextDelta | UsageReport | Finished
 
 
 class LLMProvider(Protocol):
-    """A model provider (chapter 17.1).
+    """A model provider.
 
     Attributes:
         name: The provider name, such as `anthropic` or `mock`.
@@ -111,7 +111,7 @@ class LLMProvider(Protocol):
 
 
 def cost_usd(usage: UsageReport, prices: config.ModelPrices) -> float:
-    """Price 1 request from its token counts (chapter 16.10).
+    """Price 1 request from its token counts.
 
     A prompt over the long-prompt threshold of the model (Haiku 5.5) takes
     the long-prompt prices for every token of the request.

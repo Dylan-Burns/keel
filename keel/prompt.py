@@ -1,4 +1,4 @@
-"""The prompt builder of the single call (chapter 12.2).
+"""The prompt builder of the single call.
 
 The prompt version names 3 files under `prompts/`: the system block, the
 user block template, and the answer schema. The system block is static and
@@ -40,7 +40,7 @@ UNTRUSTED_LINE = (
 CHARS_PER_TOKEN = 4
 # The fact lines are dense with IDs, dates, and accession numbers: the
 # provider counted 3,474 tokens for the 6,272 characters of the 40 NVDA
-# lines (stage 13), 1.8 characters per token.
+# lines, 1.8 characters per token.
 FACTS_CHARS_PER_TOKEN = 1.8
 FACTS_PLACEHOLDER = "{facts}"
 _PLACEHOLDER = re.compile(r"\{([a-z_]+)\}")
@@ -159,7 +159,7 @@ class PromptFiles:
         """Return the `answer` tool definition with the schema.
 
         `strict` keeps the input valid against the schema, and eager input
-        streaming sends the input as the model writes it (chapter 12.7).
+        streaming sends the input as the model writes it.
 
         Returns:
             The tool definition of the Messages API.
@@ -404,7 +404,7 @@ def estimate_tokens(text: str) -> int:
 
 
 def render_facts(lines: Sequence[edgar.FactLine]) -> str:
-    """Render the `<facts>` element of the user block (chapter 26.1).
+    """Render the `<facts>` element of the user block.
 
     The lines come from SEC data, so their text passes the same tag guard
     as the chunks.
@@ -423,7 +423,7 @@ def render_facts(lines: Sequence[edgar.FactLine]) -> str:
 
 
 def wants_facts(analysis: understanding.QuestionAnalysis) -> bool:
-    """Check whether a question gets the `<facts>` block (chapter 26.1).
+    """Check whether a question gets the `<facts>` block.
 
     Args:
         analysis: The question analysis.
@@ -442,7 +442,7 @@ def build_bundle(
     filings: Sequence[understanding.FilingRef],
     facts: Sequence[edgar.FactLine] = (),
 ) -> PromptBundle:
-    """Build the prompt of 1 question (chapter 12.2).
+    """Build the prompt of 1 question.
 
     Args:
         files: The prompt files.

@@ -1,4 +1,4 @@
-"""Dense store tests with a fake embedder (chapter 9.4)."""
+"""Dense store tests with a fake embedder."""
 
 import pathlib
 

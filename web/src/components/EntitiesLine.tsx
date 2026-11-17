@@ -12,7 +12,7 @@ export interface EntitiesLineProps {
 
 /**
  * The resolved entities line, with a did-you-mean note after a fuzzy match
- * and a note per comp set the question names (chapter 27.2).
+ * and a note per comp set the question names.
  *
  * @param props The props.
  * @return The line, or nothing before the analysis.

@@ -3,8 +3,8 @@
 Tests and the offline front-end use it in place of the Anthropic adapter.
 Every call of `answer` counts as 1 request, so `test_single_request` proves
 decision D-01 on the real pipeline. A fault name, such as the one the
-`X-Keel-Mock` header of stage 9 carries, makes a request fail in the way
-chapter 16 drills: before content, after content, or with bad output.
+`X-Keel-Mock` header carries, makes a request fail in the way the
+reliability drills need: before content, after content, or with bad output.
 """
 
 from __future__ import annotations

@@ -12,7 +12,7 @@ export interface TokenFieldProps {
 
 /**
  * The access token field. The page keeps the token in session storage only
- * (chapter 14.4 and control S-14).
+ * (control S-14).
  *
  * @param props The props.
  * @return The field.

@@ -1,4 +1,4 @@
-"""Tests of the Anthropic adapter and the mock provider (chapter 17.1)."""
+"""Tests of the Anthropic adapter and the mock provider."""
 
 import asyncio
 import json
@@ -69,7 +69,7 @@ def fake_client(stream: FakeStream | Exception) -> types.SimpleNamespace:
 def provider(
     settings: config.Settings, stream: FakeStream | Exception, model=None
 ) -> adapter.AnthropicProvider:
-    """The adapter in `tool` mode, the strict answer tool of stage 7."""
+    """The adapter in `tool` mode, the strict answer tool."""
     llm = settings.llm.model_copy(update={"output_mode": "tool"})
     return adapter.AnthropicProvider(
         model or settings.llm.model, fake_client(stream), llm
@@ -256,7 +256,7 @@ def structured_events(answer: str) -> list[object]:
 def structured(
     settings: config.Settings, stream: FakeStream
 ) -> adapter.AnthropicProvider:
-    """The adapter in `json_schema` mode (stage 8)."""
+    """The adapter in `json_schema` mode."""
     llm = settings.llm.model_copy(update={"output_mode": "json_schema"})
     return adapter.AnthropicProvider(llm.model, fake_client(stream), llm)
 
@@ -335,6 +335,16 @@ def test_structured_output_stream(settings: config.Settings) -> None:
         (
             status_error(anthropic.BadRequestError, 400),
             errors.ProviderRequestError,
+            False,
+        ),
+        (
+            status_error(anthropic.AuthenticationError, 401),
+            errors.ProviderAuthError,
+            False,
+        ),
+        (
+            status_error(anthropic.PermissionDeniedError, 403),
+            errors.ProviderAuthError,
             False,
         ),
         (
@@ -511,3 +521,56 @@ def test_total_deadline(settings: config.Settings) -> None:
     slow.total_timeout = 0.12
     with pytest.raises(errors.ProviderTimeoutError):
         asyncio.run(collect(slow.answer(bundle())))
+
+
+class ClosingClient(types.SimpleNamespace):
+    """A fake client that records `close`."""
+
+    closed = 0
+
+    async def close(self) -> None:
+        self.closed += 1
+
+
+@pytest.mark.parametrize("single_use", [True, False])
+def test_single_use_adapter_closes_its_client(
+    settings: config.Settings, single_use: bool
+) -> None:
+    stream = FakeStream(events('{"direct_answer": "abc"}'))
+    used = provider(settings, stream)
+    client = ClosingClient(messages=FakeMessages(stream))
+    used.client = client
+    used.single_use = single_use
+    asyncio.run(collect(used.answer(bundle())))
+    # A visitor's adapter serves 1 question; the service adapter is shared.
+    assert client.closed == (1 if single_use else 0)
+
+
+def test_single_use_adapter_closes_after_a_failure(
+    settings: config.Settings,
+) -> None:
+    failure = status_error(anthropic.AuthenticationError, 401)
+    used = provider(settings, failure)
+    client = ClosingClient(messages=FakeMessages(failure))
+    used.client = client
+    used.single_use = True
+    with pytest.raises(errors.ProviderAuthError):
+        asyncio.run(collect(used.answer(bundle())))
+    assert client.closed == 1
+
+
+def test_with_key_is_shared_unless_single_use(
+    settings: config.Settings,
+) -> None:
+    key = "sk-ant-api03-" + "k" * 40
+    assert not adapter.AnthropicProvider.with_key(settings, key).single_use
+    assert adapter.AnthropicProvider.with_key(
+        settings, key, single_use=True
+    ).single_use
+
+
+def test_with_key_uses_the_given_key(settings: config.Settings) -> None:
+    key = "sk-ant-api03-" + "k" * 40
+    provider = adapter.AnthropicProvider.with_key(settings, key)
+    assert provider.client.api_key == key
+    assert provider.model == settings.llm.model

@@ -7,6 +7,8 @@ import {
 } from '@testing-library/react';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
+import {setAccessMode} from '../api/access';
+import {API_KEY_STORAGE_KEY} from '../api/apiKey';
 import {RERUN_QUESTION_KEY, TOKEN_KEY} from '../api/client';
 import type {HistoryResponse} from '../api/types';
 import {HISTORY, HISTORY_ADMIN, QUESTION_1} from '../testing/fixtures';
@@ -38,6 +40,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  setAccessMode(null);
   window.sessionStorage.clear();
 });
 
@@ -134,5 +137,32 @@ describe('HistoryPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'The history could not load.',
     );
+  });
+
+  it('reads the history of a visitor with a key, without a token', async () => {
+    setAccessMode('public');
+    window.sessionStorage.setItem(
+      API_KEY_STORAGE_KEY,
+      'sk-ant-api03-abcdefghijklmnop_QRST-wxyz',
+    );
+    serve({
+      own: {...HISTORY, user: 'visitor-0123456789abcdef', role: 'visitor'},
+    });
+    render(<HistoryPage />);
+    expect(await screen.findAllByTestId('history-item')).toHaveLength(2);
+    expect(screen.getByTestId('history-user')).toHaveTextContent(
+      'Questions asked with your API key',
+    );
+    expect(screen.queryByTestId('history-scope')).toBeNull();
+    // The API key settings replace the token field.
+    expect(screen.getByTestId('api-key-button')).toBeInTheDocument();
+  });
+
+  it('asks a visitor without a key to add one', async () => {
+    setAccessMode('public');
+    serve({own: {user: 'visitor', role: 'visitor', scope: 'own', items: []}});
+    render(<HistoryPage />);
+    expect(await screen.findByTestId('history-add-key')).toBeInTheDocument();
+    expect(screen.getByTestId('history-user')).toHaveTextContent('No API key');
   });
 });

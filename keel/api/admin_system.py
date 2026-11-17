@@ -1,4 +1,4 @@
-"""The admin routes of the system page and the users (chapter 27.2).
+"""The admin routes of the system page and the users.
 
 `GET /api/admin/system` gathers what `keel doctor`, `keel inventory`, the
 index manifest, the backup directory, the scheduler, and the daily budget

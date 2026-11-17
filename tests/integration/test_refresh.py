@@ -1,4 +1,4 @@
-"""`keel refresh` on the mini corpus with recorded responses (26.3).
+"""`keel refresh` on the mini corpus with recorded responses.
 
 The tiny index holds the 3 mini corpus filings and the ZTS 10-K, which an
 earlier `keel add` brought in. The submissions that the refresh fetches

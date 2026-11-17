@@ -1,4 +1,4 @@
-"""The pilot routes of chapter 27.2: comp sets, templates, and feedback.
+"""The pilot routes: comp sets, templates, and feedback.
 
 `GET /api/compsets` lists the saved comp sets of the firm; `PUT` saves 1
 and `DELETE` removes 1. Any user creates a set; replacing or deleting a
@@ -61,7 +61,7 @@ class CompSetItem(pydantic.BaseModel):
         owner: The user who saved it last, or None from the CLI.
         updated_at: The time of the last save.
         missing: The tickers without an indexed filing; `keel add` adds
-            them (chapter 26).
+            them.
         editable: True when the caller may replace or delete the set.
     """
 
@@ -173,7 +173,7 @@ def _unavailable(error: errors.PilotStoreError) -> fastapi.HTTPException:
 async def list_comp_sets(
     services: routes.Services, caller: routes.Caller
 ) -> CompSetList:
-    """The saved comp sets of the firm (chapter 27.2).
+    """The saved comp sets of the firm.
 
     Args:
         services: The shared services.
@@ -200,7 +200,7 @@ async def save_comp_set(
     name: CompSetName,
     body: CompSetBody,
     services: routes.Services,
-    caller: routes.Caller,
+    caller: routes.Member,
 ) -> CompSetItem:
     """Create or replace a comp set.
 
@@ -244,7 +244,7 @@ async def save_comp_set(
 
 @router.delete("/compsets/{name}", status_code=204)
 async def delete_comp_set(
-    name: CompSetName, services: routes.Services, caller: routes.Caller
+    name: CompSetName, services: routes.Services, caller: routes.Member
 ) -> fastapi.Response:
     """Delete a comp set.
 
@@ -286,7 +286,7 @@ async def delete_comp_set(
 async def list_templates(
     services: routes.Services, caller: routes.Caller
 ) -> TemplateList:
-    """The question templates of the picker (chapter 27.2).
+    """The question templates of the picker.
 
     Args:
         services: The shared services.
@@ -315,7 +315,7 @@ async def list_templates(
 async def feedback(
     body: FeedbackBody, services: routes.Services, caller: routes.Caller
 ) -> FeedbackSaved:
-    """Store a thumbs vote and a note on an answer (chapter 27.2).
+    """Store a thumbs vote and a note on an answer.
 
     Args:
         body: The request ID, the vote, and the note.

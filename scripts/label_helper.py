@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Label helper for the golden set (chapter 18.2).
+"""Label helper for the golden set.
 
 Usage:
     uv run python scripts/label_helper.py sections

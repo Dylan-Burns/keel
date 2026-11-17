@@ -12,6 +12,7 @@ import json
 import pathlib
 import shutil
 
+import pydantic
 import pytest
 
 import conftest
@@ -735,3 +736,61 @@ def test_facts_line_of_ask() -> None:
     assert line(
         {"lines": 0, "source": "none", "files": 0, "errors": ["x"]}
     ) == ("facts: 0 lines; facts error: x")
+
+
+VISITOR_KEY = pydantic.SecretStr("sk-ant-api03-" + "v" * 40)
+
+
+@pytest.mark.parametrize("provider_name", ["mock", "anthropic"])
+def test_visitor_gets_the_fallback_without_a_service_key(
+    index_dir, run_settings, provider_name: str
+) -> None:
+    # A public host often has no service key, so no service fallback; the
+    # visitor's key still runs the fallback model.
+    llm = run_settings.llm.model_copy(update={"provider": provider_name})
+    keyless = run_settings.model_copy(
+        update={"llm": llm, "anthropic_api_key": None}
+    )
+    answerer = make(index_dir, keyless)
+    assert answerer.fallback is None
+    twin = answerer.for_visitor(VISITOR_KEY)
+    assert twin.fallback is not None
+    assert twin.fallback.model == llm.fallback_model
+    assert twin.billed_to == answer.VISITOR
+    if provider_name == "anthropic":
+        # Each adapter serves 1 question and closes its client after it.
+        assert twin.provider.single_use
+        assert twin.fallback.single_use
+
+
+class RejectingProvider(mock.MockProvider):
+    """A provider whose key Anthropic refuses."""
+
+    async def answer(self, bundle):
+        del bundle
+        self.requests += 1
+        raise errors.ProviderAuthError("invalid x-api-key")
+        yield  # pylint: disable=unreachable
+
+
+@pytest.mark.parametrize(
+    ("visitor", "expected"),
+    [
+        (True, "check the key in Settings"),
+        (False, "Anthropic rejected the service API key."),
+    ],
+)
+def test_rejected_key_message_names_whose_key(
+    index_dir, run_settings, visitor: bool, expected: str
+) -> None:
+    rejecting = RejectingProvider(run_settings.llm.model)
+    answerer = make(index_dir, run_settings, rejecting)
+    if visitor:
+        answerer = answerer.with_provider(rejecting)
+        answerer.billed_to = answer.VISITOR
+    record = final(ask(answerer, question(run_settings), request_id="r-key"))
+    assert record["outcome"] == "provider_error"
+    assert expected in record["message"]
+    if not visitor:
+        assert "Settings" not in record["message"]
+    assert rejecting.requests == 1

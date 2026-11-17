@@ -5,7 +5,7 @@ import {banner, pick} from '../motion/presets';
 
 /**
  * The red offline banner from the browser `offline` event. The last answer
- * stays on screen (table 14.6).
+ * stays on screen.
  *
  * @return The banner.
  */

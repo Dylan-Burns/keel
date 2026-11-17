@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pilot metrics from the audit log (chapter 27.6).
+"""Pilot metrics from the audit log.
 
 Usage:
     uv run python scripts/pilot_metrics.py [AUDIT ...] [--since DATE]
@@ -11,7 +11,7 @@ The script reads the audit log and its daily rotations
 file in it) and prints the weekly numbers of the pilot: active users,
 questions, cost, cost per question, thumbs-up rate, memos exported,
 companies added, and filings added by the refresh, then the outcomes and
-the 4 success metrics of chapter 27.6 with the week 4 decision rule.
+the 4 success metrics with the week 4 decision rule.
 `--json` prints the same numbers as JSON.
 
 Every default comes from `config/keel.yaml` (and its `KEEL_` overrides):
@@ -57,7 +57,7 @@ logger = logging.getLogger(__name__)
 LEGACY_USER = "legacy"
 TICKER_PATTERN = re.compile(r"^([A-Z][A-Z0-9.\-]{0,9})_")
 
-# The success metrics of chapter 27.6, step 3.
+# The success metrics, step 3.
 TARGET_ACTIVE_USERS = 3
 ACTIVE_USERS_FROM_WEEK = 2
 TARGET_WEEKLY_QUESTIONS = 30
@@ -654,7 +654,7 @@ def _every_week_from(
 
 
 def targets(metrics: Metrics) -> list[dict[str, Any]]:
-    """Check the success metrics of chapter 27.6 step 3.
+    """Check the success metrics.
 
     Week 1 is the first week of the metrics (`--since` sets it).
 
@@ -705,7 +705,7 @@ def targets(metrics: Metrics) -> list[dict[str, Any]]:
 
 
 def decision(rows: Sequence[dict[str, Any]]) -> str:
-    """State the week 4 rule of chapter 27.6 step 4 on the target rows.
+    """State the week 4 rule on the target rows.
 
     Args:
         rows: The rows of `targets`.
@@ -844,7 +844,7 @@ def build_parser() -> argparse.ArgumentParser:
         The parser.
     """
     parser = argparse.ArgumentParser(
-        description="Pilot metrics from the audit log (chapter 27.6)."
+        description="Pilot metrics from the audit log."
     )
     parser.add_argument(
         "audit",

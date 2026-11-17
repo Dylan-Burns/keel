@@ -18,7 +18,7 @@ type Status =
   | {readonly kind: 'failed'};
 
 /**
- * The thumbs vote and the note on 1 answer (chapter 27.2). A vote is
+ * The thumbs vote and the note on 1 answer. A vote is
  * stored at once; the note goes with the next vote or with Send note. A
  * thumbs-down vote flags the answer for the weekly review of candidate
  * golden questions. A new vote replaces the user's earlier one.

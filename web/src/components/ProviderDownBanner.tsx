@@ -13,7 +13,7 @@ export interface ProviderDownBannerProps {
 
 /**
  * The red provider-down banner: the model is unavailable, the retrieved
- * chunks stay in the right panel, and a Retry button (table 14.6).
+ * chunks stay in the right panel, and a Retry button.
  *
  * @param props The props.
  * @return The banner.

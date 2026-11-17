@@ -1,4 +1,4 @@
-# The company facts concepts of the <facts> block (chapter 26.1, step 3).
+# The company facts concepts of the <facts> block.
 # Each concept lists its XBRL names (taxonomy:Name) in priority order,
 # because companies tag the same number under different names. For each
 # period the first name with a value wins. `unit` is the XBRL unit to read.

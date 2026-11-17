@@ -1,4 +1,4 @@
-"""The filing parsers, registered by form code (chapter 17.4).
+"""The filing parsers, registered by form code.
 
 A new filing type adds a module with a parser class and 1 entry in
 `PARSERS`. The corpus pass in `keel.parsers.corpus` picks the parser by the

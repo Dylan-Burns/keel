@@ -1,14 +1,12 @@
 """Command line entry point for Keel.
 
-Stage 1 ships `keel inventory` and `keel doctor`; stage 2 adds `keel parse`;
-stage 3 adds `keel chunk` and `keel parse --sections-report`; stage 4 adds
-`keel index`; stage 5 adds `keel understand`; stage 6 adds `keel retrieve`;
-stage 7 adds `keel ask`; stage 8 adds `keel calibrate`; stage 9 adds
-`keel serve`; stage 10 adds `keel eval`; stage 13 adds `keel facts`; stage
-14 adds `keel add`; stage 15 adds `keel warm-cache`; stage 20 adds `keel watch`
-and `keel refresh`; stage 21 adds `keel bootstrap`, `keel backup`, and
-`keel restore`. The admin API follow-up adds `keel history`, `keel share`,
-`keel coverage`, and `keel jobs` (`keel.parity_cli`).
+The pipeline commands run in order: `keel inventory`, `keel parse`, `keel
+chunk`, `keel index`, `keel understand`, `keel retrieve`, and `keel ask`.
+Around them: `keel doctor`, `keel calibrate`, `keel serve`, `keel eval`,
+`keel facts`, `keel add`, `keel warm-cache`, `keel watch`, `keel refresh`,
+`keel bootstrap`, `keel backup`, and `keel restore`. The admin commands
+`keel history`, `keel share`, `keel coverage`, and `keel jobs` live in
+`keel.parity_cli`.
 """
 
 import argparse
@@ -64,7 +62,7 @@ from keel.stores import state_store
 logger = logging.getLogger("keel")
 
 # Assumption A-15 asks whether the NVDA 10-K filed in February 2026 is in
-# the corpus; the worked example of chapter 11 branches on it.
+# the corpus; the worked example branches on it.
 A15_TICKER = "NVDA"
 A15_FILED_FROM = "2026-02-01"
 A15_FILED_TO = "2026-02-28"
@@ -176,7 +174,7 @@ def _calibrate_arguments() -> argparse.ArgumentParser:
         "--sample",
         type=_positive,
         default=calibrate.SAMPLE_SIZE,
-        help="the chunks in the sample (default: 200, chapter 11.6)",
+        help="the chunks in the sample (default: 200)",
     )
     calibrate_parser.add_argument(
         "--index",
@@ -207,7 +205,7 @@ def _serve_arguments() -> argparse.ArgumentParser:
         "--bootstrap",
         action="store_true",
         help="start first, then fetch the corpus and build the index when "
-        "absent (chapter 29.9)",
+        "absent",
     )
     return serve_parser
 
@@ -275,16 +273,14 @@ def _eval_arguments() -> argparse.ArgumentParser:
 def _add_pilot_commands(
     add_command: Callable[..., argparse.ArgumentParser],
 ) -> None:
-    """Add the pilot commands of chapter 27.2.
+    """Add the pilot commands.
 
     These are `keel users`, the comp sets, feedback, and template
     commands of `keel.pilot_cli`, and the history, share, coverage, and
     jobs commands of `keel.parity_cli`.
     """
     _add_users_parser(
-        add_command(
-            "users", help="the pilot users and their tokens (chapter 27.2)"
-        )
+        add_command("users", help="the pilot users and their tokens")
     )
     pilot_cli.add_parsers(add_command)
     parity_cli.add_parsers(add_command)
@@ -407,7 +403,7 @@ def build_parser() -> argparse.ArgumentParser:
     parse_parser.add_argument(
         "--sections-report",
         action="store_true",
-        help="print the canonical section coverage (chapter 8.6)",
+        help="print the canonical section coverage",
     )
 
     chunk_parser = commands.add_parser(
@@ -516,7 +512,7 @@ def build_parser() -> argparse.ArgumentParser:
     commands.add_parser(
         "serve",
         parents=[_serve_arguments()],
-        help="serve the API and the front-end (chapter 14)",
+        help="serve the API and the front-end",
     )
 
     commands.add_parser(
@@ -555,7 +551,7 @@ def build_parser() -> argparse.ArgumentParser:
 def _add_refresh_commands(
     commands: "argparse._SubParsersAction[argparse.ArgumentParser]",
 ) -> None:
-    """Add `keel watch` and `keel refresh` to the subcommands (26.3)."""
+    """Add `keel watch` and `keel refresh` to the subcommands."""
     watch_parser = commands.add_parser(
         "watch", help="add, remove, or list the watched tickers"
     )
@@ -852,7 +848,7 @@ def run_parse(
         corpus_dir: The corpus directory, or None for `corpus.dir`.
         show_summary: Print the summary instead of 1 line per file.
         as_json: Print JSON instead of text.
-        sections_report: Print the section coverage of chapter 8.6.
+        sections_report: Print the section coverage.
 
     Returns:
         The process exit code: 2 without files to parse, else 0.
@@ -972,7 +968,7 @@ def run_index(
     out_dir: pathlib.Path | None,
     incremental: bool,
 ) -> int:
-    """Run `keel index`: build and publish an index (chapter 9).
+    """Run `keel index`: build and publish an index.
 
     Args:
         settings: The loaded settings.
@@ -1029,7 +1025,7 @@ def run_index(
 
 
 def run_bootstrap(settings: config.Settings) -> int:
-    """Run `keel bootstrap`: corpus and index on a first start (29.9).
+    """Run `keel bootstrap`: corpus and index on a first start.
 
     Args:
         settings: The loaded settings.
@@ -1306,7 +1302,7 @@ def _meta_line(record: dict[str, Any]) -> str:
 
 
 def _facts_line(facts: dict[str, Any]) -> str:
-    """Describe the facts block as the trace drawer does (chapter 26.1)."""
+    """Describe the facts block as the trace drawer does."""
     lines, files = facts.get("lines", 0), facts.get("files", 0)
     source = {"cache": "cached", "network": "fetched"}.get(
         facts.get("source", "none")
@@ -1423,7 +1419,7 @@ def run_calibrate(
     """Run `keel calibrate`: 1 token count call over a chunk sample.
 
     The command prints the measured factor; the engineer writes it into
-    `retrieval.calibration_factor` (chapter 11.6 step 2).
+    `retrieval.calibration_factor`.
 
     Args:
         settings: The loaded settings.
@@ -1574,7 +1570,7 @@ def run_add(
     corpus_dir: pathlib.Path | None,
     out_dir: pathlib.Path | None,
 ) -> int:
-    """Run `keel add`: 1 company from EDGAR into the index (26.2).
+    """Run `keel add`: 1 company from EDGAR into the index.
 
     Args:
         settings: The loaded settings.
@@ -1656,7 +1652,7 @@ def run_watch(
     tickers: Sequence[str],
     user: str | None,
 ) -> int:
-    """Run `keel watch`: add, remove, or list watched tickers (26.3).
+    """Run `keel watch`: add, remove, or list watched tickers.
 
     Args:
         settings: The loaded settings.
@@ -1704,7 +1700,7 @@ def run_refresh(
     corpus_dir: pathlib.Path | None,
     out_dir: pathlib.Path | None,
 ) -> int:
-    """Run `keel refresh`: new filings of the watched tickers (26.3).
+    """Run `keel refresh`: new filings of the watched tickers.
 
     Args:
         settings: The loaded settings.

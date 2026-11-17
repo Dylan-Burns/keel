@@ -1,4 +1,4 @@
-"""The memo export route of chapter 27.2: `GET /api/export/{request_id}`.
+"""The memo export route: `GET /api/export/{request_id}`.
 
 The route finds the stored answer of a request ID in the result store (10
 minutes), then in the answer cache through the audit record, and returns

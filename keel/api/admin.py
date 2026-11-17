@@ -77,7 +77,7 @@ Admin = Annotated[auth.Principal, fastapi.Depends(require_admin)]
 def api_error(
     status: int, code: str, message: str, **extra: object
 ) -> fastapi.HTTPException:
-    """An HTTP error with the body of chapter 14.3 and more fields.
+    """An HTTP error with the body and more fields.
 
     Args:
         status: The HTTP status.

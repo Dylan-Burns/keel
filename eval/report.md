@@ -1,6 +1,6 @@
 # Eval report
 
-Written by `keel eval` (chapter 18). Regenerate it; do not edit it.
+Written by `keel eval`. Regenerate it; do not edit it.
 
 | Field | Value |
 | --- | --- |
@@ -56,7 +56,7 @@ any chunk of an expected (filing, section) pair of a section label.
 nDCG at 10 uses the grades as gains; coverage recall applies to
 questions with 2 or more expected companies.
 
-## Ablation: retrieval mode and reranker (chapter 18.7)
+## Ablation: retrieval mode and reranker
 
 | Variant | R@25 | nDCG@10 | MRR | R@48 | Retrieval p50 ms | Retrieval p95 ms | Rerank p50 ms | Rerank p95 ms |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -120,7 +120,7 @@ questions with 2 or more expected companies.
 | G-03 | 0.67 | TSLA_10K_2025-12-31 legal_proceedings, TSLA_10Q_2025-09-30 legal_proceedings | financial_statements 32, legal_proceedings 11, unknown 4, risk_factors 1 |  |
 | G-06 | 0.76 | AAPL_10K_2025-09-27 risk_factors, TSLA_10K_2025-12-31 risk_factors, JPM_10K_2025-12-31 risk_factors | risk_factors 41, mdna 4, unknown 1 |  |
 
-## Answer metrics (chapter 18.4 and 18.6)
+## Answer metrics
 
 | Type | Questions | Questions with a call | Faithfulness | Citation precision | Coverage | Numeric | Schema | Latency p50 s | Latency p95 s | Mean cost USD |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |

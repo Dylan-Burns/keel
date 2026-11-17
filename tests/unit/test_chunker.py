@@ -1,4 +1,4 @@
-"""Chunker tests (chapter 9.1) with the tokenizer of the pinned model.
+"""Chunker tests with the tokenizer of the pinned model.
 
 The tokenizer comes from the local Hugging Face cache (`keel doctor
 --download-models`); pytest runs with HF_HUB_OFFLINE=1.

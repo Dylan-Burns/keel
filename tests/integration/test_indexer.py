@@ -1,7 +1,7 @@
 """Index build mechanics on the mini corpus with a fake embedder.
 
 The pointer swap, the failure path, the versions, the pruning, and the
-checksum check (chapters 7.12, 9.5, 9.7). The tests with the pinned model
+checksum check. The tests with the pinned model
 are in `test_index_build.py`.
 """
 

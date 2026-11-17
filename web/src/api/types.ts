@@ -1,10 +1,10 @@
 /**
- * The wire types of the Keel API (chapter 14.2 and 14.3). Field names are
+ * The wire types of the Keel API. Field names are
  * the snake_case names of the Python API, unchanged, so the pydantic models
  * of keel/api and these interfaces describe the same JSON.
  */
 
-/** The options of an answer request (chapter 14.2). */
+/** The options of an answer request. */
 export interface AskOptions {
   readonly stream?: boolean;
   readonly max_context_tokens?: number;
@@ -47,14 +47,14 @@ export interface AnalysisSummary {
   readonly time_scope: TimeScope;
   readonly entities?: Entity[];
   readonly groups?: string[];
-  /** The saved comp sets the question names (chapter 27.2). */
+  /** The saved comp sets the question names. */
   readonly comp_sets?: CompSetUse[];
   readonly unknown_entities?: string[];
   readonly suggested_tickers?: string[];
   readonly out_of_scope_reason?: string | null;
 }
 
-/** One retrieved chunk in the context (chapter 14.2 `retrieval.chunks`). */
+/** One retrieved chunk in the context (`retrieval.chunks`). */
 export interface RetrievedChunk {
   readonly chunk_id: string;
   readonly ticker: string;
@@ -75,11 +75,11 @@ export interface RetrievalSummary {
   readonly token_estimate: number;
 }
 
-/** One finding of a company (chapter 12.4). */
+/** One finding of a company. */
 export interface Finding {
   readonly point: string;
   readonly citations: string[];
-  /** Set by the validator when the finding has 0 valid citations (12.9). */
+  /** Set by the validator when the finding has 0 valid citations. */
   readonly unverified?: boolean;
 }
 
@@ -96,7 +96,7 @@ export interface ComparisonTable {
   readonly rows: string[][];
 }
 
-/** One citation as the model writes it (chapter 12.4). */
+/** One citation as the model writes it. */
 export interface Citation {
   readonly chunk_id: string;
   readonly claim: string;
@@ -122,7 +122,7 @@ export interface Refusal {
   readonly reason: string;
 }
 
-/** The answer object of the model, after validation (chapter 12.4). */
+/** The answer object of the model, after validation. */
 export interface Answer {
   readonly direct_answer: string;
   readonly company_findings: CompanyFindings[];
@@ -161,7 +161,7 @@ export interface ChunkLocation {
   readonly row_fragments?: Readonly<Record<string, string>> | null;
 }
 
-/** A citation with the server-side metadata (chapter 12.9 step 6). */
+/** A citation with the server-side metadata. */
 export interface ResolvedCitation {
   readonly chunk_id: string;
   readonly filing_name: string;
@@ -169,7 +169,7 @@ export interface ResolvedCitation {
   readonly fiscal_label: string;
   readonly sec_url: string | null;
   readonly valid: boolean;
-  /** Validator flags such as `quote_mismatch` (chapter 12.5). */
+  /** Validator flags such as `quote_mismatch`. */
   readonly flags?: string[];
   /** The company ticker of the cited chunk or fact. */
   readonly ticker?: string;
@@ -204,7 +204,7 @@ export interface ResponseFlags {
   readonly injection_suspect: boolean;
 }
 
-/** The `meta` field of the response (chapter 14.2). */
+/** The `meta` field of the response. */
 export interface ResponseMeta {
   readonly model: string;
   readonly prompt_version: string;
@@ -218,7 +218,7 @@ export interface ResponseMeta {
   readonly flags: ResponseFlags;
 }
 
-/** The metadata filter of 1 sub-query in the audit record (chapter 11.2). */
+/** The metadata filter of 1 sub-query in the audit record. */
 export interface AuditFilter {
   readonly label: string;
   readonly tickers: string[];
@@ -263,11 +263,11 @@ export interface AuditFlags {
 }
 
 /**
- * The audit record of 1 answer (chapter 15 S-07, chapter 25.1): the line of
+ * The audit record of 1 answer (S-07): the line of
  * `logs/audit.jsonl` that the `final` event carries, rendered by the trace
  * drawer. Every field but `model_requests` is optional, so an older record
  * or a record of another stage still renders; the facts fields arrive with
- * the company facts of chapter 26.1.
+ * the company facts.
  */
 export interface AuditRecord {
   readonly model_requests: number;
@@ -295,7 +295,7 @@ export interface AuditRecord {
   readonly flags?: AuditFlags;
   readonly outcome?: string;
   readonly error?: string | null;
-  /** The facts lines of the prompt (chapter 26.1), when present. */
+  /** The facts lines of the prompt, when present. */
   readonly facts_lines?: number;
   /** Where the facts came from, such as `cache` or `live`. */
   readonly facts_source?: string | null;
@@ -316,7 +316,7 @@ export interface AskResponse {
   readonly answer: Answer;
   readonly citations_resolved: ResolvedCitation[];
   readonly meta: ResponseMeta;
-  /** The audit record of the answer, rendered by the trace drawer (W-01). */
+  /** The audit record of the answer, rendered by the trace drawer. */
   readonly audit?: AuditRecord | null;
 }
 
@@ -351,7 +351,7 @@ export type SseEvent =
   | {readonly event: 'error'; readonly data: ErrorEvent}
   | {readonly event: 'done'; readonly data: null};
 
-/** The names of the server-sent events of chapter 14.3. */
+/** The names of the server-sent events. */
 export type SseEventName = SseEvent['event'];
 
 /** `GET /api/health`. */
@@ -373,6 +373,12 @@ export interface ReadyResponse {
   readonly ready: boolean;
   readonly index_version: string | null;
   readonly checks: ReadyChecks;
+  /**
+   * `public` when a visitor may use the service without an access token
+   * (with their own Anthropic API key), `token` when every page needs one.
+   * Absent on an older server, which means `token`.
+   */
+  readonly access?: 'public' | 'token';
 }
 
 /** `GET /api/index/status`. */
@@ -457,7 +463,7 @@ export interface EvalDocument {
   readonly truncated: boolean;
 }
 
-/** 1 regression gate of chapter 18.8, read from the eval report. */
+/** 1 regression gate, read from the eval report. */
 export interface EvalGate {
   readonly name: string;
   readonly comparator: '>=' | '<=' | '>' | '<';
@@ -470,7 +476,7 @@ export interface EvalGate {
   readonly passed: boolean | null;
 }
 
-/** `GET /api/eval` (chapter 25.2). */
+/** `GET /api/eval`. */
 export interface EvalResponse {
   readonly report: EvalDocument;
   readonly prompt_log: EvalDocument;
@@ -488,7 +494,7 @@ export interface PromptVersion {
   readonly current: boolean;
 }
 
-/** 1 question of `GET /api/history` (chapter 27.2). */
+/** 1 question of `GET /api/history`. */
 export interface HistoryItem {
   readonly request_id: string;
   readonly timestamp: string;
@@ -526,14 +532,14 @@ export interface CompSetUse {
   readonly missing: string[];
 }
 
-/** 1 saved comp set of `GET /api/compsets` (chapter 27.2). */
+/** 1 saved comp set of `GET /api/compsets`. */
 export interface CompSetItem {
   /** The name a question uses as `my <name> comps`. */
   readonly name: string;
   readonly tickers: string[];
   readonly owner: string | null;
   readonly updated_at: string;
-  /** The tickers outside the index; `keel add` adds them (chapter 26). */
+  /** The tickers outside the index; `keel add` adds them. */
   readonly missing: string[];
   /** True when the caller may replace or delete the set. */
   readonly editable: boolean;
@@ -544,7 +550,7 @@ export interface CompSetList {
   readonly items: CompSetItem[];
 }
 
-/** 1 question template of `GET /api/templates` (chapter 27.2). */
+/** 1 question template of `GET /api/templates`. */
 export interface QuestionTemplate {
   readonly id: string;
   readonly label: string;

@@ -1,8 +1,8 @@
-"""`keel warm-cache`: everything the demo touches, on disk (chapter 16.12).
+"""`keel warm-cache`: everything the demo touches, on disk.
 
 The command runs 2 steps before a demo. First it pre-fetches the XBRL
 company facts file of every corpus ticker and of the `demo.add_companies`
-tickers into the EDGAR disk cache (chapter 26.1 step 2: 1 request per
+tickers into the EDGAR disk cache (1 request per
 company the night before, 0 on demo day), through `keel/edgar.py` with
 its `User-Agent` and its 0.2 s pacing. Then it answers the 3 example
 questions and the golden set through the real pipeline, so the answer

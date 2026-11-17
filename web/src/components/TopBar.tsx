@@ -42,7 +42,7 @@ const STATUS_COLOR: Readonly<Record<Health, string>> = {
 };
 
 /**
- * The top bar (chapter 14.5) as a market-status strip: the name, the service
+ * The top bar as a market-status strip: the name, the service
  * state with its health dot, the index version, the model requests and the
  * latency and cost badge of the last answer, the theme toggle, the token
  * field, and the page links under it.

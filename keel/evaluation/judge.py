@@ -1,4 +1,4 @@
-"""The LLM-as-judge pass of the eval (chapter 18.4).
+"""The LLM-as-judge pass of the eval.
 
 The judge reads each claim of an answer (the sentences of the direct answer
 and every finding) with the chunks it cites, and each citation with its 1
@@ -417,7 +417,7 @@ def _with_filing_line(row: Sequence[Any]) -> str:
     """Prefix the chunk text with the attributes the answer model saw.
 
     The answer prompt gives each chunk its company, form, fiscal label,
-    period end, filing date, and section as attributes (chapter 12.2); a
+    period end, filing date, and section as attributes; a
     chunk the eval has no rendered element for (`keel/evaluation/answers.py`
     keeps those) shows the same facts in 1 `filing:` line.
     """

@@ -1,12 +1,11 @@
-"""The `/api` routes of chapter 14.1.
+"""The `/api` routes.
 
-`POST /api/ask` streams the events of chapter 14.3 or returns the JSON of
-chapter 14.2. The read routes serve the readiness, the coverage, 1 chunk,
+`POST /api/ask` streams the events or returns the JSON
+answer. The read routes serve the readiness, the coverage, 1 chunk,
 the examples, the index status, a stored answer by request ID, and the
-history of the caller (chapter 27.2). With
-`llm.provider: mock`, the header `X-Keel-Mock: <fault>` drives the states
-of table 14.6 for the front-end tests; with any other provider the service
-ignores it.
+history of the caller. With `llm.provider: mock`, the header
+`X-Keel-Mock: <fault>` drives the UI states of `web/src/state.ts` for the
+front-end tests; with any other provider the service ignores it.
 """
 
 from __future__ import annotations
@@ -79,7 +78,7 @@ router = fastapi.APIRouter(prefix="/api")
 
 
 class AskOptions(pydantic.BaseModel):
-    """The options of an answer request (chapter 14.2).
+    """The options of an answer request.
 
     Attributes:
         stream: False returns JSON even when the client accepts SSE.
@@ -116,7 +115,7 @@ class AskRequest(pydantic.BaseModel):
 def error_body(
     code: str, message: str, retry_after: int | None = None
 ) -> dict[str, Any]:
-    """The JSON error body of chapter 14.3.
+    """The JSON error body.
 
     Args:
         code: The error code.
@@ -135,7 +134,7 @@ def error_body(
 def http_error(
     status: int, code: str, message: str, retry_after: int | None = None
 ) -> fastapi.HTTPException:
-    """An HTTP error with the body of chapter 14.3.
+    """An HTTP error with the body.
 
     Args:
         status: The HTTP status.
@@ -185,14 +184,41 @@ def require_principal(
         The Principal of the caller.
 
     Raises:
-        HTTPException: 401 when the token is absent or wrong.
+        HTTPException: 401 when the token is absent or wrong (a visitor
+            needs none with `auth.public`), 400 for a malformed visitor
+            key.
     """
     return auth.authenticate(
-        services.settings, request.headers.get("authorization"), services.users
+        services.settings,
+        request.headers.get("authorization"),
+        services.users,
+        key=auth.visitor_key(request.headers.get(auth.KEY_HEADER)),
     )
 
 
 Caller = Annotated[auth.Principal, fastapi.Depends(require_principal)]
+
+
+def require_member(caller: Caller) -> auth.Principal:
+    """The Principal of a user with a token; a visitor gets HTTP 403.
+
+    Args:
+        caller: The Principal of the request.
+
+    Returns:
+        The Principal.
+
+    Raises:
+        HTTPException: 403 `sign_in_required` for a visitor.
+    """
+    if caller.is_visitor:
+        raise http_error(
+            403, "sign_in_required", "this needs a Keel access token"
+        )
+    return caller
+
+
+Member = Annotated[auth.Principal, fastapi.Depends(require_member)]
 
 
 def fault_of(request: fastapi.Request, services: Services) -> str | None:
@@ -223,7 +249,7 @@ Fault = Annotated[str | None, fastapi.Depends(fault_of)]
 
 
 def require_answerer(services: state.Services) -> answer.Answerer:
-    """The pipeline, or HTTP 503 without a sound index (E-F-01, 16.7).
+    """The pipeline, or HTTP 503 without a sound index (E-F-01).
 
     Args:
         services: The shared services.
@@ -274,7 +300,7 @@ async def ready(services: Services, fault: Fault) -> fastapi.Response:
         word, whether the daily budget stopped the model, whether the
         answer cache exists, and with `--bootstrap` its phase and
         progress; no amount, no model name, and no error text. HTTP 503
-        with `index_corrupt` when the index failed its checks (16.7); the
+        with `index_corrupt` when the index failed its checks; the
         other failed checks keep HTTP 200, so the front-end can show the
         matching banner.
     """
@@ -287,11 +313,13 @@ async def ready(services: Services, fault: Fault) -> fastapi.Response:
             services.settings.reranker.enabled
         )
         models = step.embedder is not None and reranker_ok
+    public = services.settings.auth.public
     checks = {
         "index_loaded": loaded,
         "index_verified": loaded and services.index_verified,
         "models_loaded": loaded and models,
-        "provider_key": services.provider_key,
+        # A public service answers visitors with their own keys.
+        "provider_key": services.provider_key or public,
     }
     corrupt = loaded and not services.index_verified
     body: dict[str, Any] = {
@@ -302,6 +330,7 @@ async def ready(services: Services, fault: Fault) -> fastapi.Response:
         "checks": checks,
         "index_corrupt": corrupt,
         "offline": services.settings.offline,
+        "access": "public" if public else "token",
     }
     if services.bootstrap is not None:
         # The phase and the progress only; the detail and the error stay
@@ -324,8 +353,8 @@ async def ready(services: Services, fault: Fault) -> fastapi.Response:
 
 
 @router.get("/status")
-async def service_status(services: Services, caller: Caller) -> dict[str, Any]:
-    """The reliability details behind the token (chapters 16.3, 16.10).
+async def service_status(services: Services, caller: Member) -> dict[str, Any]:
+    """The reliability details behind the token.
 
     Args:
         services: The shared services.
@@ -399,7 +428,7 @@ async def chunk(
         caller: The Principal.
 
     Returns:
-        The chunk fields of chapter 14.2, the section title, the text, and
+        The chunk fields, the section title, the text, and
         the location (part, item, passage, accession). `sec_url` is None
         unless the filing URL is trusted (E-D-28).
 
@@ -523,7 +552,7 @@ async def examples(services: Services, caller: Caller) -> dict[str, Any]:
 
     Returns:
         The examples, and the golden questions of `eval/golden.yaml` when
-        the file exists (stage 10 writes it).
+        the file exists.
     """
     del caller
     return {
@@ -611,10 +640,10 @@ async def index_status(
 
 @router.get("/eval")
 async def eval_report(services: Services, caller: Caller) -> eval_page.EvalPage:
-    """The eval page data (W-02): the report, the prompt log, the gates.
+    """The eval page data: the report, the prompt log, the gates.
 
     The markdown goes out as text and the front-end renders it through the
-    answer renderer and DOMPurify (chapter 15 allow list), read-only.
+    answer renderer and DOMPurify (S-12 allow list), read-only.
 
     Args:
         services: The shared services.
@@ -642,7 +671,7 @@ def for_viewer(
 ) -> dict[str, Any]:
     """A stored answer as a viewer sees it through a shareable link.
 
-    Any token holder may open a link (chapter 27.2); the name of the user
+    Any token holder may open a link; the name of the user
     who asked stays with that user and the admins.
 
     Args:
@@ -725,7 +754,7 @@ async def result(
         caller: The Principal.
 
     Returns:
-        The answer of chapter 14.2 from the idempotency store (10 minutes)
+        The answer from the idempotency store (10 minutes)
         or the answer cache.
 
     Raises:
@@ -752,12 +781,12 @@ async def result(
 async def shared_answer(
     request_id: str, services: Services, caller: Caller
 ) -> dict[str, Any]:
-    """A finished answer by its shareable link `/a/{request_id}` (27.2).
+    """A finished answer by its shareable link `/a/{request_id}`.
 
-    Deliberately open to any token holder, read-only, as chapter 27.2
-    asks: a link opens for any user with a token. The viewer sees the
-    answer and its trace, but not who asked unless it was the viewer or
-    the viewer is an admin. An answer that still runs is not shared.
+    Deliberately open to any token holder, read-only: a link opens for any user
+    with a token. The viewer sees the answer and its trace, but not who asked
+    unless it was the viewer or the viewer is an admin. An answer that still
+    runs is not shared.
 
     Args:
         request_id: The request ID of the link.
@@ -765,7 +794,7 @@ async def shared_answer(
         caller: The Principal of the viewer.
 
     Returns:
-        The answer of chapter 14.2.
+        The answer.
 
     Raises:
         HTTPException: 404 for an unknown, unfinished, or expired answer.
@@ -787,7 +816,7 @@ async def history(
         int, fastapi.Query(ge=1, le=history_log.MAX_LIMIT)
     ] = history_log.DEFAULT_LIMIT,
 ) -> history_log.HistoryPage:
-    """The questions of the caller, newest first (chapter 27.2).
+    """The questions of the caller, newest first.
 
     Args:
         services: The shared services.
@@ -804,6 +833,11 @@ async def history(
     """
     if scope == "all" and not caller.is_admin:
         raise http_error(403, "forbidden", "only an admin reads every history")
+    if caller.user.name == auth.ANONYMOUS:
+        # Visitors without a key share 1 name, so none sees the others.
+        return history_log.HistoryPage(
+            user=caller.user.name, role=caller.user.role, scope=scope, items=[]
+        )
     user = None if scope == "all" else caller.user.name
     items = await asyncio.to_thread(
         history_log.history,
@@ -851,7 +885,7 @@ def _untrusted(retrieval: dict[str, Any]) -> dict[str, Any]:
 def response_body(
     record: dict[str, Any], fault: str | None = None
 ) -> dict[str, Any]:
-    """The response of chapter 14.2 from a pipeline record.
+    """The response from a pipeline record.
 
     A response without a model answer (out of scope, no context, offline,
     provider error, schema violation) gets an answer object that holds the
@@ -878,7 +912,7 @@ def response_body(
 
 
 def wants_stream(request: fastapi.Request, options: AskOptions) -> bool:
-    """True when the answer goes out as SSE (chapter 14.1).
+    """True when the answer goes out as SSE.
 
     Args:
         request: The request.
@@ -924,7 +958,7 @@ async def read_body(request: fastapi.Request) -> AskRequest:
 
 
 def check_question(services: state.Services, question: str) -> None:
-    """Run the length and language checks of chapter 10.7 (E-Q-10, E-Q-11).
+    """Run the length and language checks (E-Q-10, E-Q-11).
 
     Args:
         services: The shared services.
@@ -998,7 +1032,7 @@ def answerer_for(
     if fault == FALLBACK_FAULT:
         name, fallback_fault = down, "none"
     elif fault == "provider_unavailable":
-        # Both models fail: the degraded mode (chapter 16.5).
+        # Both models fail: the degraded mode.
         name = fallback_fault = down
     else:
         # A raw fault before content hits the fallback model too.
@@ -1108,8 +1142,9 @@ def client_of(request: fastapi.Request, caller: auth.Principal) -> str:
     """The bucket key of the rate limit (control S-05).
 
     A named user has 1 bucket wherever they ask from, which also holds
-    behind a proxy; the shared legacy token keeps 1 bucket per peer
-    address.
+    behind a proxy; so has a visitor with a key (named by the key). The
+    shared legacy token and the visitors without a key keep 1 bucket per
+    peer address.
 
     Args:
         request: The request.
@@ -1118,9 +1153,86 @@ def client_of(request: fastapi.Request, caller: auth.Principal) -> str:
     Returns:
         `user:<name>`, or the peer address (`unknown` without one).
     """
-    if caller.user != users.LEGACY:
+    if caller.user != users.LEGACY and caller.user.name != auth.ANONYMOUS:
         return f"user:{caller.user.name}"
     return request.client.host if request.client else "unknown"
+
+
+async def _billing(
+    answerer: answer.Answerer,
+    body: AskRequest,
+    caller: auth.Principal,
+    key: pydantic.SecretStr | None,
+    fault: str | None,
+) -> tuple[answer.Answerer, AskRequest]:
+    """The pipeline and the request of 1 question, by who pays for it.
+
+    A caller with their own key gets a copy that answers with it. A
+    visitor without a key reads the answer cache only: a question it does
+    not hold gets HTTP 401, and the copy of a cached question has a
+    provider that refuses, so the service key is never spent.
+
+    Args:
+        answerer: The pipeline of the request.
+        body: The request.
+        caller: The Principal.
+        key: The caller's Anthropic API key, or None.
+        fault: The mock fault of the request.
+
+    Returns:
+        The pipeline and the request to run.
+
+    Raises:
+        HTTPException: 401 `api_key_required` for a visitor without a key
+            and an uncached question.
+    """
+    if fault is not None and fault not in API_FAULTS:
+        # A fault drill keeps its mock providers.
+        return answerer, body
+    if key is not None:
+        return answerer.for_visitor(key), body
+    if not caller.is_visitor:
+        return answerer, body
+    if not await asyncio.to_thread(answerer.cached, body.question):
+        raise http_error(
+            401,
+            "api_key_required",
+            "add your Anthropic API key to ask a new question; the "
+            "example questions answer without one",
+        )
+    options = body.options.model_copy(update={"use_cache": True})
+    refusing = state.MissingKeyProvider(answerer.model)
+    return (
+        answerer.with_provider(refusing),
+        body.model_copy(update={"options": options}),
+    )
+
+
+def _check_rate(
+    services: state.Services, request: fastapi.Request, caller: auth.Principal
+) -> None:
+    """Take 1 question from the buckets of the caller (control S-05).
+
+    A visitor also takes 1 from the bucket of all visitors together.
+
+    Args:
+        services: The shared services.
+        request: The request.
+        caller: The Principal.
+
+    Raises:
+        HTTPException: 429 with `Retry-After` when a bucket is empty.
+    """
+    decision = services.limiter.check(client_of(request, caller))
+    if decision.allowed and caller.is_visitor:
+        decision = services.public_limiter.check(auth.ANONYMOUS)
+    if not decision.allowed:
+        raise http_error(
+            429,
+            "rate_limited",
+            "too many questions; wait and ask again",
+            decision.retry_after,
+        )
 
 
 @router.post("/ask")
@@ -1139,15 +1251,17 @@ async def ask(
         fault: The mock fault.
 
     Returns:
-        The event stream or the response of chapter 14.2.
+        The event stream or the response.
 
     Raises:
-        HTTPException: 400 or 413 for the input checks, 409 for a key
-            whose answer still runs, 429 over the rate limit, 503 without
-            an index.
+        HTTPException: 400 or 413 for the input checks, 401
+            `api_key_required` for a visitor without a key whose question
+            is not in the answer cache, 409 for a key whose answer still
+            runs, 429 over the rate limit, 503 without an index.
     """
     body = await read_body(request)
     check_question(services, body.question)
+    key = auth.visitor_key(request.headers.get(auth.KEY_HEADER))
     if fault == "rate_limited":
         raise http_error(
             429,
@@ -1170,15 +1284,11 @@ async def ask(
         raise http_error(
             409, "request_in_progress", "the answer of this key still runs"
         )
+    # The rate check comes before billing, so a keyless visitor cannot
+    # probe the answer cache or the 401 without spending the limit.
+    _check_rate(services, request, caller)
     answerer = answerer_for(services, fault)
-    decision = services.limiter.check(client_of(request, caller))
-    if not decision.allowed:
-        raise http_error(
-            429,
-            "rate_limited",
-            "too many questions; wait and ask again",
-            decision.retry_after,
-        )
+    answerer, body = await _billing(answerer, body, caller, key, fault)
     if not services.results.start(request_id, caller.user.name):
         raise http_error(
             409, "request_in_progress", "the answer of this key still runs"

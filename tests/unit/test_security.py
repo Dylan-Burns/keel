@@ -1,4 +1,4 @@
-"""The timebox security controls of chapter 15 that stage 11 adds.
+"""The security controls of the core service.
 
 S-01 (secrets from the environment only, redacted log lines), S-04 (the
 context and chunk caps), S-14 (no key pattern in a log line), and S-16

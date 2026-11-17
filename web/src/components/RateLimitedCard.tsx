@@ -7,7 +7,7 @@ export interface RateLimitedCardProps {
 
 /**
  * The rate-limited card: the wait from `retry_after` with a countdown. The
- * Ask button stays off until the countdown ends (table 14.6).
+ * Ask button stays off until the countdown ends.
  *
  * @param props The props.
  * @return The card.

@@ -1,4 +1,4 @@
-"""The answer half of the eval (chapter 18.4 and 18.6).
+"""The answer half of the eval.
 
 Each question of the golden set goes through the real answer pipeline
 (`keel.answer.Answerer`, 1 model request) on the retrieval the harness
@@ -6,7 +6,7 @@ already ran, so the answer metrics and the retrieval metrics read the same
 context. The code metrics need no model: coverage completeness, numeric
 accuracy within 0.5% of the gold values, schema validity, and refusal
 correctness (an out-of-scope response with no model request). Latency and
-cost come from the audit record of each request (chapter 15 S-07). The
+cost come from the audit record of each request (S-07). The
 judge (`judge.py`) adds faithfulness and citation precision.
 
 G-28 runs on a fixture context: the retrieval of its question plus 1

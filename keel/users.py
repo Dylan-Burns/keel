@@ -1,4 +1,4 @@
-"""The pilot users and their tokens (chapter 27.2, `config/users.yaml`).
+"""The pilot users and their tokens (`config/users.yaml`).
 
 Each user has a name, a role (analyst, partner, or admin), and the sha256
 of a token. The file never holds a token: `keel users add NAME --role R`
@@ -7,7 +7,7 @@ A token of 256 random bits needs no slow key derivation; the hash only
 keeps the file from being a list of working tokens. The single
 `KEEL_API_TOKEN` keeps working as the user `legacy` with the admin role,
 so CI and the demo need no users file. OpenID Connect replaces this file
-in a paid engagement (chapter 27.2).
+in a paid engagement.
 """
 
 from __future__ import annotations
@@ -34,6 +34,9 @@ logger = logging.getLogger(__name__)
 Role = Literal["analyst", "partner", "admin"]
 ROLES: tuple[Role, ...] = ("analyst", "partner", "admin")
 ADMIN: Role = "admin"
+# The role of a visitor of a public service: no users file entry, no token.
+VisitorRole = Literal["visitor"]
+VISITOR: VisitorRole = "visitor"
 LEGACY_USER = "legacy"
 HASH_PREFIX = "sha256:"
 TOKEN_BYTES = 32  # 256 random bits
@@ -85,16 +88,21 @@ class User:
 
     Attributes:
         name: The user name.
-        role: The role.
+        role: The role; `visitor` for a visitor of a public service.
     """
 
     name: str
-    role: Role
+    role: Role | VisitorRole
 
     @property
     def is_admin(self) -> bool:
         """True for the admin role."""
         return self.role == ADMIN
+
+    @property
+    def is_visitor(self) -> bool:
+        """True for a visitor of a public service, who has no token."""
+        return self.role == VISITOR
 
 
 LEGACY = User(LEGACY_USER, ADMIN)
@@ -188,7 +196,7 @@ def save_file(path: pathlib.Path, users_file: UsersFile) -> None:
         ConfigError: The file could not be written.
     """
     text = (
-        "# Keel pilot users (chapter 27.2). Token hashes only; "
+        "# Keel pilot users. Token hashes only; "
         "`keel users add` writes this file.\n"
         + yaml.safe_dump(users_file.model_dump(mode="json"), sort_keys=False)
     )

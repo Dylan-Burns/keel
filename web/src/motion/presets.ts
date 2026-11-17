@@ -1,11 +1,11 @@
 /**
- * Motion presets for every animated moment of chapter 14.8. Components import
+ * Motion presets for every animated moment. Components import
  * these and never define an inline transition. There is 1 named export per
  * moment of the table; each part of a moment has a `reduced` twin that shows
- * the final state at once, including the trace drawer (W-01) and the eval
- * page (W-02).
+ * the final state at once, including the trace drawer and the eval
+ * page.
  *
- * Rules (14.8): every animation takes 300 ms or less, except the count up
+ * Rules: every animation takes 300 ms or less, except the count up
  * (600 ms) and the chunk stagger (30 ms per chunk, 48 chunks at most). An
  * animation never changes what the data says, and the text is in the DOM
  * before it moves.
@@ -235,7 +235,7 @@ export const banner = {
 } as const satisfies Record<string, MotionPreset>;
 
 /**
- * Deliberate failure (W-04): the gray out-of-scope card fades in with the
+ * Deliberate failure: the gray out-of-scope card fades in with the
  * example chips, with the durations of the normal path.
  */
 export const outOfScope = {
@@ -249,7 +249,7 @@ export const outOfScope = {
 } as const satisfies Record<string, MotionPreset>;
 
 /**
- * Trace drawer (W-01): the drawer slides up with a spring inside
+ * Trace drawer: the drawer slides up with a spring inside
  * `AnimatePresence`, and the line `model requests: 1` draws attention with 1
  * scale pulse, once per answer (the line is in the DOM before it pulses).
  */
@@ -321,7 +321,7 @@ export const filingReader = {
 } as const satisfies Record<string, MotionPreset>;
 
 /**
- * Eval page (W-02): the metric bars grow to their values on first view; the
+ * Eval page: the metric bars grow to their values on first view; the
  * number is in the DOM before the bar moves, and a value below its gate turns
  * red at the end of the grow.
  */

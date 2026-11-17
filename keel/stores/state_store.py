@@ -1,12 +1,11 @@
-"""The app-state SQLite store: the watch list (chapter 26.3, step 1).
+"""The app-state SQLite store: the watch list.
 
-The app state lives in its own file, `state.sqlite`, under `logs.dir`, and
-not in the index directory: a full index build publishes a new build
-directory and moves `current`, so a table inside `chunks.sqlite` would be
-lost at the next rebuild. `logs.dir` already holds what must survive a
-rebuild (`audit.jsonl`, `refresh.log`) and sits on the persistent volume on
-Railway (`KEEL_LOGS__DIR=/data/logs`, chapter 29.9), so no new config key
-is needed.
+The app state lives in its own file, `state.sqlite`, under `logs.dir`, and not
+in the index directory: a full index build publishes a new build directory and
+moves `current`, so a table inside `chunks.sqlite` would be lost at the next
+rebuild. `logs.dir` already holds what must survive a rebuild (`audit.jsonl`,
+`refresh.log`) and sits on the persistent volume (`KEEL_LOGS__DIR`), so no new
+config key is needed.
 
 The `watch_list` table holds 1 row per ticker and user, with the date the
 user added it. `keel refresh` checks the union of the tickers of all users.

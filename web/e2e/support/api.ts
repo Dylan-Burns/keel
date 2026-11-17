@@ -44,7 +44,7 @@ export const isLive = process.env['KEEL_E2E_BASE_URL'] !== undefined;
 /** The token the page stores; CI starts `keel serve` with the same value. */
 export const TOKEN = process.env['KEEL_API_TOKEN'] ?? 'e2e-token';
 
-/** The fault names of the mock provider header `X-Keel-Mock` (14.9). */
+/** The fault names of the mock provider header `X-Keel-Mock`. */
 export type Fault =
   | 'partial_coverage'
   | 'out_of_scope'

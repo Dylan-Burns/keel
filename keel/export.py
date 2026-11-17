@@ -1,4 +1,4 @@
-"""Memo export (chapter 27.2): 1 stored answer as a Markdown or DOCX memo.
+"""Memo export: 1 stored answer as a Markdown or DOCX memo.
 
 `keel export REQUEST_ID` finds the stored answer of a request ID and writes
 a memo: the question as the title, the direct answer, the findings per
@@ -26,7 +26,7 @@ and the numbered notes in a `Sources` section at the end (endnotes).
 
 Each written memo appends 1 line to `<logs.dir>/exports.jsonl` (the time,
 the request ID, the format, and the user), which the pilot metrics count
-(chapter 27.6).
+.
 """
 
 from __future__ import annotations
@@ -117,7 +117,7 @@ class ExportError(errors.KeelError):
     """No stored answer to export, or the memo cannot be written."""
 
 
-# The export log of the pilot metrics (chapter 27.6): 1 line per memo.
+# The export log of the pilot metrics: 1 line per memo.
 LOG_NAME = "exports.jsonl"
 CLI_USER = "cli"
 
@@ -463,7 +463,7 @@ def build_memo(record: Mapping[str, Any], request_id: str) -> Memo:
     """Build the memo parts of a stored answer record.
 
     Args:
-        record: The answer record of chapter 14.2 (the `final` event).
+        record: The answer record (the `final` event).
         request_id: The request ID the memo names.
 
     Returns:

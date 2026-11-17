@@ -1,11 +1,13 @@
 import {useEffect, useState} from 'react';
 
 import {probeAdmin} from './api/admin';
+import {isVisitor} from './api/access';
 import {ApiError, getToken} from './api/client';
 
 /** What the page knows of the caller's role. */
 export type RoleState =
   | {readonly kind: 'no_token'}
+  | {readonly kind: 'visitor'}
   | {readonly kind: 'loading'}
   | {readonly kind: 'rejected'}
   | {readonly kind: 'admin'}
@@ -13,22 +15,35 @@ export type RoleState =
   | {readonly kind: 'error'; readonly message: string};
 
 /**
+ * The state before the probe: a visitor of a public service needs none,
+ * a page without a token has none to check.
+ *
+ * @return The first state.
+ */
+function startState(): RoleState {
+  if (isVisitor()) {
+    return {kind: 'visitor'};
+  }
+  return getToken() === null ? {kind: 'no_token'} : {kind: 'loading'};
+}
+
+/**
  * The role of the stored token, from a probe of an admin route: HTTP 200 is
- * an admin, 403 an analyst or a partner, 401 a rejected token. The page uses
- * it only to choose what to show; the API checks the role on every call.
+ * an admin, 403 an analyst or a partner, 401 a rejected token. A public
+ * service without a token makes the caller a visitor, with no probe: the
+ * admin routes refuse a visitor (403 `sign_in_required`). The page uses it
+ * only to choose what to show; the API checks the role on every call.
  *
  * @param version A counter the page bumps when the token changes.
  * @return The role state.
  */
 export function useAdminRole(version: number): RoleState {
-  const [role, setRole] = useState<RoleState>(() =>
-    getToken() === null ? {kind: 'no_token'} : {kind: 'loading'},
-  );
+  const [role, setRole] = useState<RoleState>(startState);
   const [seen, setSeen] = useState(version);
   if (seen !== version) {
     // A new token: probe again (the render-time reset of React docs).
     setSeen(version);
-    setRole(getToken() === null ? {kind: 'no_token'} : {kind: 'loading'});
+    setRole(startState());
   }
   useEffect(() => {
     if (getToken() === null) {

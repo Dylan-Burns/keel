@@ -1,14 +1,14 @@
-# The golden set of chapter 18.1: 28 questions with their expected sources.
+# The golden set: 28 questions with their expected sources.
 #
-# Version rule (chapter 17.12): minor for added questions, major for changed
+# Version rule: minor for added questions, major for changed
 # expected sources. The filing IDs were resolved from the index named below
 # (the `filings` table), never from a file name. The fiscal period is the
 # label of the index (fiscal_year and fiscal_period of the filing).
 #
 # Fields of a question:
 #   type: single_company, comparison, trend, numeric, sector,
-#     out_of_corpus, ambiguous_entity, or adversarial (chapter 18.1).
-#   labels: chunk (graded chunk labels in eval/labels/, chapter 18.2) or
+#     out_of_corpus, ambiguous_entity, or adversarial.
+#   labels: chunk (graded chunk labels in eval/labels/) or
 #     section (every chunk of the expected filing and section pairs).
 #   expect_out_of_scope: true when the right response is the out-of-scope
 #     response with no retrieval and no model call.
@@ -120,7 +120,7 @@ questions:
   - id: G-11
     type: trend
     question: How has NVIDIA's revenue and growth outlook changed over the last two years?
-    note: Example question 2 (A-15 false, case B of chapter 11.8, 8 filings in the window)
+    note: Example question 2 (A-15 false, case B filings in the window)
     labels: chunk
     subsets: [chunk, demo]
     expected:

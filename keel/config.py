@@ -1,9 +1,9 @@
 """The config loader: `config/keel.yaml` first, then the environment.
 
 The YAML file gives the defaults. An environment variable overrides any key:
-a top-level key as `KEEL_<KEY>`, a nested key as `KEEL_<SECTION>__<KEY>`
-(chapter 17.3). The `.env` file in the working directory feeds the same
-variables. Secrets come only from the environment and never from the YAML.
+a top-level key as `KEEL_<KEY>`, a nested key as `KEEL_<SECTION>__<KEY>`.
+The `.env` file in the working directory feeds the same variables.
+Secrets come only from the environment and never from the YAML.
 """
 
 from __future__ import annotations
@@ -86,7 +86,7 @@ class CorpusConfig(_Section):
         url: The https URL `keel bootstrap` downloads the zip from.
         release_repo: The GitHub repository (`owner/name`) whose release
             asset `keel bootstrap` downloads with `gh` when `GH_TOKEN` is set.
-        release_tag: The release tag of that asset (chapter 29.11).
+        release_tag: The release tag of that asset.
         dir: The extracted corpus directory.
         manifest: The corpus manifest.
         date_filter: The filing date window, or None.
@@ -170,7 +170,7 @@ class RerankerConfig(_Section):
     the process (the query embedding too): 0 means 1 per CPU the process
     may use (its affinity, capped by a cgroup quota), None keeps the torch
     default (1 per physical core). The length trades CPU time against
-    precision (`docs/BUILD_REPORT.md`, latency experiments).
+    precision (measured in latency experiments).
     """
 
     enabled: bool = True
@@ -187,7 +187,7 @@ MAX_CHUNKS_CAP = 96
 
 
 class RetrievalConfig(_Section):
-    """The retrieval and context budget settings (chapter 11).
+    """The retrieval and context budget settings.
 
     `max_context_tokens` and `max_chunks` are clamped to 64,000 and 96
     (control S-04 step 4), so no override can ask for a larger context.
@@ -234,13 +234,20 @@ class LlmConfig(_Section):
 
 
 class AuthConfig(_Section):
-    """The pilot users file (chapter 27.2): names, roles, token hashes."""
+    """The users file and the public mode.
+
+    Attributes:
+        users_file: Names, roles, and token hashes.
+        public: True lets a visitor without a token ask with their own
+            Anthropic API key, or read the answer cache without one.
+    """
 
     users_file: pathlib.Path = pathlib.Path("config/users.yaml")
+    public: bool = False
 
 
 class PilotConfig(_Section):
-    """The pilot store and the question templates (chapter 27.2).
+    """The pilot store and the question templates.
 
     Attributes:
         db: The comp sets and feedback store; None for `pilot.sqlite` in
@@ -259,11 +266,15 @@ class LimitsConfig(_Section):
     question_max_chars: int = 1000
     rate_per_minute: int = 10
     rate_per_hour: int = 100
+    # All visitors of a public service together (auth.public), on top of
+    # the bucket of each visitor.
+    public_rate_per_minute: int = 60
+    public_rate_per_hour: int = 600
     daily_budget_usd: float = 20.0
 
 
 class EdgarConfig(_Section):
-    """The SEC EDGAR client settings (chapter 26)."""
+    """The SEC EDGAR client settings."""
 
     user_agent: str
     cache_dir: pathlib.Path = pathlib.Path("cache/edgar")

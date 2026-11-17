@@ -1,4 +1,4 @@
-"""The question templates of the web picker (chapter 27.2).
+"""The question templates of the web picker.
 
 `config/templates.yaml` holds 5 templates: public comparables, risk
 benchmark, portfolio review, regulatory scan, and a memo paragraph. Each

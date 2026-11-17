@@ -1,4 +1,4 @@
-"""The pilot store: comp sets and feedback in 1 SQLite file (chapter 27.2).
+"""The pilot store: comp sets and feedback in 1 SQLite file.
 
 The file lives apart from the index (`pilot.db`, on the volume in the
 pilot), so a new index build never drops a comp set or a vote. The table
@@ -119,8 +119,8 @@ FILE_NAME = "pilot.sqlite"
 def db_path(settings: config.Settings) -> pathlib.Path:
     """The pilot store file: `pilot.db`, or `pilot.sqlite` in `logs.dir`.
 
-    The default follows `logs.dir`, which is on the volume in the pilot
-    (chapter 29.9), so the comp sets and votes survive a redeploy.
+    The default follows `logs.dir`, which is on the volume in the pilot,
+    so the comp sets and votes survive a redeploy.
 
     Args:
         settings: The loaded settings.

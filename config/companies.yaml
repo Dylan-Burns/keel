@@ -1,7 +1,7 @@
-# The alias dictionary (chapter 10.2): 1 entry per ticker in the corpus with
+# The alias dictionary: 1 entry per ticker in the corpus with
 # the legal name, the aliases (lower case, matched on word boundaries), and
 # the groups. The company names follow the header `Company` key of the
-# filings. Add a company here before its filings (chapter 17.4).
+# filings. Add a company here before its filings.
 AAPL:
   company: Apple Inc.
   aliases: [apple, apple inc, aapl]
@@ -219,7 +219,7 @@ XOM:
   aliases: [exxon, exxonmobil, exxon mobil, xom]
   groups: [energy]
 # The 2 companies of demo.add_companies, outside the zip: `keel add` fetches
-# their filings from EDGAR (chapter 26.2). They join no sector group, so a
+# their filings from EDGAR. They join no sector group, so a
 # group question keeps the corpus companies.
 WDAY:
   company: Workday, Inc.

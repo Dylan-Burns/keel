@@ -1,6 +1,6 @@
 # Eval report
 
-Written by `keel eval` (chapter 18). A fixture for `test_eval_page_renders`.
+Written by `keel eval`. A fixture for `test_eval_page_renders`.
 
 | Field | Value |
 | --- | --- |

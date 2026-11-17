@@ -17,7 +17,7 @@ export interface OutOfScopeCardProps {
 
 /**
  * The gray out-of-scope card: the reason, the covered companies, and the
- * example chips (table 14.6).
+ * example chips.
  *
  * @param props The props.
  * @return The card.

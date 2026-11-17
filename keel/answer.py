@@ -1,16 +1,16 @@
-"""The question pipeline around the single call (chapter 6.3).
+"""The question pipeline around the single call.
 
 `Answerer.ask` runs 1 question: the answer cache when allowed, question
 understanding, retrieval, the company facts of a numeric question (from
-the EDGAR disk cache, chapter 26.1; never a blocker), the prompt, exactly 1
+the EDGAR disk cache; never a blocker), the prompt, exactly 1
 provider request (with up to 2 retries before any content, decision D-04),
 the citation validator, the answer cache write, and 1 audit record. It
-yields the events of chapter 14.3 (`meta`, `analysis`, `retrieval`,
+yields the events (`meta`, `analysis`, `retrieval`,
 `answer_delta`, `findings`, `final`, `error`, `done`), which `keel ask`
-prints and the API of stage 9 streams. No other step calls a model (D-01,
+prints and the API streams. No other step calls a model (D-01,
 D-02, D-28).
 
-Chapter 16 wraps the call: the circuit breaker sends a question straight to
+Reliability wraps the call: the circuit breaker sends a question straight to
 the fallback model while the primary model is down, the fallback gets its
 own budget of 3 requests, a context overflow halves the context once, and
 the daily budget stops every model request. When no model answers, the
@@ -35,7 +35,10 @@ import sqlite3
 import threading
 import time
 from typing import Any
+from typing import Literal
 import uuid
+
+import pydantic
 
 from keel import audit
 from keel import cache
@@ -58,6 +61,9 @@ from keel.providers import mock
 logger = logging.getLogger(__name__)
 
 SEC_HOST = "https://www.sec.gov/"
+BilledTo = Literal["service", "visitor"]
+SERVICE: BilledTo = "service"
+VISITOR: BilledTo = "visitor"
 SCHEMA_WARNING = (
     "The model output did not match the answer schema, so the raw text is "
     "shown as an unstructured answer and no citation is verified."
@@ -73,7 +79,7 @@ BUDGET_MESSAGE = (
 REFUSED_MESSAGE = (
     "The model declined to answer; the retrieved filing text is shown."
 )
-OVERFLOW_RAISE = 0.05  # chapter 16.6 step 4: the calibration factor +5%
+OVERFLOW_RAISE = 0.05  # the calibration factor +5%
 DEGRADED_OUTCOMES = frozenset({"provider_error", "offline", "budget_stop"})
 CONNECT_DELAYS = (1.0, 3.0)
 SERVER_DELAYS = (2.0, 6.0)
@@ -85,7 +91,7 @@ FactsLoader = Callable[[understanding.QuestionAnalysis], edgar.FactsResult]
 
 @dataclasses.dataclass(frozen=True)
 class Event:
-    """1 event of chapter 14.3.
+    """1 event.
 
     Attributes:
         name: The event name, such as `answer_delta`.
@@ -97,7 +103,7 @@ class Event:
 
 
 def backoff(error: errors.ProviderError, attempt: int) -> float:
-    """The wait before retry `attempt` (0 for the first), chapter 16.1.
+    """The wait before retry `attempt` (0 for the first).
 
     Args:
         error: The failure.
@@ -141,7 +147,7 @@ def provider_from_settings(
 def fallback_from_settings(
     settings: config.Settings,
 ) -> base.LLMProvider | None:
-    """Build the fallback model provider of chapter 16.4.
+    """Build the fallback model provider.
 
     The fallback sends the same prompt with the same output mode; the
     adapter takes the thinking setting of the fallback model from
@@ -182,7 +188,7 @@ _COMPARISONS: tuple[
 
 
 def prompt_supported(prompt_version: str, compatible: str) -> bool:
-    """Check a prompt version against the manifest range (chapter 17.12).
+    """Check a prompt version against the manifest range.
 
     Args:
         prompt_version: Such as `1.0.0`.
@@ -302,6 +308,9 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         self.provider = provider
         self.fallback = fallback
         self.breaker = breaker or reliability.CircuitBreaker()
+        # `service` spends the daily budget; `visitor` spends the key of
+        # a visitor of a public service and never stops at the budget.
+        self.billed_to: BilledTo = SERVICE
         self.index_version = index_version
         self.sleep = sleep
         self.facts_loader = facts_loader or self.load_facts
@@ -415,6 +424,61 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             twin.sleep = sleep
         return twin
 
+    def for_visitor(self, api_key: pydantic.SecretStr) -> Answerer:
+        """A copy that answers with a visitor's own Anthropic API key.
+
+        The copy bills the visitor: its spend stays out of the daily
+        budget, and a spent budget does not stop it. The fallback model
+        uses the same key. With the mock provider the copy keeps mock
+        providers, so the tests and the drills never call the network.
+
+        Args:
+            api_key: The visitor's key; it lives only in the copy.
+
+        Returns:
+            The copy.
+        """
+        llm = self.settings.llm
+        # The fallback follows the configured models, not the service
+        # fallback: a public host often has no service key, so no service
+        # fallback, yet the visitor's key can run both models.
+        has_fallback = bool(llm.fallback_model) and (
+            llm.fallback_model != llm.model
+        )
+        if llm.provider == "mock":
+            provider: base.LLMProvider = mock.MockProvider(llm.model)
+            fallback: base.LLMProvider | None = (
+                mock.MockProvider(llm.fallback_model) if has_fallback else None
+            )
+        else:
+            key = api_key.get_secret_value()
+            provider = anthropic_provider.AnthropicProvider.with_key(
+                self.settings, key, single_use=True
+            )
+            fallback = (
+                anthropic_provider.AnthropicProvider.with_key(
+                    self.settings, key, llm.fallback_model, single_use=True
+                )
+                if has_fallback
+                else None
+            )
+        twin = self.with_provider(provider, fallback=fallback)
+        twin.billed_to = VISITOR
+        return twin
+
+    def cached(self, question: str) -> bool:
+        """Tell whether the answer cache holds the question.
+
+        Args:
+            question: The question.
+
+        Returns:
+            True when a cached answer would be served.
+        """
+        return self._cacheable(question) and (
+            self.cache.get(self.cache_key(question)) is not None
+        )
+
     def load_facts(
         self, analysis: understanding.QuestionAnalysis
     ) -> edgar.FactsResult:
@@ -466,7 +530,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         )
 
     def _cacheable(self, question: str) -> bool:
-        """False for a question that names a comp set (chapter 27.2).
+        """False for a question that names a comp set.
 
         The cache key holds the question, not the tickers of the set, so
         an edited comp set would get the answer of its old tickers.
@@ -486,7 +550,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         max_chunks: int | None = None,
         user: str | None = None,
     ) -> AsyncIterator[Event]:
-        """Answer 1 question and yield the events of chapter 14.3.
+        """Answer 1 question and yield the events.
 
         Args:
             question: The question.
@@ -498,7 +562,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
                 or None; never above `retrieval.max_context_tokens`.
             max_chunks: A lower chunk budget for this request, or None;
                 never above `retrieval.max_chunks`.
-            user: The user who asks, for the audit record (chapter 27.2),
+            user: The user who asks, for the audit record,
                 or None from the command line.
 
         Yields:
@@ -520,8 +584,10 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             },
         )
         offline = self.settings.offline
-        stopped = not offline and (
-            await asyncio.to_thread(self.budget.exhausted)
+        stopped = (
+            not offline
+            and self.billed_to == SERVICE
+            and (await asyncio.to_thread(self.budget.exhausted))
         )
         if (offline or use_cache or stopped) and (
             await asyncio.to_thread(self._cacheable, question)
@@ -648,7 +714,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             )
 
     async def _call(self, run: _Run) -> AsyncIterator[Event]:
-        """Ask the primary model, then the fallback (chapters 16.3, 16.4).
+        """Ask the primary model, then the fallback.
 
         The primary model gets up to 3 requests while the breaker lets
         them through; the fallback gets its own 3 when the primary model
@@ -771,7 +837,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         return True
 
     def _halve(self, run: _Run, error: errors.ProviderError) -> None:
-        """Halve the context and rebuild the prompt (chapter 16.6 step 3)."""
+        """Halve the context and rebuild the prompt."""
         if run.result is None or run.analysis is None or run.bundle is None:
             return  # pragma: no cover  # a request needs all 3
         estimate = run.bundle.estimated_tokens
@@ -829,7 +895,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
                 },
             )
             cached = None
-            # Chapter 16.12 step 3: the cache after a failure.
+            # The cache after a failure.
             if not run.content and (
                 await asyncio.to_thread(self._cacheable, run.question)
             ):
@@ -929,13 +995,13 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             if validated
             else [],
             "outcome": run.outcome,
-            "message": _message(run),
+            "message": _message(run, self.billed_to),
             "raw_text": (run.stream.text or run.raw_text)
             if run.outcome == "schema_violation"
             else None,
             "meta": meta,
         }
-        # The trace drawer renders the audit record of the answer (25.1).
+        # The trace drawer renders the audit record of the answer.
         record["audit"] = self._audit(run, record)
         return Event("final", record)
 
@@ -1000,7 +1066,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
     def _audit(
         self, run: _Run, record: dict[str, Any] | None
     ) -> dict[str, Any]:
-        """Write the audit record of chapter 15 S-07 (never the prompt).
+        """Write the audit record, control S-07 (never the prompt).
 
         The record lists the pipeline in order: the entities and the
         question type, the filters, the candidates per company around the
@@ -1012,7 +1078,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             record: The `final` record, or None for a rejected question.
 
         Returns:
-            The record, which the `final` event carries (chapter 25.1).
+            The record, which the `final` event carries.
         """
         meta = record["meta"] if record else {}
         chunk_ids = list(run.bundle.chunk_ids) if run.bundle else []
@@ -1060,6 +1126,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             "latency_ms": meta.get("latency_ms"),
             "usage": meta.get("usage"),
             "cost_usd": meta.get("cost_usd", 0.0),
+            "billed_to": self.billed_to,
             "citation_drift": flags.get("citation_drift", 0),
             "inline_drift": flags.get("inline_drift", 0),
             "quote_mismatch": flags.get("quote_mismatch", 0),
@@ -1085,7 +1152,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
 def _retrieval_trace(
     result: retriever.RetrievalResult | None,
 ) -> dict[str, Any]:
-    """The retrieval part of the audit record, in pipeline order (25.1)."""
+    """The retrieval part of the audit record, in pipeline order."""
     if result is None:
         return {
             "filters": [],
@@ -1142,7 +1209,7 @@ _MESSAGES = {
 
 
 def _facts_summary(facts: edgar.FactsResult) -> dict[str, Any]:
-    """The facts line of the trace drawer (chapter 26.1, step 8)."""
+    """The facts line of the trace drawer."""
     return {
         "lines": len(facts.lines),
         "source": facts.source,
@@ -1151,9 +1218,23 @@ def _facts_summary(facts: edgar.FactsResult) -> dict[str, Any]:
     }
 
 
-def _message(run: _Run) -> str | None:
+def _message(run: _Run, billed_to: BilledTo) -> str | None:
     if run.outcome == "out_of_scope" and run.analysis is not None:
         return f"Out of scope: {run.analysis.out_of_scope_reason}."
+    if run.outcome == "provider_error" and isinstance(
+        run.error, errors.ProviderAuthError
+    ):
+        # Only a visitor can fix the key in the settings; a rejected
+        # service key is the operator's to replace.
+        if billed_to == VISITOR:
+            return (
+                "Anthropic rejected the API key; check the key in Settings. "
+                "The retrieved filing text is shown."
+            )
+        return (
+            "Anthropic rejected the service API key. "
+            "The retrieved filing text is shown."
+        )
     if run.outcome == "provider_error" and run.error is not None:
         return (
             f"The model is unavailable ({run.error.code}); the retrieved "

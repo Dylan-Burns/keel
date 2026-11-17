@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-RESULT_TTL_SECONDS = 600.0  # 10 minutes (chapter 14.1)
+RESULT_TTL_SECONDS = 600.0  # 10 minutes
 MAX_RESULTS = 1000
 
 
@@ -106,7 +106,7 @@ class ResultStore:
 
         Args:
             request_id: The request ID.
-            record: The answer response of chapter 14.2.
+            record: The answer response.
         """
         with self._lock:
             current = self._entries.get(request_id)
@@ -172,7 +172,7 @@ class MissingKeyProvider:
     """The provider when `ANTHROPIC_API_KEY` is absent (E-F-07).
 
     Every request fails before any content with a non-retryable error, so
-    the question gets the degraded mode and the answer cache (chapter 16).
+    the question gets the degraded mode and the answer cache.
 
     Args:
         model: The configured model, reported in the events.
@@ -225,7 +225,7 @@ class Services:  # pylint: disable=too-many-instance-attributes
         answerer: An opened pipeline (tests), or None to open the index at
             startup.
         clock: The monotonic clock of the stores and the rate limiter.
-        bootstrap_first: Run the first-start bootstrap of chapter 29.9 in
+        bootstrap_first: Run the first-start bootstrap in
             a background thread and open the index when it is ready
             (`keel serve --bootstrap`), instead of opening it at startup.
     """
@@ -255,6 +255,12 @@ class Services:  # pylint: disable=too-many-instance-attributes
         self.limiter = ratelimit.RateLimiter(
             settings.limits.rate_per_minute,
             settings.limits.rate_per_hour,
+            clock=clock,
+        )
+        # All visitors of a public service together (auth.public).
+        self.public_limiter = ratelimit.RateLimiter(
+            settings.limits.public_rate_per_minute,
+            settings.limits.public_rate_per_hour,
             clock=clock,
         )
         self.tasks: set[asyncio.Task[Any]] = set()

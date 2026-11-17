@@ -22,7 +22,7 @@ export function coverageLine(coverage: CoverageResponse): string {
 }
 
 /**
- * The coverage summary of the empty state (table 14.6).
+ * The coverage summary of the empty state.
  *
  * @param props The props.
  * @return The summary.

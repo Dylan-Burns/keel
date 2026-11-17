@@ -1,4 +1,4 @@
-# Well-known companies outside the corpus (chapter 10.6), with a sector tag
+# Well-known companies outside the corpus, with a sector tag
 # each. A mention goes into `unknown_entities`, and the out-of-scope
 # response lists the covered companies of the same sector.
 Uber: technology

@@ -1,4 +1,4 @@
-"""The API of chapter 14.1 with the mock provider on a synthetic index.
+"""The API with the mock provider on a synthetic index.
 
 Each test builds a small published index of AAPL, TSLA, and JPM risk
 chunks (the same shape as tests/integration/test_answer.py), opens the
@@ -35,6 +35,7 @@ from keel import reliability
 from keel import retriever
 from keel.api import app as api_app
 from keel.api import background
+from keel.api import ratelimit
 from keel.api import routes
 from keel.providers import mock
 from keel.stores import chunk_store
@@ -217,7 +218,7 @@ def test_ask_stream_server_request_id(client, api_settings) -> None:
 
 
 class AskResponse(pydantic.BaseModel):
-    """The response schema of chapter 14.2 for the JSON test."""
+    """The response schema for the JSON test."""
 
     model_config = pydantic.ConfigDict(extra="allow")
 
@@ -422,6 +423,14 @@ def test_missing_key_ready(api_settings, index_dir) -> None:
         _, events = stream(test_client, question(settings))
     error = dict(events)["error"]
     assert error["code"] == "provider_request_rejected"
+    # In public mode the visitors bring the keys, so a missing service key
+    # is not a missing provider key.
+    public = settings.model_copy(
+        update={"auth": settings.auth.model_copy(update={"public": True})}
+    )
+    public_services = api_app.Services(public, keyless)
+    with testclient.TestClient(api_app.create_app(public_services)) as client:
+        assert client.get("/api/ready").json()["checks"]["provider_key"]
     final = dict(events)["final"]
     assert final["meta"]["degraded"] is True
     assert final["meta"]["model_requests"] == 1
@@ -936,6 +945,7 @@ def test_ready_exposes_no_spend_or_models(client, api_settings) -> None:
         "breaker",
         "budget_stopped",
         "answer_cache",
+        "access",
     }
 
 
@@ -965,7 +975,7 @@ def test_eval_page_renders(api_settings, index_dir, tmp_path) -> None:
     assert page["report"]["truncated"] is False
     assert page["prompt_log"]["source"] == "docs/PROMPT_LOG.md"
     assert page["prompt_log"]["markdown"].startswith("# Prompt log")
-    # The markdown leaves as text: the client sanitizes it (chapter 15).
+    # The markdown leaves as text: the client sanitizes it.
     assert "<script>" in page["report"]["markdown"]
     gates = {g["name"]: g for g in page["gates"]}
     assert list(gates) == [
@@ -1055,7 +1065,7 @@ def test_final_event_audit_retry(client, api_settings) -> None:
     assert record["outcome"] == "answered"
     _, events = stream(client, text, {"X-Keel-Mock": "provider_unavailable"})
     record = dict(events)["final"]["audit"]
-    # 3 requests to the primary, then 3 to the fallback (stage 11, D-04).
+    # 3 requests to the primary, then 3 to the fallback (D-04).
     assert record["model_requests"] == 6
     assert record["failed_before_content"] == 6
     assert record["flags"]["degraded"] is True
@@ -1072,7 +1082,7 @@ def test_final_event_audit_retry(client, api_settings) -> None:
     assert record["chunk_count"] == 0
 
 
-# --- keel serve --bootstrap and the nightly jobs (stage 21) -------------------
+# --- keel serve --bootstrap and the nightly jobs ---------------------------
 
 
 def wait_until(check, timeout: float = 30.0) -> None:
@@ -1291,3 +1301,189 @@ def test_scheduler_runs_refresh_and_backup_in_the_server(
         assert nightly.jobs[0].run() == FakeReport(0, 0)
     finally:
         nightly.stop()
+
+
+# Public access: visitors with their own Anthropic key (auth.public).
+
+VISITOR_KEY = "sk-ant-api03-" + "x" * 40
+KEY_HEADERS = {"X-Anthropic-Api-Key": VISITOR_KEY}
+
+
+@pytest.fixture
+def public_settings(api_settings: config.Settings) -> config.Settings:
+    return api_settings.model_copy(
+        update={
+            "auth": api_settings.auth.model_copy(update={"public": True}),
+            "anthropic_api_key": None,
+        }
+    )
+
+
+@pytest.fixture
+def public_services(public_settings, index_dir) -> api_app.Services:
+    return api_app.Services(
+        public_settings, make_answerer(public_settings, index_dir)
+    )
+
+
+@pytest.fixture
+def public_client(public_services) -> Iterator[testclient.TestClient]:
+    app = api_app.create_app(public_services)
+    with testclient.TestClient(app) as test_client:
+        yield test_client
+
+
+def _ask_json(
+    client: testclient.TestClient, text: str, headers: dict[str, str]
+) -> httpx.Response:
+    return client.post(
+        "/api/ask",
+        json={"question": text, "options": {"stream": False}},
+        headers=headers,
+    )
+
+
+def _audit_records(settings: config.Settings) -> list[dict]:
+    path = settings.logs.dir / "audit.jsonl"
+    return [json.loads(line) for line in path.read_text().splitlines()]
+
+
+def test_public_ready_reports_access(public_client) -> None:
+    body = public_client.get("/api/ready").json()
+    assert body["access"] == "public"
+    # Visitors bring their own keys: no service key is needed.
+    assert body["checks"]["provider_key"] is True
+
+
+def test_token_mode_reports_access(client) -> None:
+    assert client.get("/api/ready").json()["access"] == "token"
+
+
+def test_visitor_without_key_needs_one_for_a_new_question(
+    public_client, public_settings, public_services
+) -> None:
+    response = _ask_json(public_client, question(public_settings), {})
+    assert response.status_code == 401
+    assert response.json()["detail"]["code"] == "api_key_required"
+    assert public_services.answerer.provider.requests == 0
+
+
+def test_visitor_without_key_reads_the_answer_cache(
+    public_client, public_settings, public_services
+) -> None:
+    text = question(public_settings)
+    paid = _ask_json(public_client, text, KEY_HEADERS)
+    assert paid.status_code == 200
+    answerer = public_services.answerer
+    answerer.cache.put(answerer.cache_key(text), paid.json())
+    response = _ask_json(public_client, text, {})
+    assert response.status_code == 200
+    meta = response.json()["meta"]
+    assert meta["from_cache"] is True
+    assert meta["model_requests"] == 0
+
+
+def test_visitor_key_answers_and_bills_the_visitor(
+    public_client, public_settings
+) -> None:
+    response = _ask_json(public_client, question(public_settings), KEY_HEADERS)
+    assert response.status_code == 200
+    assert response.json()["meta"]["model_requests"] == 1
+    records = _audit_records(public_settings)
+    assert records[-1]["billed_to"] == "visitor"
+    assert records[-1]["user_name"].startswith("visitor-")
+    logs = "".join(
+        p.read_text()
+        for p in public_settings.logs.dir.rglob("*")
+        if p.is_file()
+    )
+    assert VISITOR_KEY not in logs
+
+
+def test_visitor_spend_stays_out_of_the_budget(
+    public_client, public_settings, public_services
+) -> None:
+    public_services.answerer.budget.limit_usd = 0.0
+    response = _ask_json(public_client, question(public_settings), KEY_HEADERS)
+    assert response.status_code == 200
+    assert response.json()["meta"]["model_requests"] == 1
+    path = public_settings.logs.dir / "audit.jsonl"
+    record = json.loads(path.read_text().splitlines()[-1])
+    record.update(cost_usd=5.0)
+    path.write_text(json.dumps(record) + "\n")
+    guard = reliability.BudgetGuard(path, 1.0)
+    assert guard.spent() == 0.0
+
+
+def test_malformed_visitor_key_is_rejected_without_echo(
+    public_client, public_settings
+) -> None:
+    bad = "not-a-key-" + "y" * 30
+    response = _ask_json(
+        public_client,
+        question(public_settings),
+        {"X-Anthropic-Api-Key": bad},
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "invalid_api_key"
+    assert bad not in response.text
+
+
+def test_wrong_token_stays_unauthorized_in_public_mode(
+    public_client, public_settings
+) -> None:
+    response = _ask_json(
+        public_client,
+        question(public_settings),
+        {"Authorization": "Bearer wrong"},
+    )
+    assert response.status_code == 401
+    assert response.json()["detail"]["code"] == "unauthorized"
+
+
+def test_admin_token_still_works_in_public_mode(public_client) -> None:
+    response = public_client.get("/api/status", headers=AUTH)
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "body"),
+    [
+        ("GET", "/api/status", None),
+        ("PUT", "/api/compsets/peers", {"tickers": ["AAPL"]}),
+        ("DELETE", "/api/compsets/peers", None),
+        ("POST", "/api/debug/understand", {"question": "Apple risks"}),
+        ("POST", "/api/debug/retrieve", {"question": "Apple risks"}),
+        ("GET", "/api/admin/jobs", None),
+    ],
+)
+def test_visitor_cannot_reach_member_routes(
+    public_client, method: str, path: str, body: dict | None
+) -> None:
+    response = public_client.request(
+        method, path, json=body, headers=KEY_HEADERS
+    )
+    assert response.status_code == 403
+
+
+def test_visitor_history_is_their_own(public_client, public_settings) -> None:
+    _ask_json(public_client, question(public_settings), KEY_HEADERS)
+    own = public_client.get("/api/history", headers=KEY_HEADERS).json()
+    assert own["role"] == "visitor"
+    assert len(own["items"]) == 1
+    other = {"X-Anthropic-Api-Key": "sk-ant-api03-" + "z" * 40}
+    assert (
+        public_client.get("/api/history", headers=other).json()["items"] == []
+    )
+    assert public_client.get("/api/history").json()["items"] == []
+
+
+def test_visitors_share_the_public_rate_limit(
+    public_client, public_settings, public_services
+) -> None:
+    public_services.public_limiter = ratelimit.RateLimiter(1, 100)
+    first = _ask_json(public_client, question(public_settings), KEY_HEADERS)
+    assert first.status_code == 200
+    other = {"X-Anthropic-Api-Key": "sk-ant-api03-" + "w" * 40}
+    second = _ask_json(public_client, question(public_settings), other)
+    assert second.status_code == 429

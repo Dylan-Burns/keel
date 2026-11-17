@@ -1,4 +1,4 @@
-"""Tests of the regression gates of chapter 18.8 on synthetic metrics."""
+"""Tests of the regression gates on synthetic metrics."""
 
 import dataclasses
 

@@ -1,4 +1,4 @@
-"""Tests of the retrieval plan, fusion, weights, and collapse (11.1 to 11.5).
+"""Tests of the retrieval plan, fusion, weights, and collapse.
 
 The corpus facts are a hand-written catalog; no index and no model loads.
 """
@@ -420,7 +420,7 @@ def test_trend_cells(understander: understanding.Understander) -> None:
     )
     result = plan(understander, question)
     labels = [g.label for g in result.groups]
-    # Case B of chapter 11.8: 2 10-K cells and 6 10-Q cells, latest first.
+    # Case B: 2 10-K cells and 6 10-Q cells, latest first.
     assert labels == [
         "NVDA Q3 FY2026 10-Q",
         "NVDA Q2 FY2026 10-Q",
@@ -495,7 +495,7 @@ def test_sector_plan(understander: understanding.Understander) -> None:
     )
     assert result.sector
     # The question asks how the companies address the risks, so a third
-    # of each quota of 9 goes to a response group (stage 8).
+    # of each quota of 9 goes to a response group.
     tickers = ["PFE", "JNJ", "MRK", "LLY", "ABBV"]
     assert [g.key for g in result.groups] == [
         key for t in tickers for key in (t, f"{t} response")

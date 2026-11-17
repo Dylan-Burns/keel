@@ -13,16 +13,16 @@ export interface FooterProps {
   readonly onExport: () => void;
   /** False until the final answer is stored, so the link can open it. */
   readonly canShare: boolean;
-  /** Copies the shareable link `/a/{request_id}` (chapter 27.2). */
+  /** Copies the shareable link `/a/{request_id}`. */
   readonly onShare: () => void;
-  /** Downloads the memo of the stored answer (chapter 27.2). */
+  /** Downloads the memo of the stored answer. */
   readonly onMemo: (format: MemoFormat) => void;
 }
 
 /**
- * The footer (chapter 14.5): Copy as markdown, Export JSON, the memo
+ * The footer: Copy as markdown, Export JSON, the memo
  * downloads (`keel export` as Markdown or DOCX), Copy link (the shareable
- * link of chapter 27.2), the request ID, and the prompt version. It shows
+ * link), the request ID, and the prompt version. It shows
  * only once a question has an answer: before that, every button would be
  * off. The page links live in the top bar (`PageNav`).
  *

@@ -12,7 +12,7 @@ export interface MarkdownSection {
 
 /**
  * Splits markdown at its ATX headings, so a heading renders as a JSX text
- * node and its body through the answer renderer (the chapter 15 allow list
+ * node and its body through the answer renderer (the allow list
  * holds no heading tag).
  *
  * @param markdown The document.

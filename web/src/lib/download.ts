@@ -42,7 +42,7 @@ export async function downloadFile(
 }
 
 /**
- * Downloads the memo of a stored answer (chapter 27.2).
+ * Downloads the memo of a stored answer.
  *
  * @param requestId The request ID.
  * @param format `markdown` or `docx`.

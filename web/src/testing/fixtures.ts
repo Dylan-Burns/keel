@@ -1,6 +1,6 @@
 /**
  * Recorded API data for the Vitest tests and the Playwright route mocks. The
- * shapes follow chapter 14.2 and 14.3 and the mini corpus of the CI index
+ * shapes follow the API responses and the mini corpus of the CI index
  * (AAPL, JPM, NVDA). The application code never imports this module.
  */
 import type {
@@ -459,7 +459,7 @@ export function toSseText(events: readonly SseEvent[]): string {
   return `: ping\n\n${blocks.join('')}`;
 }
 
-/** The eval page data: a report with 3 gates and a prompt log (W-02). */
+/** The eval page data: a report with 3 gates and a prompt log. */
 export const EVAL_PAGE: EvalResponse = {
   report: {
     source: 'eval/report.md',

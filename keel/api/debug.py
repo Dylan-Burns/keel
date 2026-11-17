@@ -1,8 +1,8 @@
 """The debug routes: `keel understand` and `keel retrieve --summary`.
 
-`POST /api/debug/understand` returns the question analysis of chapter 10
+`POST /api/debug/understand` returns the question analysis
 and `POST /api/debug/retrieve` the retrieval plan, the counts, the quota
-fills, the context chunks, and the timings of chapter 11, for any token
+fills, the context chunks, and the timings, for any token
 holder. Neither calls the model (decision D-02): they reuse the
 understanding step and the retriever that the server loaded, and the
 retrieval runs under the pipeline's retrieval lock. Each request counts
@@ -75,7 +75,7 @@ async def understand(
     body: DebugRequest,
     request: fastapi.Request,
     services: routes.Services,
-    caller: routes.Caller,
+    caller: routes.Member,
 ) -> dict[str, Any]:
     """The question analysis, as `keel understand` prints it.
 
@@ -176,7 +176,7 @@ async def retrieve(
     body: DebugRequest,
     request: fastapi.Request,
     services: routes.Services,
-    caller: routes.Caller,
+    caller: routes.Member,
 ) -> dict[str, Any]:
     """The retrieval of a question without a model call.
 

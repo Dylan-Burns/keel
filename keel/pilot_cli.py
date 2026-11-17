@@ -1,7 +1,7 @@
-"""The pilot commands of chapter 27.2: comp sets, feedback, templates.
+"""The pilot commands: comp sets, feedback, templates.
 
 `keel compsets add NAME TICKER...` saves a comp set (the firm's sets load
-this way in week 0 of the pilot, chapter 27.6), `keel compsets list`
+this way in week 0 of the pilot), `keel compsets list`
 prints them, and `keel compsets remove NAME` deletes 1. `keel feedback`
 prints the votes, and `keel feedback --flagged` the thumbs-down answers
 that the engineer reviews as candidate golden questions each week.
@@ -29,9 +29,7 @@ def add_parsers(add_command: Callable[..., argparse.ArgumentParser]) -> None:
     Args:
         add_command: The `add_parser` of the `keel` subcommands.
     """
-    sets_parser = add_command(
-        "compsets", help="the saved comp sets (chapter 27.2)"
-    )
+    sets_parser = add_command("compsets", help="the saved comp sets")
     actions = sets_parser.add_subparsers(
         dest="compsets_command", metavar="action", required=True
     )
@@ -43,7 +41,7 @@ def add_parsers(add_command: Callable[..., argparse.ArgumentParser]) -> None:
     actions.add_parser("list", help="list the sets and their tickers")
 
     feedback_parser = add_command(
-        "feedback", help="the thumbs votes on answers (chapter 27.2)"
+        "feedback", help="the thumbs votes on answers"
     )
     feedback_parser.add_argument(
         "--flagged",
@@ -52,7 +50,7 @@ def add_parsers(add_command: Callable[..., argparse.ArgumentParser]) -> None:
     )
 
     template_parser = add_command(
-        "template", help="list or fill the question templates (chapter 27.2)"
+        "template", help="list or fill the question templates"
     )
     template_parser.add_argument(
         "template_id", nargs="?", default=None, help="the template to fill"

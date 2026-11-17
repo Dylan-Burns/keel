@@ -1,6 +1,6 @@
-"""`keel add TICKER`: 1 company from EDGAR into the index (chapter 26.2).
+"""`keel add TICKER`: 1 company from EDGAR into the index.
 
-The steps follow chapter 26.2 and the procedure of chapter 17.4:
+The steps:
 
 1. Resolve the ticker to a CIK through the cached ticker map.
 2. Read the submissions and pick the latest 10-K and the latest 10-Q.
@@ -9,8 +9,8 @@ The steps follow chapter 26.2 and the procedure of chapter 17.4:
    corpus directory under the corpus file name pattern.
 5. Record each file in the corpus manifest, with `source: edgar` under
    `added`, and add the company to `config/companies.yaml` when absent.
-6. Parse the company's files with the unchanged parser of chapter 7 (the
-   report), then run the incremental build of chapter 9, which embeds only
+6. Parse the company's files with the unchanged parser (the
+   report), then run the incremental build, which embeds only
    the new or changed filings.
 
 All fetches happen here, before any question; no model request is made
@@ -193,7 +193,7 @@ def record_in_manifest(
     path: pathlib.Path,
     entries: dict[str, dict[str, str]],
 ) -> bool:
-    """Add files to the corpus manifest with their source (26.2, step 6).
+    """Add files to the corpus manifest with their source.
 
     The new file names join `files`, `file_count` and `filing_types` grow
     by them, and each file gets an entry under `added` with `source:
@@ -264,7 +264,7 @@ def aliases(ticker: str, company: str) -> list[str]:
 
 
 def ensure_company(path: pathlib.Path, ticker: str, company: str) -> bool:
-    """Add a company to `config/companies.yaml` when absent (17.4).
+    """Add a company to `config/companies.yaml` when absent.
 
     The entry is appended as text, so the comments of the file stay. It
     holds the name, the aliases, and no group.
@@ -466,7 +466,7 @@ def add_ticker(  # pylint: disable=too-many-locals
     forms: Sequence[str] = edgar.ADD_FORMS,
     reporter: steps.Reporter = steps.NULL,
 ) -> AddReport:
-    """Add the latest 10-K and 10-Q of 1 company (chapter 26.2).
+    """Add the latest 10-K and 10-Q of 1 company.
 
     Args:
         settings: The loaded settings.

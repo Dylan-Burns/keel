@@ -1,6 +1,6 @@
 """Record the `keel add` test fixtures once, with the network.
 
-The tests never touch the network (chapter 26.5), so `test_submissions_pick`,
+The tests never touch the network, so `test_submissions_pick`,
 `test_html_to_text`, and `test_add_incremental` read responses recorded by
 this script. It fetches the ZTS submissions and the primary documents of the
 latest ZTS 10-K and 10-Q through `keel.edgar.EdgarClient` (the same

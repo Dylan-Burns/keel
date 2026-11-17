@@ -1,4 +1,4 @@
-"""Tests of the citation validator (chapter 12.9) and the stream reader."""
+"""Tests of the citation validator and the stream reader."""
 
 import dataclasses
 import json

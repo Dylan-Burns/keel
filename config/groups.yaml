@@ -1,4 +1,4 @@
-# Sector groups (chapter 10.3, decision D-32). The resolver matches the
+# Sector groups (decision D-32). The resolver matches the
 # trigger phrases after the alias step. `all` expands to every indexed
 # ticker at run time, so it lists no tickers here.
 pharma:
@@ -40,4 +40,4 @@ software:
 all:
   triggers: [all companies, every company, the whole corpus]
   tickers: []
-  note: every indexed ticker, capped at 12 companies per answer by the quotas of chapter 11
+  note: every indexed ticker, capped at 12 companies per answer by the quotas

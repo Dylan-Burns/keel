@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import {defineConfig} from 'vite';
 
 // The dev server proxies the API to `keel serve` on port 8000. The build
-// writes web/dist, which FastAPI serves at `/` (chapter 14.9).
+// writes web/dist, which FastAPI serves at `/`.
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {

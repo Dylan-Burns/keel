@@ -135,7 +135,7 @@ def make_chunk(
     body: str,
     **fields: object,
 ) -> chunker.Chunk:
-    """A chunk of a synthetic filing, with the chapter 9.1 prefix line."""
+    """A chunk of a synthetic filing, with the prefix line."""
     text = f"{filing.ticker} Inc | {filing.form} | FY{filing.fiscal_year}"
     text += f" | {section}\n{body}"
     values: dict[str, object] = {
