@@ -63,7 +63,8 @@ const page =
   ) : (
     <App />
   );
-// No page shows until the server accepts an access token.
+// The access gate: a public service lets a visitor in; token mode shows no
+// page until the server accepts an access token.
 createRoot(container).render(
   <StrictMode>
     <AccessGate>{page}</AccessGate>

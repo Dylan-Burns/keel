@@ -27,6 +27,7 @@ import type {
   TemplateList,
   Vote,
 } from './types';
+import {API_KEY_HEADER, getApiKey} from './apiKey';
 
 /** The session storage key of the bearer token (the only stored secret). */
 export const TOKEN_KEY = 'keel.token';
@@ -296,13 +297,23 @@ export function newRequestId(): string {
 }
 
 /**
- * The Authorization header of the stored token.
+ * The credential headers of every API call: `Authorization` with the stored
+ * access token, else `X-Anthropic-Api-Key` with the visitor's own Anthropic
+ * key (a public service answers a visitor with it). A signed-in user asks
+ * on the service key, so a token sends no key. Without a token the request
+ * has no `Authorization` header at all, so a public service treats it as a
+ * visitor. Every call of a visitor carries the key: the server names the
+ * visitor by it, so their history and stored answers stay theirs.
  *
- * @return The header, or an empty object without a token.
+ * @return The headers, or an empty object without a token and a key.
  */
 export function authHeaders(): Record<string, string> {
   const token = getToken();
-  return token === null ? {} : {Authorization: `Bearer ${token}`};
+  if (token !== null) {
+    return {Authorization: `Bearer ${token}`};
+  }
+  const key = getApiKey();
+  return key === null ? {} : {[API_KEY_HEADER]: key};
 }
 
 function parseRetryAfter(value: string | null): number | null {

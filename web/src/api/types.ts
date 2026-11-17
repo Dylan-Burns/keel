@@ -373,6 +373,12 @@ export interface ReadyResponse {
   readonly ready: boolean;
   readonly index_version: string | null;
   readonly checks: ReadyChecks;
+  /**
+   * `public` when a visitor may use the service without an access token
+   * (with their own Anthropic API key), `token` when every page needs one.
+   * Absent on an older server, which means `token`.
+   */
+  readonly access?: 'public' | 'token';
 }
 
 /** `GET /api/index/status`. */

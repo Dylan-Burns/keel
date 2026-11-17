@@ -1,6 +1,7 @@
 import type {JSX} from 'react';
 import {useEffect, useState} from 'react';
 
+import {canCallApi} from '../api/access';
 import {
   ApiError,
   deleteCompSet,
@@ -11,7 +12,7 @@ import {
 } from '../api/client';
 import type {CompSetItem} from '../api/types';
 import {PageBar} from './PageBar';
-import {TokenField} from './TokenField';
+import {CredentialField} from './CredentialField';
 
 /** The load state of the page. */
 type Load =
@@ -41,6 +42,9 @@ function tickersOf(text: string): string[] {
  * @return The text for the page.
  */
 function messageOf(error: unknown, action: 'saved' | 'deleted'): string {
+  if (error instanceof ApiError && error.code === 'sign_in_required') {
+    return 'Saving a comp set needs a Keel access token; visitors can read the sets.';
+  }
   if (error instanceof ApiError && error.status === 403) {
     return 'Only the owner of this comp set or an admin can change it.';
   }
@@ -68,10 +72,10 @@ export function CompSetsPage(): JSX.Element {
   const [tickers, setTickers] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
   const [load, setLoad] = useState<Load>(() =>
-    getToken() === null ? {kind: 'no_token'} : {kind: 'loading'},
+    canCallApi() ? {kind: 'loading'} : {kind: 'no_token'},
   );
   useEffect(() => {
-    if (getToken() === null) {
+    if (!canCallApi()) {
       return;
     }
     let cancelled = false;
@@ -134,7 +138,7 @@ export function CompSetsPage(): JSX.Element {
       data-load={load.kind}
     >
       <PageBar title="Comp sets">
-        <TokenField
+        <CredentialField
           hasToken={load.kind !== 'no_token'}
           rejected={load.kind === 'no_token' && getToken() !== null}
           onSave={onSave}

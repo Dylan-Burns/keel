@@ -2,7 +2,7 @@ import {fireEvent, render, screen, waitFor} from '@testing-library/react';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {TOKEN_KEY} from '../api/client';
-import {ACCEPTED_KEY, AccessGate, fingerprint} from './AccessGate';
+import {ACCEPTED_KEY, TokenGate, fingerprint} from './TokenGate';
 
 /** Stubs fetch: the admin probe answers with the given status. */
 function probe(status: number): ReturnType<typeof vi.fn> {
@@ -18,16 +18,16 @@ function probe(status: number): ReturnType<typeof vi.fn> {
   return fetchMock;
 }
 
-describe('AccessGate', () => {
+describe('TokenGate', () => {
   beforeEach(() => window.sessionStorage.clear());
   afterEach(() => vi.unstubAllGlobals());
 
   it('shows only the gate without a token, then the page once accepted', async () => {
     const fetchMock = probe(200);
     render(
-      <AccessGate>
+      <TokenGate>
         <p>the page</p>
-      </AccessGate>,
+      </TokenGate>,
     );
     expect(screen.getByTestId('no-access')).toBeInTheDocument();
     expect(screen.queryByText('the page')).toBeNull();
@@ -45,9 +45,9 @@ describe('AccessGate', () => {
     window.sessionStorage.setItem(TOKEN_KEY, 'bad-token');
     probe(401);
     render(
-      <AccessGate>
+      <TokenGate>
         <p>the page</p>
-      </AccessGate>,
+      </TokenGate>,
     );
     await waitFor(() =>
       expect(
@@ -61,9 +61,9 @@ describe('AccessGate', () => {
     window.sessionStorage.setItem(TOKEN_KEY, 'analyst-token');
     probe(403);
     render(
-      <AccessGate>
+      <TokenGate>
         <p>the page</p>
-      </AccessGate>,
+      </TokenGate>,
     );
     expect(await screen.findByText('the page')).toBeInTheDocument();
   });
@@ -73,9 +73,9 @@ describe('AccessGate', () => {
     window.sessionStorage.setItem(ACCEPTED_KEY, fingerprint('good-token'));
     probe(200);
     render(
-      <AccessGate>
+      <TokenGate>
         <p>the page</p>
-      </AccessGate>,
+      </TokenGate>,
     );
     // No gate while the check runs again.
     expect(screen.getByText('the page')).toBeInTheDocument();
@@ -88,9 +88,9 @@ describe('AccessGate', () => {
     window.sessionStorage.setItem(ACCEPTED_KEY, fingerprint('old-token'));
     probe(401);
     render(
-      <AccessGate>
+      <TokenGate>
         <p>the page</p>
-      </AccessGate>,
+      </TokenGate>,
     );
     expect(screen.getByText('the page')).toBeInTheDocument();
     expect(
@@ -104,9 +104,9 @@ describe('AccessGate', () => {
     window.sessionStorage.setItem(ACCEPTED_KEY, fingerprint('old-token'));
     probe(200);
     render(
-      <AccessGate>
+      <TokenGate>
         <p>the page</p>
-      </AccessGate>,
+      </TokenGate>,
     );
     expect(screen.getByTestId('no-access')).toBeInTheDocument();
     expect(screen.queryByText('the page')).toBeNull();
@@ -116,13 +116,27 @@ describe('AccessGate', () => {
     window.sessionStorage.setItem(TOKEN_KEY, 'good-token');
     probe(200);
     render(
-      <AccessGate>
+      <TokenGate>
         <p>the page</p>
-      </AccessGate>,
+      </TokenGate>,
     );
     await screen.findByText('the page');
     expect(window.sessionStorage.getItem(ACCEPTED_KEY)).toBe(
       fingerprint('good-token'),
     );
+  });
+
+  it('offers a way on without a refused token on a public service', async () => {
+    window.sessionStorage.setItem(TOKEN_KEY, 'bad-token');
+    probe(401);
+    const onSkip = vi.fn();
+    render(
+      <TokenGate onSkip={onSkip}>
+        <p>the page</p>
+      </TokenGate>,
+    );
+    fireEvent.click(await screen.findByTestId('no-access-skip'));
+    expect(onSkip).toHaveBeenCalledOnce();
+    expect(screen.queryByText('the page')).toBeNull();
   });
 });

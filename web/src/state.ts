@@ -18,6 +18,7 @@ import type {
   RetrievalSummary,
   SseEvent,
 } from './api/types';
+import {API_KEY_CODES} from './api/apiKey';
 
 /** The names of the 11 states of table 14.6. */
 export type UiStateKind = UiState['kind'];
@@ -512,6 +513,16 @@ function reduceBase(ui: UiState, action: Action): UiState {
       if (action.status === 429) {
         return failRun(run, {...action.error, code: 'rate_limited'});
       }
+      if (API_KEY_CODES.has(action.error.code)) {
+        // A visitor's question needs their own key, or a well-formed one:
+        // the inline prompt opens the API key settings. Nothing was asked.
+        return {
+          kind: 'provider_down',
+          run: null,
+          code: action.error.code,
+          message: action.error.message,
+        };
+      }
       if (action.status === 401) {
         // The token field asks for a new token; the question is not sent.
         return isBusy(ui) ? {kind: 'empty'} : ui;
@@ -601,7 +612,9 @@ function reduceService(service: ServiceInfo, action: Action): ServiceInfo {
     case 'token_set':
       return {...service, tokenRejected: false};
     case 'http_error':
-      return action.status === 401
+      // A visitor without a key gets 401 `api_key_required`: the token is
+      // not at fault.
+      return action.status === 401 && !API_KEY_CODES.has(action.error.code)
         ? {...service, tokenRejected: true}
         : service;
     default:
