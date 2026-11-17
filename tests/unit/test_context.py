@@ -1,4 +1,4 @@
-"""Tests of the context budget, quotas, order, and calibration (11.6)."""
+"""Tests of the context budget, quotas, order, and calibration."""
 
 import dataclasses
 import logging

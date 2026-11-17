@@ -1,4 +1,4 @@
-"""Comp sets in question understanding and the pilot store (27.2)."""
+"""Comp sets in question understanding and the pilot store."""
 
 import datetime
 import sqlite3

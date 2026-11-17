@@ -7,7 +7,7 @@ private one (DNS rebinding), so `check_peer` reads the address of the
 socket that httpx really opened and rejects the response before any body
 byte is read. `redact_url` keeps the query string of a signed URL out of
 the logs, and `install_log_redaction` strips the query from the URLs httpx
-and httpcore log. The bootstrap download and the EDGAR client of chapter 26
+and httpcore log. The bootstrap download and the EDGAR client
 use them.
 """
 

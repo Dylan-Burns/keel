@@ -40,4 +40,14 @@ describe('PageNav', () => {
       screen.getByTestId('jobs-link'),
     );
   });
+
+  it('hides the pages that need a token from a visitor', () => {
+    render(<PageNav isVisitor />);
+    expect(screen.queryByTestId('companies-link')).toBeNull();
+    expect(screen.queryByTestId('debug-link')).toBeNull();
+    expect(screen.queryByTestId('admin-links')).toBeNull();
+    for (const id of ['history', 'compsets', 'financials', 'eval', 'help']) {
+      expect(screen.getByTestId(`${id}-link`)).toBeInTheDocument();
+    }
+  });
 });

@@ -1,4 +1,4 @@
-"""Write `eval/report.md` and its JSON twin (chapter 18.9).
+"""Write `eval/report.md` and its JSON twin.
 
 The report holds the run ID, the index version, the prompt version, the
 model, and the golden set version; then the gates, the retrieval metrics
@@ -94,7 +94,7 @@ def _sample_note(results: Sequence[gates.GateResult]) -> str:
         f" {names.capitalize()} {verb} pending:"
         f" the judge scored {count} {noun}, and a judge gate"
         f" needs at least {gates.MIN_JUDGED_ANSWERS} (the minimum sample"
-        " rule of chapter 18.8), so the value is reported and does not"
+        " rule), so the value is reported and does not"
         " block. The full golden set run gates it."
     )
 
@@ -168,7 +168,7 @@ def _ablation(run: runner.EvalRun) -> list[str]:
             ]
         )
     return [
-        "## Ablation: retrieval mode and reranker (chapter 18.7)",
+        "## Ablation: retrieval mode and reranker",
         "",
         *_table(
             [
@@ -299,7 +299,7 @@ def _answers(run: runner.EvalRun) -> list[str]:
     max_cost = _number(values.get("max_cost_usd"), 4)
     answer_cost = sum(r.cost_usd for r in rows)
     return [
-        "## Answer metrics (chapter 18.4 and 18.6)",
+        "## Answer metrics",
         "",
         *_table(header, table),
         "",
@@ -431,7 +431,7 @@ def render(
     lines = [
         "# Eval report",
         "",
-        "Written by `keel eval` (chapter 18). Regenerate it; do not edit it.",
+        "Written by `keel eval`. Regenerate it; do not edit it.",
         "",
         *_table(
             ["Field", "Value"],

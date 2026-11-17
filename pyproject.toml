@@ -33,7 +33,7 @@ dependencies = [
   "uvicorn[standard]>=0.30",
 ]
 
-# CPU-only PyTorch wheels (docs/GOTCHAS.md). The CUDA wheels add gigabytes
+# CPU-only PyTorch wheels. The CUDA wheels add gigabytes
 # that the image, CI, and the cloud session never use.
 [[tool.uv.index]]
 name = "pytorch-cpu"
@@ -52,7 +52,7 @@ export = ["python-docx>=1.1"]
 keel = "keel.cli:main"
 
 [project.urls]
-Documentation = "docs/01_reader_map_and_executive_summary.md"
+Documentation = "docs/ARCHITECTURE.md"
 
 [dependency-groups]
 dev = [

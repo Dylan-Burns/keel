@@ -1,5 +1,5 @@
 /**
- * The question templates of chapter 27.2: the picker fills `{companies}`
+ * The question templates: the picker fills `{companies}`
  * and `{period}` the way `keel.templates.fill` does on the server.
  */
 import type {QuestionTemplate} from '../api/types';

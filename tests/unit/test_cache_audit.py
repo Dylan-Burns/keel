@@ -1,4 +1,4 @@
-"""Tests of the answer cache, the audit log, and the cost (chapter 16)."""
+"""Tests of the answer cache, the audit log, and the cost."""
 
 import datetime
 import json

@@ -1,4 +1,4 @@
-"""The reliability layer of chapter 16 on a synthetic index.
+"""The reliability layer on a synthetic index.
 
 The breaker, the fallback model, the degraded mode, the budget stop, the
 refusal path, and the index checks run through `Answerer.ask` and the API
@@ -498,7 +498,7 @@ def write_manifest(build: pathlib.Path, monkeypatch) -> None:
 
 
 def test_index_checksum_mismatch(run_settings, index_dir, monkeypatch) -> None:
-    """16.7: a changed byte in vectors.npy makes /api/ready return 503."""
+    """A changed byte in vectors.npy makes /api/ready return 503."""
     build = indexer.current_build(index_dir)
     write_manifest(build, monkeypatch)
     assert reliability.check_index(build).index_version == "1.0.0"
@@ -528,7 +528,7 @@ def test_index_checksum_mismatch(run_settings, index_dir, monkeypatch) -> None:
 
 
 def test_index_row_count_mismatch(index_dir, monkeypatch) -> None:
-    """16.7 step 2: the chunk rows must equal the vector rows."""
+    """The chunk rows must equal the vector rows."""
     build = indexer.current_build(index_dir)
     vectors = numpy_dense.load(build / numpy_dense.FILE_NAME)
     shorter = build / "short.npy"

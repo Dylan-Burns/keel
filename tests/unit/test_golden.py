@@ -20,7 +20,7 @@ def test_golden_set_has_28_questions() -> None:
     ids = [q.id for q in golden_set.questions]
     assert ids == [f"G-{n:02d}" for n in range(1, 29)]
     chunk_level = {q.id for q in golden_set.questions if q.labels == "chunk"}
-    # Chapter 18.2 names these 10 for chunk-level labels.
+    # These 10 get chunk-level labels.
     assert chunk_level == {
         "G-01",
         "G-03",

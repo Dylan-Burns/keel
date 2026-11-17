@@ -1,5 +1,5 @@
 /**
- * Reads `eval/report.md` (written by `keel eval`, chapter 18) into data:
+ * Reads `eval/report.md` (written by `keel eval`) into data:
  * its sections, their paragraphs, and their tables as rows of named
  * fields. The eval page draws its charts from it, and the JSON download is
  * this structure. Pure functions; no request.

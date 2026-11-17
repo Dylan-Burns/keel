@@ -1,4 +1,4 @@
-"""The memo export of chapter 27.2: Markdown, DOCX, sources, and links."""
+"""The memo export: Markdown, DOCX, sources, and links."""
 
 import datetime
 import importlib

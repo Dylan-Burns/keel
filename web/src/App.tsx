@@ -7,9 +7,13 @@ import {
 import type {JSX} from 'react';
 import {useCallback, useState} from 'react';
 
+import {getAccessMode} from './api/access';
 import type {MemoFormat} from './api/admin';
+import {API_KEY_CODES} from './api/apiKey';
 import {ApiError, fetchChunk, takeRerunQuestion} from './api/client';
 import {AnswerArea} from './components/AnswerArea';
+import {ApiKeyPrompt} from './components/ApiKeyPrompt';
+import {ApiKeySettings} from './components/ApiKeySettings';
 import {CoverageSummary} from './components/CoverageSummary';
 import {FeedbackBar} from './components/FeedbackBar';
 import {Footer} from './components/Footer';
@@ -58,12 +62,14 @@ function memoFailure(error: unknown): string {
 }
 
 /**
- * The Keel page: the regions of chapter 14.5 and the states of 14.6.
+ * The Keel page: the regions and the UI states.
  *
  * @return The page.
  */
 export function App(): JSX.Element {
-  const {state, hasToken, shared, ask, saveToken, reload} = useKeel();
+  const {state, hasToken, canCall, shared, ask, saveToken, reload} = useKeel();
+  // A public service lets a visitor in; they ask with their own API key.
+  const isPublic = getAccessMode() === 'public';
   // The role only picks the page links; the API checks it on every call.
   const [tokenVersion, setTokenVersion] = useState(0);
   const role = useAdminRole(tokenVersion);
@@ -195,7 +201,12 @@ export function App(): JSX.Element {
           indexVersion={indexVersion}
           health={health(state)}
           lastMeta={null}
-          nav={<PageNav isAdmin={role.kind === 'admin'} />}
+          nav={
+            <PageNav
+              isAdmin={role.kind === 'admin'}
+              isVisitor={role.kind === 'visitor'}
+            />
+          }
         />
         <IndexNotBuiltCard onRecheck={reload} />
       </div>
@@ -234,13 +245,22 @@ export function App(): JSX.Element {
             health={health(state)}
             lastMeta={meta}
             modelRequests={run?.final?.audit?.model_requests ?? null}
-            nav={<PageNav isAdmin={role.kind === 'admin'} />}
+            nav={
+              <PageNav
+                isAdmin={role.kind === 'admin'}
+                isVisitor={role.kind === 'visitor'}
+              />
+            }
           >
-            <TokenField
-              hasToken={hasToken}
-              rejected={state.service.tokenRejected}
-              onSave={onSaveToken}
-            />
+            {isPublic ? (
+              <ApiKeySettings />
+            ) : (
+              <TokenField
+                hasToken={hasToken}
+                rejected={state.service.tokenRejected}
+                onSave={onSaveToken}
+              />
+            )}
           </TopBar>
         </motion.div>
         {hasOverlay(ui, 'network_offline') && <OfflineBanner />}
@@ -275,7 +295,7 @@ export function App(): JSX.Element {
                   examples={EXAMPLES}
                   analysis={run?.analysis ?? null}
                 />
-                <TemplatePicker enabled={hasToken} onFill={setQuestion} />
+                <TemplatePicker enabled={canCall} onFill={setQuestion} />
               </div>
             </motion.section>
             <motion.div
@@ -291,7 +311,7 @@ export function App(): JSX.Element {
               {base.kind === 'empty' && (
                 <CoverageSummary
                   coverage={state.service.coverage}
-                  hasToken={hasToken}
+                  hasToken={canCall}
                 />
               )}
               {base.kind === 'partial_coverage' && (
@@ -300,17 +320,30 @@ export function App(): JSX.Element {
                   unverifiedFindings={base.unverifiedFindings}
                 />
               )}
-              {base.kind === 'provider_down' && (
-                <ProviderDownBanner
-                  message={base.message}
-                  retryEnabled={askEnabled}
-                  onRetry={
-                    base.run === null || base.run.question === ''
-                      ? null
-                      : () => onAsk(base.run?.question ?? '')
-                  }
-                />
-              )}
+              {base.kind === 'provider_down' &&
+                API_KEY_CODES.has(base.code) && (
+                  <ApiKeyPrompt
+                    code={base.code}
+                    retryEnabled={askEnabled}
+                    onRetry={
+                      (base.run?.question ?? question).trim() === ''
+                        ? null
+                        : () => onAsk(base.run?.question ?? question)
+                    }
+                  />
+                )}
+              {base.kind === 'provider_down' &&
+                !API_KEY_CODES.has(base.code) && (
+                  <ProviderDownBanner
+                    message={base.message}
+                    retryEnabled={askEnabled}
+                    onRetry={
+                      base.run === null || base.run.question === ''
+                        ? null
+                        : () => onAsk(base.run?.question ?? '')
+                    }
+                  />
+                )}
               {base.kind === 'rate_limited' && (
                 <RateLimitedCard secondsLeft={base.secondsLeft} />
               )}

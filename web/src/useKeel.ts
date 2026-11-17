@@ -7,6 +7,7 @@
 import type {Dispatch} from 'react';
 import {useCallback, useEffect, useReducer, useRef, useState} from 'react';
 
+import {canCallApi} from './api/access';
 import {
   ApiError,
   PENDING_QUESTION_KEY,
@@ -31,7 +32,7 @@ import {baseState, canAsk, initialState, reducer} from './state';
 const RESULT_POLL_MS: readonly number[] = [1000, 2000, 3000, 5000, 8000, 13000];
 
 /**
- * The load state of a shareable link `/a/{request_id}` (chapter 27.2):
+ * The load state of a shareable link `/a/{request_id}`:
  * `none` on any other path, `missing` when no store holds the answer.
  */
 export type SharedLoad = 'none' | 'loading' | 'loaded' | 'missing';
@@ -41,6 +42,11 @@ export interface KeelController {
   readonly state: AppState;
   readonly dispatch: Dispatch<Action>;
   readonly hasToken: boolean;
+  /**
+   * True when the page may call the API: it has a token, or the service is
+   * public and the page runs as a visitor.
+   */
+  readonly canCall: boolean;
   /** The load state of the shared answer of the `/a/{request_id}` route. */
   readonly shared: SharedLoad;
   readonly ask: (question: string) => void;
@@ -68,6 +74,7 @@ function toHttpError(error: ApiError): Action {
 export function useKeel(): KeelController {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [hasToken, setHasToken] = useState(() => getToken() !== null);
+  const [canCall, setCanCall] = useState(canCallApi);
   const [loadCount, setLoadCount] = useState(0);
   const [shared, setShared] = useState<SharedLoad>(() =>
     sharedRequestId(window.location.pathname) === null ? 'none' : 'loading',
@@ -78,7 +85,8 @@ export function useKeel(): KeelController {
   }, [state]);
   const abortRef = useRef<AbortController | null>(null);
 
-  // The service facts: ready first (no token), then the token endpoints.
+  // The service facts: ready first (no token), then the endpoints that need
+  // a token, or none on a public service.
   useEffect(() => {
     let cancelled = false;
     const load = async (): Promise<void> => {
@@ -94,7 +102,7 @@ export function useKeel(): KeelController {
         }
         return;
       }
-      if (getToken() === null) {
+      if (!canCallApi()) {
         return;
       }
       const results = await Promise.allSettled([
@@ -127,7 +135,7 @@ export function useKeel(): KeelController {
   useEffect(() => {
     const sharedId = sharedRequestId(window.location.pathname);
     const requestId = sharedId ?? readSession(PENDING_REQUEST_KEY);
-    if (requestId === null || !hasToken) {
+    if (requestId === null || !canCall) {
       return;
     }
     const question = readSession(PENDING_QUESTION_KEY);
@@ -177,7 +185,7 @@ export function useKeel(): KeelController {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [hasToken]);
+  }, [canCall]);
 
   // The browser offline and online events.
   useEffect(() => {
@@ -227,7 +235,7 @@ export function useKeel(): KeelController {
     const run = async (): Promise<void> => {
       let ended = false;
       try {
-        // The live path is the default (chapter 16.12 step 3): the page
+        // The live path is the default: the page
         // never asks for a cached answer; offline mode still serves one.
         for await (const event of askStream(
           {question, options: {use_cache: false}},
@@ -275,11 +283,12 @@ export function useKeel(): KeelController {
   const saveToken = useCallback((token: string): void => {
     setToken(token);
     setHasToken(getToken() !== null);
+    setCanCall(canCallApi());
     dispatch({type: 'token_set'});
     setLoadCount(count => count + 1);
   }, []);
 
   const reload = useCallback((): void => setLoadCount(count => count + 1), []);
 
-  return {state, dispatch, hasToken, shared, ask, saveToken, reload};
+  return {state, dispatch, hasToken, canCall, shared, ask, saveToken, reload};
 }

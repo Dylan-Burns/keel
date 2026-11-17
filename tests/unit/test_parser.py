@@ -1,4 +1,4 @@
-"""Parser tests from real snippets (chapter 7.13 and the E-D rows of 19).
+"""Parser tests from real snippets (and the E-D edge cases).
 
 Every snippet under tests/fixtures/snippets is 2 KB or smaller and copied
 from the corpus. Tests that need a long input (the XBRL block lengths, the
@@ -61,7 +61,7 @@ def xbrl_body(cover_snippet: str, block_chars: int) -> tuple[str, str]:
     return base.normalize_text(block + cover), cover
 
 
-# Chapter 7.13 -------------------------------------------------------------
+# Real snippets -----------------------------------------------------------
 
 
 def test_header_parse() -> None:
@@ -288,7 +288,7 @@ def test_page_artifact() -> None:
         "accessories.Apple Inc. | 2025 Form 10-K | 12Services"
     )
     assert footer == "accessories.\nServices"
-    # Rule A1 keeps the real heading in upper case (chapter 8 uses it).
+    # Rule A1 keeps the real heading in upper case (section detection uses it).
     assert form_10k_10q.remove_artifacts("TABLE OF CONTENTS") == (
         "TABLE OF CONTENTS",
         0,
@@ -331,7 +331,7 @@ def test_table_units(context: base.ParseContext) -> None:
 def test_idempotent_ids(
     context: base.ParseContext, settings: config.Settings
 ) -> None:
-    """Chapter 7.11 and 7.12: a second run gives the same IDs and hashes."""
+    """A second run gives the same IDs and hashes."""
     path = conftest.MINI_CORPUS / NVDA_10K
     first, second = parse(path, context), parse(path, context)
     assert first.filing_id == second.filing_id == "NVDA_10K_2025-01-26"
@@ -351,7 +351,7 @@ def test_idempotent_ids(
     assert all(len(digest) == 16 for _, digest, _ in ids(first))
 
 
-# Chapter 19 rows on the stage card -----------------------------------------
+# Edge cases --------------------------------------------------------------
 
 
 def test_giant_line_parse(context: base.ParseContext) -> None:

@@ -1,6 +1,6 @@
-"""Section detection tests (chapter 8.7) on short texts in the filing shapes.
+"""Section detection tests on short texts in the filing shapes.
 
-Each text copies the layout the corpus uses after the chapter 7 parse:
+Each text copies the layout the corpus uses after the parse:
 table-of-contents rows with a page cell, labels at the start of a line,
 cross-references split onto a line by rule R4, and fused headings.
 """
@@ -99,7 +99,7 @@ def test_cross_reference_rejected() -> None:
 def test_cross_reference_after_line_split() -> None:
     # The PFE FY2024 10-K shape: R4 puts each inline reference on its own
     # line after an article, so `see the` or a sentence cut mid-way ends
-    # the line before the label (the stage 10 finding).
+    # the line before the label (an eval finding).
     prose = "For a discussion of the risks of our major products, " * 2
     text = (
         "PART I\nITEM 1. | BUSINESS\n"

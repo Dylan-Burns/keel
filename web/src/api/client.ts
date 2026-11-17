@@ -1,7 +1,7 @@
 /**
  * The Keel API client: `fetch` for the JSON endpoints and a `ReadableStream`
  * parser for the server-sent events of `POST /api/ask`. `EventSource` cannot
- * send the bearer token header, so the stream is read by hand (chapter 14.9).
+ * send the bearer token header, so the stream is read by hand.
  */
 import type {
   AskRequest,
@@ -27,6 +27,7 @@ import type {
   TemplateList,
   Vote,
 } from './types';
+import {API_KEY_HEADER, getApiKey} from './apiKey';
 
 /** The session storage key of the bearer token (the only stored secret). */
 export const TOKEN_KEY = 'keel.token';
@@ -36,7 +37,7 @@ export const PENDING_REQUEST_KEY = 'keel.pending_request_id';
 
 /**
  * The session storage key of a question the history page hands to the
- * question page to ask again (chapter 27.2). Session storage, unlike a URL,
+ * question page to ask again. Session storage, unlike a URL,
  * cannot be set by a link from another site, and the page only prefills it.
  */
 export const RERUN_QUESTION_KEY = 'keel.rerun_question';
@@ -173,7 +174,7 @@ export class SseParser {
 }
 
 /**
- * Turns a raw event into a typed event of chapter 14.3.
+ * Turns a raw event into a typed event.
  *
  * @param raw The raw event.
  * @return The typed event, or null for an unknown event name.
@@ -296,13 +297,23 @@ export function newRequestId(): string {
 }
 
 /**
- * The Authorization header of the stored token.
+ * The credential headers of every API call: `Authorization` with the stored
+ * access token, else `X-Anthropic-Api-Key` with the visitor's own Anthropic
+ * key (a public service answers a visitor with it). A signed-in user asks
+ * on the service key, so a token sends no key. Without a token the request
+ * has no `Authorization` header at all, so a public service treats it as a
+ * visitor. Every call of a visitor carries the key: the server names the
+ * visitor by it, so their history and stored answers stay theirs.
  *
- * @return The header, or an empty object without a token.
+ * @return The headers, or an empty object without a token and a key.
  */
 export function authHeaders(): Record<string, string> {
   const token = getToken();
-  return token === null ? {} : {Authorization: `Bearer ${token}`};
+  if (token !== null) {
+    return {Authorization: `Bearer ${token}`};
+  }
+  const key = getApiKey();
+  return key === null ? {} : {[API_KEY_HEADER]: key};
 }
 
 function parseRetryAfter(value: string | null): number | null {
@@ -446,7 +457,7 @@ export const fetchResult = (requestId: string): Promise<AskResponse> =>
 
 /**
  * `GET /api/shared/{request_id}`: a finished answer by its shareable link,
- * read-only for any token holder (chapter 27.2).
+ * read-only for any token holder.
  *
  * @param requestId The request ID of the link.
  * @return The answer response.
@@ -455,7 +466,7 @@ export const fetchShared = (requestId: string): Promise<AskResponse> =>
   getJson(`/api/shared/${encodeURIComponent(requestId)}`);
 
 /**
- * `GET /api/history`: the questions of the caller, newest first (27.2).
+ * `GET /api/history`: the questions of the caller, newest first.
  *
  * @param scope `own`, or `all` for every user (admins only).
  * @return The history.
@@ -488,7 +499,7 @@ export const fetchFinancials = (
   );
 
 /**
- * `GET /api/eval`: the eval report, the prompt log, and the gates (W-02).
+ * `GET /api/eval`: the eval report, the prompt log, and the gates.
  *
  * @return The eval page data.
  */
@@ -535,7 +546,7 @@ export async function sendJson<T>(
   }
 }
 
-/** `GET /api/compsets`. @return The saved comp sets (chapter 27.2). */
+/** `GET /api/compsets`. @return The saved comp sets. */
 export const fetchCompSets = (): Promise<CompSetList> =>
   getJson('/api/compsets');
 
@@ -572,12 +583,12 @@ export async function deleteCompSet(name: string): Promise<void> {
   await sendJson('DELETE', `/api/compsets/${encodeURIComponent(name)}`);
 }
 
-/** `GET /api/templates`. @return The question templates (chapter 27.2). */
+/** `GET /api/templates`. @return The question templates. */
 export const fetchTemplates = (): Promise<TemplateList> =>
   getJson('/api/templates');
 
 /**
- * `POST /api/feedback`: a thumbs vote and a note on an answer (27.2).
+ * `POST /api/feedback`: a thumbs vote and a note on an answer.
  *
  * @param requestId The request ID of the answer.
  * @param vote `up` or `down`.

@@ -33,7 +33,7 @@ def step() -> understanding.Understander:
 
 
 def test_example_questions(step: understanding.Understander) -> None:
-    """Chapters 10 and 11.7 to 11.9: the 3 examples resolve as planned."""
+    """The 3 example questions resolve as planned."""
     settings = config.load_settings(conftest.CONFIG_FILE, env_file=None)
     questions = settings.demo.example_questions
     first, second, third = (step.analyze(q) for q in questions)
@@ -49,7 +49,7 @@ def test_example_questions(step: understanding.Understander) -> None:
     assert len(window.filings) == 8
     assert third.primary_type == "sector"
     assert third.tickers == ("PFE", "JNJ", "MRK", "LLY", "ABBV")
-    # Chapter 10: under 10 ms; the median of 3 keeps a slow run from failing.
+    # under 10 ms; the median of 3 keeps a slow run from failing.
     assert sorted(a.elapsed_ms for a in (first, second, third))[1] < 10
 
 

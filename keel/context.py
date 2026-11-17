@@ -1,11 +1,11 @@
-"""The context budget: quotas, order, and the token estimate (chapter 11.6).
+"""The context budget: quotas, order, and the token estimate.
 
 The retriever hands over scored candidates, each in 1 quota group. This
 module fills the groups in turn up to their quotas within the token and
 chunk budget, moves the unused quota to the groups that still have
 candidates, cuts an oversized table chunk at a row boundary, orders the
-context, and renders the context index and the chunk elements of chapter
-12.2. The token estimate is local: the chunk tokens times the calibration
+context, and renders the context index and the chunk elements of the
+prompt. The token estimate is local: the chunk tokens times the calibration
 factor plus the wrapper line; no provider call happens per question.
 """
 
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 WRAPPER_TOKENS = 60
 MAX_CHUNK_TOKENS = 480
 DRIFT_LIMIT = 0.10
-# The wrapper elements of the prompt (chapter 12.2); a tag of one inside
+# The wrapper elements of the prompt; a tag of one inside
 # untrusted text could end or open an element, so the guard escapes it.
 WRAPPER_TAGS = (
     "question_analysis",
@@ -71,7 +71,7 @@ class Candidate:  # pylint: disable=too-many-instance-attributes
         group: The key of the quota group.
         query: The index of the sub-query that found the chunk.
         fused: The reciprocal rank fusion score.
-        weight: The product of the chapter 11.1 weights.
+        weight: The product weights.
         rerank: The reranker probability, or None when not reranked.
         score: The final score: the reranker or the fused score times the
             weight.
@@ -122,7 +122,7 @@ class Candidate:  # pylint: disable=too-many-instance-attributes
 
 @dataclasses.dataclass(frozen=True)
 class QuotaGroup:
-    """1 quota group of chapter 11.3: a company, a period cell, or both.
+    """1 quota group: a company, a period cell, or both.
 
     Attributes:
         key: The group key.
@@ -144,7 +144,7 @@ class QuotaGroup:
 
 @dataclasses.dataclass(frozen=True)
 class Budget:
-    """The context limits (chapter 11.6 step 1).
+    """The context limits.
 
     Attributes:
         max_tokens: The estimated token limit of the context.
@@ -198,7 +198,7 @@ def truncate_table(
 
     Args:
         candidate: The candidate.
-        limit: The token limit (chapter 11.6 step 6).
+        limit: The token limit.
 
     Returns:
         The candidate, cut when needed, and True when it was cut.
@@ -261,7 +261,7 @@ class GroupFill:
 
 @dataclasses.dataclass(frozen=True)
 class Context:
-    """The context of 1 question (chapter 11.6 steps 8 to 11).
+    """The context of 1 question.
 
     Attributes:
         chunks: The chunks in context order.
@@ -415,7 +415,7 @@ def build_context(
     section_weights: Mapping[str, float],
     collapsed: int = 0,
 ) -> Context:
-    """Fill the quota groups within the budget (chapter 11.6).
+    """Fill the quota groups within the budget.
 
     Args:
         candidates: The candidates after the collapse, each with a group.
@@ -464,7 +464,7 @@ def build_context(
 
 
 def render_index(context: Context) -> str:
-    """Render the context index: 1 line per chunk (step 9, chapter 12.2).
+    """Render the context index: 1 line per chunk (step 9).
 
     Args:
         context: The context.
@@ -501,7 +501,7 @@ def _attribute(value: object) -> str:
 
 
 def render_chunk(chunk: ContextChunk) -> str:
-    """Render 1 `<chunk>` element with the attributes of chapter 12.2.
+    """Render 1 `<chunk>` element with the attributes.
 
     The chunk text is untrusted: a closing tag inside it is neutralized so
     the text cannot end its element.
@@ -545,7 +545,7 @@ def render_chunks(context: Context) -> str:
 
 
 class Calibration:
-    """The session calibration factor (chapter 11.6 step 2, E-C-13).
+    """The session calibration factor (E-C-13).
 
     The factor starts at the configured value. When the real input tokens
     of a request differ from the estimate by more than 10%, the factor
@@ -593,7 +593,7 @@ class Calibration:
             return self._factor
 
     def raise_by(self, fraction: float) -> float:
-        """Raise the factor after a context overflow (chapter 16.6 step 4).
+        """Raise the factor after a context overflow.
 
         Args:
             fraction: The share to add, such as 0.05 for 5%.

@@ -1,4 +1,4 @@
-"""Safe zip extraction for the corpus (control S-10, chapter 15).
+"""Safe zip extraction for the corpus (control S-10).
 
 The extractor checks every entry before it writes a byte: no absolute path,
 no `..` component, no symbolic link, and a target path inside the target

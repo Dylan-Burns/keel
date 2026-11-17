@@ -1,4 +1,4 @@
-# Keel pilot users (chapter 27.2): name, role (analyst, partner, admin), and the
+# Keel pilot users: name, role (analyst, partner, admin), and the
 # sha256 of the token. `keel users add NAME --role R` writes config/users.yaml
 # (auth.users_file, gitignored; /data/users.yaml on the pilot volume) and prints
 # the token once. KEEL_API_TOKEN stays valid as the admin user `legacy`.

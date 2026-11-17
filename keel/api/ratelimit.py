@@ -1,4 +1,4 @@
-"""The question rate limit per client (chapter 15, control S-05).
+"""The question rate limit per client (control S-05).
 
 2 token buckets per client address: 10 questions per minute and 100 per
 hour by default (`limits.rate_per_minute`, `limits.rate_per_hour`). A

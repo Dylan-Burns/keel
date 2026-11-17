@@ -55,7 +55,7 @@ function durations(variants: Variants): number[] {
   return found;
 }
 
-describe('motion presets (chapter 14.8)', () => {
+describe('motion presets', () => {
   it('has 1 export per moment of the table, each with a reduced twin', () => {
     for (const [name, preset] of variantPairs()) {
       expect(preset.full, name).toBeDefined();

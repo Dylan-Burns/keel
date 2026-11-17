@@ -1,4 +1,4 @@
-"""Index build tests with the pinned embedding model (chapter 9.8).
+"""Index build tests with the pinned embedding model.
 
 The model comes from the local Hugging Face cache; pytest runs with
 HF_HUB_OFFLINE=1. The vectors are compared on 1 machine only: torch 2.2 on

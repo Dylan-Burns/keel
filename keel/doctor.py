@@ -1,4 +1,4 @@
-"""Environment checks for `keel doctor` (chapter 21 pre-flight, GOTCHAS).
+"""Environment checks for `keel doctor` (the pre-flight checks).
 
 Each check returns a `CheckResult` with the status `ok`, `warn`, or `fail`.
 A `fail` makes the command exit with 1. A check never prints a secret: the

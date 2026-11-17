@@ -1,7 +1,7 @@
 /**
  * Plain-language notes for each section of the eval report: what the
  * section shows, how to read it, and what each column means. The eval page
- * shows the note under the section heading. Definitions follow chapter 18.
+ * shows the note under the section heading.
  */
 
 /** The note of 1 report section. */

@@ -29,6 +29,7 @@ from keel.providers import base
 
 _OVERFLOW_MARKERS = ("prompt is too long", "context window", "too many tokens")
 _RATE_TYPES = frozenset({"rate_limit_error", "overloaded_error"})
+_AUTH_TYPES = frozenset({"authentication_error", "permission_error"})
 
 
 def _retry_after(error: anthropic.APIStatusError) -> float | None:
@@ -40,7 +41,7 @@ def _retry_after(error: anthropic.APIStatusError) -> float | None:
 
 
 def classify(error: Exception) -> errors.ProviderError:
-    """Map an SDK or timeout error to the Keel error of chapter 6.5.
+    """Map an SDK or timeout error to the Keel error.
 
     Args:
         error: The error the SDK or `asyncio.timeout` raised.
@@ -73,13 +74,15 @@ def _classify_status(error: anthropic.APIStatusError) -> errors.ProviderError:
         status == 400 and any(m in lowered for m in _OVERFLOW_MARKERS)
     ):
         return errors.ContextOverflowError(message)
+    if status in {401, 403} or error.type in _AUTH_TYPES:
+        return errors.ProviderAuthError(message)
     if status >= 500 or error.type == "api_error":
         return errors.ProviderUnavailableError(message)
     return errors.ProviderRequestError(message)
 
 
 class AnthropicProvider:  # pylint: disable=too-many-instance-attributes
-    """The Messages API adapter (chapter 17.1).
+    """The Messages API adapter.
 
     Args:
         model: The pinned model identifier.
@@ -103,6 +106,9 @@ class AnthropicProvider:  # pylint: disable=too-many-instance-attributes
         self.thinking = llm.thinking.get(model)
         self.temperature = llm.temperature
         self.output_mode = llm.output_mode
+        # True for an adapter built for 1 question (a visitor's key): its
+        # client closes once the answer stream ends.
+        self.single_use = False
 
     @classmethod
     def from_settings(
@@ -122,9 +128,36 @@ class AnthropicProvider:  # pylint: disable=too-many-instance-attributes
         """
         if settings.anthropic_api_key is None:
             raise errors.ProviderRequestError("ANTHROPIC_API_KEY is not set")
+        return cls.with_key(
+            settings, settings.anthropic_api_key.get_secret_value(), model
+        )
+
+    @classmethod
+    def with_key(
+        cls,
+        settings: config.Settings,
+        api_key: str,
+        model: str | None = None,
+        single_use: bool = False,
+    ) -> AnthropicProvider:
+        """Build the adapter with a given key, such as a visitor's key.
+
+        The key lives only in the client of this adapter; nothing logs or
+        stores it.
+
+        Args:
+            settings: The loaded settings.
+            api_key: The Anthropic API key.
+            model: The model, or None for `llm.model`.
+            single_use: Close the client once the answer stream ends, for
+                an adapter built for 1 question.
+
+        Returns:
+            The adapter.
+        """
         llm = settings.llm
         client = anthropic.AsyncAnthropic(
-            api_key=settings.anthropic_api_key.get_secret_value(),
+            api_key=api_key,
             max_retries=0,
             timeout=anthropic.Timeout(
                 llm.timeout_seconds,
@@ -132,7 +165,9 @@ class AnthropicProvider:  # pylint: disable=too-many-instance-attributes
                 read=llm.idle_timeout_seconds,
             ),
         )
-        return cls(model or llm.model, client, llm)
+        adapter = cls(model or llm.model, client, llm)
+        adapter.single_use = single_use
+        return adapter
 
     def request(self, bundle: prompt.PromptBundle) -> dict[str, Any]:
         """Build the keyword arguments of `messages.create`.
@@ -216,6 +251,9 @@ class AnthropicProvider:  # pylint: disable=too-many-instance-attributes
             TimeoutError,
         ) as error:
             raise classify(error) from error
+        finally:
+            if self.single_use:
+                await self.client.close()
 
     async def _events(
         self, stream: AsyncIterator[Any]

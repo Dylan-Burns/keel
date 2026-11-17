@@ -1,6 +1,8 @@
 import type {JSX} from 'react';
-import {useEffect, useState} from 'react';
+import {useEffect, useState, useSyncExternalStore} from 'react';
 
+import {canCallApi} from '../api/access';
+import {getApiKey, openApiKeySettings, subscribeApiKey} from '../api/apiKey';
 import {
   ApiError,
   RERUN_QUESTION_KEY,
@@ -12,7 +14,7 @@ import {
 import type {HistoryResponse, HistoryScope} from '../api/types';
 import {copyText, sharePath, shareUrl} from '../lib/links';
 import {PageBar} from './PageBar';
-import {TokenField} from './TokenField';
+import {CredentialField} from './CredentialField';
 
 /** The load state of the page. */
 type Load =
@@ -32,9 +34,33 @@ function when(timestamp: string): string {
   return Number.isNaN(parsed.getTime()) ? timestamp : parsed.toLocaleString();
 }
 
+/** The user name the server gives every visitor without an API key. */
+const KEYLESS_VISITOR = 'visitor';
+
 /**
- * The history page at `/history` (chapter 27.2): the questions of the
- * signed-in user, newest first, from the audit log. Each row opens the
+ * The line over the list: whose questions it shows.
+ *
+ * @param data The history.
+ * @param scope The scope of the list.
+ * @return The line.
+ */
+function ownerLine(data: HistoryResponse, scope: HistoryScope): string {
+  if (scope === 'all') {
+    return 'Questions of every user';
+  }
+  if (data.role === 'visitor') {
+    return data.user === KEYLESS_VISITOR
+      ? 'No API key: no history kept'
+      : 'Questions asked with your API key';
+  }
+  return `Questions of ${data.user}`;
+}
+
+/**
+ * The history page at `/history`: the questions of the
+ * signed-in user, newest first, from the audit log. A visitor of a public
+ * service sees the questions of their own API key; the server keeps no
+ * history for a visitor without one. Each row opens the
  * stored answer at its shareable link, copies the link, or puts the
  * question back in the question box (Re-run), where the user presses Ask.
  * An admin can switch to every user's questions.
@@ -45,11 +71,13 @@ export function HistoryPage(): JSX.Element {
   const [tokenCount, setTokenCount] = useState(0);
   const [scope, setScope] = useState<HistoryScope>('own');
   const [copied, setCopied] = useState<string | null>(null);
+  // A visitor's history follows their key: the server names them by it.
+  const apiKey = useSyncExternalStore(subscribeApiKey, getApiKey);
   const [load, setLoad] = useState<Load>(() =>
-    getToken() === null ? {kind: 'no_token'} : {kind: 'loading'},
+    canCallApi() ? {kind: 'loading'} : {kind: 'no_token'},
   );
   useEffect(() => {
-    if (getToken() === null) {
+    if (!canCallApi()) {
       return;
     }
     let cancelled = false;
@@ -72,7 +100,7 @@ export function HistoryPage(): JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [tokenCount, scope]);
+  }, [tokenCount, scope, apiKey]);
   const onSave = (token: string): void => {
     setToken(token);
     setLoad({kind: 'loading'});
@@ -95,7 +123,7 @@ export function HistoryPage(): JSX.Element {
       data-load={load.kind}
     >
       <PageBar title="History">
-        <TokenField
+        <CredentialField
           hasToken={load.kind !== 'no_token'}
           rejected={load.kind === 'no_token' && getToken() !== null}
           onSave={onSave}
@@ -122,9 +150,7 @@ export function HistoryPage(): JSX.Element {
                 className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted"
                 data-testid="history-user"
               >
-                {scope === 'all'
-                  ? 'Questions of every user'
-                  : `Questions of ${load.data.user}`}
+                {ownerLine(load.data, scope)}
               </span>
               {isAdmin && (
                 <button
@@ -137,7 +163,27 @@ export function HistoryPage(): JSX.Element {
                 </button>
               )}
             </div>
-            {load.data.items.length === 0 ? (
+            {load.data.items.length === 0 &&
+            load.data.role === 'visitor' &&
+            load.data.user === KEYLESS_VISITOR ? (
+              <div
+                className="flex flex-wrap items-center gap-3 text-[13px] text-muted"
+                data-testid="history-empty"
+              >
+                <span>
+                  The history is kept per Anthropic API key. Add yours to keep
+                  the questions you ask.
+                </span>
+                <button
+                  type="button"
+                  className="btn"
+                  data-testid="history-add-key"
+                  onClick={openApiKeySettings}
+                >
+                  Add API key
+                </button>
+              </div>
+            ) : load.data.items.length === 0 ? (
               <p className="text-[13px] text-muted" data-testid="history-empty">
                 No questions yet. Ask one on the question page.
               </p>

@@ -1,14 +1,15 @@
-"""The reliability layer around the single call (chapter 16).
+"""The reliability layer around the single call.
 
-`CircuitBreaker` counts provider failures (16.3): 3 consecutive failures
+`CircuitBreaker` counts provider failures: 3 consecutive failures
 within 60 seconds open it for 30 seconds; while it is open every question
-goes to the fallback model (16.4); after 30 seconds 1 probe request goes to
+goes to the fallback model; after 30 seconds 1 probe request goes to
 the primary model, and its result closes or reopens the breaker.
 `BudgetGuard` sums the cost of the day from the audit log and stops model
-requests at `limits.daily_budget_usd` (16.10 step 5, control S-05 step 3).
+requests at `limits.daily_budget_usd` (control S-05 step 3).
 `halve_context` drops the lowest-ranked chunks until the context fits half
-its budget, for the 1 retry after a context overflow (16.6 step 3).
-`check_index` adds the row count check of 16.7 step 2 to the checksums.
+its budget, for the 1 retry after a context overflow.
+`check_index` adds a row count check (chunks equal vectors) to the
+checksums.
 """
 
 from __future__ import annotations
@@ -42,7 +43,7 @@ HALF_OPEN = "half_open"
 
 @dataclasses.dataclass(frozen=True)
 class BreakerState:
-    """A snapshot of the breaker for `/api/ready` (16.3 step 4).
+    """A snapshot of the breaker for `/api/ready`.
 
     Attributes:
         state: `closed`, `open`, or `half_open`.
@@ -64,7 +65,7 @@ class BreakerState:
 
 
 class CircuitBreaker:
-    """The circuit breaker of the primary model (chapter 16.3).
+    """The circuit breaker of the primary model.
 
     A failure is a request that failed for availability (HTTP 429, 529,
     5xx, a timeout, a lost connection); a rejected request or a context
@@ -203,11 +204,12 @@ def _today() -> datetime.date:
 
 
 class BudgetGuard:
-    """The daily provider budget (chapter 16.10 step 5, S-05 step 3).
+    """The daily provider budget (S-05 step 3).
 
     The spend of the day is the sum of `cost_usd` over the audit records
-    with a timestamp of the current UTC day. The file is read again only
-    when its size or modification time changed.
+    with a timestamp of the current UTC day, except the records a
+    visitor paid for with their own key (`billed_to: visitor`). The file
+    is read again only when its size or modification time changed.
 
     Args:
         audit_path: The audit log (`<logs.dir>/audit.jsonl`).
@@ -279,6 +281,9 @@ def _sum_day(path: pathlib.Path, day: str) -> float:
                     continue
                 stamp = str(record.get("timestamp", ""))
                 cost = record.get("cost_usd")
+                if record.get("billed_to") == "visitor":
+                    # A visitor paid with their own key (auth.public).
+                    continue
                 if stamp.startswith(day) and isinstance(cost, int | float):
                     total += float(cost)
     except OSError as error:
@@ -291,7 +296,7 @@ def halve_context(built: context.Context) -> context.Context:
 
     The new budget is half the smaller of the budget and the estimate of
     the context, so a context that filled less than half its budget still
-    shrinks (chapter 16.6 step 3). The chunks that stay keep their context
+    shrinks. The chunks that stay keep their context
     order. At least 1 chunk stays.
 
     Args:
@@ -320,7 +325,7 @@ def halve_context(built: context.Context) -> context.Context:
 
 
 def check_index(build_dir: pathlib.Path) -> indexer.Manifest:
-    """Check an index build before it serves (chapter 16.7 steps 1, 2).
+    """Check an index build before it serves.
 
     Args:
         build_dir: The build directory.

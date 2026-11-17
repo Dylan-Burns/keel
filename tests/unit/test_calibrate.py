@@ -1,4 +1,4 @@
-"""Tests for the build-time token calibration (chapter 11.6 step 2)."""
+"""Tests for the build-time token calibration."""
 
 import pathlib
 import sqlite3

@@ -1,4 +1,4 @@
-# Question templates (chapter 27.2): the 5 buttons of the web picker.
+# Question templates: the 5 buttons of the web picker.
 # `{companies}` takes company names, tickers, or a comp set such as
 # "my software comps"; `{period}` takes a time scope such as "fiscal 2024"
 # or "the last two years". `default_period` fills an empty period.

@@ -1,4 +1,4 @@
-"""Log redaction and the secret checks of chapter 15 (S-01, S-14).
+"""Log redaction and the secret checks (S-01, S-14).
 
 `redact` replaces every known secret value and every key pattern in a
 text: an Anthropic key, a bearer token, and the value of any

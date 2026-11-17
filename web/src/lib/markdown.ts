@@ -1,6 +1,6 @@
 /**
  * The answer markdown renderer: `marked` then DOMPurify with the allow list
- * of chapter 15 (control S-03). Only `https://www.sec.gov` links keep their
+ * (control S-03). Only `https://www.sec.gov` links keep their
  * `href`; every other link becomes plain text. The result is the only HTML
  * the page renders through `dangerouslySetInnerHTML` (in AnswerMarkdown).
  */
@@ -9,7 +9,7 @@ import {Marked} from 'marked';
 
 import {isCitationId} from './citations';
 
-/** The tags of the chapter 15 allow list. */
+/** The tags allow list. */
 export const ALLOWED_TAGS: readonly string[] = [
   'p',
   'strong',
@@ -107,7 +107,7 @@ const markdownParser = new Marked({
 });
 
 /**
- * Sanitizes HTML with the chapter 15 allow list: only the allowed tags, the
+ * Sanitizes HTML with the allow list: only the allowed tags, the
  * `href` attribute, and links to https://www.sec.gov.
  *
  * @param html Untrusted HTML.

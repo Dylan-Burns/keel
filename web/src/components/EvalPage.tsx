@@ -2,6 +2,7 @@ import {motion, useReducedMotion} from 'motion/react';
 import type {JSX} from 'react';
 import {useEffect, useMemo, useState} from 'react';
 
+import {canCallApi} from '../api/access';
 import {ApiError, fetchEval, getToken, setToken} from '../api/client';
 import type {EvalResponse} from '../api/types';
 import {guideFor} from '../lib/evalGuide';
@@ -14,7 +15,7 @@ import {PromptChanges} from './eval/PromptChanges';
 import {GateBar} from './GateBar';
 import {MarkdownDocument} from './MarkdownDocument';
 import {PageBar} from './PageBar';
-import {TokenField} from './TokenField';
+import {CredentialField} from './CredentialField';
 
 /** The load state of the page. */
 type Load =
@@ -24,7 +25,7 @@ type Load =
   | {readonly kind: 'ready'; readonly data: EvalResponse};
 
 /**
- * The eval page at `/eval` (W-02, chapter 25.2): the regression gates as
+ * The eval page at `/eval`: the regression gates as
  * metric bars, the headline numbers and charts of the run, then
  * `eval/report.md` with a plain-language note under each section and its
  * Markdown and JSON downloads, then `docs/PROMPT_LOG.md`, read-only,
@@ -37,10 +38,10 @@ export function EvalPage(): JSX.Element {
   const reduced = useReducedMotion();
   const [tokenCount, setTokenCount] = useState(0);
   const [load, setLoad] = useState<Load>(() =>
-    getToken() === null ? {kind: 'no_token'} : {kind: 'loading'},
+    canCallApi() ? {kind: 'loading'} : {kind: 'no_token'},
   );
   useEffect(() => {
-    if (getToken() === null) {
+    if (!canCallApi()) {
       return;
     }
     let cancelled = false;
@@ -82,7 +83,7 @@ export function EvalPage(): JSX.Element {
       data-load={load.kind}
     >
       <PageBar title="Evaluation">
-        <TokenField
+        <CredentialField
           hasToken={load.kind !== 'no_token'}
           rejected={load.kind === 'no_token' && getToken() !== null}
           onSave={onSave}

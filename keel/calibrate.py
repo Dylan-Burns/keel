@@ -1,4 +1,4 @@
-"""The build-time calibration of the token estimate (chapter 11.6 step 2).
+"""The build-time calibration of the token estimate.
 
 The context budget estimates the model tokens of a chunk from its
 embedding-tokenizer count: `ceil(token_count x factor) + 60`. This module
@@ -6,7 +6,7 @@ measures the factor once: it renders a fixed sample of 200 chunks exactly
 as the context renders them, sends them to the provider's token count
 endpoint in 1 call (no text is generated), and solves the estimate for the
 factor. The engineer writes the result into `retrieval.calibration_factor`;
-no question ever calls the count endpoint (docs/GOTCHAS.md).
+no question ever calls the count endpoint.
 """
 
 from __future__ import annotations
@@ -115,9 +115,9 @@ def render_sample(chunks: Sequence[context.Candidate]) -> str:
 def solve_factor(counted: int, token_counts: Sequence[int]) -> float:
     """Solve `counted = sum(token_count x factor + 60)` for the factor.
 
-    The wrapper allowance of 60 tokens per chunk stays as chapter 11.6
-    sets it; the factor absorbs any error in it. The result rounds up to 2
-    decimals, so the estimate errs on the side of a smaller context.
+    The wrapper allowance of 60 tokens per chunk stays fixed; the factor absorbs
+    any error in it. The result rounds up to 2 decimals, so the estimate errs on
+    the side of a smaller context.
 
     Args:
         counted: The tokens the provider counted for the rendered sample.

@@ -42,7 +42,7 @@ function resolveFromId(chunkId: string): CitationChipView {
 
 /**
  * The answer markdown: the only HTML on the page, after `marked` and
- * DOMPurify with the chapter 15 allow list (control S-03). The same element
+ * DOMPurify with the allow list (control S-03). The same element
  * renders the answer while it streams and once it is final, 1 child per
  * markdown block keyed by its position: a finished block keeps its DOM node
  * and fades in once, and only the last block grows as deltas arrive. Each

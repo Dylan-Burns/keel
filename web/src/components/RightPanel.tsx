@@ -84,7 +84,7 @@ function Chevron({left}: {readonly left: boolean}): JSX.Element {
 }
 
 /**
- * The right panel (chapter 14.5): the opened chunk, the citation list, and
+ * The right panel: the opened chunk, the citation list, and
  * the retrieved chunks with scores and the collapsed near-duplicate count.
  * The page shows it from the moment a question is sent: the retrieved
  * chunks arrive, then the passages the streamed findings cite ("checking"),

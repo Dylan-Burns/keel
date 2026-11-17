@@ -1,7 +1,7 @@
 """The corpus inventory: counts, the manifest check, and the discrepancies.
 
 The inventory reads the file names, the header keys, and the manifest. It
-never parses a filing body; the parser (chapter 7) owns the cover page. The
+never parses a filing body; the parser owns the cover page. The
 report states every difference between the directory, the manifest, and the
 corpus facts so the build report can record it (E-D-24, E-D-25).
 """

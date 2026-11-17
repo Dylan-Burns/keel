@@ -1,6 +1,7 @@
 import type {JSX} from 'react';
 import {useEffect, useMemo, useState} from 'react';
 
+import {canCallApi} from '../../api/access';
 import {
   ApiError,
   fetchFinancials,
@@ -27,7 +28,7 @@ import {
 } from '../../lib/financials';
 import {financialsPath, financialsTickerOf} from '../../lib/links';
 import {PageBar} from '../PageBar';
-import {TokenField} from '../TokenField';
+import {CredentialField} from '../CredentialField';
 import {CompanyPicker} from './CompanyPicker';
 import {LineItemTable} from './LineItemTable';
 import {PeriodToggle} from './PeriodToggle';
@@ -91,13 +92,13 @@ export function FinancialsPage(): JSX.Element {
   >({});
   const [data, setData] = useState<FinancialsResponse | null>(null);
   const [load, setLoad] = useState<Load>(() =>
-    getToken() === null ? {kind: 'no_token'} : {kind: 'loading'},
+    canCallApi() ? {kind: 'loading'} : {kind: 'no_token'},
   );
 
   // The picker list; it also names the first company when the link has
   // none and nothing is stored.
   useEffect(() => {
-    if (getToken() === null) {
+    if (!canCallApi()) {
       return;
     }
     let cancelled = false;
@@ -136,7 +137,7 @@ export function FinancialsPage(): JSX.Element {
 
   // The statements of the company and the period.
   useEffect(() => {
-    if (ticker === null || getToken() === null) {
+    if (ticker === null || !canCallApi()) {
       return;
     }
     const controller = new AbortController();
@@ -240,7 +241,7 @@ export function FinancialsPage(): JSX.Element {
       data-ticker={data?.ticker ?? ''}
     >
       <PageBar title="Financials">
-        <TokenField
+        <CredentialField
           hasToken={load.kind !== 'no_token'}
           rejected={load.kind === 'no_token' && getToken() !== null}
           onSave={onSave}

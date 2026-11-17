@@ -22,14 +22,15 @@
 # For --local, start the server first: `make demo`, or `uv run keel serve`,
 # with ANTHROPIC_API_KEY set and KEEL_OFFLINE unset.
 #
-# The bearer token comes from KEEL_API_TOKEN in the environment: the same
-# access token the web page takes. The script never prints it.
+# Credentials come from the environment and are never printed: a Keel
+# access token in KEEL_API_TOKEN, or else your own Anthropic key in
+# ANTHROPIC_API_KEY, which the public site accepts from any visitor.
 #
 # Requires: curl, jq.
 
 set -euo pipefail
 
-readonly LIVE_URL=https://d1otueg71oygkx.cloudfront.net
+readonly LIVE_URL=https://www.keeldd.com
 readonly LOCAL_URL=http://127.0.0.1:8000
 
 readonly DEFAULT_QUESTION="What are the primary risk factors facing Apple, \
@@ -115,7 +116,7 @@ read_stream() {
 #######################################
 # Send the question and print the answer.
 # Globals:
-#   KEEL_API_TOKEN (read)
+#   KEEL_API_TOKEN, ANTHROPIC_API_KEY (read)
 # Arguments:
 #   The command line.
 #######################################
@@ -141,8 +142,13 @@ main() {
     shift
   done
 
-  if [[ -z "${KEEL_API_TOKEN:-}" ]]; then
-    echo 'KEEL_API_TOKEN is not set. Export it, or run: set -a; . ./.env' >&2
+  local auth
+  if [[ -n "${KEEL_API_TOKEN:-}" ]]; then
+    auth="Authorization: Bearer ${KEEL_API_TOKEN}"
+  elif [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then
+    auth="X-Anthropic-Api-Key: ${ANTHROPIC_API_KEY}"
+  else
+    echo 'Set KEEL_API_TOKEN or ANTHROPIC_API_KEY, or run: set -a; . ./.env' >&2
     exit 1
   fi
 
@@ -151,7 +157,7 @@ main() {
   body="$(jq -n --arg q "${question}" \
     '{question: $q, options: {use_cache: false}}')"
   local request=(curl -sS -N --fail-with-body -X POST "${base_url}/api/ask"
-    -H "Authorization: Bearer ${KEEL_API_TOKEN}"
+    -H "${auth}"
     -H 'Content-Type: application/json'
     -H 'Accept: text/event-stream'
     -d "${body}")

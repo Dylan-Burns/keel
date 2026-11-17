@@ -5,7 +5,7 @@ import {PageBar} from './PageBar';
 /** The date the backup restore was last tested (infra/README.md). */
 export const RESTORE_TESTED_ON = '2026-10-22';
 
-/** The months the pilot keeps the audit log (chapter 27.2). */
+/** The months the pilot keeps the audit log. */
 export const AUDIT_RETENTION_MONTHS = 12;
 
 /** 1 section of the data use page. */
@@ -65,7 +65,7 @@ export const DATA_USE_SECTIONS: readonly Section[] = [
 ];
 
 /**
- * The data use page (chapter 27.2): what Keel sends where, what it logs and
+ * The data use page: what Keel sends where, what it logs and
  * for how long, who sees the history, and the date of the restore test.
  * External names are text, not links.
  *

@@ -1,13 +1,13 @@
 """The background work of `keel serve`: the bootstrap and the nightly jobs.
 
-`keel serve --bootstrap` (chapter 29.9 step 6) starts the HTTP server
+`keel serve --bootstrap` starts the HTTP server
 first, then runs the bootstrap of `keel.bootstrap` in a daemon thread. Once
 the bootstrap reaches `ready`, the same thread opens the index through
 `Services.reload`, so `/api/ready` turns `index_loaded` true without a
 restart.
 
-With `scheduler.enabled` on (Railway, chapter 29.9 step 7) the in-app
-scheduler runs the refresh of chapter 26.3 at `scheduler.refresh_at` and the
+With `scheduler.enabled` on, the in-app
+scheduler runs the refresh at `scheduler.refresh_at` and the
 backup at `scheduler.backup_at`. A refresh that added a filing published a
 new build, so the server reloads the index after it. Both jobs skip while
 the first build is not served yet, so they never race the bootstrap, and

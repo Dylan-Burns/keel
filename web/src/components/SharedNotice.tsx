@@ -18,7 +18,7 @@ const TEXT: Readonly<Record<Exclude<SharedLoad, 'none'>, string>> = {
 
 /**
  * The line above a stored answer opened by its shareable link
- * `/a/{request_id}` (chapter 27.2): the answer renders read-only, or the
+ * `/a/{request_id}`: the answer renders read-only, or the
  * link names an answer that no store holds any more.
  *
  * @param props The props.

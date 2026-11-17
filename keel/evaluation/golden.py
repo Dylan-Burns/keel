@@ -1,4 +1,4 @@
-"""The golden set and its labels (chapters 18.1 and 18.2).
+"""The golden set and its labels.
 
 `eval/golden.yaml` holds the 28 questions with their expected sources. The
 labels live in `eval/labels/`, 1 file per question, with the index version
@@ -78,13 +78,13 @@ class GoldValue(_Model):
 
 
 class GoldenQuestion(_Model):
-    """1 golden question (chapter 18.1).
+    """1 golden question.
 
     Attributes:
         id: `G-01` to `G-28`.
-        type: The question type of the chapter table.
+        type: The question type.
         question: The question text.
-        note: The note of the chapter table.
+        note: The note.
         labels: `chunk` or `section`.
         expected: The expected sources.
         expect_out_of_scope: True when the right response is the
@@ -120,7 +120,7 @@ class GoldenSet(_Model):
     """The golden set file.
 
     Attributes:
-        version: The golden set version (chapter 17.12).
+        version: The golden set version.
         created: The creation date.
         index_version: The index the filing IDs were resolved from.
         questions: The questions.
@@ -179,7 +179,7 @@ class SectionLabel(_Model):
 
 
 class ChunkLabel(_Model):
-    """1 graded chunk (chapter 18.2).
+    """1 graded chunk.
 
     Attributes:
         chunk_id: The chunk ID.

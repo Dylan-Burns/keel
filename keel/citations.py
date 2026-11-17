@@ -1,4 +1,4 @@
-"""The answer model and the server-side citation validator (chapter 12.9).
+"""The answer model and the server-side citation validator.
 
 The validator runs on every answer after the stream. It parses the tool
 input with the pydantic model of the schema, removes every citation to a
@@ -10,7 +10,7 @@ than 30% of the citations were invalid, and resolves each valid citation
 to its filing name, section title, fiscal label, and SEC URL.
 
 From prompt 1.4.0 a citation can also name a fact ID of the `<facts>`
-block (chapter 26.1, step 6). A known fact ID resolves to the filing that
+block. A known fact ID resolves to the filing that
 reported the value, with a link to its EDGAR filing index; an unknown fact
 ID is removed and counted as drift, like a chunk outside the context.
 """
@@ -151,7 +151,7 @@ class Refusal(_Model):
 
 
 class Answer(_Model):
-    """The answer object of the schema (chapter 12.4).
+    """The answer object of the schema.
 
     Attributes:
         direct_answer: 3 to 6 sentences with inline citations.
@@ -179,7 +179,7 @@ class Answer(_Model):
 
 
 class ResolvedCitation(_Model):
-    """1 valid citation with its source (chapter 14.2).
+    """1 valid citation with its source.
 
     Attributes:
         chunk_id: The chunk ID, or the fact ID of a fact citation.
@@ -255,7 +255,7 @@ class ValidatedAnswer(_Model):
 
 
 def parse_answer(text: str) -> Answer:
-    """Parse the tool input JSON with the answer model (12.9 step 1).
+    """Parse the tool input JSON with the answer model.
 
     Args:
         text: The full tool input.
@@ -281,7 +281,7 @@ def _numbers(text: str) -> set[str]:
 
 
 def quote_mismatch(quote: str, chunk_text: str) -> bool:
-    """Check that every number of a quote appears in the chunk (12.5).
+    """Check that every number of a quote appears in the chunk.
 
     Args:
         quote: The quote.
@@ -404,7 +404,7 @@ def validate(
     sec_urls: Mapping[str, str | None],
     facts: Mapping[str, edgar.FactLine] | None = None,
 ) -> ValidatedAnswer:
-    """Validate the citations of an answer (chapter 12.9).
+    """Validate the citations of an answer.
 
     Args:
         answer: The parsed answer.

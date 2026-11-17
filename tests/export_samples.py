@@ -1,4 +1,4 @@
-"""A stored answer record for the memo export tests (chapter 27.2)."""
+"""A stored answer record for the memo export tests."""
 
 from typing import Any
 

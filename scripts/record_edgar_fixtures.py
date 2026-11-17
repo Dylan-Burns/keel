@@ -1,6 +1,6 @@
 """Record the EDGAR test fixtures once, with the network.
 
-The tests never touch the network (chapter 26.5), so they read responses
+The tests never touch the network, so they read responses
 recorded by this script. It fetches the ticker map and the company facts of
 NVDA through `keel.edgar.EdgarClient` (the same User-Agent, rate limit, and
 allow list as production), trims both to keep the fixtures small, and

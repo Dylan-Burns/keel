@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Judge saved answers with the eval judge (chapter 18.4).
+"""Judge saved answers with the eval judge.
 
 Usage:
     uv run keel ask --json "question" > answer.json

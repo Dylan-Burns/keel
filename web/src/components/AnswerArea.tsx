@@ -28,7 +28,7 @@ const CONFIDENCE: Readonly<Record<string, string>> = {
 };
 
 /**
- * The answer area (chapter 14.5): the progress line, the direct answer as it
+ * The answer area: the progress line, the direct answer as it
  * streams, then the findings per company, the comparison table, the gaps,
  * the coverage indicator, the confidence chip, and the next questions.
  *

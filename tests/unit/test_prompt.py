@@ -1,4 +1,4 @@
-"""Tests of the prompt files, the schema, and the user block (chapter 12)."""
+"""Tests of the prompt files, the schema, and the user block."""
 
 import datetime
 import decimal
@@ -29,8 +29,8 @@ VERSIONS = sorted(
     for p in prompt.PROMPTS_DIR.glob("answer_system_v*.md")
 )
 # Model tokens per bge token for plain prompt prose: the live request of
-# stage 7 cached 2,320 tokens for the 1,764 bge tokens of the 1.0.0 system
-# block and tool. The configured calibration factor also absorbs the
+# a measured run cached 2,320 tokens for the 1,764 bge tokens of the 1.0.0
+# system block and tool. The configured calibration factor also absorbs the
 # wrapper line of each chunk, so it overstates plain text.
 PROSE_FACTOR = 1.32
 

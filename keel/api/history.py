@@ -1,4 +1,4 @@
-"""The history per user and the stored answers of shareable links (27.2).
+"""The history per user and the stored answers of shareable links.
 
 The history comes from the audit log (`audit.jsonl` and the rotated
 `audit-<date>.jsonl` files): every record carries the user who asked

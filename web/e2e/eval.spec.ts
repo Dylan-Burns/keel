@@ -2,13 +2,13 @@ import {expect, test} from '@playwright/test';
 
 import {openKeel} from './support/api';
 
-test('the eval page renders the report and the prompt log read-only (W-02)', async ({
+test('the eval page renders the report and the prompt log read-only', async ({
   page,
 }) => {
   await openKeel(page, {path: '/eval'});
   const root = page.getByTestId('eval-page');
   await expect(root).toHaveAttribute('data-load', 'ready');
-  // Before stage 10 ships eval/report.md the report shows its empty state;
+  // Without eval/report.md the report shows its empty state;
   // with the report, the gates show as bars with their numbers.
   const report = page.getByTestId('eval-report');
   await expect(report).toBeVisible();

@@ -1,4 +1,4 @@
-"""Tests of the pilot metrics script (chapter 27.6) on synthetic logs.
+"""Tests of the pilot metrics script on synthetic logs.
 
 The fixtures write each source in the format the merged code writes: the
 audit record of `keel/answer.py` with `user_name`, the `feedback` table of
@@ -307,7 +307,7 @@ def test_pilot_metrics_since_and_gaps(
 
 
 def test_pilot_metrics_legacy_log(tmp_path: pathlib.Path) -> None:
-    """A stage 12 log: no user, no feedback, no manifest, no refresh."""
+    """An early log: no user, no feedback, no manifest, no refresh."""
     path = tmp_path / "audit.jsonl"
     _write(
         path,

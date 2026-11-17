@@ -1,6 +1,6 @@
 /**
  * The client of the admin, watch list, debug, and memo routes
- * (docs/API_ADMIN.md, chapter 27.2). Every call sends the bearer token; the
+ * (docs/API_ADMIN.md). Every call sends the bearer token; the
  * server enforces the admin role, so a page that hides a control never
  * replaces the check.
  */

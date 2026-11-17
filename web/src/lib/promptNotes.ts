@@ -20,7 +20,7 @@ export interface PromptNote {
 const NOTES: Readonly<Record<string, PromptNote>> = {
   '1.0.0': {
     title: 'The first measured prompt',
-    what: 'The prompt of chapter 12: 21 rules on grounding every claim in the filings, copying numbers exactly, listing gaps, and the shape of the answer.',
+    what: 'The prompt: 21 rules on grounding every claim in the filings, copying numbers exactly, listing gaps, and the shape of the answer.',
     why: 'The starting point. The length rules (17, 18, 20, 21) were tightened before release, after the first test answers ran out of room at 4,000 output tokens.',
     result:
       'On the 2 example questions every citation was valid, at about $0.12 to $0.14 per answer.',

@@ -11,7 +11,7 @@ export interface PartialCoverageBannerProps {
 
 /**
  * The yellow partial-coverage banner: it names the absent companies or the
- * count of unverified findings, above the answer (table 14.6).
+ * count of unverified findings, above the answer.
  *
  * @param props The props.
  * @return The banner.

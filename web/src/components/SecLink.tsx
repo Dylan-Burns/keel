@@ -14,7 +14,7 @@ export interface SecLinkProps {
 
 /**
  * A link to the SEC that opens in a new tab. Only `https://www.sec.gov`
- * URLs render as links; any other URL renders as text (chapter 14.5). A
+ * URLs render as links; any other URL renders as text. A
  * URL with a text fragment says that it jumps to the excerpt.
  *
  * @param props The props.

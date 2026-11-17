@@ -1,5 +1,5 @@
 # Fiscal-year-end month per ticker (1 to 12). The parser reads the month from
-# the ticker's 10-K in the corpus first (chapter 7.9, step 4); this file is the
+# the ticker's 10-K in the corpus first; this file is the
 # fallback for a ticker with no 10-K. It lists the non-December year ends of
 # E-D-06. A ticker absent from this file has a December year end.
 AAPL: 9
@@ -17,5 +17,5 @@ ORCL: 5
 PG: 6
 SBUX: 9
 TGT: 1
-V: 9  # not in the E-D-06 list; the V 10-K period ends on September 30 (stage 2)
+V: 9  # not in the E-D-06 list; the V 10-K period ends on September 30
 WMT: 1

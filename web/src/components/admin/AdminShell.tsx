@@ -3,8 +3,9 @@ import {useState} from 'react';
 
 import {setToken} from '../../api/client';
 import {useAdminRole} from '../../useAdminRole';
+import {CredentialField} from '../CredentialField';
+import {NoAccess} from '../NoAccess';
 import {PageBar} from '../PageBar';
-import {TokenField} from '../TokenField';
 import type {OpsPage} from './AdminNav';
 import {AdminNav} from './AdminNav';
 
@@ -30,9 +31,11 @@ export interface AdminShellProps {
 /**
  * The frame of an operations page: the top bar with the token field, the
  * operations navigation, and the role gate. The body renders only when the
- * token passes; an admin-only page tells any other role that the API
- * refuses it. The API checks the role on every call, so the gate is a
- * convenience, not the control.
+ * token passes; a visitor of a public service gets the token screen, since
+ * the API refuses these routes to visitors (403 `sign_in_required`); an
+ * admin-only page tells any other role that the API refuses it. The API
+ * checks the role on every call, so the gate is a convenience, not the
+ * control.
  *
  * @param props The props.
  * @return The page.
@@ -59,14 +62,22 @@ export function AdminShell({
       data-role={role.kind}
     >
       <PageBar title={title}>
-        <TokenField
-          hasToken={role.kind !== 'no_token'}
+        <CredentialField
+          hasToken={role.kind !== 'no_token' && role.kind !== 'visitor'}
           rejected={role.kind === 'rejected'}
           onSave={onSave}
         />
       </PageBar>
       {known && <AdminNav current={current} isAdmin={isAdmin} />}
       <main className="mx-auto w-full max-w-6xl space-y-3 px-3 py-3">
+        {role.kind === 'visitor' && (
+          <div className="flex justify-center py-6">
+            <NoAccess
+              message="This page is for Keel users with an access token. Visitors can ask questions and read the other pages."
+              onSave={onSave}
+            />
+          </div>
+        )}
         {role.kind === 'no_token' && (
           <p className="text-[13px] text-muted">
             Enter your access token to open this page.

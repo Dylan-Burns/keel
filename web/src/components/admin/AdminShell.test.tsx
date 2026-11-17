@@ -1,12 +1,15 @@
 import {render, screen} from '@testing-library/react';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
+import {setAccessMode} from '../../api/access';
 import {TOKEN_KEY} from '../../api/client';
 import {FORBIDDEN, routeFetch} from '../../testing/admin';
 import {AdminShell} from './AdminShell';
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  setAccessMode(null);
+  window.sessionStorage.clear();
 });
 
 function shell(adminOnly: boolean): void {
@@ -80,5 +83,16 @@ describe('AdminShell', () => {
       'The token was rejected.',
     );
     expect(screen.queryByTestId('body')).toBeNull();
+  });
+
+  it('shows a visitor of a public service the token screen, with no probe', () => {
+    setAccessMode('public');
+    const calls = routeFetch({});
+    shell(false);
+    expect(screen.getByTestId('page')).toHaveAttribute('data-role', 'visitor');
+    expect(screen.getByTestId('no-access')).toBeInTheDocument();
+    expect(screen.queryByTestId('body')).toBeNull();
+    expect(screen.queryByTestId('ops-link-jobs')).toBeNull();
+    expect(calls).toHaveLength(0);
   });
 });

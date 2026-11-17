@@ -1,4 +1,4 @@
-"""Token chunks with overlap and SimHash (chapter 9.1).
+"""Token chunks with overlap and SimHash.
 
 The chunker splits each canonical section of a parsed filing into chunks
 of about 400 tokens of the embedding model's tokenizer. A chunk never
@@ -59,7 +59,7 @@ class TokenCounter(Protocol):
 
 @dataclasses.dataclass(frozen=True)
 class HFTokenCounter:
-    """The tokenizer of the pinned embedding model (chapter 9.1).
+    """The tokenizer of the pinned embedding model.
 
     Attributes:
         tokenizer: The fast tokenizer read from `tokenizer.json`.
@@ -122,12 +122,12 @@ class HFTokenCounter:
 
 
 class Chunk(pydantic.BaseModel):
-    """1 chunk with the metadata of chapter 9.2.
+    """1 chunk with the metadata.
 
-    The index assigns `vector_row` at stage 4.
+    The index assigns `vector_row` when it embeds.
 
     Attributes:
-        chunk_id: `{filing_id}__{section}__{sequence:04d}` (chapter 7.11).
+        chunk_id: `{filing_id}__{section}__{sequence:04d}`.
         filing_id: The filing ID.
         ticker: The ticker.
         company: The company name from the header.
@@ -185,7 +185,7 @@ class Chunk(pydantic.BaseModel):
 
 @dataclasses.dataclass(frozen=True)
 class ChunkSizes:
-    """The chunk sizes in tokens (chapter 9.1, decision D-16).
+    """The chunk sizes in tokens (decision D-16).
 
     Attributes:
         target: The target body size.
@@ -295,7 +295,7 @@ def fiscal_label(meta: base.FilingMetadata) -> str:
 
 
 def prefix_line(meta: base.FilingMetadata, title: str) -> str:
-    """Render the prefix line of a chunk (chapter 9.1).
+    """Render the prefix line of a chunk.
 
     Args:
         meta: The filing metadata.
@@ -545,7 +545,7 @@ def chunk_filing(
     sizes: ChunkSizes,
     detected: sections_mod.SectionResult | None = None,
 ) -> FilingChunks:
-    """Chunk 1 parsed filing (chapter 9.1, steps 1 to 7).
+    """Chunk 1 parsed filing.
 
     Args:
         filing: The parsed filing, not quarantined.

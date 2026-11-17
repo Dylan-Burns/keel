@@ -30,8 +30,8 @@ export function questionValid(question: string): boolean {
 }
 
 /**
- * The question area (chapter 14.5): the input with a character counter, the
- * example chips with the G-27 preset (W-04), the Ask button, and the resolved
+ * The question area: the input with a character counter, the
+ * example chips with the G-27 preset, the Ask button, and the resolved
  * entities line.
  *
  * @param props The props.
