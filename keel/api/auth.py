@@ -31,7 +31,7 @@ from keel import users
 BEARER = "bearer"
 DEFAULT_TENANT = "default"
 KEY_HEADER = "x-anthropic-api-key"
-ANONYMOUS = "visitor"
+ANONYMOUS = users.VISITOR_NAME
 # Anthropic keys start with sk-ant- and hold URL-safe characters only.
 KEY_PATTERN = re.compile(r"^sk-ant-[A-Za-z0-9_-]{16,250}$")
 KEY_NAME_DIGITS = 16

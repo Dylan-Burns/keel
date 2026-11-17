@@ -38,10 +38,28 @@ ADMIN: Role = "admin"
 VisitorRole = Literal["visitor"]
 VISITOR: VisitorRole = "visitor"
 LEGACY_USER = "legacy"
+# The names of the visitors of a public service: `visitor` without a key,
+# `visitor-<hash>` with one. No users file entry may take them, or a
+# visitor would read that user's history and answers.
+VISITOR_NAME = "visitor"
 HASH_PREFIX = "sha256:"
 TOKEN_BYTES = 32  # 256 random bits
 NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 FILE_MODE = 0o600
+
+
+def is_reserved(name: str) -> bool:
+    """True for a name that no users file entry may take.
+
+    Args:
+        name: The user name.
+
+    Returns:
+        True for `legacy`, `visitor`, and `visitor-<anything>`.
+    """
+    return name in (LEGACY_USER, VISITOR_NAME) or name.startswith(
+        f"{VISITOR_NAME}-"
+    )
 
 
 class UserEntry(pydantic.BaseModel):
@@ -77,8 +95,9 @@ class UsersFile(pydantic.BaseModel):
         names = [u.name for u in self.users]
         if len(names) != len(set(names)):
             raise ValueError("a user name appears twice")
-        if LEGACY_USER in names:
-            raise ValueError(f"the name {LEGACY_USER} is reserved")
+        reserved = sorted(n for n in names if is_reserved(n))
+        if reserved:
+            raise ValueError(f"the name {reserved[0]} is reserved")
         return self
 
 
@@ -238,10 +257,10 @@ def add_user(path: pathlib.Path, name: str, role: str) -> str:
     if role not in ROLES:
         choices = ", ".join(ROLES)
         raise errors.ConfigError(f"the role must be one of {choices}")
-    if not NAME_PATTERN.match(name) or name == LEGACY_USER:
+    if not NAME_PATTERN.match(name) or is_reserved(name):
         raise errors.ConfigError(
             f"the name must match {NAME_PATTERN.pattern} and not be "
-            f"{LEGACY_USER}"
+            f"{LEGACY_USER}, {VISITOR_NAME}, or {VISITOR_NAME}-..."
         )
     current = load_file(path)
     if any(u.name == name for u in current.users):
