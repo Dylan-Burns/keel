@@ -9,10 +9,17 @@ public issue. Expect an acknowledgement within 2 business days.
 ## Scope
 
 Keel processes public SEC filings and sends question text plus filing
-excerpts to the model provider over HTTPS. No private data is in scope for
-the demo or the pilot. The controls that ship, and the ones that do not,
-are listed in `docs/15_security.md` (S-01 to S-17) and summarized in
-`docs/27_pilot_ready_product_features.md`.
+excerpts to the model provider over HTTPS. The threat model and the
+controls S-01 to S-20, each with where it lives in the code and how it is
+tested, are in [docs/SECURITY.md](docs/SECURITY.md).
+
+The public site at <https://keeldd.com> runs in a bring-your-own-key mode.
+A visitor may send their own Anthropic API key in the `X-Anthropic-Api-Key`
+header; the service uses it for that request only, never stores or logs
+it, and Caddy strips the header from its access log. Visitors without a
+key get cached answers only, and no visitor can reach the status, debug,
+or admin routes. Reports about the handling of visitor keys are
+especially welcome.
 
 ## Supported versions
 
@@ -23,5 +30,6 @@ are listed in `docs/15_security.md` (S-01 to S-17) and summarized in
 
 ## Dependencies
 
-Dependencies are pinned in `uv.lock`, scanned by `pip-audit` on every PR and
-by Dependabot weekly. Container images are scanned by Trivy at release.
+Dependencies are pinned in `uv.lock` and `web/package-lock.json`, scanned
+by `pip-audit` on every PR and by Dependabot weekly. Container images are
+scanned by Trivy at release.
