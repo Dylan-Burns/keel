@@ -11,12 +11,18 @@ export interface NoAccessProps {
   readonly checking?: boolean;
   /** Saves the token, as the token field of the top bar does. */
   readonly onSave: (token: string) => void;
+  /**
+   * Goes on without a token, on a public service: a link under the form.
+   * Absent where the page needs a token.
+   */
+  readonly onSkip?: () => void;
 }
 
 /**
- * The screen of the access gate: the Keel logo, what the token opens, and
- * a field to enter it. The page keeps the token in
- * session storage only (chapter 14.4 and control S-14).
+ * The screen of the access gate: the Keel logo, what the token opens, a
+ * field to enter it, and on a public service a way on without a token.
+ * The page keeps the token in session storage only (chapter 14.4 and
+ * control S-14).
  *
  * @param props The message, the refused flag, and the save action.
  * @return The screen.
@@ -26,6 +32,7 @@ export function NoAccess({
   rejected = false,
   checking = false,
   onSave,
+  onSkip,
 }: NoAccessProps): JSX.Element {
   const [value, setValue] = useState('');
   const inputId = useId();
@@ -80,6 +87,16 @@ export function NoAccess({
           {checking ? 'Checking the token' : 'Continue'}
         </button>
       </form>
+      {onSkip !== undefined && (
+        <button
+          type="button"
+          className="font-mono text-[10.5px] uppercase tracking-[0.08em] text-muted underline underline-offset-2 hover:text-accent"
+          data-testid="no-access-skip"
+          onClick={onSkip}
+        >
+          Continue without a token
+        </button>
+      )}
     </section>
   );
 }

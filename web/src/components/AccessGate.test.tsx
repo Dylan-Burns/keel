@@ -1,128 +1,136 @@
-import {fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {fireEvent, render, screen} from '@testing-library/react';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
+import {ACCESS_KEY, getAccessMode, setAccessMode} from '../api/access';
 import {TOKEN_KEY} from '../api/client';
-import {ACCEPTED_KEY, AccessGate, fingerprint} from './AccessGate';
+import {AccessGate} from './AccessGate';
 
-/** Stubs fetch: the admin probe answers with the given status. */
-function probe(status: number): ReturnType<typeof vi.fn> {
-  const fetchMock = vi.fn(() =>
-    Promise.resolve(
-      new Response(JSON.stringify({}), {
+/**
+ * Stubs fetch: `/api/ready` reports the access mode, the admin probe
+ * answers with the given status.
+ */
+function serve(
+  access: 'public' | 'token' | null,
+  probeStatus = 200,
+): ReturnType<typeof vi.fn> {
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    const body = url.startsWith('/api/ready')
+      ? {
+          ready: true,
+          index_version: 'v1',
+          checks: {index_loaded: true, provider_key: true},
+          ...(access === null ? {} : {access}),
+        }
+      : {};
+    const status = url.startsWith('/api/ready') ? 200 : probeStatus;
+    return Promise.resolve(
+      new Response(JSON.stringify(body), {
         status,
         headers: {'Content-Type': 'application/json'},
       }),
-    ),
-  );
+    );
+  });
   vi.stubGlobal('fetch', fetchMock);
   return fetchMock;
 }
 
+function calledPaths(fetchMock: ReturnType<typeof vi.fn>): string[] {
+  return fetchMock.mock.calls.map(call => String(call[0]));
+}
+
 describe('AccessGate', () => {
-  beforeEach(() => window.sessionStorage.clear());
+  beforeEach(() => {
+    window.sessionStorage.clear();
+    setAccessMode(null);
+  });
   afterEach(() => vi.unstubAllGlobals());
 
-  it('shows only the gate without a token, then the page once accepted', async () => {
-    const fetchMock = probe(200);
+  it('lets a visitor of a public service straight in', async () => {
+    const fetchMock = serve('public');
     render(
       <AccessGate>
         <p>the page</p>
       </AccessGate>,
     );
-    expect(screen.getByTestId('no-access')).toBeInTheDocument();
-    expect(screen.queryByText('the page')).toBeNull();
-    expect(fetchMock).not.toHaveBeenCalled();
-    fireEvent.change(screen.getByLabelText('Access token'), {
-      target: {value: 'good-token'},
-    });
-    fireEvent.click(screen.getByRole('button', {name: 'Continue'}));
-    expect(window.sessionStorage.getItem(TOKEN_KEY)).toBe('good-token');
     expect(await screen.findByText('the page')).toBeInTheDocument();
+    expect(screen.queryByTestId('no-access')).toBeNull();
+    expect(getAccessMode()).toBe('public');
+    expect(window.sessionStorage.getItem(ACCESS_KEY)).toBe('public');
+    // No role probe for a visitor.
+    expect(calledPaths(fetchMock)).toEqual(['/api/ready']);
+  });
+
+  it('keeps the token gate in token mode', async () => {
+    serve('token');
+    render(
+      <AccessGate>
+        <p>the page</p>
+      </AccessGate>,
+    );
+    expect(await screen.findByTestId('no-access')).toBeInTheDocument();
+    expect(screen.queryByText('the page')).toBeNull();
+    expect(screen.queryByTestId('no-access-skip')).toBeNull();
+  });
+
+  it('treats a server without the access field as token mode', async () => {
+    serve(null);
+    render(
+      <AccessGate>
+        <p>the page</p>
+      </AccessGate>,
+    );
+    expect(await screen.findByTestId('no-access')).toBeInTheDocument();
+    expect(getAccessMode()).toBe('token');
+  });
+
+  it('shows no gate before the mode is known', () => {
+    serve('public');
+    render(
+      <AccessGate>
+        <p>the page</p>
+      </AccessGate>,
+    );
+    expect(screen.getByTestId('access-checking')).toBeInTheDocument();
     expect(screen.queryByTestId('no-access')).toBeNull();
   });
 
-  it('keeps a rejected token at the gate', async () => {
-    window.sessionStorage.setItem(TOKEN_KEY, 'bad-token');
-    probe(401);
-    render(
-      <AccessGate>
-        <p>the page</p>
-      </AccessGate>,
-    );
-    await waitFor(() =>
-      expect(
-        screen.getByRole('heading', {name: 'Access token rejected'}),
-      ).toBeInTheDocument(),
-    );
-    expect(screen.queryByText('the page')).toBeNull();
-  });
-
-  it('lets an analyst token through', async () => {
-    window.sessionStorage.setItem(TOKEN_KEY, 'analyst-token');
-    probe(403);
-    render(
-      <AccessGate>
-        <p>the page</p>
-      </AccessGate>,
-    );
-    expect(await screen.findByText('the page')).toBeInTheDocument();
-  });
-
-  it('renders the page at once on a later load of an accepted token', async () => {
-    window.sessionStorage.setItem(TOKEN_KEY, 'good-token');
-    window.sessionStorage.setItem(ACCEPTED_KEY, fingerprint('good-token'));
-    probe(200);
-    render(
-      <AccessGate>
-        <p>the page</p>
-      </AccessGate>,
-    );
-    // No gate while the check runs again.
-    expect(screen.getByText('the page')).toBeInTheDocument();
-    expect(screen.queryByTestId('no-access')).toBeNull();
-    expect(await screen.findByText('the page')).toBeInTheDocument();
-  });
-
-  it('returns to the gate when a remembered token is refused', async () => {
-    window.sessionStorage.setItem(TOKEN_KEY, 'old-token');
-    window.sessionStorage.setItem(ACCEPTED_KEY, fingerprint('old-token'));
-    probe(401);
+  it('renders at once on a later load of a public service', () => {
+    window.sessionStorage.setItem(ACCESS_KEY, 'public');
+    serve('public');
     render(
       <AccessGate>
         <p>the page</p>
       </AccessGate>,
     );
     expect(screen.getByText('the page')).toBeInTheDocument();
+  });
+
+  it('refuses a wrong admin token on a public service, then lets the visitor on', async () => {
+    window.sessionStorage.setItem(TOKEN_KEY, 'wrong');
+    serve('public', 401);
+    render(
+      <AccessGate>
+        <p>the page</p>
+      </AccessGate>,
+    );
     expect(
       await screen.findByRole('heading', {name: 'Access token rejected'}),
     ).toBeInTheDocument();
-    expect(window.sessionStorage.getItem(ACCEPTED_KEY)).toBeNull();
-  });
-
-  it('checks a token the tab has not seen accepted before', () => {
-    window.sessionStorage.setItem(TOKEN_KEY, 'new-token');
-    window.sessionStorage.setItem(ACCEPTED_KEY, fingerprint('old-token'));
-    probe(200);
-    render(
-      <AccessGate>
-        <p>the page</p>
-      </AccessGate>,
-    );
-    expect(screen.getByTestId('no-access')).toBeInTheDocument();
     expect(screen.queryByText('the page')).toBeNull();
+    fireEvent.click(screen.getByTestId('no-access-skip'));
+    expect(await screen.findByText('the page')).toBeInTheDocument();
+    expect(window.sessionStorage.getItem(TOKEN_KEY)).toBeNull();
   });
 
-  it('remembers a token the server accepted', async () => {
-    window.sessionStorage.setItem(TOKEN_KEY, 'good-token');
-    probe(200);
+  it('lets an admin token through on a public service', async () => {
+    window.sessionStorage.setItem(TOKEN_KEY, 'admin-token');
+    serve('public', 200);
     render(
       <AccessGate>
         <p>the page</p>
       </AccessGate>,
     );
-    await screen.findByText('the page');
-    expect(window.sessionStorage.getItem(ACCEPTED_KEY)).toBe(
-      fingerprint('good-token'),
-    );
+    expect(await screen.findByText('the page')).toBeInTheDocument();
   });
 });
