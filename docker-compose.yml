@@ -19,6 +19,8 @@ services:
       # these paths.
       KEEL_DICTIONARIES__COMPANIES: /app/state/companies.yaml
       KEEL_AUTH__USERS_FILE: /app/state/users.yaml
+      # The public site: visitors ask with their own Anthropic key.
+      KEEL_AUTH__PUBLIC: "1"
       KEEL_SCHEDULER__BACKUP_DIR: /app/state/backups
       KEEL_EVAL__REPORT_DIR: /app/logs/eval
       KEEL_INDEX__DIR: /app/index

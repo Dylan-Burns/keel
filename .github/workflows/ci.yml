@@ -49,7 +49,7 @@ jobs:
         with:
           path: ~/.cache/huggingface
           key: hf-models-${{ hashFiles('config/keel.yaml') }}
-      - name: download the pinned models (no-op before stage 4)
+      - name: download the pinned models
         run: |
           if uv run keel doctor --help 2>/dev/null | grep -q -- --download-models; then
             uv run keel doctor --download-models

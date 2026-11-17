@@ -1,22 +1,17 @@
-## Stage
-
-<!-- Stage number and name from docs/28_build_sequence.md, for example "Stage 7: single call and validation" -->
-
 ## What changed
 
-<!-- 2 to 5 lines. What the reviewer sees in the diff, not a restatement of the spec. -->
+<!-- 2 to 5 lines: what the reviewer sees in the diff and why. -->
 
-## Done-when evidence
+## Evidence
 
-<!-- Paste the output that satisfies the stage's done-when column: command output, counts, a screenshot path. -->
+<!-- Test output, measured numbers, or a screenshot path. -->
 
 ## Checklist
 
-- [ ] One stage only; no roadmap items from chapter 22 unless chapter 28 names them
-- [ ] `make test` green locally; CI green
-- [ ] New tests for new behavior; edge cases from chapter 19 have their named tests
+- [ ] `make test` and `npm run check --prefix web` green locally; CI green
+- [ ] New tests for new behavior; a new edge case has its named test in docs/EDGE_CASES.md
+- [ ] Still exactly 1 model request per question (`test_single_request`)
 - [ ] Google style: docstrings on public APIs, module imports, no mutable defaults
 - [ ] No secrets, no em dashes, no commented-out code
-- [ ] `docs/BUILD_REPORT.md` updated for this stage
-- [ ] Deviations from the specification recorded in `docs/04_*.md` with a reason
+- [ ] A changed decision is recorded in docs/DECISIONS.md with its reason
 - [ ] Commits follow Conventional Commits and each one builds on its own
