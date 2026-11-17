@@ -135,7 +135,7 @@ _INSERT_CHUNK = (
 
 @dataclasses.dataclass(frozen=True)
 class FilingState:
-    """What an incremental build compares for 1 indexed filing (7.12).
+    """What an incremental build compares for 1 indexed filing.
 
     Attributes:
         filing_id: The filing ID.

@@ -616,7 +616,7 @@ def run_refresh(  # pylint: disable=too-many-arguments
     clock: Clock = _utc_now,
     reporter: steps.Reporter = steps.NULL,
 ) -> RefreshReport:
-    """Check the watched and added tickers for new filings (26.3).
+    """Check the watched and added tickers for new filings.
 
     A failure on 1 ticker (an unknown ticker, a fetch, a build error) is
     logged and the run goes on with the next ticker. A dry run still

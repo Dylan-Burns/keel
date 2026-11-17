@@ -25,7 +25,7 @@ type Load =
   | {readonly kind: 'ready'; readonly data: EvalResponse};
 
 /**
- * The eval page at `/eval` (W-02, chapter 25.2): the regression gates as
+ * The eval page at `/eval`: the regression gates as
  * metric bars, the headline numbers and charts of the run, then
  * `eval/report.md` with a plain-language note under each section and its
  * Markdown and JSON downloads, then `docs/PROMPT_LOG.md`, read-only,

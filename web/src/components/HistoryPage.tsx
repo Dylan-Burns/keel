@@ -57,7 +57,7 @@ function ownerLine(data: HistoryResponse, scope: HistoryScope): string {
 }
 
 /**
- * The history page at `/history` (chapter 27.2): the questions of the
+ * The history page at `/history`: the questions of the
  * signed-in user, newest first, from the audit log. A visitor of a public
  * service sees the questions of their own API key; the server keeps no
  * history for a visitor without one. Each row opens the

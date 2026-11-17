@@ -1,9 +1,9 @@
 """The in-app scheduler for the nightly jobs.
 
-On a single-container host with no cron that can reach the app's volume,
-the nightly refresh and backup run inside `keel serve` when
-`scheduler.enabled` is on. The AWS host runs the same work from systemd timers instead, so the
-flag is off by default.
+On a single-container host with no cron that can reach the app's volume, the
+nightly refresh and backup run inside `keel serve` when `scheduler.enabled` is
+on. The AWS host runs the same work from systemd timers instead, so the flag is
+off by default.
 
 The times in `scheduler.refresh_at` and `scheduler.backup_at` are UTC. The
 jobs run 1 at a time in 1 daemon thread, so a long refresh delays the backup

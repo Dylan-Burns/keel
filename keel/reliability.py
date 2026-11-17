@@ -1,13 +1,13 @@
 """The reliability layer around the single call.
 
-`CircuitBreaker` counts provider failures (16.3): 3 consecutive failures
+`CircuitBreaker` counts provider failures: 3 consecutive failures
 within 60 seconds open it for 30 seconds; while it is open every question
-goes to the fallback model (16.4); after 30 seconds 1 probe request goes to
+goes to the fallback model; after 30 seconds 1 probe request goes to
 the primary model, and its result closes or reopens the breaker.
 `BudgetGuard` sums the cost of the day from the audit log and stops model
 requests at `limits.daily_budget_usd` (16.10 step 5, control S-05 step 3).
 `halve_context` drops the lowest-ranked chunks until the context fits half
-its budget, for the 1 retry after a context overflow (16.6 step 3).
+its budget, for the 1 retry after a context overflow.
 `check_index` adds the row count check of 16.7 step 2 to the checksums.
 """
 
@@ -42,7 +42,7 @@ HALF_OPEN = "half_open"
 
 @dataclasses.dataclass(frozen=True)
 class BreakerState:
-    """A snapshot of the breaker for `/api/ready` (16.3 step 4).
+    """A snapshot of the breaker for `/api/ready`.
 
     Attributes:
         state: `closed`, `open`, or `half_open`.

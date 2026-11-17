@@ -551,7 +551,7 @@ def build_parser() -> argparse.ArgumentParser:
 def _add_refresh_commands(
     commands: "argparse._SubParsersAction[argparse.ArgumentParser]",
 ) -> None:
-    """Add `keel watch` and `keel refresh` to the subcommands (26.3)."""
+    """Add `keel watch` and `keel refresh` to the subcommands."""
     watch_parser = commands.add_parser(
         "watch", help="add, remove, or list the watched tickers"
     )
@@ -1025,7 +1025,7 @@ def run_index(
 
 
 def run_bootstrap(settings: config.Settings) -> int:
-    """Run `keel bootstrap`: corpus and index on a first start (29.9).
+    """Run `keel bootstrap`: corpus and index on a first start.
 
     Args:
         settings: The loaded settings.
@@ -1570,7 +1570,7 @@ def run_add(
     corpus_dir: pathlib.Path | None,
     out_dir: pathlib.Path | None,
 ) -> int:
-    """Run `keel add`: 1 company from EDGAR into the index (26.2).
+    """Run `keel add`: 1 company from EDGAR into the index.
 
     Args:
         settings: The loaded settings.
@@ -1652,7 +1652,7 @@ def run_watch(
     tickers: Sequence[str],
     user: str | None,
 ) -> int:
-    """Run `keel watch`: add, remove, or list watched tickers (26.3).
+    """Run `keel watch`: add, remove, or list watched tickers.
 
     Args:
         settings: The loaded settings.
@@ -1700,7 +1700,7 @@ def run_refresh(
     corpus_dir: pathlib.Path | None,
     out_dir: pathlib.Path | None,
 ) -> int:
-    """Run `keel refresh`: new filings of the watched tickers (26.3).
+    """Run `keel refresh`: new filings of the watched tickers.
 
     Args:
         settings: The loaded settings.

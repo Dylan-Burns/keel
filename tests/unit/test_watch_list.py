@@ -1,4 +1,4 @@
-"""The watch list store and the pure parts of `keel refresh` (26.3)."""
+"""The watch list store and the pure parts of `keel refresh`."""
 
 import datetime
 import json

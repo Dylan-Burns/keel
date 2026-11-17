@@ -1,5 +1,5 @@
 /**
- * Copy as markdown and Export JSON for the footer (chapter 14.5). A copy
+ * Copy as markdown and Export JSON for the footer. A copy
  * during the stream carries a header line that says partial answer with the
  * request ID (E-F-05).
  */

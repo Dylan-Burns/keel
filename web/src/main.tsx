@@ -31,9 +31,9 @@ const container = document.getElementById('root');
 if (container === null) {
   throw new Error('the #root element is missing from index.html');
 }
-// The client routes: `/eval` is the eval page (W-02), `/history` the history
-// page and `/compsets` the comp sets page (27.2), `/help` the data use page
-// (27.2), `/financials` the financial statements of 1 company,
+// The client routes: `/eval` is the eval page, `/history` the history
+// page and `/compsets` the comp sets page, `/help` the data use page
+//, `/financials` the financial statements of 1 company,
 // `/companies` the watch list and the company jobs, `/jobs` and
 // `/jobs/{id}` the admin jobs, `/users` and `/system` the other admin
 // pages, `/debug` the debug page; every other path is the question page,

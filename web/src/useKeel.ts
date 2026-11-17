@@ -32,7 +32,7 @@ import {baseState, canAsk, initialState, reducer} from './state';
 const RESULT_POLL_MS: readonly number[] = [1000, 2000, 3000, 5000, 8000, 13000];
 
 /**
- * The load state of a shareable link `/a/{request_id}` (chapter 27.2):
+ * The load state of a shareable link `/a/{request_id}`:
  * `none` on any other path, `missing` when no store holds the answer.
  */
 export type SharedLoad = 'none' | 'loading' | 'loaded' | 'missing';
@@ -235,7 +235,7 @@ export function useKeel(): KeelController {
     const run = async (): Promise<void> => {
       let ended = false;
       try {
-        // The live path is the default (chapter 16.12 step 3): the page
+        // The live path is the default: the page
         // never asks for a cached answer; offline mode still serves one.
         for await (const event of askStream(
           {question, options: {use_cache: false}},

@@ -193,7 +193,7 @@ def record_in_manifest(
     path: pathlib.Path,
     entries: dict[str, dict[str, str]],
 ) -> bool:
-    """Add files to the corpus manifest with their source (26.2, step 6).
+    """Add files to the corpus manifest with their source.
 
     The new file names join `files`, `file_count` and `filing_types` grow
     by them, and each file gets an entry under `added` with `source:
@@ -264,7 +264,7 @@ def aliases(ticker: str, company: str) -> list[str]:
 
 
 def ensure_company(path: pathlib.Path, ticker: str, company: str) -> bool:
-    """Add a company to `config/companies.yaml` when absent (17.4).
+    """Add a company to `config/companies.yaml` when absent.
 
     The entry is appended as text, so the comments of the file stay. It
     holds the name, the aliases, and no group.

@@ -60,7 +60,7 @@ export const ADMIN_LINKS: readonly PageLink[] = [
 
 /**
  * The page links under the top bar: history, comp sets, financials,
- * companies, the eval report (W-02), debug, and the data use page (27.2)
+ * companies, the eval report, debug, and the data use page
  * for every user, then the admin pages for an admin, set apart. A visitor
  * of a public service does not see the pages that need a token.
  *

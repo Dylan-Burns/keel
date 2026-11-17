@@ -14,7 +14,7 @@ export interface TemplatePickerProps {
 }
 
 /**
- * The question templates of chapter 27.2: 5 buttons (public comparables,
+ * The question templates: 5 buttons (public comparables,
  * risk benchmark, portfolio review, regulatory scan, memo paragraph). A
  * button opens 2 fields, the companies (names, tickers, or a comp set such
  * as `my software comps`) and the period; Fill puts the question in the

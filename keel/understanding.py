@@ -1981,7 +1981,7 @@ class Understander:
         """Decide whether anything in the question is in scope.
 
         The parts here are the price, advice, and after-corpus requests;
-        an unknown company next to a resolved one is no reason (10.6).
+        an unknown company next to a resolved one is no reason.
         """
         if tickers:
             request = after_corpus or (bool(parts) and not terms)

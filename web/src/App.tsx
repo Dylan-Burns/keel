@@ -62,7 +62,7 @@ function memoFailure(error: unknown): string {
 }
 
 /**
- * The Keel page: the regions of chapter 14.5 and the states of 14.6.
+ * The Keel page: the regions and the states of 14.6.
  *
  * @return The page.
  */

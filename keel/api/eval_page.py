@@ -1,4 +1,4 @@
-"""The data of the `/api/eval` page (W-02).
+"""The data of the `/api/eval` page.
 
 The page shows the newest report of the admin eval job (`<run id>.md`
 in `eval.report_dir`, `<logs.dir>/eval` by default, which is writable on

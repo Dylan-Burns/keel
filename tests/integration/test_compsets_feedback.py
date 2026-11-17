@@ -1,4 +1,4 @@
-"""Comp sets, question templates, and feedback through the API (27.2).
+"""Comp sets, question templates, and feedback through the API.
 
 The app runs on the small synthetic index of tests/integration/
 test_users_api.py with the mock provider, 2 analysts, and an admin.

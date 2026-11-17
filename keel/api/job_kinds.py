@@ -273,7 +273,7 @@ def ensure_corpus(settings: config.Settings, context: jobs.JobContext) -> None:
 def run_add(
     services: state.Services, context: jobs.JobContext, params: TickerParams
 ) -> jobs.JobOutput:
-    """The `add` job: 1 company from EDGAR into the index (26.2).
+    """The `add` job: 1 company from EDGAR into the index.
 
     Args:
         services: The shared services.
@@ -304,7 +304,7 @@ def run_add(
 def run_refresh(
     services: state.Services, context: jobs.JobContext, params: RefreshParams
 ) -> jobs.JobOutput:
-    """The `refresh` job: new filings of the watched tickers (26.3).
+    """The `refresh` job: new filings of the watched tickers.
 
     Args:
         services: The shared services.

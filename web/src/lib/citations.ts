@@ -61,7 +61,7 @@ export function chipFor(run: Run, chunkId: string): ChipInfo {
   return {chunkId, label, valid};
 }
 
-/** A chunk ID (chapter 7.11), the same pattern as `keel/citations.py`. */
+/** A chunk ID, the same pattern as `keel/citations.py`. */
 const CHUNK_ID =
   /^([A-Z0-9][A-Z0-9.-]*)_(10[KQ])_(\d{4})-\d{2}-\d{2}__([a-z_]+)__\d{4,}$/;
 

@@ -39,7 +39,7 @@ export interface GateBarProps {
 }
 
 /**
- * 1 metric bar of the eval page (W-02). The number is in the DOM before the
+ * 1 metric bar of the eval page. The number is in the DOM before the
  * bar grows; a value that misses its gate turns red when the grow ends.
  *
  * @param props The props.

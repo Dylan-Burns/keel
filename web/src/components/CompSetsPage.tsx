@@ -58,11 +58,11 @@ function messageOf(error: unknown, action: 'saved' | 'deleted'): string {
 }
 
 /**
- * The comp sets page at `/compsets` (chapter 27.2): the saved comp sets of
+ * The comp sets page at `/compsets`: the saved comp sets of
  * the firm, a form to create or replace 1 (a name and its tickers), and a
  * delete button on the sets the user may change. A question names a set
  * as `my <name> comps`; the status line lists the tickers outside the
- * index, which `keel add` adds (chapter 26).
+ * index, which `keel add` adds.
  *
  * @return The page.
  */

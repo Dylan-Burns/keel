@@ -48,7 +48,7 @@ function seconds(ms: number | null | undefined): string {
 }
 
 /**
- * The literal request line of chapter 25.1: `model requests: 1`, or with a
+ * The literal request line: `model requests: 1`, or with a
  * retry before content `model requests: 2 (1 failed before content)`.
  *
  * @param audit The audit record.
@@ -185,7 +185,7 @@ function rows(lines: readonly TraceLine[]): JSX.Element[] {
 }
 
 /**
- * The answer-trace drawer (W-01, chapter 25.1): the audit record of the
+ * The answer-trace drawer: the audit record of the
  * answer in pipeline order, with the literal line `model requests: 1`. It
  * springs up under the answer, and the request line pulses once per answer
  * (the parent keys the drawer by request ID). Every value renders as a JSX

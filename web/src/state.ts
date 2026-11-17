@@ -1,5 +1,5 @@
 /**
- * The 11 UI states of chapter 14.6 as 1 union type, and the 1 reducer that
+ * The 11 UI states as 1 union type, and the 1 reducer that
  * moves between them on the server-sent events and the HTTP results.
  *
  * 2 states are overlays: `stale_index` and `network_offline` wrap the state
@@ -584,7 +584,7 @@ function reduceUi(ui: UiState, action: Action): UiState {
     case 'online':
       return removeOverlay(ui, 'network_offline');
     case 'index_status_loaded':
-      // The stale banner never leaves the screen on its own (14.8).
+      // The stale banner never leaves the screen on its own.
       return action.status.corpus_checksum_match ||
         hasOverlay(ui, 'stale_index')
         ? ui

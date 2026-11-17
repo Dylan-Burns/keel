@@ -1,15 +1,15 @@
 /**
- * The client routes of chapter 27.2: the shareable link of a stored answer
+ * The client routes: the shareable link of a stored answer
  * (`/a/{request_id}`) and the history page (`/history`).
  */
 
 /** The path of the history page. */
 export const HISTORY_PATH = '/history';
 
-/** The path of the comp sets page (chapter 27.2). */
+/** The path of the comp sets page. */
 export const COMPSETS_PATH = '/compsets';
 
-/** The path of the data use page (chapter 27.2). */
+/** The path of the data use page. */
 export const HELP_PATH = '/help';
 
 /** The path of the companies page: add, watch list, refresh, facts. */

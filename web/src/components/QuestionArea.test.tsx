@@ -49,7 +49,7 @@ describe('QuestionArea', () => {
     expect(onAsk).toHaveBeenCalledWith(EXAMPLES[0]?.question);
   });
 
-  it('fills the G-27 preset without sending it (W-04)', () => {
+  it('fills the G-27 preset without sending it', () => {
     const {onAsk, onQuestionChange} = renderArea('');
     fireEvent.click(screen.getByTestId('adversarial-preset'));
     expect(onQuestionChange).toHaveBeenCalledWith(

@@ -997,7 +997,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             else None,
             "meta": meta,
         }
-        # The trace drawer renders the audit record of the answer (25.1).
+        # The trace drawer renders the audit record of the answer.
         record["audit"] = self._audit(run, record)
         return Event("final", record)
 
@@ -1148,7 +1148,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
 def _retrieval_trace(
     result: retriever.RetrievalResult | None,
 ) -> dict[str, Any]:
-    """The retrieval part of the audit record, in pipeline order (25.1)."""
+    """The retrieval part of the audit record, in pipeline order."""
     if result is None:
         return {
             "filters": [],

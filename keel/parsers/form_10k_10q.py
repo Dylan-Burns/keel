@@ -538,7 +538,7 @@ def _period_end(
 
 
 def read_cover(text: str) -> CoverPage:
-    """Read the form phrase, the period end, and the registrant (7.9).
+    """Read the form phrase, the period end, and the registrant.
 
     Args:
         text: The clean text, which starts at or near the cover page.

@@ -21,8 +21,8 @@ export interface NoAccessProps {
 /**
  * The screen of the access gate: the Keel logo, what the token opens, a
  * field to enter it, and on a public service a way on without a token.
- * The page keeps the token in session storage only (chapter 14.4 and
- * control S-14).
+ * The page keeps the token in session storage only (control
+ * S-14).
  *
  * @param props The message, the refused flag, and the save action.
  * @return The screen.

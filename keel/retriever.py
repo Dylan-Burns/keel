@@ -1174,7 +1174,7 @@ def cap_companies(
     limit: int,
     per_company: int,
 ) -> tuple[list[str], list[str]]:
-    """Keep the `limit` companies with the highest summed scores (11.3).
+    """Keep the `limit` companies with the highest summed scores.
 
     Args:
         candidates: The candidates, each scored.

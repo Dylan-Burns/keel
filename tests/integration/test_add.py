@@ -1,4 +1,4 @@
-"""`keel add TICKER` on the mini corpus with recorded responses (26.2).
+"""`keel add TICKER` on the mini corpus with recorded responses.
 
 The EDGAR client is offline and reads the responses that
 `scripts/record_add_fixtures.py` recorded under `tests/fixtures/edgar/`;

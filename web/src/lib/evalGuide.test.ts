@@ -7,11 +7,11 @@ const HEADINGS = [
   'Eval report',
   'Regression gates',
   'Retrieval metrics (hybrid)',
-  'Ablation: retrieval mode and reranker (chapter 18.7)',
+  'Ablation: retrieval mode and reranker',
   'Out-of-scope questions',
   'Per question (hybrid)',
   'Weakest questions',
-  'Answer metrics (chapter 18.4 and 18.6)',
+  'Answer metrics',
   'Per question (answers)',
   'Weakest answers',
 ];

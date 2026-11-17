@@ -301,7 +301,7 @@ async def ready(services: Services, fault: Fault) -> fastapi.Response:
         word, whether the daily budget stopped the model, whether the
         answer cache exists, and with `--bootstrap` its phase and
         progress; no amount, no model name, and no error text. HTTP 503
-        with `index_corrupt` when the index failed its checks (16.7); the
+        with `index_corrupt` when the index failed its checks; the
         other failed checks keep HTTP 200, so the front-end can show the
         matching banner.
     """
@@ -641,7 +641,7 @@ async def index_status(
 
 @router.get("/eval")
 async def eval_report(services: Services, caller: Caller) -> eval_page.EvalPage:
-    """The eval page data (W-02): the report, the prompt log, the gates.
+    """The eval page data: the report, the prompt log, the gates.
 
     The markdown goes out as text and the front-end renders it through the
     answer renderer and DOMPurify (S-12 allow list), read-only.

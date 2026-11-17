@@ -255,7 +255,7 @@ class ValidatedAnswer(_Model):
 
 
 def parse_answer(text: str) -> Answer:
-    """Parse the tool input JSON with the answer model (12.9 step 1).
+    """Parse the tool input JSON with the answer model.
 
     Args:
         text: The full tool input.
@@ -281,7 +281,7 @@ def _numbers(text: str) -> set[str]:
 
 
 def quote_mismatch(quote: str, chunk_text: str) -> bool:
-    """Check that every number of a quote appears in the chunk (12.5).
+    """Check that every number of a quote appears in the chunk.
 
     Args:
         quote: The quote.
