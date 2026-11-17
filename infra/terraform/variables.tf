@@ -62,6 +62,17 @@ variable "domain_name" {
   default     = ""
 }
 
+variable "dns_zone" {
+  description = "Who hosts the DNS of domain_name: route53 (Terraform creates the zone and every record) or external (another provider, such as Squarespace; add the records of the dns_records_to_add output there)."
+  type        = string
+  default     = "route53"
+
+  validation {
+    condition     = contains(["route53", "external"], var.dns_zone)
+    error_message = "dns_zone must be route53 or external."
+  }
+}
+
 variable "github_environment" {
   description = "GitHub environment whose jobs may assume the deploy role."
   type        = string

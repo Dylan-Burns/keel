@@ -99,6 +99,25 @@ the first apply runs in 2 steps:
 5. Check `curl -fsS https://keeldd.com/api/health` and
    `curl -fsSI https://www.keeldd.com/`.
 
+### DNS at another provider (Squarespace)
+
+To keep the DNS at the registrar, set `dns_zone = "external"` with
+`domain_name`. Terraform then creates no zone: the certificate covers
+`www.<domain_name>` only, CloudFront serves `www`, and the apex forwards to
+it at the provider (most providers, Squarespace included, have no ALIAS
+record that could point the apex at CloudFront).
+
+1. `terraform apply -target=aws_acm_certificate.keel`, then
+   `terraform output dns_records_to_add`: the certificate validation CNAME
+   and the `www` CNAME.
+2. At the provider, add both CNAMEs, and forward the apex to
+   `https://www.<domain_name>` (Squarespace: Domains, DNS settings, then
+   Domain forwarding, a permanent 301).
+3. `terraform apply`. It waits until ACM sees the validation record (up to
+   2 hours), then adds `www` to the distribution.
+4. Set `KEEL_PUBLIC_URL` to `https://www.<domain_name>`, and the repository
+   variables `TF_DOMAIN_NAME` and `TF_DNS_ZONE=external`.
+
 The read-only plan role already reads Route 53 and ACM through
 `ReadOnlyAccess`. The zone costs 0.50 USD a month; the certificate is free.
 
