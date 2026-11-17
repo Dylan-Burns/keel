@@ -260,6 +260,45 @@ describe('reducer edge cases', () => {
     );
   });
 
+  it('turns a missing or malformed visitor key into the key prompt', () => {
+    for (const [status, code] of [
+      [401, 'api_key_required'],
+      [400, 'invalid_api_key'],
+    ] as const) {
+      const state = run([
+        ask(),
+        {type: 'http_error', status, error: {code, message: 'add a key'}},
+      ]);
+      expect(state.ui).toEqual({
+        kind: 'provider_down',
+        run: null,
+        code,
+        message: 'add a key',
+      });
+      // The token is not at fault, and the visitor can ask again.
+      expect(state.service.tokenRejected).toBe(false);
+      expect(canAsk(state.ui)).toBe(true);
+    }
+  });
+
+  it('keeps the run when Anthropic rejects the visitor key', () => {
+    const state = run([
+      ask(),
+      {
+        type: 'sse',
+        event: {
+          event: 'error',
+          data: {code: 'provider_auth_rejected', message: 'rejected'},
+        },
+      },
+    ]);
+    expect(state.ui.kind).toBe('provider_down');
+    expect(state.ui.kind === 'provider_down' && state.ui.code).toBe(
+      'provider_auth_rejected',
+    );
+    expect(state.service.tokenRejected).toBe(false);
+  });
+
   it('keeps the arrival order of the steps through final', () => {
     const events = eventsFor(RESPONSE_2);
     const [meta, analysis, retrieval] = events;

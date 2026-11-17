@@ -1,11 +1,14 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
+import {clearApiKey, setApiKey} from './apiKey';
 import {
   ApiError,
   SseParser,
   TOKEN_KEY,
   askStream,
+  authHeaders,
   fetchReady,
+  getJson,
   getToken,
   readSse,
   setToken,
@@ -41,7 +44,11 @@ async function collect(
 afterEach(() => {
   vi.unstubAllGlobals();
   window.sessionStorage.clear();
+  window.localStorage.clear();
 });
+
+/** A key of the shape the server accepts. */
+const KEY = 'sk-ant-api03-abcdefghijklmnop_QRST-wxyz';
 
 describe('SseParser', () => {
   it('parses the recorded stream in order and skips the ping comment', async () => {
@@ -194,5 +201,50 @@ describe('token storage', () => {
     expect(getToken()).toBe('abc');
     setToken('');
     expect(getToken()).toBeNull();
+  });
+});
+
+describe('authHeaders', () => {
+  it('sends nothing without a token or a key', () => {
+    expect(authHeaders()).toEqual({});
+  });
+
+  it('sends the bearer token alone with a token', () => {
+    setToken('secret-token');
+    setApiKey(KEY, false);
+    expect(authHeaders()).toEqual({Authorization: 'Bearer secret-token'});
+  });
+
+  it('sends the visitor key without an Authorization header', () => {
+    setApiKey(KEY, false);
+    expect(authHeaders()).toEqual({'X-Anthropic-Api-Key': KEY});
+    clearApiKey();
+    expect(authHeaders()).toEqual({});
+  });
+
+  it('carries the visitor key on the stream and on JSON calls', async () => {
+    setApiKey(KEY, true);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(streamOf([RECORDED]), {
+          status: 200,
+          headers: {'Content-Type': 'text/event-stream'},
+        }),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({items: []})));
+    vi.stubGlobal('fetch', fetchMock);
+    for await (const event of askStream({question: 'q?'}, 'key-3')) {
+      expect(event).toBeDefined();
+    }
+    await getJson('/api/history');
+    for (const call of fetchMock.mock.calls) {
+      const [path, init] = call as [string, RequestInit];
+      const headers = init.headers as Record<string, string>;
+      expect(headers['X-Anthropic-Api-Key']).toBe(KEY);
+      expect(headers).not.toHaveProperty('Authorization');
+      // The key never goes in a URL.
+      expect(path).not.toContain(KEY);
+    }
   });
 });
