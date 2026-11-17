@@ -508,7 +508,7 @@ def download_path(settings: config.Settings) -> pathlib.Path:
     """Return where a downloaded zip lands: next to the corpus directory.
 
     The image is read-only outside the volume, so the zip goes beside
-    `corpus.dir` (`/data/corpus` on Railway), not to `corpus.zip`.
+    `corpus.dir` (on the volume), not to `corpus.zip`.
 
     Args:
         settings: The loaded settings.

@@ -128,15 +128,15 @@ demo:
   add_companies: ["ZTS", "WDAY"]  # 2 tickers outside the corpus for keel add
 
 scheduler:
-  enabled: false               # KEEL_SCHEDULER__ENABLED=1 on Railway; systemd timers on the AWS host
+  enabled: false               # in-process scheduler; the AWS host uses systemd timers instead
   refresh_at: "02:00"
   backup_at: "02:30"
   backup_bucket: null          # KEEL_SCHEDULER__BACKUP_BUCKET: S3-compatible bucket for the nightly archive
-  backup_dir: backups          # KEEL_SCHEDULER__BACKUP_DIR=/data/backups on Railway
+  backup_dir: backups          # local archives; /app/state/backups in docker-compose.yml
   backup_keep: 7               # local archives kept
 
 eval:
   report_dir: null             # the admin eval job writes <run id>.md and .json here; null is <logs.dir>/eval (writable on the host)
 
 deploy:
-  host: railway                # railway (default), aws, or a hostname
+  host: aws                    # aws (EC2, Caddy, CloudFront: infra/terraform)

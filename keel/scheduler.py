@@ -1,8 +1,8 @@
 """The in-app scheduler for the nightly jobs.
 
-A Railway cron service cannot share the app's volume, so on Railway the
-nightly refresh and backup run inside `keel serve` when `scheduler.enabled`
-is on. The AWS host runs the same work from systemd timers instead, so the
+On a single-container host with no cron that can reach the app's volume,
+the nightly refresh and backup run inside `keel serve` when
+`scheduler.enabled` is on. The AWS host runs the same work from systemd timers instead, so the
 flag is off by default.
 
 The times in `scheduler.refresh_at` and `scheduler.backup_at` are UTC. The

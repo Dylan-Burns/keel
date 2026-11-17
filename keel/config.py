@@ -333,7 +333,7 @@ class EvalConfig(_Section):
 class DeployConfig(_Section):
     """The deploy target."""
 
-    host: str = "railway"
+    host: str = "aws"
 
 
 class Settings(pydantic_settings.BaseSettings):

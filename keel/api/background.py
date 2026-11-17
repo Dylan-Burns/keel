@@ -6,7 +6,7 @@ the bootstrap reaches `ready`, the same thread opens the index through
 `Services.reload`, so `/api/ready` turns `index_loaded` true without a
 restart.
 
-With `scheduler.enabled` on (Railway) the in-app
+With `scheduler.enabled` on, the in-app
 scheduler runs the refresh at `scheduler.refresh_at` and the
 backup at `scheduler.backup_at`. A refresh that added a filing published a
 new build, so the server reloads the index after it. Both jobs skip while

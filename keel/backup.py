@@ -1,6 +1,6 @@
 """The nightly backup and the restore.
 
-The Python twin of `infra/backup.sh`, for the in-app scheduler on Railway.
+The Python twin of `infra/backup.sh`, for the in-app scheduler.
 A backup writes `keel-<stamp>.tar.gz` and `keel-<stamp>.tar.gz.sha256` (the
 `sha256sum -c` format) into `scheduler.backup_dir`. The archive is flat:
 

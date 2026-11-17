@@ -3,7 +3,7 @@ description: A unit of work
 labels: [task]
 body:
   - type: input
-    id: stage
+    id: area
     attributes:
       label: Area
       placeholder: "Retrieval"
