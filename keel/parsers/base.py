@@ -1,10 +1,10 @@
 """Shared parser types: the parsed filing, checks, IDs, and fiscal math.
 
 Every filing parser returns a `ParsedFiling`. The types here are the module
-boundary of the parser (chapter 6.5): the section detector and the chunker
+boundary of the parser: the section detector and the chunker
 read them. The helpers hold the rules that do not depend on the form: the
 decode and normalization stages, the name normalization of check CK-06, the
-deterministic IDs of chapter 7.11, and the fiscal math of chapter 7.9.
+deterministic IDs, and the fiscal math.
 """
 
 from __future__ import annotations
@@ -29,13 +29,13 @@ from keel import tables
 FORM_CODES = {"10-K": "10K", "10-Q": "10Q"}
 # A header ticker: letters and digits, with `.` or `-` for a share class.
 TICKER = re.compile(r"^[A-Z0-9][A-Z0-9.\-]{0,9}$")
-# A filing ID of chapter 7.11; it names files, so nothing else passes.
+# A filing ID; it names files, so nothing else passes.
 FILING_ID = re.compile(
     r"^[A-Z0-9][A-Z0-9.\-]{0,9}_(?:10K|10Q)_\d{4}-\d{2}-\d{2}$"
 )
 CHECK_IDS = tuple(f"CK-{number:02d}" for number in range(1, 12))
 
-# Character mapping of the normalization stage (chapter 7.7). NFKC already
+# Character mapping of the normalization stage. NFKC already
 # maps most spaces; the table makes the rule explicit and covers the rest.
 _CHAR_MAP = str.maketrans(
     {
@@ -50,7 +50,7 @@ _CHAR_MAP = str.maketrans(
     }
 )
 BOM = chr(0xFEFF)
-# CK-06 name normalization (chapter 7.10).
+# CK-06 name normalization.
 NAME_STOP_TOKENS = frozenset(
     {
         "THE",
@@ -81,7 +81,7 @@ PeriodSource = Literal["cover", "filename", "override"]
 
 
 class CheckResult(pydantic.BaseModel):
-    """The result of 1 metadata check of chapter 7.10.
+    """The result of 1 metadata check.
 
     Attributes:
         check: The check id, `CK-01` to `CK-11`.
@@ -298,7 +298,7 @@ class ParseContext:
 
 
 class FilingParser(Protocol):
-    """The interface of a parser for 1 family of filing forms (chapter 17).
+    """The interface of a parser for 1 family of filing forms.
 
     Attributes:
         forms: The header forms the parser reads, such as `10-K`.
@@ -331,7 +331,7 @@ def sha256_hex(data: bytes) -> str:
 
 
 def decode(data: bytes) -> str:
-    """Decode a filing (chapter 7.1, stage 1).
+    """Decode a filing.
 
     Args:
         data: The raw bytes.
@@ -353,7 +353,7 @@ def decode(data: bytes) -> str:
 
 
 def normalize_text(text: str) -> str:
-    """Apply NFKC and the character map of chapter 7.7 (stage 3).
+    """Apply NFKC and the character map (normalization).
 
     Args:
         text: The decoded body.
@@ -371,7 +371,7 @@ def _name_words(name: str) -> list[str]:
 
 
 def name_tokens(name: str) -> frozenset[str]:
-    """Normalize a company name for check CK-06 (chapter 7.10).
+    """Normalize a company name for check CK-06.
 
     Args:
         name: A header company name or a cover page registrant.
@@ -408,7 +408,7 @@ def names_match(header_name: str, cover_name: str) -> bool:
 
 
 def filing_id(ticker: str, form: str, period_end: datetime.date) -> str:
-    """Build the filing ID of chapter 7.11.
+    """Build the filing ID.
 
     Args:
         ticker: The ticker.
@@ -422,7 +422,7 @@ def filing_id(ticker: str, form: str, period_end: datetime.date) -> str:
 
 
 def chunk_id(filing: str, section: str, sequence: int) -> str:
-    """Build the chunk ID of chapter 7.11.
+    """Build the chunk ID.
 
     Args:
         filing: The filing ID.
@@ -436,7 +436,7 @@ def chunk_id(filing: str, section: str, sequence: int) -> str:
 
 
 def chunk_hash(text: str) -> str:
-    """Hash a normalized chunk text (chapter 7.11).
+    """Hash a normalized chunk text.
 
     Args:
         text: The normalized chunk text.
@@ -448,7 +448,7 @@ def chunk_hash(text: str) -> str:
 
 
 def nominal_month(day: datetime.date) -> tuple[int, int]:
-    """Compute the nominal month of a period end date (chapter 7.9).
+    """Compute the nominal month of a period end date.
 
     Args:
         day: The period end date.
@@ -467,7 +467,7 @@ def nominal_month(day: datetime.date) -> tuple[int, int]:
 def fiscal_period(
     form: str, period_end: datetime.date, year_end_month: int
 ) -> tuple[int, str]:
-    """Compute the fiscal year and the fiscal period (chapter 7.9).
+    """Compute the fiscal year and the fiscal period.
 
     Args:
         form: `10-K` or `10-Q`.
@@ -477,7 +477,7 @@ def fiscal_period(
     Returns:
         The (fiscal year, fiscal period) pair. A 10-K takes the year of the
         nominal month, so the JNJ year that ends on January 2, 2022 is
-        fiscal 2021 (chapter 7.9 says the calendar year; the data wins).
+        fiscal 2021 (not the calendar year; the data wins).
         The period is `FY` for a 10-K, `Q1` to `Q3` for a 10-Q, or
         `unknown` for a 10-Q whose month offset is not 3, 6, or 9.
     """

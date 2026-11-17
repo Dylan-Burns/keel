@@ -707,7 +707,7 @@ def run_restore(
 def run_index(
     services: state.Services, context: jobs.JobContext, params: IndexParams
 ) -> jobs.JobOutput:
-    """The `index` job: build and publish an index (chapter 9).
+    """The `index` job: build and publish an index.
 
     Args:
         services: The shared services.

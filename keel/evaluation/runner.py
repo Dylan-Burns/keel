@@ -1,15 +1,15 @@
 """Run the golden set through question understanding and retrieval.
 
 Each question runs the understanding step once. An out-of-scope analysis
-ends the question there: no retrieval and no model call (chapter 10.6). A
-question in scope runs the retriever once per variant: the hybrid pipeline
-of chapter 11, and for the ablation of chapter 18.7 lexical only, dense
+ends the question there: no retrieval and no model call. A
+question in scope runs the retriever once per variant: the hybrid pipeline,
+and for the ablation lexical only, dense
 only, and each of the 3 without the reranker. The models load once and the
 variants share them.
 
 The metrics read the context of each variant ranked by its final score
 (the reranked chunks first, then the weighted fused score). The context
-order of chapter 11.6 step 8 groups the chunks by company and period for
+order groups the chunks by company and period for
 the prompt, so a cut at rank k of that order would measure the company
 order instead of the ranking.
 
@@ -20,7 +20,7 @@ the out-of-scope response the golden set asks for.
 
 With `answers` on, each question then goes through the answer pipeline
 on the context of the hybrid run (1 model request), and the judge reads
-the answer (`answers.py`, `judge.py`): the 8 answer gates of chapter 18.8
+the answer (`answers.py`, `judge.py`): the 8 answer gates
 get their values. Without it the run makes no model request and those
 gates stay pending.
 """
@@ -137,7 +137,7 @@ class QuestionResult:  # pylint: disable=too-many-instance-attributes
 
 @dataclasses.dataclass(frozen=True)
 class RunInfo:
-    """The identity of 1 eval run (chapter 18.9).
+    """The identity of 1 eval run.
 
     Attributes:
         run_id: The run ID, such as `eval-20261021T120000Z`.
@@ -245,7 +245,7 @@ class EvalRun:
         return sum(1 for r in rows if r.outcome == REFUSED) / len(rows)
 
     def answer_values(self) -> dict[str, float | None]:
-        """The answer metrics of chapter 18.4 and 18.6 over the run.
+        """The answer metrics over the run.
 
         Faithfulness and citation precision are means over the judged
         answers, and None when a judge request failed; coverage over the
@@ -278,7 +278,7 @@ class EvalRun:
             if failures
             else metrics.mean(j.citation_precision for j in judged),
             "judge_failures": float(failures),
-            # The sample of the 2 judge gates (chapter 18.8 minimum).
+            # The minimum sample of the 2 judge gates.
             "judged_answers": float(
                 sum(1 for j in judged if j.faithfulness is not None)
             ),
@@ -322,7 +322,7 @@ class EvalRun:
         return values
 
     def gates(self) -> tuple[gates.GateResult, ...]:
-        """Evaluate the 10 gates of chapter 18.8.
+        """Evaluate the 10 gates.
 
         The 2 judge gates carry the number of judged answers, so a run
         that judged fewer than `gates.MIN_JUDGED_ANSWERS` answers (the CI

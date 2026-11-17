@@ -1,9 +1,9 @@
-"""The FTS5 lexical index over the chunk store (chapter 9.3).
+"""The FTS5 lexical index over the chunk store.
 
 `chunks_fts` is an external-content FTS5 table over `chunks.text`. The build
 fills it with the FTS5 `rebuild` command after the chunk rows are written.
 Every query term is quoted before it reaches `MATCH`, because FTS5 reads
-`-`, `.`, and quotes as operators (docs/GOTCHAS.md).
+`-`, `.`, and quotes as operators.
 """
 
 from __future__ import annotations
@@ -55,7 +55,7 @@ def create(conn: sqlite3.Connection) -> None:
 
 
 def rebuild(conn: sqlite3.Connection) -> None:
-    """Rebuild the FTS5 index from the `chunks` table (chapter 9.7 step 5).
+    """Rebuild the FTS5 index from the `chunks` table.
 
     Args:
         conn: The open chunk store with the `chunks_fts` table.
@@ -77,7 +77,7 @@ def quote(term: str) -> str:
 
 
 def match_expression(terms: Sequence[str]) -> str:
-    """Join quoted terms with OR (chapter 9.3).
+    """Join quoted terms with OR.
 
     Args:
         terms: The words and phrases; blank ones are dropped.

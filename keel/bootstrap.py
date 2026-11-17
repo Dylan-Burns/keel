@@ -1,13 +1,13 @@
 """The first-start bootstrap: corpus download, extraction, index build.
 
-`keel bootstrap` and `keel serve --bootstrap` run the same routine (chapter
-29.9 step 6). It is idempotent: a corpus directory that holds filings skips
-the download and the extraction, and an index with a `current` pointer
-skips the build, so later starts cost a directory listing.
+`keel bootstrap` and `keel serve --bootstrap` run the same routine. It is
+idempotent: a corpus directory that holds filings skips the download and the
+extraction, and an index with a `current` pointer skips the build, so later
+starts cost a directory listing.
 
 The zip comes from, in order: the local `corpus.zip`, a zip downloaded by an
 earlier run, `gh release download` of the `corpus.release_tag` asset when
-`GH_TOKEN` is set and `gh` is installed (chapter 29.11), or an https GET of
+`GH_TOKEN` is set and `gh` is installed, or an https GET of
 `corpus.url`. Without a `current` build, the index comes from the archive of
 the `index.release_tag` release through `gh`, else from an https GET of
 `index.url` and its `.sha256` (an index built off the host, because the

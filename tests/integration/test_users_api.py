@@ -1,4 +1,4 @@
-"""Users, history, and shareable links through the API (chapter 27.2).
+"""Users, history, and shareable links through the API.
 
 The app runs on a small synthetic index with the mock provider, as in
 tests/integration/test_api.py, with a users file of 2 analysts and an

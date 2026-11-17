@@ -41,7 +41,7 @@ def _retry_after(error: anthropic.APIStatusError) -> float | None:
 
 
 def classify(error: Exception) -> errors.ProviderError:
-    """Map an SDK or timeout error to the Keel error of chapter 6.5.
+    """Map an SDK or timeout error to the Keel error.
 
     Args:
         error: The error the SDK or `asyncio.timeout` raised.
@@ -82,7 +82,7 @@ def _classify_status(error: anthropic.APIStatusError) -> errors.ProviderError:
 
 
 class AnthropicProvider:  # pylint: disable=too-many-instance-attributes
-    """The Messages API adapter (chapter 17.1).
+    """The Messages API adapter.
 
     Args:
         model: The pinned model identifier.

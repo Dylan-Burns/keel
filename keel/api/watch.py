@@ -1,4 +1,4 @@
-"""The watch list routes (chapter 26.3): `keel watch` over the API.
+"""The watch list routes: `keel watch` over the API.
 
 `GET /api/watch` lists the watched tickers for any user: the watch list
 is the firm's, and `keel refresh` checks the union of every user's

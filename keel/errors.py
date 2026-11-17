@@ -1,7 +1,7 @@
 """The exception hierarchy of Keel.
 
 Every error that Keel raises subclasses `KeelError`. The condition names of
-the module contracts (chapter 6.5) map to classes with the `Error` suffix.
+the module contracts map to classes with the `Error` suffix.
 """
 
 
@@ -49,7 +49,7 @@ class CoverPageNotFoundError(KeelError):
     """A filing has no cover page period and no period code (CK-07).
 
     Reserved: the parser records this condition as the quarantine reason
-    `cover_page_not_found` instead of raising (chapter 6.5 names it).
+    `cover_page_not_found` instead of raising.
     """
 
 
@@ -62,27 +62,27 @@ class FilingNotIndexableError(KeelError):
 
 
 class EmbeddingModelUnavailableError(KeelError):
-    """The pinned embedding model cannot load (chapter 6.5)."""
+    """The pinned embedding model cannot load."""
 
 
 class IndexWriteError(KeelError):
-    """An index build cannot write or publish its files (chapter 6.5)."""
+    """An index build cannot write or publish its files."""
 
 
 class IndexMissingError(KeelError):
-    """No index build sits behind the `current` pointer (chapter 6.5)."""
+    """No index build sits behind the `current` pointer."""
 
 
 class IndexCorruptError(KeelError):
-    """An index file does not match its manifest checksum (chapter 16)."""
+    """An index file does not match its manifest checksum."""
 
 
 class InvalidFilingIdError(KeelError):
-    """A filing ID does not have the chapter 7.11 shape, so no file uses it."""
+    """A filing ID does not have the shape, so no file uses it."""
 
 
 class QuestionInputError(KeelError):
-    """A question fails an input check of chapter 10.7.
+    """A question fails an input check.
 
     Attributes:
         http_status: The HTTP status the API returns for it.
@@ -96,20 +96,20 @@ class EmptyQuestionError(QuestionInputError):
 
 
 class QuestionTooLongError(QuestionInputError):
-    """The question is longer than the limit (HTTP 413, chapter 10.7)."""
+    """The question is longer than the limit (HTTP 413)."""
 
     http_status = 413
 
 
 class NonEnglishQuestionError(QuestionInputError):
-    """The question is not in English (HTTP 400, chapter 10.7)."""
+    """The question is not in English (HTTP 400)."""
 
 
 class ProviderError(KeelError):
-    """The model provider failed (chapter 6.5, the `provider` module).
+    """The model provider failed (the `provider` module).
 
     Attributes:
-        code: The error code of the SSE `error` event (chapter 14.3).
+        code: The error code of the SSE `error` event.
         retryable: True when D-04 permits a retry before any content.
         retry_after: The seconds the provider asked to wait, or None.
     """
@@ -156,7 +156,7 @@ class ProviderAuthError(ProviderRequestError):
 
 
 class ContextOverflowError(ProviderError):
-    """The prompt is longer than the model accepts (chapter 16.6).
+    """The prompt is longer than the model accepts.
 
     Not retryable as is: the pipeline halves the context, rebuilds the
     prompt, and retries once (1 of the 2 retries of D-04).
@@ -179,11 +179,11 @@ class AnswerCacheError(KeelError):
 
 
 class GoldenSetError(KeelError):
-    """The golden set or a label file is absent or not valid (chapter 18)."""
+    """The golden set or a label file is absent or not valid."""
 
 
 class EdgarError(KeelError):
-    """A SEC EDGAR fetch or lookup fails (chapter 26)."""
+    """A SEC EDGAR fetch or lookup fails."""
 
 
 class OutboundBlockedError(EdgarError):
@@ -199,11 +199,11 @@ class EdgarCacheMissError(EdgarError):
 
 
 class UnknownTickerError(EdgarError):
-    """The SEC ticker map has no entry for a ticker (chapter 26.2)."""
+    """The SEC ticker map has no entry for a ticker."""
 
 
 class StateStoreError(KeelError):
-    """The app-state database (the watch list) fails (chapter 26.3)."""
+    """The app-state database (the watch list) fails."""
 
 
 class PilotStoreError(KeelError):
@@ -211,7 +211,7 @@ class PilotStoreError(KeelError):
 
 
 class InvalidCompSetError(KeelError):
-    """A comp set name or ticker list fails validation (chapter 27.2)."""
+    """A comp set name or ticker list fails validation."""
 
 
 class TemplateError(KeelError):
@@ -223,11 +223,11 @@ class CompSetForbiddenError(KeelError):
 
 
 class InvalidFeedbackError(KeelError):
-    """A feedback vote or note fails validation (chapter 27.2)."""
+    """A feedback vote or note fails validation."""
 
 
 class CorpusDownloadError(KeelError):
-    """The corpus zip cannot be downloaded (chapter 29.9 bootstrap)."""
+    """The corpus zip cannot be downloaded (bootstrap)."""
 
 
 class HostNotAllowedError(KeelError):

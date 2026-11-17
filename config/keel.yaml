@@ -3,9 +3,8 @@
 # Environment overrides: a top-level key is KEEL_<KEY>, a nested key is
 # KEEL_<SECTION>__<KEY> (two underscores). Examples: KEEL_OFFLINE=1,
 # KEEL_LLM__MODEL=..., KEEL_INDEX__DIR=/data/index. List values are JSON.
-# The placeholders were resolved at stage 0 (docs/BUILD_REPORT.md).
 
-offline: false                 # KEEL_OFFLINE=1 serves every question from the answer cache (chapter 16)
+offline: false                 # KEEL_OFFLINE=1 serves every question from the answer cache
 
 server:
   host: 127.0.0.1              # KEEL_SERVER__HOST=0.0.0.0 in the container
@@ -20,7 +19,7 @@ cache:
 corpus:
   zip: corpus/edgar_corpus.zip
   url: null                    # KEEL_CORPUS__URL: where `keel bootstrap` downloads the zip when it is absent
-  release_repo: Dylan-Burns/keel   # `gh release download` source when GH_TOKEN is set (chapter 29.11)
+  release_repo: Dylan-Burns/keel   # `gh release download` source when GH_TOKEN is set
   release_tag: corpus-v1
   dir: corpus/edgar
   manifest: corpus/edgar/manifest.json
@@ -42,10 +41,10 @@ parser:
   fiscal_year_ends: config/fiscal_year_ends.yaml
 
 dictionaries:
-  companies: config/companies.yaml       # 1 entry per ticker: legal name, aliases, groups (chapter 10.2)
-  groups: config/groups.yaml             # sector groups and trigger phrases (chapter 10.3)
-  synonyms: config/synonyms.yaml         # topic word expansion for FTS5 (chapter 9.3)
-  known_external: config/known_external.yaml  # well-known companies outside the corpus (chapter 10.6)
+  companies: config/companies.yaml       # 1 entry per ticker: legal name, aliases, groups
+  groups: config/groups.yaml             # sector groups and trigger phrases
+  synonyms: config/synonyms.yaml         # topic word expansion for FTS5
+  known_external: config/known_external.yaml  # well-known companies outside the corpus
 
 chunker:
   version: 1.0.0
@@ -74,7 +73,7 @@ retrieval:
   max_context_tokens: 32000
   max_chunks: 48
   simhash_max_distance: 3
-  calibration_factor: 1.91      # keel calibrate, stage 8: 200 chunks, 109,680 counted tokens (default 1.15)
+  calibration_factor: 1.91      # keel calibrate: 200 chunks, 109,680 counted tokens (default 1.15)
 
 llm:
   provider: anthropic
@@ -82,16 +81,16 @@ llm:
   fallback_model: claude-haiku-5-5  # Claude Haiku 5.5
   judge_model: claude-opus-5-5  # eval only; a different model from llm.model (D-35)
   prices: config/prices.yaml   # USD per 1 million tokens, keyed by model id
-  temperature: null             # D-12 asks for 0; the 5.5 models reject the parameter (build report, stage 7)
+  temperature: null             # D-12 asks for 0; the 5.5 models reject the parameter (measured)
   thinking:                    # the lowest thinking setting per model; no thinking before the answer
     claude-sonnet-5-5: between_tools
     claude-haiku-5-5: disabled
-  max_output_tokens: 8000      # D-12 says 4,000; the strict JSON answer needs about 2.2 characters per token (stage 7)
-  output_mode: json_schema     # D-13: structured output (output_config.format); `tool` is the strict answer tool of stage 7
+  max_output_tokens: 8000      # D-12 says 4,000; the strict JSON answer needs about 2.2 characters per token
+  output_mode: json_schema     # D-13: structured output (output_config.format); `tool` is the strict answer tool
   prompt_version: 1.5.1        # docs/PROMPT_LOG.md; 1.3.0 to 1.5.1 pair with json_schema, 1.0.0 to 1.2.0 with tool
   prompts_dir: prompts         # answer_system, answer_user, answer_schema per version
   cache_system_block: true
-  timeout_seconds: 120         # the whole request (chapter 16.1)
+  timeout_seconds: 120         # the whole request
   connect_timeout_seconds: 10
   idle_timeout_seconds: 30     # the gap between 2 stream events
   max_retries: 2               # before any content only (D-04)
@@ -104,18 +103,18 @@ limits:
   daily_budget_usd: 20
 
 auth:
-  users_file: config/users.yaml  # chapter 27.2: name, role, token hash; `keel users add`; /data/users.yaml in the pilot
+  users_file: config/users.yaml  # name, role, token hash; `keel users add`; /data/users.yaml in the pilot
   public: false                # true on the public site (KEEL_AUTH__PUBLIC=1 in docker-compose.yml): visitors ask with their own Anthropic key (X-Anthropic-Api-Key) or read the answer cache; admins keep their tokens
 
 pilot:
-  db: null                     # comp sets and feedback (chapter 27.2); null is pilot.sqlite in logs.dir
+  db: null                     # comp sets and feedback; null is pilot.sqlite in logs.dir
   templates: config/templates.yaml  # the 5 question templates of the web picker
 
 edgar:
   user_agent: "Dylan Burns dylanburns1524@gmail.com"  # as the SEC requires
   cache_dir: cache/edgar
   min_request_interval_seconds: 0.2
-  facts: config/facts.yaml     # the 8 company facts concepts and their XBRL names (chapter 26.1)
+  facts: config/facts.yaml     # the 8 company facts concepts and their XBRL names
   sic_codes: config/sic_codes.yaml  # the SEC industries of the admin company browser
   directory_ttl_days: 30       # the company list of an industry is fetched again after this
   directory_since_year: 2022   # the browser shows companies with a 10-K or 10-Q every year since
@@ -126,10 +125,10 @@ demo:
     - "What are the primary risk factors facing Apple, Tesla, and JPMorgan, and how do they compare?"
     - "How has NVIDIA's revenue and growth outlook changed over the last two years?"
     - "What regulatory risks do the major pharmaceutical companies face, and how are they addressing them?"
-  add_companies: ["ZTS", "WDAY"]  # 2 tickers outside the corpus for keel add (chapter 26.6)
+  add_companies: ["ZTS", "WDAY"]  # 2 tickers outside the corpus for keel add
 
 scheduler:
-  enabled: false               # KEEL_SCHEDULER__ENABLED=1 on Railway (chapter 29.9); systemd timers on the AWS host
+  enabled: false               # KEEL_SCHEDULER__ENABLED=1 on Railway; systemd timers on the AWS host
   refresh_at: "02:00"
   backup_at: "02:30"
   backup_bucket: null          # KEEL_SCHEDULER__BACKUP_BUCKET: S3-compatible bucket for the nightly archive
@@ -140,4 +139,4 @@ eval:
   report_dir: null             # the admin eval job writes <run id>.md and .json here; null is <logs.dir>/eval (writable on the host)
 
 deploy:
-  host: railway                # railway (default, chapter 29.9), aws (chapter 29.6), or a hostname
+  host: railway                # railway (default), aws, or a hostname

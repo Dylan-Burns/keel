@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-# Three-stage build (chapter 29.6): a Node stage runs the Vite build of the
+# Three-stage build: a Node stage runs the Vite build of the
 # front-end, a Python builder resolves dependencies from uv.lock, and a slim
 # runtime copies web/dist and the virtual environment and runs as a non-root
 # user. Model weights are not baked in; HF_HOME points at the mounted cache

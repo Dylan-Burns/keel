@@ -1,4 +1,4 @@
-"""Tests of the judge pass and the answer metrics (chapter 18.4).
+"""Tests of the judge pass and the answer metrics.
 
 No model is called: a fake judge client returns canned JSON.
 """

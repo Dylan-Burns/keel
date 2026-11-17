@@ -2,7 +2,7 @@
 
 Every `/api/` route except health and ready needs `Authorization: Bearer
 <token>`, unless `auth.public` is on. The token is compared in constant
-time with the token hashes of the users file (chapter 27.2) and with
+time with the token hashes of the users file and with
 `KEEL_API_TOKEN`, which stays the admin user `legacy`. A request that
 passes gets a `Principal` that names the user and the role; the Principal
 permits every ticker and source.
@@ -72,7 +72,7 @@ def unauthorized(message: str) -> fastapi.HTTPException:
         message: The reason, without the token.
 
     Returns:
-        The exception with the error body of chapter 14.3.
+        The exception with the error body.
     """
     return fastapi.HTTPException(
         status_code=401,

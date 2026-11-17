@@ -1,4 +1,4 @@
-"""Tests of the Anthropic adapter and the mock provider (chapter 17.1)."""
+"""Tests of the Anthropic adapter and the mock provider."""
 
 import asyncio
 import json
@@ -69,7 +69,7 @@ def fake_client(stream: FakeStream | Exception) -> types.SimpleNamespace:
 def provider(
     settings: config.Settings, stream: FakeStream | Exception, model=None
 ) -> adapter.AnthropicProvider:
-    """The adapter in `tool` mode, the strict answer tool of stage 7."""
+    """The adapter in `tool` mode, the strict answer tool."""
     llm = settings.llm.model_copy(update={"output_mode": "tool"})
     return adapter.AnthropicProvider(
         model or settings.llm.model, fake_client(stream), llm
@@ -256,7 +256,7 @@ def structured_events(answer: str) -> list[object]:
 def structured(
     settings: config.Settings, stream: FakeStream
 ) -> adapter.AnthropicProvider:
-    """The adapter in `json_schema` mode (stage 8)."""
+    """The adapter in `json_schema` mode."""
     llm = settings.llm.model_copy(update={"output_mode": "json_schema"})
     return adapter.AnthropicProvider(llm.model, fake_client(stream), llm)
 

@@ -1,9 +1,9 @@
-"""The `/api` routes of chapter 14.1.
+"""The `/api` routes.
 
-`POST /api/ask` streams the events of chapter 14.3 or returns the JSON of
-chapter 14.2. The read routes serve the readiness, the coverage, 1 chunk,
+`POST /api/ask` streams the events or returns the JSON
+answer. The read routes serve the readiness, the coverage, 1 chunk,
 the examples, the index status, a stored answer by request ID, and the
-history of the caller (chapter 27.2). With
+history of the caller. With
 `llm.provider: mock`, the header `X-Keel-Mock: <fault>` drives the states
 of table 14.6 for the front-end tests; with any other provider the service
 ignores it.
@@ -79,7 +79,7 @@ router = fastapi.APIRouter(prefix="/api")
 
 
 class AskOptions(pydantic.BaseModel):
-    """The options of an answer request (chapter 14.2).
+    """The options of an answer request.
 
     Attributes:
         stream: False returns JSON even when the client accepts SSE.
@@ -116,7 +116,7 @@ class AskRequest(pydantic.BaseModel):
 def error_body(
     code: str, message: str, retry_after: int | None = None
 ) -> dict[str, Any]:
-    """The JSON error body of chapter 14.3.
+    """The JSON error body.
 
     Args:
         code: The error code.
@@ -135,7 +135,7 @@ def error_body(
 def http_error(
     status: int, code: str, message: str, retry_after: int | None = None
 ) -> fastapi.HTTPException:
-    """An HTTP error with the body of chapter 14.3.
+    """An HTTP error with the body.
 
     Args:
         status: The HTTP status.
@@ -355,7 +355,7 @@ async def ready(services: Services, fault: Fault) -> fastapi.Response:
 
 @router.get("/status")
 async def service_status(services: Services, caller: Member) -> dict[str, Any]:
-    """The reliability details behind the token (chapters 16.3, 16.10).
+    """The reliability details behind the token.
 
     Args:
         services: The shared services.
@@ -429,7 +429,7 @@ async def chunk(
         caller: The Principal.
 
     Returns:
-        The chunk fields of chapter 14.2, the section title, the text, and
+        The chunk fields, the section title, the text, and
         the location (part, item, passage, accession). `sec_url` is None
         unless the filing URL is trusted (E-D-28).
 
@@ -553,7 +553,7 @@ async def examples(services: Services, caller: Caller) -> dict[str, Any]:
 
     Returns:
         The examples, and the golden questions of `eval/golden.yaml` when
-        the file exists (stage 10 writes it).
+        the file exists.
     """
     del caller
     return {
@@ -644,7 +644,7 @@ async def eval_report(services: Services, caller: Caller) -> eval_page.EvalPage:
     """The eval page data (W-02): the report, the prompt log, the gates.
 
     The markdown goes out as text and the front-end renders it through the
-    answer renderer and DOMPurify (chapter 15 allow list), read-only.
+    answer renderer and DOMPurify (S-12 allow list), read-only.
 
     Args:
         services: The shared services.
@@ -672,7 +672,7 @@ def for_viewer(
 ) -> dict[str, Any]:
     """A stored answer as a viewer sees it through a shareable link.
 
-    Any token holder may open a link (chapter 27.2); the name of the user
+    Any token holder may open a link; the name of the user
     who asked stays with that user and the admins.
 
     Args:
@@ -755,7 +755,7 @@ async def result(
         caller: The Principal.
 
     Returns:
-        The answer of chapter 14.2 from the idempotency store (10 minutes)
+        The answer from the idempotency store (10 minutes)
         or the answer cache.
 
     Raises:
@@ -782,12 +782,12 @@ async def result(
 async def shared_answer(
     request_id: str, services: Services, caller: Caller
 ) -> dict[str, Any]:
-    """A finished answer by its shareable link `/a/{request_id}` (27.2).
+    """A finished answer by its shareable link `/a/{request_id}`.
 
-    Deliberately open to any token holder, read-only, as chapter 27.2
-    asks: a link opens for any user with a token. The viewer sees the
-    answer and its trace, but not who asked unless it was the viewer or
-    the viewer is an admin. An answer that still runs is not shared.
+    Deliberately open to any token holder, read-only: a link opens for any user
+    with a token. The viewer sees the answer and its trace, but not who asked
+    unless it was the viewer or the viewer is an admin. An answer that still
+    runs is not shared.
 
     Args:
         request_id: The request ID of the link.
@@ -795,7 +795,7 @@ async def shared_answer(
         caller: The Principal of the viewer.
 
     Returns:
-        The answer of chapter 14.2.
+        The answer.
 
     Raises:
         HTTPException: 404 for an unknown, unfinished, or expired answer.
@@ -817,7 +817,7 @@ async def history(
         int, fastapi.Query(ge=1, le=history_log.MAX_LIMIT)
     ] = history_log.DEFAULT_LIMIT,
 ) -> history_log.HistoryPage:
-    """The questions of the caller, newest first (chapter 27.2).
+    """The questions of the caller, newest first.
 
     Args:
         services: The shared services.
@@ -886,7 +886,7 @@ def _untrusted(retrieval: dict[str, Any]) -> dict[str, Any]:
 def response_body(
     record: dict[str, Any], fault: str | None = None
 ) -> dict[str, Any]:
-    """The response of chapter 14.2 from a pipeline record.
+    """The response from a pipeline record.
 
     A response without a model answer (out of scope, no context, offline,
     provider error, schema violation) gets an answer object that holds the
@@ -913,7 +913,7 @@ def response_body(
 
 
 def wants_stream(request: fastapi.Request, options: AskOptions) -> bool:
-    """True when the answer goes out as SSE (chapter 14.1).
+    """True when the answer goes out as SSE.
 
     Args:
         request: The request.
@@ -959,7 +959,7 @@ async def read_body(request: fastapi.Request) -> AskRequest:
 
 
 def check_question(services: state.Services, question: str) -> None:
-    """Run the length and language checks of chapter 10.7 (E-Q-10, E-Q-11).
+    """Run the length and language checks (E-Q-10, E-Q-11).
 
     Args:
         services: The shared services.
@@ -1033,7 +1033,7 @@ def answerer_for(
     if fault == FALLBACK_FAULT:
         name, fallback_fault = down, "none"
     elif fault == "provider_unavailable":
-        # Both models fail: the degraded mode (chapter 16.5).
+        # Both models fail: the degraded mode.
         name = fallback_fault = down
     else:
         # A raw fault before content hits the fallback model too.
@@ -1252,7 +1252,7 @@ async def ask(
         fault: The mock fault.
 
     Returns:
-        The event stream or the response of chapter 14.2.
+        The event stream or the response.
 
     Raises:
         HTTPException: 400 or 413 for the input checks, 401

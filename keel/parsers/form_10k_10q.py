@@ -1,6 +1,6 @@
-"""The parser of the 10-K and 10-Q filings (chapter 7).
+"""The parser of the 10-K and 10-Q filings.
 
-The parser runs the stages of chapter 7.1 in order: decode, header and
+The parser runs the stages in order: decode, header and
 separator, normalization, XBRL removal, artifact removal, boundary repair,
 table rebuild, cover page, and the metadata checks. A failed check never
 raises: the file comes back with a quarantine record and the build goes on
@@ -29,8 +29,9 @@ from keel.parsers import base
 
 logger = logging.getLogger(__name__)
 
-# Chapter 7.2: the header keys. The 9-key header of 192 corpus files adds
-# `Report Period` and `Quarter` (stage 1 finding); both shapes are accepted.
+# the header keys. The 9-key header of 192 corpus files adds
+# `Report Period` and `Quarter` (an inventory finding); both shapes are
+# accepted.
 HEADER_LINE = re.compile(
     r"^(Company|Ticker|Filing Type|Filing Date|Report Period|Quarter|CIK"
     r"|Source|URL)\s*:\s*(.*)$"
@@ -51,7 +52,7 @@ TRUSTED_SCHEME = "https"
 TRUSTED_HOST = "www.sec.gov"
 TRUSTED_PREFIX = "https://www.sec.gov/"
 
-# Chapter 7.4: the XBRL block.
+# the XBRL block.
 COVER_MARKER = re.compile(
     r"UNITED\s+STATES\s*SECURITIES\s+AND\s+EXCHANGE\s+COMMISSION",
     re.IGNORECASE,
@@ -65,11 +66,11 @@ MAX_BLOCK = 400_000
 MAX_UNSIGNED_CUT = 200
 SHORT_BLOCK = 1_000
 
-# Chapter 7.6: page-number and Table-of-Contents artifacts.
+# page-number and Table-of-Contents artifacts.
 A1_FUSED_PAGE_BREAK = re.compile(r"\b\d{1,3}\s*Table of Contents\s*")
 A2_BARE_PAGE_NUMBER = re.compile(r"^[ \t]*\d{1,4}[ \t]*$", re.MULTILINE)
 A3_STATEMENT_PAGE = re.compile(r"^[ \t]*F-\d{1,3}[ \t]*$", re.MULTILINE)
-# A4 is not in chapter 7.6: AAPL and PFE fuse a page footer such as
+# A4 is not: AAPL and PFE fuse a page footer such as
 # `Apple Inc. | 2025 Form 10-K | 1` into the prose (838 times), which makes
 # a prose line look like a table row.
 A4_FOOTER_TAIL = re.compile(
@@ -79,11 +80,11 @@ A4_FOOTER_NAME = re.compile(r"(?:[A-Z][A-Za-z&'.,]*\s?){1,4}$")
 A4_NAME_REACH = 60
 
 
-# Chapter 7.5: the boundary repair rules R1 to R5.
+# the boundary repair rules R1 to R5.
 R1_FUSED_PERIOD = re.compile(r"(?<=[a-z0-9\)\]\"'%])\.(?=[A-Z][a-z])")
 R2_US_BOUNDARY = re.compile(r"(?<=\bU\.S\.)(?=[A-Z][a-z])")
 # R3 splits before a capital that starts a word of 3 or more letters, so
-# `BusinessesNVIDIA` splits as the chapter describes; `[a-z]{2}` would miss
+# `BusinessesNVIDIA` splits as intended; `[a-z]{2}` would miss
 # an all-capital second token.
 R3_FUSED_HEADING = re.compile(r"(?<=[a-z]{4})(?=[A-Z][A-Za-z]{2})")
 R4_ITEM_LABEL = re.compile(r"(?<!\n)(?=Item\s*\d{1,2}[A-C]?\.)")
@@ -93,7 +94,7 @@ R5_NEWLINES = re.compile(r"\n{3,}")
 _TOKEN_BEFORE = re.compile(r"(\S+)$")
 _LETTERS = re.compile(r"[A-Za-z']+")
 
-# Chapter 7.9: the cover page. PERIOD_END is the pattern of the chapter
+# The cover page. PERIOD_END is the base pattern
 # with 2 more phrases the corpus uses: `year ended` (IBM, MS) and `quarter
 # ended`. PERIOD_END_SPLIT reads covers that put the phrase and the date in
 # separate table cells (the JPM 10-K filed 2026-02-13).
@@ -112,7 +113,7 @@ PERIOD_END_SPLIT = re.compile(
     rf"\b((?:{MONTHS})\.?\s+\d{{1,2}},?\s*\d{{4}})"
 )
 DATE_PARTS = re.compile(r"(?i)([a-z]+)\.?\s+(\d{1,2}),?\s*(\d{4})")
-# REGISTRANT is the pattern of the chapter; only the label is case-blind
+# REGISTRANT is the base pattern; only the label is case-blind
 # (MS writes `Registrant`). REGISTRANT_AFTER reads covers that put the name
 # after the label (BAC). REGISTRANT_FILE_NO reads covers without the label
 # that put the name after the commission file number (MSFT, MRK, PG).
@@ -201,7 +202,7 @@ class CoverPage:
 
 
 def find_separator(lines: Sequence[str]) -> int:
-    """Find the separator line (chapter 7.3).
+    """Find the separator line.
 
     Args:
         lines: The lines of the decoded file.
@@ -255,7 +256,7 @@ def url_trusted(url: str) -> bool:
 
 
 def parse_header(lines: Sequence[str]) -> Header:
-    """Read the header keys (chapter 7.2, check CK-01).
+    """Read the header keys (check CK-01).
 
     Args:
         lines: The lines before the separator.
@@ -290,7 +291,7 @@ def parse_header(lines: Sequence[str]) -> Header:
 
 
 def prose_window_start(text: str, limit: int) -> int | None:
-    """Find the first position where a prose window starts (chapter 7.4).
+    """Find the first position where a prose window starts.
 
     A prose window is 300 characters with at least 25 spaces and at least
     3 lower-case words of 4 or more letters.
@@ -326,10 +327,10 @@ def prose_window_start(text: str, limit: int) -> int | None:
 
 
 def cut_xbrl(body: str) -> XbrlCut:
-    """Detect the XBRL block after the separator (chapter 7.4).
+    """Detect the XBRL block after the separator.
 
     The cover marker is the cut point, and the prose window is the
-    fallback for a body without the marker. Chapter 7.4 takes the earlier
+    fallback for a body without the marker. The parser takes the earlier
     of the 2 points; on the corpus the window starts before the marker in
     205 of 245 files, because a window that ends past the marker counts
     the spaces of the cover text, or the hidden facts at the top of the
@@ -798,7 +799,7 @@ class TenKTenQParser:
     def parse(
         self, path: pathlib.Path, context: base.ParseContext
     ) -> base.ParsedFiling:
-        """Parse 1 file through the stages of chapter 7.1.
+        """Parse 1 file through the stages.
 
         Args:
             path: The filing file.

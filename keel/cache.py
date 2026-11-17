@@ -1,4 +1,4 @@
-"""The answer cache (decision D-29, chapter 16.12).
+"""The answer cache (decision D-29).
 
 The key is the sha256 of the normalized question, the index version, the
 prompt version, and the model, so a new index, prompt, or model gives no
@@ -110,7 +110,7 @@ class AnswerCache:
         return record
 
     def find(self, request_id: str) -> dict[str, Any] | None:
-        """Find the stored record of a request ID (chapter 14.1 results).
+        """Find the stored record of a request ID (the results route).
 
         Args:
             request_id: The request ID of the answer that filled the entry.
@@ -133,7 +133,7 @@ class AnswerCache:
 
         Args:
             key: The cache key.
-            record: The answer record (chapter 14.2).
+            record: The answer record.
         """
         # The file name holds the key; a hex value under a `key` field
         # reads as a secret to the scanner.

@@ -1,4 +1,4 @@
-"""The reliability layer around the single call (chapter 16).
+"""The reliability layer around the single call.
 
 `CircuitBreaker` counts provider failures (16.3): 3 consecutive failures
 within 60 seconds open it for 30 seconds; while it is open every question
@@ -64,7 +64,7 @@ class BreakerState:
 
 
 class CircuitBreaker:
-    """The circuit breaker of the primary model (chapter 16.3).
+    """The circuit breaker of the primary model.
 
     A failure is a request that failed for availability (HTTP 429, 529,
     5xx, a timeout, a lost connection); a rejected request or a context
@@ -203,7 +203,7 @@ def _today() -> datetime.date:
 
 
 class BudgetGuard:
-    """The daily provider budget (chapter 16.10 step 5, S-05 step 3).
+    """The daily provider budget (S-05 step 3).
 
     The spend of the day is the sum of `cost_usd` over the audit records
     with a timestamp of the current UTC day, except the records a
@@ -295,7 +295,7 @@ def halve_context(built: context.Context) -> context.Context:
 
     The new budget is half the smaller of the budget and the estimate of
     the context, so a context that filled less than half its budget still
-    shrinks (chapter 16.6 step 3). The chunks that stay keep their context
+    shrinks. The chunks that stay keep their context
     order. At least 1 chunk stays.
 
     Args:
@@ -324,7 +324,7 @@ def halve_context(built: context.Context) -> context.Context:
 
 
 def check_index(build_dir: pathlib.Path) -> indexer.Manifest:
-    """Check an index build before it serves (chapter 16.7 steps 1, 2).
+    """Check an index build before it serves.
 
     Args:
         build_dir: The build directory.

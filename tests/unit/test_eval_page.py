@@ -1,4 +1,4 @@
-"""The eval page data of chapter 25.2: the documents and the gates."""
+"""The eval page data: the documents and the gates."""
 
 import os
 import pathlib

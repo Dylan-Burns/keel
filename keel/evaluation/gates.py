@@ -1,7 +1,7 @@
-"""The 10 regression gates of chapter 18.8.
+"""The 10 regression gates.
 
 A gate passes, fails, or is pending: a pending gate has no measured value
-yet (the answer gates until the answer path of stage 7 joins the harness),
+yet (an answer gate of a run without answers),
 or its value rests on too few judged answers. The 2 judge gates
 (faithfulness and citation precision) are means over the judged answers, so
 they gate only when the run judged at least `MIN_JUDGED_ANSWERS` answers;
@@ -35,7 +35,7 @@ class Gate:
 
     Attributes:
         key: The metric key in the run values.
-        name: The name of the chapter table.
+        name: The name of the gate.
         threshold: The threshold.
         at_most: True when the value must be at most the threshold (latency
             and cost), False for at least.

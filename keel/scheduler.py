@@ -1,4 +1,4 @@
-"""The in-app scheduler for the nightly jobs (chapter 29.9 step 7).
+"""The in-app scheduler for the nightly jobs.
 
 A Railway cron service cannot share the app's volume, so on Railway the
 nightly refresh and backup run inside `keel serve` when `scheduler.enabled`
@@ -8,7 +8,7 @@ flag is off by default.
 The times in `scheduler.refresh_at` and `scheduler.backup_at` are UTC. The
 jobs run 1 at a time in 1 daemon thread, so a long refresh delays the backup
 instead of racing it. A job that fails is logged and runs again the next
-night. Stage 21 registers the backup; the refresh job of stage 20 joins
+night. The backup is always registered; the refresh job joins
 through the `refresh` hook of `build_scheduler`.
 """
 
@@ -206,7 +206,7 @@ def build_scheduler(
 
     Args:
         settings: The loaded settings.
-        refresh: The nightly refresh (stage 20); None registers no refresh.
+        refresh: The nightly refresh; None registers no refresh.
         nightly_backup: The backup job; None runs `run_nightly_backup`.
         clock: Returns the current aware time.
 

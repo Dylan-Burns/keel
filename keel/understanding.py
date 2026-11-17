@@ -1,4 +1,4 @@
-"""Question understanding without an LLM call (chapter 10).
+"""Question understanding without an LLM call.
 
 The step turns the raw question into a `QuestionAnalysis`: the resolved
 tickers, the groups, the time scope with a period window per company, the
@@ -46,7 +46,7 @@ def _words(text: str) -> frozenset[str]:
     return frozenset(text.split())
 
 
-# Rule 3 of chapter 10.2: tickers of 1 or 2 letters resolve only in upper
+# Rule 3: tickers of 1 or 2 letters resolve only in upper
 # case, and never in a position where the token is an ordinary word.
 SHORT_TICKERS = _words("T V MA KO GE GS DE HD PG BA MS")
 # The words before a token that make a short ticker a label (Part V,
@@ -85,7 +85,7 @@ LEADING_FILLER = _words(
 )
 
 
-# Chapter 10.7: the input checks.
+# the input checks.
 ASCII_LETTER_SHARE = 0.7
 ENGLISH_WORDS = _words(
     "the a an what which who how why when where is are was were do does did "
@@ -93,7 +93,7 @@ ENGLISH_WORDS = _words(
     "this that these those be been will would can could should over between "
     "it me my our your"
 )
-# The optional language detector of chapter 10.7, as function words of the
+# The optional language detector, as function words of the
 # languages a reviewer is most likely to try. A question with 2 or more of
 # them and more of them than English function words is not English.
 FOREIGN_WORDS = _words(
@@ -108,7 +108,7 @@ INJECTION = re.compile(
     r"|\bsystem\s+prompt\b|\byou\s+are\s+now\b|\bdisregard\b"
 )
 
-# Chapter 10.5 and E-Q-09: the parts no filing answers.
+# E-Q-09: the parts no filing answers.
 OUT_OF_SCOPE = re.compile(
     r"(?i)\b(?:(?:current\s+|today'?s\s+)?(?:stock|share)\s+prices?"
     r"(?:\s+(?:today|now|right\s+now))?"
@@ -120,7 +120,7 @@ OUT_OF_SCOPE = re.compile(
 )
 YEAR = re.compile(r"\b(19\d{2}|20\d{2})\b")
 
-# Chapter 10.5: the type rules.
+# the type rules.
 COMPARISON = re.compile(
     r"(?i)\b(?:compar(?:e|es|ed|ing|ison)|versus|vs\.?|differ(?:s|ent|ence|"
     r"ences)?|how\s+do|both|each|which)\b"
@@ -163,7 +163,7 @@ class TopicProfile:
     Attributes:
         name: The topic name.
         pattern: The trigger words.
-        section_weights: The weight per canonical section (chapter 11.1).
+        section_weights: The weight per canonical section.
         unless: Words that keep this profile from setting the weights, or
             None.
     """
@@ -175,8 +175,8 @@ class TopicProfile:
 
 
 # The first profile that matches sets the section weights; every match adds
-# its words to the topic terms. The weights follow the worked examples of
-# chapters 11.7 to 11.9.
+# its words to the topic terms. The weights come from worked retrieval
+# examples.
 TOPIC_PROFILES = (
     TopicProfile(
         "regulatory",
@@ -302,7 +302,7 @@ ScopeKind = Literal[
     "latest",
 ]
 
-# Chapter 10.4: the scope patterns in the order they claim the text, so a
+# the scope patterns in the order they claim the text, so a
 # phrase such as "in fiscal 2024" is a fiscal year and not a calendar year.
 SCOPE_PATTERNS: tuple[tuple[ScopeKind, re.Pattern[str]], ...] = (
     (
@@ -734,7 +734,7 @@ def _quarantine_detail(reason: str, evidence: str | None) -> str:
     return f"{reason}: {shown}" if shown else reason
 
 
-# --- Output: the QuestionAnalysis (chapter 10.8) -----------------------------
+# --- Output: the QuestionAnalysis -----------------------------
 
 
 class _Model(pydantic.BaseModel):
@@ -783,7 +783,7 @@ class NotIndexed(_Model):
 
 
 class CompSetUse(_Model):
-    """1 comp set that the question names (chapter 27.2).
+    """1 comp set that the question names.
 
     Attributes:
         name: The comp set name.
@@ -855,7 +855,7 @@ class Window(_Model):
 
 
 class Flags(_Model):
-    """The flags of chapter 10.8.
+    """The flags.
 
     Attributes:
         fuzzy: A company resolved through the fuzzy match.
@@ -869,7 +869,7 @@ class Flags(_Model):
 
 
 class QuestionAnalysis(_Model):
-    """The result of question understanding (chapter 10.8).
+    """The result of question understanding.
 
     Attributes:
         question: The question as asked, trimmed.
@@ -943,7 +943,7 @@ def normalize(question: str) -> str:
 
 
 def check_input(question: str, min_chars: int, max_chars: int) -> str:
-    """Run the length and language checks of chapter 10.7.
+    """Run the length and language checks.
 
     Args:
         question: The raw question.
@@ -1002,7 +1002,7 @@ def is_english(text: str) -> bool:
     return not (foreign >= 2 and foreign > english)
 
 
-# --- Step 3: entity resolution (chapter 10.2) --------------------------------
+# --- Step 3: entity resolution --------------------------------
 
 
 @dataclasses.dataclass(frozen=True)
@@ -1051,7 +1051,7 @@ def comp_set_pattern(name: str) -> re.Pattern[str]:
     """The phrase that names a comp set in a lower-case question.
 
     `my software comps`, `our software comp set`, and `software peers`
-    all name the set `software` (chapter 27.2).
+    all name the set `software`.
 
     Args:
         name: The comp set name, lower case.
@@ -1093,7 +1093,7 @@ def _alias_pattern(alias: str) -> re.Pattern[str]:
 
 
 class Resolver:
-    """The entity, group, and unknown-company rules of chapter 10.
+    """The entity, group, and unknown-company rules.
 
     Args:
         dictionaries: The loaded dictionaries.
@@ -1322,7 +1322,7 @@ class Resolver:
         return names
 
     def unknown(self, work: _Text) -> list[str]:
-        """Find company mentions outside the corpus (chapter 10.6).
+        """Find company mentions outside the corpus.
 
         Args:
             work: The text after the entity and group rules.
@@ -1353,7 +1353,7 @@ class Resolver:
         return names
 
 
-# --- Step 5: time scope and windows (chapter 10.4) ---------------------------
+# --- Step 5: time scope and windows ---------------------------
 
 
 def _year(value: str) -> int:
@@ -1441,8 +1441,8 @@ def _nominal_window(
 ) -> tuple[datetime.date, datetime.date]:
     """Return the period end dates whose nominal month is in a range.
 
-    A period that ends on day 4 or earlier belongs to the previous month
-    (chapter 7.9), so the window runs from day 5 of the first month to day
+    A period that ends on day 4 or earlier belongs to the previous month,
+    so the window runs from day 5 of the first month to day
     4 of the month after the last.
     """
     after = _month_index(last[0], last[1] + 1)
@@ -1642,7 +1642,7 @@ def classify(
     has_topic: bool,
     out_of_scope_reason: str | None,
 ) -> list[QuestionType]:
-    """Apply the type rules of chapter 10.5.
+    """Apply the type rules.
 
     Args:
         companies: The count of resolved companies (groups not counted).
@@ -1683,7 +1683,7 @@ def with_period_trend(
     """Add `trend` to a question that names 2 or more fiscal years.
 
     Args:
-        types: The types of chapter 10.5, in priority order.
+        types: The types, in priority order.
         time_scope: The time scope of the question.
 
     Returns:
@@ -1707,7 +1707,7 @@ class Understander:
         catalog: The corpus facts.
         min_chars: The shortest trimmed question allowed.
         max_chars: The longest question allowed.
-        comp_sets: The saved comp sets (chapter 27.2), read on every
+        comp_sets: The saved comp sets, read on every
             question; None for none.
     """
 
@@ -1857,7 +1857,7 @@ class Understander:
         return found
 
     def analyze(self, question: str) -> QuestionAnalysis:
-        """Turn a question into a `QuestionAnalysis` (chapter 10.1).
+        """Turn a question into a `QuestionAnalysis`.
 
         Args:
             question: The raw question.

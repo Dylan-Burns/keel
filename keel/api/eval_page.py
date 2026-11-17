@@ -1,4 +1,4 @@
-"""The data of the `/api/eval` page (chapter 25.2, W-02).
+"""The data of the `/api/eval` page (W-02).
 
 The page shows the newest report of the admin eval job (`<run id>.md`
 in `eval.report_dir`, `<logs.dir>/eval` by default, which is writable on
@@ -7,9 +7,9 @@ the host) or, before the first run there, the committed `eval/report.md`
 answer prompt version (`prompts/answer_system_v*.md` and
 `prompts/answer_user_v*.md`), all read-only. The
 service sends the markdown as text; the front-end renders it through the
-same `marked` and DOMPurify path as the answers, with the allow list of
-chapter 15, so no HTML leaves the server.
-The only parsing here reads the regression gates table of chapter 18.8 for
+same `marked` and DOMPurify path as the answers, with the same allow list,
+so no HTML leaves the server.
+The only parsing here reads the regression gates table for
 the metric bars. A missing file is an empty state, never an error.
 """
 
@@ -56,13 +56,13 @@ class EvalDocument(pydantic.BaseModel):
 
 
 class Gate(pydantic.BaseModel):
-    """1 regression gate of chapter 18.8, read from the report.
+    """1 regression gate, read from the report.
 
     Attributes:
         name: The gate name, such as `Recall at 25`.
         comparator: `>=`, `<=`, `>`, or `<` (a value passes when it
             compares true). A leading symbol names it; without one, the
-            words of chapter 18.8 do ("40 seconds or less" is `<=`), and
+            words do ("40 seconds or less" is `<=`), and
             a bare number or "or more" is `>=`.
         threshold: The threshold number.
         threshold_text: The threshold cell as the report writes it.
@@ -189,7 +189,7 @@ def parse_gates(markdown: str | None) -> list[Gate]:
     """Read the regression gates table of an eval report.
 
     The table is the first one whose header names the columns `Gate`,
-    `Threshold`, and `Value` (chapter 18.8; `keel eval` writes it).
+    `Threshold`, and `Value` (`keel eval` writes it).
 
     Args:
         markdown: The report text, or None.

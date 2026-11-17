@@ -44,3 +44,4 @@ tfplan
 # Host state of the compose deploy and local token copies
 /state/
 *-token.txt
+.claude/worktrees/

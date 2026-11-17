@@ -29,7 +29,7 @@ def result() -> corpus.CorpusParse:
 
 
 def test_nvda_item_1a_once(result: corpus.CorpusParse) -> None:
-    """Chapter 8.7: 1 real risk section over 20,000 characters, 7 rejects."""
+    """1 real risk section over 20,000 characters, 7 rejects."""
     filing = next(f for f in result.filings if f.metadata.file_name == NVDA_10K)
     detected = sections.detect(filing.text, "10-K")
     (risk,) = detected.of("risk_factors")
@@ -40,7 +40,7 @@ def test_nvda_item_1a_once(result: corpus.CorpusParse) -> None:
 
 
 def test_core_section_coverage(result: corpus.CorpusParse) -> None:
-    """Chapter 8.6: 95% or more of the 10-Ks have the 3 core sections."""
+    """95% or more of the 10-Ks have the 3 core sections."""
     rows = [
         (
             f.metadata.file_name,

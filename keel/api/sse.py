@@ -1,4 +1,4 @@
-"""Server-sent events for `POST /api/ask` (chapter 14.3, docs/GOTCHAS.md).
+"""Server-sent events for `POST /api/ask`.
 
 The pipeline runs in its own task and puts each event into a `Channel`.
 The response reads the channel: every event goes out as 1 frame at once

@@ -1,4 +1,4 @@
-"""Label work for chapter 18.2: section labels, candidate pools, grades.
+"""Label work for section labels, candidate pools, grades.
 
 `scripts/label_helper.py` drives these functions:
 

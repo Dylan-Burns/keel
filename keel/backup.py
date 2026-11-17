@@ -1,20 +1,20 @@
-"""The nightly backup and the restore (chapters 27.2, 29.6, 29.9).
+"""The nightly backup and the restore.
 
 The Python twin of `infra/backup.sh`, for the in-app scheduler on Railway.
 A backup writes `keel-<stamp>.tar.gz` and `keel-<stamp>.tar.gz.sha256` (the
 `sha256sum -c` format) into `scheduler.backup_dir`. The archive is flat:
 
-    manifest.json    the index manifest of chapter 9.5
+    manifest.json    the index manifest
     chunks.sqlite    the chunk store with FTS5
     vectors.npy      the dense vectors
     audit.jsonl      the audit log: the rotated days, then today
     exports.jsonl    the memo export log of the pilot metrics
     <name>.sqlite    any SQLite file in the logs directory (the feedback
-                     table of chapter 27), as an online-backup snapshot
+                     table), as an online-backup snapshot
 
 A published build never changes, so its 2 index files are copied and each
 copy must match the sha256 in the manifest: that proves a consistent copy,
-and the restored build passes the checksum check of chapter 16. The SQLite
+and the restored build passes the checksum check. The SQLite
 online backup API would rewrite 2 header counters (bytes 27 and 95) and
 break that checksum, so it serves only the SQLite files that change while
 the app runs.
@@ -27,8 +27,8 @@ incremental build reuses them instead of embedding the whole corpus.
 
 The upload to an S3-compatible bucket sits behind the `Uploader` protocol.
 `S3Uploader` refuses with `BackupUploadError`: the bucket endpoint is not on
-the S-11 allow list yet, and no dependency signs the requests (decision log
-D-38 and the stage 21 build report).
+the S-11 allow list yet, and no dependency signs the requests (decision
+D-38).
 """
 
 from __future__ import annotations
@@ -441,8 +441,8 @@ def _extract(archive: pathlib.Path, target: pathlib.Path) -> list[str]:
 def rebuild_shards(build_dir: pathlib.Path) -> int:
     """Split `vectors.npy` into the per-filing shards of an index build.
 
-    The chunks of a filing hold consecutive vector rows in filing-ID order
-    (chapter 9.4), so the shards are slices of `vectors.npy`.
+    The chunks of a filing hold consecutive vector rows in filing-ID order,
+    so the shards are slices of `vectors.npy`.
 
     Args:
         build_dir: The build directory with `chunks.sqlite`, `vectors.npy`.

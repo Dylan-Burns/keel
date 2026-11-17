@@ -1,4 +1,4 @@
-"""The index build: chunk store, FTS5, vectors, manifest (chapters 9, 7.12).
+"""The index build: chunk store, FTS5, vectors, manifest.
 
 A build parses and chunks the corpus, embeds each filing into its own shard,
 writes `chunks.sqlite` with the FTS5 index, concatenates the shards into
@@ -8,7 +8,7 @@ complete build is renamed to `{index_dir}/{build_id}`, and then the
 `current` symlink moves to it in 1 atomic rename. A failed build removes its
 temporary directory and never touches `current`.
 
-An incremental build (chapter 9.7) still parses and chunks every file,
+An incremental build still parses and chunks every file,
 because the fiscal year-end month and check CK-11 are corpus-wide, but it
 copies the shard of a filing whose file hash, parser version, chunker
 version, chunk hashes, and embedding model are unchanged, so only new or
@@ -87,7 +87,7 @@ class ModelRef(pydantic.BaseModel):
 
 
 class Counts(pydantic.BaseModel):
-    """The counts of a build (chapter 9.5).
+    """The counts of a build.
 
     Attributes:
         files: The filings in the corpus directory.
@@ -133,10 +133,10 @@ class BuildInfo(pydantic.BaseModel):
 
 
 class Manifest(pydantic.BaseModel):
-    """The index manifest of chapter 9.5.
+    """The index manifest.
 
     `files` holds the sha256 of `chunks.sqlite` and `vectors.npy`; the
-    service refuses an index whose files do not match (chapter 16).
+    service refuses an index whose files do not match.
     `chunks_sha256` hashes the chunk IDs and chunk hashes, so it is equal on
     every machine even where the vector bits differ.
 
@@ -208,7 +208,7 @@ def file_sha256(path: pathlib.Path) -> str:
 
 
 def corpus_sha256(file_hashes: Sequence[str]) -> str:
-    """Hash the sorted list of file hashes (chapter 9.5).
+    """Hash the sorted list of file hashes.
 
     Args:
         file_hashes: The sha256 of each filing.
@@ -303,7 +303,7 @@ def next_version(
     chunker_version: str,
     content_changed: bool,
 ) -> str:
-    """Return the index version of a new build (chapter 9.5).
+    """Return the index version of a new build.
 
     Args:
         previous: The manifest of the current build, or None.
@@ -370,7 +370,7 @@ def manifest_sources(manifest: inventory.Manifest) -> dict[str, str]:
     """Read the source per file name from the `added` block of a manifest.
 
     `keel add` records each file it writes under `added` with `source:
-    edgar` (chapter 26.2, step 6); the files of the zip have no entry.
+    edgar`; the files of the zip have no entry.
 
     Args:
         manifest: The corpus manifest.

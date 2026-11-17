@@ -1,4 +1,4 @@
-"""Chunk store and FTS5 tests (chapters 9.2 and 9.3)."""
+"""Chunk store and FTS5 tests."""
 
 import datetime
 import pathlib

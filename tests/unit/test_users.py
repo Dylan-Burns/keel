@@ -1,4 +1,4 @@
-"""The users file, the token hashes, and `keel users` (chapter 27.2)."""
+"""The users file, the token hashes, and `keel users`."""
 
 import os
 import pathlib

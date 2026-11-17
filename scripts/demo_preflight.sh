@@ -431,7 +431,7 @@ summarize() {
   echo
   echo "pass ${passes}, warn ${warns}, fail ${fails}"
   echo
-  echo "Manual items of chapter 21.1:"
+  echo "Manual items:"
   echo "- run the 3 example questions live and read every citation once"
   echo "- block the provider host for 1 question and confirm the offline drill"
   echo "- play demo/recording.mp4 and open demo/static/"

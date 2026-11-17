@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Run the golden set: the same as `keel eval` (chapter 18).
+"""Run the golden set: the same as `keel eval`.
 
 Usage:
     uv run python eval/run_eval.py --report eval/report.md
 
 The harness lives in the package (keel/evaluation/), so the command, this
 script, and the nightly workflow run the same code; this file keeps the
-entry point that chapter 17.6 names.
+script entry point.
 """
 
 from __future__ import annotations

@@ -1,8 +1,8 @@
-"""Inline XBRL HTML to the corpus text format (chapter 26.2, step 4).
+"""Inline XBRL HTML to the corpus text format.
 
 `keel add` downloads the primary document of a filing, an inline XBRL HTML
 file of 1 to 15 MB, and writes it in the format of the corpus files, so the
-parser of chapter 7 reads it unchanged: the 7-line header, the line of 60
+parser reads it unchanged: the 7-line header, the line of 60
 equals signs, and the body text. The converter drops `script`, `style`,
 `head`, and every hidden container (`display:none`, which holds the
 `ix:header` with the hidden XBRL facts), renders each table row as its cells
@@ -81,7 +81,7 @@ PAREN_CLOSE = re.compile(r"(?<=[\d%]) \)")
 
 @dataclasses.dataclass(frozen=True)
 class FilingHeader:
-    """The values of the 7-line header of a corpus file (chapter 7.2).
+    """The values of the 7-line header of a corpus file.
 
     Attributes:
         company: The company name, as the submissions JSON states it.
@@ -318,7 +318,7 @@ def html_to_lines(document: str) -> list[str]:
 
 
 def to_corpus_text(document: bytes, header: FilingHeader) -> str:
-    """Convert a filing document to a corpus file (chapter 26.2, step 4).
+    """Convert a filing document to a corpus file.
 
     Args:
         document: The HTML bytes of the primary document.

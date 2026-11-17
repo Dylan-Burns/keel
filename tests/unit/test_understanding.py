@@ -1,4 +1,4 @@
-"""Question understanding: the chapter 10.9 cases and the E-Q rows."""
+"""Question understanding: the cases and the E-Q rows."""
 
 import datetime
 
@@ -22,7 +22,7 @@ EXAMPLE_3 = (
     "how are they addressing them?"
 )
 
-# The NVDA filings of the corpus as the parser reads them (stage 2): the
+# The NVDA filings of the corpus as the parser reads them: the
 # latest is the 10-Q for the quarter that ended 2025-10-26, and the fiscal
 # 2026 10-K is absent (A-15).
 NVDA_FILINGS = (
@@ -114,7 +114,7 @@ def step(
     return understanding.Understander(dictionaries, catalog)
 
 
-# --- Entity resolution (chapter 10.2, E-Q-01, E-Q-03, E-Q-14) ---------------
+# --- Entity resolution (E-Q-01, E-Q-03, E-Q-14) ---------------
 
 
 @pytest.mark.parametrize(
@@ -244,7 +244,7 @@ def test_ge_quarantined(step: understanding.Understander) -> None:
     assert analysis.out_of_scope_reason == "not_indexed"
 
 
-# --- Groups and types (chapters 10.3 and 10.5, E-Q-04) ----------------------
+# --- Groups and types (E-Q-04) ----------------------
 
 
 def test_group_pharma(step: understanding.Understander) -> None:
@@ -304,7 +304,7 @@ def test_type_trend_from_years(step: understanding.Understander) -> None:
     assert analysis.primary_type == "trend"
     assert "single_company" in analysis.types
     # A comparison over 2 years keeps comparison first; the plan then
-    # uses company groups with period cells (chapter 11.3).
+    # uses company groups with period cells.
     both = step.analyze(
         "Compare Apple's revenue in fiscal 2024 with Microsoft's in "
         "fiscal 2025."
@@ -346,7 +346,7 @@ def test_type_generic(step: understanding.Understander) -> None:
     assert analysis.tickers == ()
 
 
-# --- Time scope (chapter 10.4, E-Q-07, E-Q-17, E-Q-18) ----------------------
+# --- Time scope (E-Q-07, E-Q-17, E-Q-18) ----------------------
 
 
 def test_scope_fiscal_year(step: understanding.Understander) -> None:
@@ -462,7 +462,7 @@ def test_scope_without_filings() -> None:
     assert understanding.scope_window(scope, [], 12) is None
 
 
-# --- Out of scope and input checks (chapter 10.7, E-Q-09 to E-Q-16) ---------
+# --- Out of scope and input checks (E-Q-09 to E-Q-16) ---------
 
 
 def test_out_of_scope_price(step: understanding.Understander) -> None:

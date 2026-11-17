@@ -1,6 +1,6 @@
 """The submissions pick, the document download, and the HTML conversion.
 
-Chapter 26.2 and the tests of 26.5. Every test runs with the network
+Every test runs with the network
 blocked: the client reads the responses that `scripts/record_add_fixtures.py`
 recorded on 2026-10-21 under `tests/fixtures/edgar/` (the ZTS submissions
 and 2 samples of about 60 KB of the latest ZTS 10-K and 10-Q), or a mock

@@ -1,4 +1,4 @@
-"""A tolerant reader of the answer JSON while it streams (chapter 12.7).
+"""A tolerant reader of the answer JSON while it streams.
 
 The provider sends the tool input as JSON fragments. The reader scans each
 new character once and reports 2 things as they appear: the new characters

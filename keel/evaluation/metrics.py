@@ -1,4 +1,4 @@
-"""The retrieval metrics of chapter 18.3, as pure functions.
+"""The retrieval metrics, as pure functions.
 
 Each function takes the ranked chunk IDs of 1 question (the context, best
 first) and its judgments. A metric is None when it does not apply, such as

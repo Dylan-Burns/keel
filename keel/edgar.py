@@ -1,4 +1,4 @@
-"""The SEC EDGAR client and the company facts lines (chapter 26).
+"""The SEC EDGAR client and the company facts lines.
 
 The client fetches 4 documents: the ticker map and the primary document of
 a filing from `www.sec.gov`, and the company facts and the submissions of 1
@@ -13,11 +13,11 @@ cache under `edgar.cache_dir` with its fetch time, so a repeat run makes no
 request.
 
 `filings_of` and `pick_latest` read the submissions of a company and pick
-the filings that `keel add` ingests (chapter 26.2, step 2).
+the filings that `keel add` ingests.
 
 `facts_lines` is a pure function: from a company facts document, a ticker,
 the concepts of `config/facts.yaml`, and a period window, it builds the
-lines of the `<facts>` block (chapter 26.1, step 4). The prompt module
+lines of the `<facts>` block. The prompt module
 calls it; no model request happens here (decision D-01).
 """
 
@@ -351,7 +351,7 @@ class TickerMap:
         return self.lookup(ticker).cik
 
 
-# --- Submissions (chapter 26.2, step 2) ---------------------------------------
+# --- Submissions ---------------------------------------
 
 
 class FilingRef(_Model):
@@ -476,7 +476,7 @@ def filings_of(
 def pick_latest(
     submissions: Mapping[str, Any], forms: Sequence[str] = ADD_FORMS
 ) -> list[FilingRef]:
-    """Pick the latest filing of each form (chapter 26.2, step 2).
+    """Pick the latest filing of each form.
 
     Args:
         submissions: The submissions JSON (`CachedDocument.data`).
@@ -717,7 +717,7 @@ class EdgarClient:
         )
 
     def filing_document(self, ref: FilingRef) -> bytes:
-        """Load the primary document of a filing (chapter 26.2, step 3).
+        """Load the primary document of a filing.
 
         Args:
             ref: The filing, from `pick_latest` or `filings_of`.
@@ -972,7 +972,7 @@ def load_facts_config(path: pathlib.Path) -> FactsConfig:
         raise errors.ConfigError(f"invalid {path}: {error}") from error
 
 
-# --- Facts lines (chapter 26.1, step 4) ---------------------------------------
+# --- Facts lines ---------------------------------------
 
 
 class FactLine(_Model):
@@ -1029,7 +1029,7 @@ class FactLine(_Model):
         )
 
     def text(self) -> str:
-        """Render the line in the chapter 26.1 format.
+        """Render the line format.
 
         Returns:
             `<fact id> | <value> | <unit> | <label> | period end <date> |
@@ -1294,7 +1294,7 @@ def facts_lines(
         facts_config: The mapped concepts.
         start: The first period end date to keep, or None for no bound.
         end: The last period end date to keep, or None for no bound.
-        max_lines: The line limit (40 in chapter 26.1).
+        max_lines: The line limit (40).
         cik: The CIK from the ticker map, or None to read the body's.
 
     Returns:
@@ -1379,7 +1379,7 @@ def _document_cik(document: Mapping[str, Any]) -> str:
         return ""
 
 
-# --- The facts of 1 question (chapter 26.1, steps 4 and 8) --------------------
+# --- The facts of 1 question --------------------
 
 FactsSource = Literal["cache", "network", "none"]
 Window = tuple[datetime.date | None, datetime.date | None]

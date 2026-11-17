@@ -1,4 +1,4 @@
-"""The reliability layer of chapter 16 on a synthetic index.
+"""The reliability layer on a synthetic index.
 
 The breaker, the fallback model, the degraded mode, the budget stop, the
 refusal path, and the index checks run through `Answerer.ask` and the API

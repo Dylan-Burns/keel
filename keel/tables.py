@@ -3,7 +3,7 @@
 The filings hold tables as flat pipe-delimited rows. The title, the column
 labels, and the units often sit apart from the numbers. This module groups
 the rows, finds the label rows, the title, and the units phrase, and renders
-each table as 1 caption line plus 1 line per data row (chapter 7.8). The
+each table as 1 caption line plus 1 line per data row. The
 module never converts a number: the text keeps the numbers as written.
 """
 
@@ -14,7 +14,7 @@ import re
 
 import pydantic
 
-# A table row holds 2 or more pipe characters (chapter 7.8, step 1). A line
+# A table row holds 2 or more pipe characters. A line
 # over 2,000 characters is prose with stray pipes, not a row: the longest
 # corpus lines with pipes are whole sections (up to 95,141 characters).
 MIN_PIPES = 2

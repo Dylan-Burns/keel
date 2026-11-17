@@ -7,11 +7,11 @@ requests and prices them before an admin starts the job.
 
 The price of 1 answer is measured: the mean `cost_usd` of the answered
 records of the configured model in the audit log (the newest 200). With
-no such record yet, the estimate prices the measured token counts of
-stage 15 (about 33,000 input and 2,800 output tokens per answer) with
+no such record yet, the estimate prices the measured token counts
+(about 33,000 input and 2,800 output tokens per answer) with
 `config/prices.yaml`. The judge has no audit record, so its estimate
 always prices the measured judge tokens (about 11,000 input and 2,000
-output tokens per answer, stage 10) with the judge model's prices.
+output tokens per answer) with the judge model's prices.
 """
 
 from __future__ import annotations

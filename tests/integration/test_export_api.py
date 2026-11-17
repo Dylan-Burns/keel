@@ -1,4 +1,4 @@
-"""The memo export route `GET /api/export/{request_id}` (chapter 27.2)."""
+"""The memo export route `GET /api/export/{request_id}`."""
 
 import io
 import json

@@ -1,4 +1,4 @@
-"""Sections and chunks on the mini corpus, and the stage 3 commands."""
+"""Sections and chunks on the mini corpus, and the parse and chunk commands."""
 
 import json
 

@@ -1,4 +1,4 @@
-"""The EDGAR client and the facts lines (chapter 26.1, tests of 26.5).
+"""The EDGAR client and the facts lines.
 
 Every test runs with the network blocked: the client reads the recorded
 responses under `tests/fixtures/edgar/` (fetched once by

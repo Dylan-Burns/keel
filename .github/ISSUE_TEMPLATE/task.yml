@@ -1,12 +1,12 @@
 name: Task
-description: A unit of work tied to a stage or a chapter of the plan
+description: A unit of work
 labels: [task]
 body:
   - type: input
     id: stage
     attributes:
-      label: Stage or chapter
-      placeholder: "Stage 7 / chapter 12"
+      label: Area
+      placeholder: "Retrieval"
     validations:
       required: true
   - type: textarea

@@ -2,7 +2,7 @@ name: eval
 
 # Runs the golden set against the mini corpus with the live provider.
 # Nightly, on every push to main, and on demand. The gate fails the job when a
-# metric is below its threshold (chapter 18.8). The full-corpus eval runs on the
+# metric is below its threshold. The full-corpus eval runs on the
 # engineer's machine because the full index is not in the repo.
 on:
   schedule:
@@ -35,7 +35,7 @@ jobs:
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "eval/golden.yaml is not in the repository yet (stage 10); nothing to run"
+            echo "eval/golden.yaml is not in the repository yet; nothing to run"
           fi
       - run: uv sync --frozen
         if: steps.harness.outputs.present == 'true'
@@ -58,7 +58,7 @@ jobs:
           KEEL_INDEX__DIR: index/ci
         # --answers runs the live answer and judge gates as well (1 answer and
         # 1 judge request per question, about 0.15 USD per run). The ci subset
-        # judges 1 answer, under the minimum sample of 5 (chapter 18.8), so
+        # judges 1 answer, under the minimum sample of 5, so
         # faithfulness and citation precision report as pending here; the
         # code-checked answer gates block.
         run: >

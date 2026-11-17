@@ -1,4 +1,4 @@
-"""The SQLite chunk store: filings, chunks, quarantine (chapter 9.2).
+"""The SQLite chunk store: filings, chunks, quarantine.
 
 The store is 1 SQLite file, `chunks.sqlite`, that also holds the FTS5
 table of `keel.stores.sqlite_fts`. Row `vector_row` of `vectors.npy` holds
@@ -6,7 +6,7 @@ the vector of the chunk with that `vector_row`. The build inserts the chunks
 in chunk-ID order, so `vector_row` equals the chunk-ID rank and `id` minus
 1. `id` is an INTEGER PRIMARY KEY, the stable rowid that the external-content
 FTS5 table keys on (a hidden rowid may change on VACUUM); `chunk_id` is
-UNIQUE instead of the chapter 9.2 TEXT PRIMARY KEY.
+UNIQUE instead TEXT PRIMARY KEY.
 """
 
 from __future__ import annotations
@@ -119,7 +119,7 @@ _INSERT_FILING = (
     "INSERT INTO filings VALUES "
     "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 )
-# The source of a filing (chapter 26.2, step 6): `corpus` for the files of
+# The source of a filing: `corpus` for the files of
 # the zip, `edgar` for the files that `keel add` fetched.
 DEFAULT_SOURCE = "corpus"
 _INSERT_CHUNK = (
@@ -184,7 +184,7 @@ class StoredChunk:
 
 
 def create(path: pathlib.Path) -> sqlite3.Connection:
-    """Create a new, empty store with the chapter 9.2 schema.
+    """Create a new, empty store with the schema.
 
     Args:
         path: The new database file; it must not exist.

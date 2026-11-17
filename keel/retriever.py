@@ -1,8 +1,8 @@
-"""Hybrid retrieval: filters, fusion, weights, rerank, collapse (chapter 11).
+"""Hybrid retrieval: filters, fusion, weights, rerank, collapse.
 
 For each sub-query of the plan the retriever reads the top rows of the FTS5
 index and of the dense index under 1 metadata filter, fuses the 2 lists
-with reciprocal rank fusion, multiplies the fused score by the chapter 11.1
+with reciprocal rank fusion, multiplies the fused score
 weights, reranks the top candidates of each sub-query with the pinned
 cross-encoder, and collapses near-duplicate boilerplate by SimHash. The
 context module then fills the quota groups within the budget.
@@ -53,9 +53,9 @@ LATEST_FILING_WEIGHT = 1.0
 OTHER_FILING_WEIGHT = 0.9
 DELTA_ONLY_RISK_WEIGHT = 0.9
 LATER_COMPARATIVE_WEIGHT = 1.05
-# Stage 10 (eval): a 10-K restates Item 1 and Item 1A in full each year,
+# From the eval: a 10-K restates Item 1 and Item 1A in full each year,
 # so without a time scope an earlier filing's copy of those sections is
-# superseded by the latest 10-K (chapter 10.4: no scope prefers the latest
+# superseded by the latest 10-K (no scope prefers the latest
 # 10-K through weights). A question about a whole fiscal or calendar year
 # is answered by the 10-K of that year, not by the quarters inside it.
 STANDING_SECTIONS = ("risk_factors", "business")
@@ -78,7 +78,7 @@ UNKNOWN_SECTION = "unknown"
 # A risk question that also asks how the companies respond reserves a third
 # of each company quota for the sections where filings state their
 # responses: Item 1 (the regulation subsection), MD&A, and legal
-# proceedings (stage 8; the risk factor weights alone leave them out).
+# proceedings (the risk factor weights alone leave them out).
 RESPONSE_SECTIONS = ("business", "mdna", "legal_proceedings")
 RESPONSE_SHARE = 3
 RESPONSE_LABEL = "response"
@@ -280,7 +280,7 @@ class CrossEncoderReranker:
 
 @dataclasses.dataclass(frozen=True)
 class Filter:
-    """The metadata filter of 1 sub-query (chapter 11.2).
+    """The metadata filter of 1 sub-query.
 
     Attributes:
         tickers: The tickers, or empty for all.
@@ -370,7 +370,7 @@ class SubQuery:
 
 @dataclasses.dataclass(frozen=True)
 class Plan:
-    """The retrieval plan of 1 question (chapter 11.3).
+    """The retrieval plan of 1 question.
 
     Attributes:
         sub_queries: The sub-queries.
@@ -392,7 +392,7 @@ def lexical_terms(
     synonyms: Mapping[str, Sequence[str]],
     question: str,
 ) -> tuple[str, ...]:
-    """Expand the topic terms with the synonyms (chapter 9.3).
+    """Expand the topic terms with the synonyms.
 
     A synonym entry applies when its key starts the term or the term,
     without a plural `s`, starts the key. Without topic terms the content
@@ -440,7 +440,7 @@ def _window(
 
 
 def is_risk_question(analysis: understanding.QuestionAnalysis) -> bool:
-    """Tell whether the question is about risks (chapter 11.1, 11.2).
+    """Tell whether the question is about risks.
 
     Args:
         analysis: The question analysis.
@@ -501,7 +501,7 @@ def latest_10k(
 def trend_cells(
     filings: Sequence[understanding.FilingRef], window: tuple[str, str] | None
 ) -> list[understanding.FilingRef]:
-    """Return the period cells of 1 company for a trend (chapter 11.3).
+    """Return the period cells of 1 company for a trend.
 
     A cell is 1 filing: 1 fiscal year of a 10-K or 1 quarter of a 10-Q in
     the window. Without a window the cells are every 10-K plus the latest
@@ -637,7 +637,7 @@ class _PlanInput:
     def cell_sections(self, cell: understanding.FilingRef) -> tuple[str, ...]:
         """The sections of 1 trend cell.
 
-        A 10-Q states only the changes to its risk factors (chapter 11.2),
+        A 10-Q states only the changes to its risk factors,
         so for a risk question a 10-Q cell reads its risk section alone,
         without `unknown`, and the quota and the rerank pairs it cannot
         use move to the 10-K cells instead of filling with MD&A or
@@ -698,7 +698,7 @@ class _PlanInput:
 def _company_groups(
     data: _PlanInput, ticker: str, quota: int, token_quota: int | None
 ) -> tuple[list[SubQuery], list[context.QuotaGroup]]:
-    """The sub-queries and quota groups of 1 company (chapter 11.3).
+    """The sub-queries and quota groups of 1 company.
 
     A question that asks how the companies respond to their risks splits
     the company quota: a third goes to a response group over
@@ -867,7 +867,7 @@ def build_plan(
 
 
 def fuse(rankings: Sequence[Sequence[int]], k: int = 60) -> dict[int, float]:
-    """Reciprocal rank fusion (chapter 11.1).
+    """Reciprocal rank fusion.
 
     Args:
         rankings: Lists of row IDs, best first.
@@ -886,7 +886,7 @@ def fuse(rankings: Sequence[Sequence[int]], k: int = 60) -> dict[int, float]:
 
 @dataclasses.dataclass(frozen=True)
 class WeightRules:
-    """The facts the chapter 11.1 weights need for 1 question.
+    """The facts the weights need for 1 question.
 
     Attributes:
         section_weights: The weight per section.
@@ -911,7 +911,7 @@ class WeightRules:
 
 
 def weigh(candidate: context.Candidate, rules: WeightRules) -> float:
-    """Multiply the weights of chapter 11.1 and 11.5 for 1 candidate.
+    """Multiply the weights for 1 candidate.
 
     Args:
         candidate: The candidate.
@@ -1073,7 +1073,7 @@ def later_comparatives(
 
     A candidate covers the period of a candidate from an earlier filing of
     the same company when its text names that period end date, or names
-    the fiscal year of that earlier 10-K (chapter 11.5, E-D-17).
+    the fiscal year of that earlier 10-K (E-D-17).
 
     Args:
         candidates: The candidates.
@@ -1107,7 +1107,7 @@ def later_comparatives(
 def collapse(
     candidates: Sequence[context.Candidate], max_distance: int = 3
 ) -> tuple[list[context.Candidate], int]:
-    """Collapse near-duplicates of 1 company and section (chapter 11.4).
+    """Collapse near-duplicates of 1 company and section.
 
     Of a pair within `max_distance` SimHash bits, the chunk of the later
     filing stays, unless only the earlier one is in the time window.
@@ -1205,8 +1205,8 @@ def cap_companies(
 def rerank_share(top_n: int, sub_queries: int) -> int:
     """Split the reranker's top N evenly over the sub-queries (D-10).
 
-    The reranker scores the top 80 candidates of a question (decision D-10,
-    chapter 6.3 step 7); each sub-query gets an equal share, so every quota
+    The reranker scores the top 80 candidates of a question (decision
+    D-10); each sub-query gets an equal share, so every quota
     group starts from reranked candidates. With more sub-queries than N,
     each gets 1 and the caller stops at N.
 
@@ -1300,7 +1300,7 @@ class RetrievalResult:
         ranked: The candidates after the collapse, best first (the label
             helper and the eval read them).
         per_company: (ticker, before, after) candidate counts around the
-            near-duplicate collapse, for the trace drawer (chapter 25.1).
+            near-duplicate collapse, for the trace drawer.
     """
 
     plan: Plan
@@ -1372,8 +1372,7 @@ class Retriever:
         reranker: The reranker, or None to rank by the fused score.
         settings: The loaded settings.
         degraded: The notes of the models that did not load.
-        mode: `hybrid`, or `lexical` or `dense` alone for the ablation of
-            chapter 18.7.
+        mode: `hybrid`, or `lexical` or `dense` alone for the eval ablation.
 
     Raises:
         ConfigError: An unknown mode.
@@ -1669,7 +1668,7 @@ class Retriever:
         analysis: understanding.QuestionAnalysis,
         budget: context.Budget | None = None,
     ) -> RetrievalResult:
-        """Retrieve the context of 1 question (chapter 11).
+        """Retrieve the context of 1 question.
 
         Args:
             analysis: The question analysis.

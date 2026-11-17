@@ -1,4 +1,4 @@
-"""Tests of the retrieval metrics of chapter 18.3."""
+"""Tests of the retrieval metrics."""
 
 import math
 

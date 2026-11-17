@@ -1,4 +1,4 @@
-"""The dense index: float32 unit vectors in 1 NumPy file (chapter 9.4).
+"""The dense index: float32 unit vectors in 1 NumPy file.
 
 The build embeds each filing on its own and writes 1 shard per filing,
 `vectors/{filing_id}.npy`, with the rows in chunk-ID order. It then
@@ -9,7 +9,7 @@ other filings in the build, so a full and an incremental build give the
 same bytes on 1 machine.
 
 Passages get no prefix; a question gets the bge query instruction. The
-vectors are normalized, so the dot product is the cosine (docs/GOTCHAS.md).
+vectors are normalized, so the dot product is the cosine.
 """
 
 from __future__ import annotations
@@ -134,7 +134,7 @@ class SentenceEmbedder:
 
 
 def embed_query(embedder: Embedder, question: str) -> Vectors:
-    """Embed 1 question with the bge query instruction (chapter 9.4).
+    """Embed 1 question with the bge query instruction.
 
     Args:
         embedder: The embedder.
@@ -158,7 +158,7 @@ def shard_path(build_dir: pathlib.Path, filing_id: str) -> pathlib.Path:
         `{build_dir}/vectors/{filing_id}.npy`.
 
     Raises:
-        InvalidFilingIdError: The filing ID does not have the chapter 7.11
+        InvalidFilingIdError: The filing ID does not have the expected
             shape, or the path would leave the shard directory.
     """
     if not base.FILING_ID.match(filing_id):

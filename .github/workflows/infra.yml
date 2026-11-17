@@ -41,7 +41,7 @@ jobs:
           # checkov treats the path as a directory and writes
           # results_sarif.sarif into it.
           output_file_path: checkov-results
-          # checkov reports and never fails the job (chapter 29.5).
+          # checkov reports and never fails the job.
           soft_fail: true
       - name: upload checkov results
         # Code scanning needs GitHub Advanced Security on a private repository.

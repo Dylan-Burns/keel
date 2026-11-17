@@ -1,4 +1,4 @@
-"""`keel refresh`: new filings of the watched tickers (chapter 26.3).
+"""`keel refresh`: new filings of the watched tickers.
 
 For each ticker on the watch list and each ticker that `keel add` brought
 in (the `added` entries of the corpus manifest), the refresh reads the
@@ -13,10 +13,10 @@ runs the incremental build.
 Every run appends JSON lines to `<logs.dir>/refresh.log`: 1 `start` line,
 1 line per new, added, or quarantined filing and per error, and 1 `done`
 line. `added_since` reads the `added` lines after a point in time; the
-front-end banner of chapter 26.3, step 4, lists them.
+front-end banner, step 4, lists them.
 
 `run_refresh` is the entry point of the CLI and of the in-app scheduler
-(chapter 29.9, at `scheduler.refresh_at`). The requests go through the
+(at `scheduler.refresh_at`). The requests go through the
 EDGAR client, so the rate limit, the allow list, and the disk cache hold.
 No model request happens here (decisions D-01 and D-02).
 """
@@ -409,7 +409,7 @@ def read_log(path: pathlib.Path) -> list[LogEntry]:
 def added_since(path: pathlib.Path, since: datetime.datetime) -> list[LogEntry]:
     """List the filings that a refresh added after a point in time.
 
-    The front-end banner (chapter 26.3, step 4) calls this with the time
+    The front-end banner calls this with the time
     of the user's last visit.
 
     Args:

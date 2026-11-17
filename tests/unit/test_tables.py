@@ -1,4 +1,4 @@
-"""Table reconstruction rules of chapter 7.8 on real row shapes."""
+"""Table reconstruction rules on real row shapes."""
 
 import pytest
 

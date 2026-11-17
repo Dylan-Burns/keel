@@ -1,10 +1,10 @@
-"""Canonical section detection for 10-K and 10-Q filings (chapter 8).
+"""Canonical section detection for 10-K and 10-Q filings.
 
 The detector extracts every `Item` label of the clean text, classifies
 each candidate as a table-of-contents row, a cross-reference, or a real
 heading candidate, and selects the real headings with the item order of
 the form. It maps the items of both forms to 1 canonical taxonomy keyed on
-the form and the Part (chapter 8.5). A detection failure never raises: the
+the form and the Part. A detection failure never raises: the
 span without a heading becomes `unknown` and the result carries a warning.
 """
 
@@ -39,7 +39,7 @@ PART_LABEL = re.compile(
     r"(?m)(?:^[ \t|]*[Pp][Aa][Rr][Tt]|(?<![a-z])PART|(?<=[.\d)])Part)"
     r"[ \t]+(IV|I{1,3})\b"
 )
-# A label starts a line (rule R4 of chapter 7), or it is fused after a
+# A label starts a line (rule R4), or it is fused after a
 # period, a page number, or a capital heading, which R4 does not split:
 # `...made.2PART I. FINANCIAL INFORMATIONItem 1: Financial Statements`.
 _FUSED = r"(?<=[.\d)A-Z\]])"
@@ -81,9 +81,9 @@ REFERENCE_CUES = (
     "as well as",
     "throughout",
 )
-# The line split of chapter 7 (R4) moves an inline reference such as `see
+# The line split (R4) moves an inline reference such as `see
 # the Item 1A. Risk Factors section` to a new line, so an article can sit
-# between the cue and the label; the cue check drops it first (stage 10,
+# between the cue and the label; the cue check drops it first (an eval finding,
 # the PFE 10-Ks).
 REFERENCE_ARTICLES = ("the", "this", "our")
 TRAILING_CUES = re.compile(r"\b(?:of this|above|below|herein)\b", re.I)
@@ -113,7 +113,7 @@ FORWARD_LOOKING = "forward_looking"
 
 Kind = Literal["toc", "cross_reference", "heading", "rejected"]
 
-# Expected titles per form, Part, and item (chapter 8.3, `title_match`).
+# Expected titles per form, Part, and item (`title_match`).
 # A tuple holds the accepted variants.
 _FORM_K_TITLES: dict[str, tuple[str, ...]] = {
     "1": ("Business",),
@@ -201,7 +201,7 @@ _FORM_Q_SECTIONS = {
     ("II", "1A"): "risk_factors",
     ("II", "6"): "excluded",
 }
-# Items whose bodies are short by design (chapter 8.3, `body_ok`). The data
+# Items whose bodies are short by design (`body_ok`). The data
 # adds 10-K Items 8, 10 to 14, and 15 and 10-Q Part II Item 6: many 10-Ks
 # state only that the statements follow Item 15, Part III items are
 # incorporated by reference, and an exhibits item can be a short list.
@@ -218,7 +218,7 @@ class Section(pydantic.BaseModel):
     """1 canonical section span of the clean text.
 
     Attributes:
-        section: The canonical section name of chapter 8.5.
+        section: The canonical section name.
         item_label: The raw label such as `Item 1A` or `Part II Item 1A`,
             or None for a span without a heading.
         start: The offset of the span start in the clean text.
@@ -383,7 +383,7 @@ def _is_short(form: str, part: str, item: str) -> bool:
 
 
 def canonical(form: str, part: str, item: str) -> str:
-    """Map a form, Part, and item to the canonical section (chapter 8.5).
+    """Map a form, Part, and item to the canonical section.
 
     Args:
         form: `10-K` or `10-Q`.
@@ -439,7 +439,7 @@ def _raw_candidates(text: str, form: str) -> list[_Raw]:
 
 
 def _parts_by_order(found: list[_Raw]) -> list[_Raw]:
-    """Assign Part II to the items after Part I Item 4 (chapter 8.6).
+    """Assign Part II to the items after Part I Item 4.
 
     The order restarts at Part I when a Part II item number goes back down,
     so the table of contents does not push the body into Part II.
@@ -512,7 +512,7 @@ def _in_cluster(starts: Sequence[int], index: int) -> bool:
 
 @dataclasses.dataclass(frozen=True)
 class Features:
-    """The classification features of 1 candidate (chapter 8.3).
+    """The classification features of 1 candidate.
 
     Attributes:
         has_page_cell: The line ends with a page number cell.
@@ -538,7 +538,7 @@ class Features:
 
 
 def decide(features: Features) -> tuple[Kind, str]:
-    """Classify 1 candidate from its features (chapter 8.3).
+    """Classify 1 candidate from its features.
 
     Args:
         features: The features.
@@ -572,7 +572,7 @@ def decide(features: Features) -> tuple[Kind, str]:
 
 
 def classify(text: str, form: str) -> list[Candidate]:
-    """Extract and classify every item candidate (chapter 8.2 and 8.3).
+    """Extract and classify every item candidate.
 
     Args:
         text: The clean text of the filing.
@@ -655,7 +655,7 @@ def _trailing_cue(raw: _Raw, expected: Sequence[str]) -> bool:
 
 
 def select(candidates: Sequence[Candidate], form: str) -> list[Candidate]:
-    """Select the real headings with the order constraint (chapter 8.4).
+    """Select the real headings with the order constraint.
 
     The selection is the longest run of heading candidates whose item keys
     increase in the order of the form, with the sum of scores and then the
@@ -917,7 +917,7 @@ def relocate_risk_factors(
 
 
 def _flag_forward_looking(text: str, sections: list[Section]) -> list[Section]:
-    """Split out the forward-looking spans with their flag (chapter 8.4)."""
+    """Split out the forward-looking spans with their flag."""
     result: list[Section] = []
     for span in sections:
         if span.excluded:
@@ -977,7 +977,7 @@ def detect(text: str, form: str) -> SectionResult:
     """Detect the canonical sections of 1 filing.
 
     Args:
-        text: The clean text of the filing (chapter 7).
+        text: The clean text of the filing.
         form: `10-K` or `10-Q`.
 
     Returns:
@@ -1076,7 +1076,7 @@ def _coverage_warnings(
     candidates: Sequence[Candidate],
     chosen: Sequence[Candidate],
 ) -> list[str]:
-    """The warnings of chapter 8.6 for 1 filing."""
+    """The warnings for 1 filing."""
     warnings: list[str] = []
     names = {s.section for s in sections}
     core = CORE_10K if form == "10-K" else CORE_10Q
@@ -1104,7 +1104,7 @@ def _coverage_warnings(
 
 
 class SectionsReport(pydantic.BaseModel):
-    """The section coverage of a corpus (chapter 8.6).
+    """The section coverage of a corpus.
 
     Attributes:
         filings: The filings per form.

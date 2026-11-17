@@ -130,7 +130,7 @@ def test_compset_resolves(client, services, api_settings, tokens) -> None:
     assert item["name"] == "auto"
     assert item["tickers"] == ["TSLA", "AAPL", "ZZZZ"]
     assert item["owner"] == "alice"
-    assert item["missing"] == ["ZZZZ"]  # `keel add` adds it (chapter 26)
+    assert item["missing"] == ["ZZZZ"]  # `keel add` adds it
     assert item["editable"] is True
     # The question names the set; the analysis expands it in saved order.
     analysis = services.answerer.understander.analyze(QUESTION)

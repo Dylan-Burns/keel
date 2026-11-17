@@ -1,16 +1,16 @@
-"""The question pipeline around the single call (chapter 6.3).
+"""The question pipeline around the single call.
 
 `Answerer.ask` runs 1 question: the answer cache when allowed, question
 understanding, retrieval, the company facts of a numeric question (from
-the EDGAR disk cache, chapter 26.1; never a blocker), the prompt, exactly 1
+the EDGAR disk cache; never a blocker), the prompt, exactly 1
 provider request (with up to 2 retries before any content, decision D-04),
 the citation validator, the answer cache write, and 1 audit record. It
-yields the events of chapter 14.3 (`meta`, `analysis`, `retrieval`,
+yields the events (`meta`, `analysis`, `retrieval`,
 `answer_delta`, `findings`, `final`, `error`, `done`), which `keel ask`
-prints and the API of stage 9 streams. No other step calls a model (D-01,
+prints and the API streams. No other step calls a model (D-01,
 D-02, D-28).
 
-Chapter 16 wraps the call: the circuit breaker sends a question straight to
+Reliability wraps the call: the circuit breaker sends a question straight to
 the fallback model while the primary model is down, the fallback gets its
 own budget of 3 requests, a context overflow halves the context once, and
 the daily budget stops every model request. When no model answers, the
@@ -79,7 +79,7 @@ BUDGET_MESSAGE = (
 REFUSED_MESSAGE = (
     "The model declined to answer; the retrieved filing text is shown."
 )
-OVERFLOW_RAISE = 0.05  # chapter 16.6 step 4: the calibration factor +5%
+OVERFLOW_RAISE = 0.05  # the calibration factor +5%
 DEGRADED_OUTCOMES = frozenset({"provider_error", "offline", "budget_stop"})
 CONNECT_DELAYS = (1.0, 3.0)
 SERVER_DELAYS = (2.0, 6.0)
@@ -91,7 +91,7 @@ FactsLoader = Callable[[understanding.QuestionAnalysis], edgar.FactsResult]
 
 @dataclasses.dataclass(frozen=True)
 class Event:
-    """1 event of chapter 14.3.
+    """1 event.
 
     Attributes:
         name: The event name, such as `answer_delta`.
@@ -103,7 +103,7 @@ class Event:
 
 
 def backoff(error: errors.ProviderError, attempt: int) -> float:
-    """The wait before retry `attempt` (0 for the first), chapter 16.1.
+    """The wait before retry `attempt` (0 for the first).
 
     Args:
         error: The failure.
@@ -147,7 +147,7 @@ def provider_from_settings(
 def fallback_from_settings(
     settings: config.Settings,
 ) -> base.LLMProvider | None:
-    """Build the fallback model provider of chapter 16.4.
+    """Build the fallback model provider.
 
     The fallback sends the same prompt with the same output mode; the
     adapter takes the thinking setting of the fallback model from
@@ -188,7 +188,7 @@ _COMPARISONS: tuple[
 
 
 def prompt_supported(prompt_version: str, compatible: str) -> bool:
-    """Check a prompt version against the manifest range (chapter 17.12).
+    """Check a prompt version against the manifest range.
 
     Args:
         prompt_version: Such as `1.0.0`.
@@ -526,7 +526,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         )
 
     def _cacheable(self, question: str) -> bool:
-        """False for a question that names a comp set (chapter 27.2).
+        """False for a question that names a comp set.
 
         The cache key holds the question, not the tickers of the set, so
         an edited comp set would get the answer of its old tickers.
@@ -546,7 +546,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         max_chunks: int | None = None,
         user: str | None = None,
     ) -> AsyncIterator[Event]:
-        """Answer 1 question and yield the events of chapter 14.3.
+        """Answer 1 question and yield the events.
 
         Args:
             question: The question.
@@ -558,7 +558,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
                 or None; never above `retrieval.max_context_tokens`.
             max_chunks: A lower chunk budget for this request, or None;
                 never above `retrieval.max_chunks`.
-            user: The user who asks, for the audit record (chapter 27.2),
+            user: The user who asks, for the audit record,
                 or None from the command line.
 
         Yields:
@@ -710,7 +710,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             )
 
     async def _call(self, run: _Run) -> AsyncIterator[Event]:
-        """Ask the primary model, then the fallback (chapters 16.3, 16.4).
+        """Ask the primary model, then the fallback.
 
         The primary model gets up to 3 requests while the breaker lets
         them through; the fallback gets its own 3 when the primary model
@@ -833,7 +833,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         return True
 
     def _halve(self, run: _Run, error: errors.ProviderError) -> None:
-        """Halve the context and rebuild the prompt (chapter 16.6 step 3)."""
+        """Halve the context and rebuild the prompt."""
         if run.result is None or run.analysis is None or run.bundle is None:
             return  # pragma: no cover  # a request needs all 3
         estimate = run.bundle.estimated_tokens
@@ -891,7 +891,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
                 },
             )
             cached = None
-            # Chapter 16.12 step 3: the cache after a failure.
+            # The cache after a failure.
             if not run.content and (
                 await asyncio.to_thread(self._cacheable, run.question)
             ):
@@ -1062,7 +1062,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
     def _audit(
         self, run: _Run, record: dict[str, Any] | None
     ) -> dict[str, Any]:
-        """Write the audit record of chapter 15 S-07 (never the prompt).
+        """Write the audit record S-07 (never the prompt).
 
         The record lists the pipeline in order: the entities and the
         question type, the filters, the candidates per company around the
@@ -1074,7 +1074,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             record: The `final` record, or None for a rejected question.
 
         Returns:
-            The record, which the `final` event carries (chapter 25.1).
+            The record, which the `final` event carries.
         """
         meta = record["meta"] if record else {}
         chunk_ids = list(run.bundle.chunk_ids) if run.bundle else []
@@ -1205,7 +1205,7 @@ _MESSAGES = {
 
 
 def _facts_summary(facts: edgar.FactsResult) -> dict[str, Any]:
-    """The facts line of the trace drawer (chapter 26.1, step 8)."""
+    """The facts line of the trace drawer."""
     return {
         "lines": len(facts.lines),
         "source": facts.source,

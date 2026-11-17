@@ -1,7 +1,7 @@
 """The corpus pass of the parser: per-ticker facts and the summary.
 
 Some rules need more than 1 file. The fiscal-year-end month of a ticker
-comes from its 10-K (chapter 7.9, step 4), and check CK-11 compares the
+comes from its 10-K, and check CK-11 compares the
 filing IDs of all files. This module parses every file, applies those 2
 rules, and builds the summary that `keel parse --all --summary` prints and
 the build report records.

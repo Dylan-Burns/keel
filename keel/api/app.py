@@ -4,7 +4,7 @@
 lifespan opens the index, loads the embedding model and the reranker once,
 builds the provider, and checks the index files and the corpus checksum;
 a missing index or provider key does not stop the service (E-F-01,
-E-F-07), `/api/ready` reports it. With `--bootstrap` (chapter 29.9) the
+E-F-07), `/api/ready` reports it. With `--bootstrap` the
 server starts first and a background thread fetches the corpus, builds or
 restores the index, and then opens it. With `scheduler.enabled` on, the
 nightly refresh and backup run in the app (`keel.api.background`). The
@@ -237,7 +237,7 @@ def serve(
         port: The port, or None for `server.port`; a busy port moves to the
             next free one up to 10 above it.
         bootstrap_first: Run the first-start bootstrap in the background
-            (`--bootstrap`, chapter 29.9) and open the index when it ends.
+            (`--bootstrap`) and open the index when it ends.
 
     Returns:
         0 after the server stops.

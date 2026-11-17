@@ -1,4 +1,4 @@
-"""The API of chapter 14.1 with the mock provider on a synthetic index.
+"""The API with the mock provider on a synthetic index.
 
 Each test builds a small published index of AAPL, TSLA, and JPM risk
 chunks (the same shape as tests/integration/test_answer.py), opens the
@@ -218,7 +218,7 @@ def test_ask_stream_server_request_id(client, api_settings) -> None:
 
 
 class AskResponse(pydantic.BaseModel):
-    """The response schema of chapter 14.2 for the JSON test."""
+    """The response schema for the JSON test."""
 
     model_config = pydantic.ConfigDict(extra="allow")
 
@@ -967,7 +967,7 @@ def test_eval_page_renders(api_settings, index_dir, tmp_path) -> None:
     assert page["report"]["truncated"] is False
     assert page["prompt_log"]["source"] == "docs/PROMPT_LOG.md"
     assert page["prompt_log"]["markdown"].startswith("# Prompt log")
-    # The markdown leaves as text: the client sanitizes it (chapter 15).
+    # The markdown leaves as text: the client sanitizes it.
     assert "<script>" in page["report"]["markdown"]
     gates = {g["name"]: g for g in page["gates"]}
     assert list(gates) == [
@@ -1057,7 +1057,7 @@ def test_final_event_audit_retry(client, api_settings) -> None:
     assert record["outcome"] == "answered"
     _, events = stream(client, text, {"X-Keel-Mock": "provider_unavailable"})
     record = dict(events)["final"]["audit"]
-    # 3 requests to the primary, then 3 to the fallback (stage 11, D-04).
+    # 3 requests to the primary, then 3 to the fallback (D-04).
     assert record["model_requests"] == 6
     assert record["failed_before_content"] == 6
     assert record["flags"]["degraded"] is True
@@ -1074,7 +1074,7 @@ def test_final_event_audit_retry(client, api_settings) -> None:
     assert record["chunk_count"] == 0
 
 
-# --- keel serve --bootstrap and the nightly jobs (stage 21) -------------------
+# --- keel serve --bootstrap and the nightly jobs ---------------------------
 
 
 def wait_until(check, timeout: float = 30.0) -> None:
