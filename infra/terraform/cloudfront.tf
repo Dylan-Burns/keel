@@ -1,5 +1,6 @@
 # The public HTTPS address of the pilot (D-39): a CloudFront distribution in
-# front of the host, with the free *.cloudfront.net name and certificate. It
+# front of the host, with the free *.cloudfront.net name and certificate, or
+# var.domain_name and www with an ACM certificate (D-40, dns.tf). It
 # hides the host address, and caching is off, so each request and each SSE
 # stream reaches the app unchanged (the bearer token included). The origin
 # is Caddy on the host over HTTPS, under the sslip.io name it holds a
@@ -27,13 +28,14 @@ resource "aws_cloudfront_distribution" "keel" {
   #checkov:skip=CKV_AWS_86:access logs need a logging bucket; the app keeps its own audit log
   #checkov:skip=CKV_AWS_310:one origin; the host is the only source of the pilot
   #checkov:skip=CKV_AWS_374:the pilot users are not limited by country
-  #checkov:skip=CKV_AWS_174:the default *.cloudfront.net certificate fixes the TLS policy; a custom domain would set TLSv1.2_2021
-  #checkov:skip=CKV2_AWS_42:the free *.cloudfront.net name and its default certificate are the point (D-39)
+  #checkov:skip=CKV_AWS_174:with domain_name set the policy is TLSv1.2_2021; the default *.cloudfront.net certificate fixes its own
+  #checkov:skip=CKV2_AWS_42:with domain_name empty the free *.cloudfront.net name and its default certificate are the point (D-39)
   #checkov:skip=CKV2_AWS_32:Managed-SecurityHeadersPolicy is attached
   enabled         = true
   is_ipv6_enabled = true
   comment         = "keel ${var.environment}"
   price_class     = "PriceClass_100"
+  aliases         = local.site_names
   http_version    = "http2and3"
 
   origin {
@@ -68,6 +70,9 @@ resource "aws_cloudfront_distribution" "keel" {
   }
 
   viewer_certificate {
-    cloudfront_default_certificate = true
+    cloudfront_default_certificate = !local.custom_domain
+    acm_certificate_arn            = local.custom_domain ? aws_acm_certificate_validation.keel[0].certificate_arn : null
+    ssl_support_method             = local.custom_domain ? "sni-only" : null
+    minimum_protocol_version       = local.custom_domain ? "TLSv1.2_2021" : "TLSv1"
   }
 }

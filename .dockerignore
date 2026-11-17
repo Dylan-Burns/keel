@@ -16,7 +16,6 @@ logs/
 demo/recording.mp4
 docs/*.md
 !docs/PROMPT_LOG.md
-!docs/BUILD_REPORT.md
 infra/
 tests/
 web/node_modules

@@ -56,6 +56,23 @@ variable "route53_zone_id" {
 }
 
 
+variable "domain_name" {
+  description = "Apex domain of the public address, for example keeldd.com. Leave empty to keep the free *.cloudfront.net name (dns.tf)."
+  type        = string
+  default     = ""
+}
+
+variable "dns_zone" {
+  description = "Who hosts the DNS of domain_name: route53 (Terraform creates the zone and every record) or external (another provider, such as Squarespace; add the records of the dns_records_to_add output there)."
+  type        = string
+  default     = "route53"
+
+  validation {
+    condition     = contains(["route53", "external"], var.dns_zone)
+    error_message = "dns_zone must be route53 or external."
+  }
+}
+
 variable "github_environment" {
   description = "GitHub environment whose jobs may assume the deploy role."
   type        = string

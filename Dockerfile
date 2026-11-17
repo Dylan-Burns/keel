@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-# Three-stage build (chapter 29.6): a Node stage runs the Vite build of the
+# Three-stage build: a Node stage runs the Vite build of the
 # front-end, a Python builder resolves dependencies from uv.lock, and a slim
 # runtime copies web/dist and the virtual environment and runs as a non-root
 # user. Model weights are not baked in; HF_HOME points at the mounted cache
@@ -20,16 +20,17 @@ RUN npm run build
 FROM ${PYTHON_IMAGE} AS builder
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
-    UV_PYTHON_DOWNLOADS=0
+    UV_PYTHON_DOWNLOADS=0 \
+    UV_NO_CACHE=1
 WORKDIR /app
 COPY --from=uv /uv /usr/local/bin/uv
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-project --no-dev --extra export
+# No RUN mounts: the Railway builder rejects bind mounts and cache mounts
+# without a service id. Copying the 2 lock inputs first keeps the layer
+# cache: this step reruns only when uv.lock or pyproject.toml changes.
+COPY uv.lock pyproject.toml ./
+RUN uv sync --frozen --no-install-project --no-dev --extra export
 COPY . .
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --extra export
+RUN uv sync --frozen --no-dev --extra export
 
 FROM ${PYTHON_IMAGE} AS runtime
 LABEL org.opencontainers.image.title="keel" \

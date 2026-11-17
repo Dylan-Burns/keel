@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Nightly backup of the Keel state to an S3 bucket (chapter 27.2).
+# Nightly backup of the Keel state to an S3 bucket.
 # Copies a consistent snapshot of the SQLite index, the vectors, the manifest,
 # the audit log, and the export log. Restore procedure: infra/README.md.
 #

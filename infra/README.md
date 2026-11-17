@@ -1,93 +1,114 @@
 # Infrastructure
 
-Railway hosts the pilot by default (chapter 29.9): it builds the `Dockerfile`,
-mounts one volume at `/data`, and gives an HTTPS subdomain. No DNS access, no
-certificate, no SSH key. The AWS path (Terraform, Docker Compose, Caddy,
-systemd timers) stays here as the alternative that the panel can read, and
-`.github/workflows/infra.yml` checks it on every change (fmt, validate,
-tflint, checkov).
+The public site runs on Railway (D-41): 1 service built from the
+`Dockerfile` with the service settings below, 1 volume at `/data`,
+and the custom domain `www.keeldd.com`. The AWS path below (Terraform,
+Docker Compose, Caddy, CloudFront, systemd timers, and an S3 bucket, D-39
+and D-40) stays in the repository as the alternative, and
+`.github/workflows/infra.yml` still checks it on every change (fmt,
+validate, tflint, checkov).
 
 ## Layout
 
 | Path | Purpose |
 | --- | --- |
-| `../railway.toml` | Railway build and start settings |
-| `terraform/` | AWS pilot host (D-39): EC2 instance, Elastic IP, security group, S3 backup bucket, IAM instance profile with SSM, GitHub OIDC deploy role, optional Route 53 record |
-| `Caddyfile` | AWS pilot host: TLS termination, security headers, SSE pass-through |
-| `systemd/` | AWS pilot host: `keel-refresh` and `keel-backup` service and timer units |
-| `deploy_host.sh` | AWS pilot host: the deploy that `deploy-aws.yml` runs through SSM (files of the release bundle, image, first-run corpus, models, and index from the S3 bucket, health wait, timers) |
-| `backup.sh` | Consistent snapshot of the index and the logs to an S3-compatible bucket; the in-app scheduler calls the same routine on Railway |
+| `terraform/` | AWS host (D-39): EC2 instance, Elastic IP, security group, S3 backup bucket, IAM instance profile with SSM, GitHub OIDC deploy role, Route 53 zone and ACM certificate for the custom domain |
+| `Caddyfile` | AWS host: TLS termination, security headers, SSE pass-through |
+| `systemd/` | AWS host: `keel-refresh` and `keel-backup` service and timer units |
+| `deploy_host.sh` | AWS host: the deploy that `deploy-aws.yml` runs through SSM (files of the release bundle, image, first-run corpus, models, and index from the S3 bucket, health wait, timers) |
+| `backup.sh` | Consistent snapshot of the index and the logs to an S3-compatible bucket; `keel backup` is the same routine in Python |
 
-## Railway: first deploy
+## Railway: first deploy (D-41)
 
-1. Create a Railway project from the GitHub repository. In the service
-   settings, turn off the automatic deploy on push; `deploy.yml` deploys
-   tagged versions on purpose.
-2. Add a volume with the mount path `/data`. Set the service memory to 4 GB
-   or more.
-3. Set the service variables: `ANTHROPIC_API_KEY`, `KEEL_API_TOKEN`,
-   `KEEL_CORPUS__DIR=/data/corpus/edgar`, `KEEL_INDEX__DIR=/data/index`,
-   `KEEL_LOGS__DIR=/data/logs`, `KEEL_EDGAR__CACHE_DIR=/data/cache/edgar`,
-   `KEEL_CACHE__ANSWERS_DIR=/data/cache/answers`,
-   `HF_HOME=/data/cache/hf`, `KEEL_SCHEDULER__ENABLED=1`,
-   `KEEL_SCHEDULER__BACKUP_DIR=/data/backups`,
-   `KEEL_SCHEDULER__BACKUP_BUCKET=<bucket>`, the bucket credentials
-   (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ENDPOINT_URL`), and
-   `KEEL_CORPUS__URL` with the download URL of the corpus zip. The release
-   asset option needs no token:
-   `KEEL_CORPUS__URL=https://github.com/Dylan-Burns/keel/releases/download/corpus-v1/edgar_corpus.zip`.
-4. Put the corpus zip at that URL: the release asset `corpus-v1` above, or
-   a Railway bucket object with a signed URL. The host of the URL joins the
-   outbound allow list (control S-11) on its own; the GitHub release asset
-   hosts are on it already.
-5. Generate the domain in the Railway networking settings. In GitHub, create
-   the `production` environment with a required reviewer, the secret
-   `RAILWAY_TOKEN` (a project token), and the variable `KEEL_HOSTNAME` with
-   the generated domain.
-6. Release through release-please, then run `deploy.yml` with the version.
-   On the first start, `keel serve --bootstrap` starts the server, then a
-   background task downloads the zip when `/data/corpus` is empty and
-   builds the index when `/data/index/current` is absent. `/api/health`
-   answers at once, and `/api/ready` reports `index_loaded: false` until the
-   build ends. Later starts find the index and skip the build.
+Use Railway CLI 5.x (`npx @railway/cli@5`); 4.x silently ignores
+`environment edit`. Railway retires `railway.toml` on 2026-12-01, so the
+repository keeps no config file: the settings below live on the service.
 
-### The index on a 4 GB host (Option A)
+1. `railway init -n keel`, then `railway add --service keel`, then
+   `railway volume add --mount-path /data`, then
+   `railway scale us-east=1` (a new project can land in another region).
+2. Set the service variables. The image runs as the non-root `keel` user,
+   and every path the app writes lives on the volume:
 
-The full index build needs about 6.6 GB, more than the 4 GB service. Build
-it off the host and let the bootstrap restore it:
+   ```text
+   KEEL_AUTH__PUBLIC=1
+   KEEL_CORPUS__DIR=/data/corpus/edgar
+   KEEL_CORPUS__URL=https://github.com/Dylan-Burns/keel/releases/download/corpus-v1/edgar_corpus.zip
+   KEEL_INDEX__DIR=/data/index
+   KEEL_INDEX__URL=https://github.com/Dylan-Burns/keel/releases/download/index-v1/keel-2026-10-22T144539Z.tar.gz
+   KEEL_LOGS__DIR=/data/logs
+   KEEL_EDGAR__CACHE_DIR=/data/cache/edgar
+   KEEL_AUTH__USERS_FILE=/data/state/users.yaml
+   KEEL_SCHEDULER__BACKUP_DIR=/data/backups
+   KEEL_EVAL__REPORT_DIR=/data/logs/eval
+   HF_HOME=/data/cache/hf
+   RAILWAY_RUN_UID=0
+   PORT=8000
+   ```
 
-1. On a machine with the memory: `keel index`, then
-   `keel backup --index-only --out dist/` (no audit log, no user data: the
-   release is public).
-2. `gh release create index-v1 dist/keel-*.tar.gz*` (the archive and its
-   `.sha256`).
-3. On the host, set
-   `KEEL_INDEX__URL=https://github.com/Dylan-Burns/keel/releases/download/index-v1/<archive>`,
-   where `<archive>` is the `keel-<stamp>.tar.gz` name from step 1. No
-   `GH_TOKEN` and no `gh` are needed: the bootstrap downloads the archive
-   and its `.sha256` over https under control S-11 and restores it (about
-   6 s for the 133 MB archive of index 1.2.0) instead of building. With
-   `KEEL_INDEX__RELEASE_TAG=index-v1`, `GH_TOKEN`, and `gh` on the PATH, it
-   tries `gh release download` first. A failed download or check falls back
-   to the build.
+   Railway probes the health check on `PORT`, so `PORT` must match
+   `KEEL_SERVER__PORT` (8000 in the image).
 
-The volume is mounted by Railway with its own ownership rules. If the
-non-root `keel` user cannot write `/data` on the first start, follow the
-current Railway volume documentation for the ownership setting; do not
-switch the image to root.
+   Railway mounts the volume as root. `RAILWAY_RUN_UID=0` lets the start
+   command below run `chown` on `/data`, then `setpriv` drops
+   to the `keel` user before `keel serve` starts. The server never runs
+   as root.
 
-## Railway: nightly work
+   Public mode needs no `ANTHROPIC_API_KEY`: visitors ask with their own
+   key or read the answer cache that ships in the image. The companies
+   dictionary stays at the image copy, because the public site runs no
+   `keel add` and no refresh.
+   The answer cache also stays in the image (`demo/answer_cache`), so
+   the example answers ship with each build, and answers that visitors
+   paid for last only until the next deploy.
+3. Set the deploy settings through the GraphQL API, with the IDs from
+   `railway status`:
 
-The in-app scheduler (`scheduler.enabled`) runs `refresh` at 02:00 and the
-backup at 02:30 inside the app, because a Railway cron service cannot share
-the app's volume. The backup writes the same checksummed archive as
-`backup.sh` to `scheduler.backup_dir` on the volume and keeps the newest 7.
-The upload to the S3-compatible bucket is not implemented yet
-(`BackupUploadError`, see the gaps in `docs/BUILD_REPORT.md`).
+   ```text
+   railway api 'mutation { serviceInstanceUpdate(
+     serviceId: "<service id>", environmentId: "<environment id>",
+     input: {
+       startCommand: "sh -c \'chown -R keel:keel /data && exec setpriv --reuid=keel --regid=keel --init-groups keel serve --bootstrap\'"
+       healthcheckPath: "/api/health", healthcheckTimeout: 300,
+       restartPolicyType: ON_FAILURE, restartPolicyMaxRetries: 3 }) }'
+   ```
 
-## AWS: first deploy (the pilot host, D-39)
+4. `railway up --detach` from the repository root. The Railway builder
+   rejects bind mounts and cache mounts without a service id, so the
+   `Dockerfile` uses no `RUN --mount`. On the first start,
+   `keel serve --bootstrap` answers `/api/health` at once, downloads the
+   corpus and the `index-v1` archive in the background, checks the
+   `.sha256`, and restores the index. `/api/ready` reports
+   `index_loaded: false` until the restore ends.
+5. Fill the model cache once. `keel serve` sets `HF_HUB_OFFLINE=1`, so the
+   server never downloads the pinned models itself:
 
-The pilot runs on 1 EC2 `t3.large` (8 GB) in `us-east-2`. Deploys go through
+   ```text
+   railway ssh -- setpriv --reuid=keel --regid=keel --init-groups \
+     keel doctor --download-models
+   railway restart
+   ```
+
+   Without the models, retrieval falls back to lexical search only and
+   the log says `run keel doctor --download-models`. The cache lives on
+   the volume, so later deploys keep it.
+
+## Railway: the custom domain
+
+1. `railway domain www.keeldd.com --port 8000` prints a CNAME target and a
+   `_railway-verify.www` TXT token.
+2. In Squarespace (Domains, `keeldd.com`, DNS settings, Custom records),
+   point the `www` CNAME at that target and add the TXT record. Keep the
+   email presets (SPF `-all`, DMARC `p=reject`): the domain sends no mail.
+3. Squarespace has no ALIAS record at the apex, so forward `keeldd.com` to
+   `https://www.keeldd.com` (Domain forwarding, a permanent 301).
+4. Railway issues the certificate once it sees both records. Check
+   `curl -fsS https://www.keeldd.com/api/health` and
+   `curl -fsSI https://keeldd.com/`.
+
+## AWS: first deploy (D-39)
+
+The site runs on 1 EC2 `t3.large` (8 GB) in `us-east-2`. Deploys go through
 SSM Run Command, so port 22 stays limited to the admin CIDR and GitHub holds
 no AWS key.
 
@@ -133,8 +154,62 @@ free `*.cloudfront.net` name with its certificate (the `cloudfront_url`
 output, the GitHub variable `KEEL_PUBLIC_URL`). Caching is off and every
 viewer header but `Host` reaches the origin, so the bearer token and the SSE
 streams pass through unchanged. The origin is Caddy on the host over HTTPS
-under its `sslip.io` name. A custom domain later needs an ACM certificate in
-`us-east-1` and an alias on the distribution.
+under its `sslip.io` name.
+
+## AWS: the custom domain
+
+`dns.tf` serves the distribution under `domain_name` (D-40: `keeldd.com`)
+and `www.<domain_name>`. With `domain_name` set, Terraform creates a Route 53
+hosted zone, an ACM certificate for both names in `us-east-1` (validated
+through DNS), the CloudFront aliases with the policy `TLSv1.2_2021`, `A` and
+`AAAA` alias records for both names, a `CAA` record (ACM and Let's Encrypt
+only), and records that say the domain sends no mail: a null `MX`,
+`v=spf1 -all`, and a DMARC policy `p=reject`. With `domain_name` empty,
+nothing changes and the site keeps the `*.cloudfront.net` name. The origin
+stays Caddy on the host under its `sslip.io` name, so `KEEL_HOSTNAME` and the
+host `.env` do not change.
+
+The certificate validates only once the registrar delegates to the zone, so
+the first apply runs in 2 steps:
+
+1. Add `domain_name = "keeldd.com"` to `terraform.tfvars`, then
+   `terraform apply -target=aws_route53_zone.keel`. Read the 4 name servers
+   with `terraform output name_servers`, or in the Route 53 console.
+2. At the registrar of the domain, replace the name servers of `keeldd.com`
+   with those 4 (custom DNS, not the registrar's own DNS). Turn off any
+   parking or forwarding there. Check the delegation with
+   `dig +short NS keeldd.com`; it can take from minutes to a few hours.
+3. `terraform apply`. The run waits for ACM to issue the certificate, then
+   updates the distribution in place (a few minutes).
+4. In GitHub, set the repository variable `TF_DOMAIN_NAME` to `keeldd.com`
+   (`infra.yml` passes it to the nightly plan, so the plan shows no drift),
+   and set `KEEL_PUBLIC_URL` on the `production` environment to
+   `https://keeldd.com` (the `cloudfront_url` output), so `deploy-aws.yml`
+   smoke tests the new address.
+5. Check `curl -fsS https://keeldd.com/api/health` and
+   `curl -fsSI https://www.keeldd.com/`.
+
+### DNS at another provider (Squarespace)
+
+To keep the DNS at the registrar, set `dns_zone = "external"` with
+`domain_name`. Terraform then creates no zone: the certificate covers
+`www.<domain_name>` only, CloudFront serves `www`, and the apex forwards to
+it at the provider (most providers, Squarespace included, have no ALIAS
+record that could point the apex at CloudFront).
+
+1. `terraform apply -target=aws_acm_certificate.keel`, then
+   `terraform output dns_records_to_add`: the certificate validation CNAME
+   and the `www` CNAME.
+2. At the provider, add both CNAMEs, and forward the apex to
+   `https://www.<domain_name>` (Squarespace: Domains, DNS settings, then
+   Domain forwarding, a permanent 301).
+3. `terraform apply`. It waits until ACM sees the validation record (up to
+   2 hours), then adds `www` to the distribution.
+4. Set `KEEL_PUBLIC_URL` to `https://www.<domain_name>`, and the repository
+   variables `TF_DOMAIN_NAME` and `TF_DNS_ZONE=external`.
+
+The read-only plan role already reads Route 53 and ACM through
+`ReadOnlyAccess`. The zone costs 0.50 USD a month; the certificate is free.
 
 ## AWS: CI and CD
 
@@ -156,11 +231,21 @@ the state, no parameter, secret, or log contents, no SSM command output, no
 instance user data or console output. It trusts only `main`, through
 GitHub's immutable OIDC subject (`repo:<owner>@<id>/<name>@<id>:...`).
 
-## Restore (both hosts)
+## Prebuilt index
+
+The full index build needs about 6.6 GB of memory. A smaller host can
+restore a prebuilt index instead: build it elsewhere with `keel index` and
+`keel backup --index-only --out dist/`, publish the archive and its
+`.sha256`, and set `KEEL_INDEX__URL` to the archive. The bootstrap
+downloads it over HTTPS under control S-11, checks it, and restores it
+(about 6 s for the 133 MB archive of index 1.2.0) instead of building. A
+failed download or check falls back to the build.
+
+## Restore
 
 1. Download the archive and check it:
    `aws s3 cp s3://<bucket>/keel/<stamp>/keel-<stamp>.tar.gz . && sha256sum -c keel-<stamp>.tar.gz.sha256`
-2. Stop the app (Railway: scale the service to 0; AWS: `docker compose stop app`).
+2. Stop the app: `docker compose stop app`.
 3. Extract into `<index dir>/restore`, move `current` to `previous`, move
    `restore` to `current`.
    `keel restore keel-<stamp>.tar.gz` does steps 1 (the checksum) and 3:
@@ -169,12 +254,5 @@ GitHub's immutable OIDC subject (`repo:<owner>@<id>/<name>@<id>:...`).
    the archived audit log under `<logs dir>/restored-<stamp>/`.
 4. Start the app and check `/api/health` and `/api/ready`.
 
-Test the restore once before the pilot and record the date in
-`docs/BUILD_REPORT.md`. Last tested on 2026-10-22 (index 1.2.0 into an
-empty index directory, 6.2 s); repeat it on the pilot host.
-
-## Vercel
-
-Vercel cannot host the API: serverless functions have no persistent disk
-and a bundle size limit far below PyTorch. The interview demo runs on a
-laptop at `http://localhost:8000` and needs no host at all.
+Last tested on 2026-10-22: index 1.2.0 into an empty index directory in
+6.2 s.
