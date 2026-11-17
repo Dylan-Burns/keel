@@ -49,6 +49,9 @@ def test_add_user_stores_the_hash_only(tmp_path: pathlib.Path) -> None:
     [
         ("alice", "analyst", "exists"),
         ("legacy", "admin", "legacy"),
+        # A visitor of a public service takes these names (S-06).
+        ("visitor", "analyst", "visitor"),
+        ("visitor-0a1b2c3d", "admin", "visitor"),
         ("Alice", "analyst", "must match"),
         ("bad name", "analyst", "must match"),
         ("eve", "owner", "role"),
@@ -232,3 +235,23 @@ def test_users_command(
     assert cli.main(["users", "remove", "alice"]) == 2
     with pytest.raises(SystemExit):
         cli.main(["users", "add", "bob", "--role", "owner"])
+
+
+@pytest.mark.parametrize("name", ["legacy", "visitor", "visitor-0a1b2c3d"])
+def test_users_file_refuses_a_reserved_name(
+    tmp_path: pathlib.Path, name: str
+) -> None:
+    path = tmp_path / "users.yaml"
+    path.write_text(
+        f"users:\n  - name: {name}\n    role: analyst\n"
+        f"    token_hash: sha256:{'0' * 64}\n"
+    )
+    with pytest.raises(errors.ConfigError, match="reserved"):
+        users.load_file(path)
+
+
+def test_visitor_names_are_reserved() -> None:
+    assert users.is_reserved("visitor")
+    assert users.is_reserved("visitor-0a1b")
+    assert not users.is_reserved("visitors")
+    assert not users.is_reserved("alice")
