@@ -185,14 +185,41 @@ def require_principal(
         The Principal of the caller.
 
     Raises:
-        HTTPException: 401 when the token is absent or wrong.
+        HTTPException: 401 when the token is absent or wrong (a visitor
+            needs none with `auth.public`), 400 for a malformed visitor
+            key.
     """
     return auth.authenticate(
-        services.settings, request.headers.get("authorization"), services.users
+        services.settings,
+        request.headers.get("authorization"),
+        services.users,
+        key=auth.visitor_key(request.headers.get(auth.KEY_HEADER)),
     )
 
 
 Caller = Annotated[auth.Principal, fastapi.Depends(require_principal)]
+
+
+def require_member(caller: Caller) -> auth.Principal:
+    """The Principal of a user with a token; a visitor gets HTTP 403.
+
+    Args:
+        caller: The Principal of the request.
+
+    Returns:
+        The Principal.
+
+    Raises:
+        HTTPException: 403 `sign_in_required` for a visitor.
+    """
+    if caller.is_visitor:
+        raise http_error(
+            403, "sign_in_required", "this needs a Keel access token"
+        )
+    return caller
+
+
+Member = Annotated[auth.Principal, fastapi.Depends(require_member)]
 
 
 def fault_of(request: fastapi.Request, services: Services) -> str | None:
@@ -287,11 +314,13 @@ async def ready(services: Services, fault: Fault) -> fastapi.Response:
             services.settings.reranker.enabled
         )
         models = step.embedder is not None and reranker_ok
+    public = services.settings.auth.public
     checks = {
         "index_loaded": loaded,
         "index_verified": loaded and services.index_verified,
         "models_loaded": loaded and models,
-        "provider_key": services.provider_key,
+        # A public service answers visitors with their own keys.
+        "provider_key": services.provider_key or public,
     }
     corrupt = loaded and not services.index_verified
     body: dict[str, Any] = {
@@ -302,6 +331,7 @@ async def ready(services: Services, fault: Fault) -> fastapi.Response:
         "checks": checks,
         "index_corrupt": corrupt,
         "offline": services.settings.offline,
+        "access": "public" if public else "token",
     }
     if services.bootstrap is not None:
         # The phase and the progress only; the detail and the error stay
@@ -324,7 +354,7 @@ async def ready(services: Services, fault: Fault) -> fastapi.Response:
 
 
 @router.get("/status")
-async def service_status(services: Services, caller: Caller) -> dict[str, Any]:
+async def service_status(services: Services, caller: Member) -> dict[str, Any]:
     """The reliability details behind the token (chapters 16.3, 16.10).
 
     Args:
@@ -804,6 +834,11 @@ async def history(
     """
     if scope == "all" and not caller.is_admin:
         raise http_error(403, "forbidden", "only an admin reads every history")
+    if caller.user.name == auth.ANONYMOUS:
+        # Visitors without a key share 1 name, so none sees the others.
+        return history_log.HistoryPage(
+            user=caller.user.name, role=caller.user.role, scope=scope, items=[]
+        )
     user = None if scope == "all" else caller.user.name
     items = await asyncio.to_thread(
         history_log.history,
@@ -1108,8 +1143,9 @@ def client_of(request: fastapi.Request, caller: auth.Principal) -> str:
     """The bucket key of the rate limit (control S-05).
 
     A named user has 1 bucket wherever they ask from, which also holds
-    behind a proxy; the shared legacy token keeps 1 bucket per peer
-    address.
+    behind a proxy; so has a visitor with a key (named by the key). The
+    shared legacy token and the visitors without a key keep 1 bucket per
+    peer address.
 
     Args:
         request: The request.
@@ -1118,9 +1154,86 @@ def client_of(request: fastapi.Request, caller: auth.Principal) -> str:
     Returns:
         `user:<name>`, or the peer address (`unknown` without one).
     """
-    if caller.user != users.LEGACY:
+    if caller.user != users.LEGACY and caller.user.name != auth.ANONYMOUS:
         return f"user:{caller.user.name}"
     return request.client.host if request.client else "unknown"
+
+
+async def _billing(
+    answerer: answer.Answerer,
+    body: AskRequest,
+    caller: auth.Principal,
+    key: pydantic.SecretStr | None,
+    fault: str | None,
+) -> tuple[answer.Answerer, AskRequest]:
+    """The pipeline and the request of 1 question, by who pays for it.
+
+    A caller with their own key gets a copy that answers with it. A
+    visitor without a key reads the answer cache only: a question it does
+    not hold gets HTTP 401, and the copy of a cached question has a
+    provider that refuses, so the service key is never spent.
+
+    Args:
+        answerer: The pipeline of the request.
+        body: The request.
+        caller: The Principal.
+        key: The caller's Anthropic API key, or None.
+        fault: The mock fault of the request.
+
+    Returns:
+        The pipeline and the request to run.
+
+    Raises:
+        HTTPException: 401 `api_key_required` for a visitor without a key
+            and an uncached question.
+    """
+    if fault is not None and fault not in API_FAULTS:
+        # A fault drill keeps its mock providers.
+        return answerer, body
+    if key is not None:
+        return answerer.for_visitor(key), body
+    if not caller.is_visitor:
+        return answerer, body
+    if not await asyncio.to_thread(answerer.cached, body.question):
+        raise http_error(
+            401,
+            "api_key_required",
+            "add your Anthropic API key to ask a new question; the "
+            "example questions answer without one",
+        )
+    options = body.options.model_copy(update={"use_cache": True})
+    refusing = state.MissingKeyProvider(answerer.model)
+    return (
+        answerer.with_provider(refusing),
+        body.model_copy(update={"options": options}),
+    )
+
+
+def _check_rate(
+    services: state.Services, request: fastapi.Request, caller: auth.Principal
+) -> None:
+    """Take 1 question from the buckets of the caller (control S-05).
+
+    A visitor also takes 1 from the bucket of all visitors together.
+
+    Args:
+        services: The shared services.
+        request: The request.
+        caller: The Principal.
+
+    Raises:
+        HTTPException: 429 with `Retry-After` when a bucket is empty.
+    """
+    decision = services.limiter.check(client_of(request, caller))
+    if decision.allowed and caller.is_visitor:
+        decision = services.public_limiter.check(auth.ANONYMOUS)
+    if not decision.allowed:
+        raise http_error(
+            429,
+            "rate_limited",
+            "too many questions; wait and ask again",
+            decision.retry_after,
+        )
 
 
 @router.post("/ask")
@@ -1142,12 +1255,14 @@ async def ask(
         The event stream or the response of chapter 14.2.
 
     Raises:
-        HTTPException: 400 or 413 for the input checks, 409 for a key
-            whose answer still runs, 429 over the rate limit, 503 without
-            an index.
+        HTTPException: 400 or 413 for the input checks, 401
+            `api_key_required` for a visitor without a key whose question
+            is not in the answer cache, 409 for a key whose answer still
+            runs, 429 over the rate limit, 503 without an index.
     """
     body = await read_body(request)
     check_question(services, body.question)
+    key = auth.visitor_key(request.headers.get(auth.KEY_HEADER))
     if fault == "rate_limited":
         raise http_error(
             429,
@@ -1171,14 +1286,8 @@ async def ask(
             409, "request_in_progress", "the answer of this key still runs"
         )
     answerer = answerer_for(services, fault)
-    decision = services.limiter.check(client_of(request, caller))
-    if not decision.allowed:
-        raise http_error(
-            429,
-            "rate_limited",
-            "too many questions; wait and ask again",
-            decision.retry_after,
-        )
+    answerer, body = await _billing(answerer, body, caller, key, fault)
+    _check_rate(services, request, caller)
     if not services.results.start(request_id, caller.user.name):
         raise http_error(
             409, "request_in_progress", "the answer of this key still runs"

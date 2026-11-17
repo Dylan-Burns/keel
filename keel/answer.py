@@ -35,7 +35,10 @@ import sqlite3
 import threading
 import time
 from typing import Any
+from typing import Literal
 import uuid
+
+import pydantic
 
 from keel import audit
 from keel import cache
@@ -58,6 +61,9 @@ from keel.providers import mock
 logger = logging.getLogger(__name__)
 
 SEC_HOST = "https://www.sec.gov/"
+BilledTo = Literal["service", "visitor"]
+SERVICE: BilledTo = "service"
+VISITOR: BilledTo = "visitor"
 SCHEMA_WARNING = (
     "The model output did not match the answer schema, so the raw text is "
     "shown as an unstructured answer and no citation is verified."
@@ -302,6 +308,9 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
         self.provider = provider
         self.fallback = fallback
         self.breaker = breaker or reliability.CircuitBreaker()
+        # `service` spends the daily budget; `visitor` spends the key of
+        # a visitor of a public service and never stops at the budget.
+        self.billed_to: BilledTo = SERVICE
         self.index_version = index_version
         self.sleep = sleep
         self.facts_loader = facts_loader or self.load_facts
@@ -415,6 +424,57 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             twin.sleep = sleep
         return twin
 
+    def for_visitor(self, api_key: pydantic.SecretStr) -> Answerer:
+        """A copy that answers with a visitor's own Anthropic API key.
+
+        The copy bills the visitor: its spend stays out of the daily
+        budget, and a spent budget does not stop it. The fallback model
+        uses the same key. With the mock provider the copy keeps mock
+        providers, so the tests and the drills never call the network.
+
+        Args:
+            api_key: The visitor's key; it lives only in the copy.
+
+        Returns:
+            The copy.
+        """
+        llm = self.settings.llm
+        if llm.provider == "mock":
+            provider: base.LLMProvider = mock.MockProvider(llm.model)
+            fallback: base.LLMProvider | None = (
+                mock.MockProvider(llm.fallback_model)
+                if self.fallback is not None
+                else None
+            )
+        else:
+            key = api_key.get_secret_value()
+            provider = anthropic_provider.AnthropicProvider.with_key(
+                self.settings, key
+            )
+            fallback = (
+                anthropic_provider.AnthropicProvider.with_key(
+                    self.settings, key, llm.fallback_model
+                )
+                if self.fallback is not None
+                else None
+            )
+        twin = self.with_provider(provider, fallback=fallback)
+        twin.billed_to = VISITOR
+        return twin
+
+    def cached(self, question: str) -> bool:
+        """Tell whether the answer cache holds the question.
+
+        Args:
+            question: The question.
+
+        Returns:
+            True when a cached answer would be served.
+        """
+        return self._cacheable(question) and (
+            self.cache.get(self.cache_key(question)) is not None
+        )
+
     def load_facts(
         self, analysis: understanding.QuestionAnalysis
     ) -> edgar.FactsResult:
@@ -520,8 +580,10 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             },
         )
         offline = self.settings.offline
-        stopped = not offline and (
-            await asyncio.to_thread(self.budget.exhausted)
+        stopped = (
+            not offline
+            and self.billed_to == SERVICE
+            and (await asyncio.to_thread(self.budget.exhausted))
         )
         if (offline or use_cache or stopped) and (
             await asyncio.to_thread(self._cacheable, question)
@@ -1060,6 +1122,7 @@ class Answerer:  # pylint: disable=too-many-instance-attributes
             "latency_ms": meta.get("latency_ms"),
             "usage": meta.get("usage"),
             "cost_usd": meta.get("cost_usd", 0.0),
+            "billed_to": self.billed_to,
             "citation_drift": flags.get("citation_drift", 0),
             "inline_drift": flags.get("inline_drift", 0),
             "quote_mismatch": flags.get("quote_mismatch", 0),
@@ -1154,6 +1217,13 @@ def _facts_summary(facts: edgar.FactsResult) -> dict[str, Any]:
 def _message(run: _Run) -> str | None:
     if run.outcome == "out_of_scope" and run.analysis is not None:
         return f"Out of scope: {run.analysis.out_of_scope_reason}."
+    if run.outcome == "provider_error" and isinstance(
+        run.error, errors.ProviderAuthError
+    ):
+        return (
+            "Anthropic rejected the API key; check the key in Settings. "
+            "The retrieved filing text is shown."
+        )
     if run.outcome == "provider_error" and run.error is not None:
         return (
             f"The model is unavailable ({run.error.code}); the retrieved "

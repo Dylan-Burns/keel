@@ -257,6 +257,12 @@ class Services:  # pylint: disable=too-many-instance-attributes
             settings.limits.rate_per_hour,
             clock=clock,
         )
+        # All visitors of a public service together (auth.public).
+        self.public_limiter = ratelimit.RateLimiter(
+            settings.limits.public_rate_per_minute,
+            settings.limits.public_rate_per_hour,
+            clock=clock,
+        )
         self.tasks: set[asyncio.Task[Any]] = set()
         self.users = auth.directory_of(settings)
         # Held by a heavy admin job and by the nightly refresh and backup,

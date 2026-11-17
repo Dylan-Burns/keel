@@ -206,8 +206,9 @@ class BudgetGuard:
     """The daily provider budget (chapter 16.10 step 5, S-05 step 3).
 
     The spend of the day is the sum of `cost_usd` over the audit records
-    with a timestamp of the current UTC day. The file is read again only
-    when its size or modification time changed.
+    with a timestamp of the current UTC day, except the records a
+    visitor paid for with their own key (`billed_to: visitor`). The file
+    is read again only when its size or modification time changed.
 
     Args:
         audit_path: The audit log (`<logs.dir>/audit.jsonl`).
@@ -279,6 +280,9 @@ def _sum_day(path: pathlib.Path, day: str) -> float:
                     continue
                 stamp = str(record.get("timestamp", ""))
                 cost = record.get("cost_usd")
+                if record.get("billed_to") == "visitor":
+                    # A visitor paid with their own key (auth.public).
+                    continue
                 if stamp.startswith(day) and isinstance(cost, int | float):
                     total += float(cost)
     except OSError as error:

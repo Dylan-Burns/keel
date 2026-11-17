@@ -34,6 +34,9 @@ logger = logging.getLogger(__name__)
 Role = Literal["analyst", "partner", "admin"]
 ROLES: tuple[Role, ...] = ("analyst", "partner", "admin")
 ADMIN: Role = "admin"
+# The role of a visitor of a public service: no users file entry, no token.
+VisitorRole = Literal["visitor"]
+VISITOR: VisitorRole = "visitor"
 LEGACY_USER = "legacy"
 HASH_PREFIX = "sha256:"
 TOKEN_BYTES = 32  # 256 random bits
@@ -85,16 +88,21 @@ class User:
 
     Attributes:
         name: The user name.
-        role: The role.
+        role: The role; `visitor` for a visitor of a public service.
     """
 
     name: str
-    role: Role
+    role: Role | VisitorRole
 
     @property
     def is_admin(self) -> bool:
         """True for the admin role."""
         return self.role == ADMIN
+
+    @property
+    def is_visitor(self) -> bool:
+        """True for a visitor of a public service, who has no token."""
+        return self.role == VISITOR
 
 
 LEGACY = User(LEGACY_USER, ADMIN)

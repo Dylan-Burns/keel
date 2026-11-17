@@ -21,5 +21,12 @@
 			roll_size 50mb
 			roll_keep 10
 		}
+		# A visitor's own Anthropic key never reaches the log.
+		format filter {
+			wrap json
+			fields {
+				request>headers>X-Anthropic-Api-Key delete
+			}
+		}
 	}
 }

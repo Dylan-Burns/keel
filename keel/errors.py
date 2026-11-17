@@ -145,6 +145,16 @@ class ProviderRequestError(ProviderError):
     retryable = False
 
 
+class ProviderAuthError(ProviderRequestError):
+    """The provider refused the API key (HTTP 401 or 403): no retry.
+
+    With a visitor key this is the visitor's key, so the message tells
+    them to check it.
+    """
+
+    code = "provider_auth_rejected"
+
+
 class ContextOverflowError(ProviderError):
     """The prompt is longer than the model accepts (chapter 16.6).
 

@@ -1,24 +1,40 @@
-"""The bearer token check and the Principal (chapter 15, control S-06).
+"""The bearer token check, the visitor key, and the Principal (S-06).
 
 Every `/api/` route except health and ready needs `Authorization: Bearer
-<token>`. The token is compared in constant time with the token hashes of
-the users file (chapter 27.2) and with `KEEL_API_TOKEN`, which stays the
-admin user `legacy`. A request that passes gets a `Principal` that names
-the user and the role; the Principal permits every ticker and source, and
-phase 1 of the roadmap replaces the tokens with OpenID Connect.
+<token>`, unless `auth.public` is on. The token is compared in constant
+time with the token hashes of the users file (chapter 27.2) and with
+`KEEL_API_TOKEN`, which stays the admin user `legacy`. A request that
+passes gets a `Principal` that names the user and the role; the Principal
+permits every ticker and source.
+
+With `auth.public` on, a request without an `Authorization` header is a
+visitor. A visitor may send their own Anthropic API key in the
+`X-Anthropic-Api-Key` header: the service then answers with that key, and
+the visitor's name is a short hash of the key, so their history stays
+theirs. The key is never stored or logged. A visitor without a key reads
+the answer cache only. A wrong bearer token is still HTTP 401, so a typo
+never turns an admin into a visitor.
 """
 
 from __future__ import annotations
 
 import dataclasses
+import hashlib
+import re
 
 import fastapi
+import pydantic
 
 from keel import config
 from keel import users
 
 BEARER = "bearer"
 DEFAULT_TENANT = "default"
+KEY_HEADER = "x-anthropic-api-key"
+ANONYMOUS = "visitor"
+# Anthropic keys start with sk-ant- and hold URL-safe characters only.
+KEY_PATTERN = re.compile(r"^sk-ant-[A-Za-z0-9_-]{16,250}$")
+KEY_NAME_DIGITS = 16
 
 
 @dataclasses.dataclass(frozen=True)
@@ -42,6 +58,11 @@ class Principal:
     def is_admin(self) -> bool:
         """True when the user has the admin role."""
         return self.user.is_admin
+
+    @property
+    def is_visitor(self) -> bool:
+        """True for a visitor of a public service (no token)."""
+        return self.user.is_visitor
 
 
 def unauthorized(message: str) -> fastapi.HTTPException:
@@ -92,10 +113,55 @@ def directory_of(settings: config.Settings) -> users.UserDirectory:
     return users.UserDirectory(settings.auth.users_file, legacy)
 
 
+def visitor_key(header: str | None) -> pydantic.SecretStr | None:
+    """The visitor's Anthropic API key of the `X-Anthropic-Api-Key` header.
+
+    Args:
+        header: The header value, or None.
+
+    Returns:
+        The key, or None when the header is absent or blank.
+
+    Raises:
+        HTTPException: HTTP 400 `invalid_api_key` for a value that is not
+            shaped like an Anthropic key; the body never echoes it.
+    """
+    if header is None or not header.strip():
+        return None
+    key = header.strip()
+    if not KEY_PATTERN.match(key):
+        raise fastapi.HTTPException(
+            status_code=400,
+            detail={
+                "code": "invalid_api_key",
+                "message": "the Anthropic API key must start with sk-ant-",
+            },
+        )
+    return pydantic.SecretStr(key)
+
+
+def visitor(key: pydantic.SecretStr | None) -> Principal:
+    """The Principal of a visitor of a public service.
+
+    Args:
+        key: The visitor's key, or None.
+
+    Returns:
+        The visitor `visitor-<hash>` named by a hash of the key, or the
+        shared visitor `visitor` without a key.
+    """
+    if key is None:
+        return Principal(user=users.User(ANONYMOUS, users.VISITOR))
+    digest = hashlib.sha256(key.get_secret_value().encode("utf-8"))
+    name = f"{ANONYMOUS}-{digest.hexdigest()[:KEY_NAME_DIGITS]}"
+    return Principal(user=users.User(name, users.VISITOR))
+
+
 def authenticate(
     settings: config.Settings,
     header: str | None,
     directory: users.UserDirectory | None = None,
+    key: pydantic.SecretStr | None = None,
 ) -> Principal:
     """Check the bearer token and build the Principal of the request.
 
@@ -103,15 +169,19 @@ def authenticate(
         settings: The loaded settings, with `api_token` and `auth`.
         header: The `Authorization` header value, or None.
         directory: The users, or None to read them from the settings.
+        key: The visitor's Anthropic API key, or None; it names the
+            visitor when `auth.public` is on and no token is sent.
 
     Returns:
-        The Principal with the user of the token.
+        The Principal with the user of the token, or a visitor.
 
     Raises:
-        HTTPException: HTTP 401 when the token is absent or wrong, or when
-            neither `KEEL_API_TOKEN` nor a user is configured (no request
-            passes without one).
+        HTTPException: HTTP 401 when the token is wrong, when it is absent
+            and `auth.public` is off, or when neither `KEEL_API_TOKEN` nor
+            a user is configured and `auth.public` is off.
     """
+    if settings.auth.public and not (header or "").strip():
+        return visitor(key)
     known = directory or directory_of(settings)
     if not known.configured:
         raise unauthorized("the service has no KEEL_API_TOKEN and no users")

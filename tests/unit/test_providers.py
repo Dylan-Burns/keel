@@ -338,6 +338,16 @@ def test_structured_output_stream(settings: config.Settings) -> None:
             False,
         ),
         (
+            status_error(anthropic.AuthenticationError, 401),
+            errors.ProviderAuthError,
+            False,
+        ),
+        (
+            status_error(anthropic.PermissionDeniedError, 403),
+            errors.ProviderAuthError,
+            False,
+        ),
+        (
             status_error(anthropic.RequestTooLargeError, 413),
             errors.ContextOverflowError,
             False,
@@ -511,3 +521,10 @@ def test_total_deadline(settings: config.Settings) -> None:
     slow.total_timeout = 0.12
     with pytest.raises(errors.ProviderTimeoutError):
         asyncio.run(collect(slow.answer(bundle())))
+
+
+def test_with_key_uses_the_given_key(settings: config.Settings) -> None:
+    key = "sk-ant-api03-" + "k" * 40
+    provider = adapter.AnthropicProvider.with_key(settings, key)
+    assert provider.client.api_key == key
+    assert provider.model == settings.llm.model

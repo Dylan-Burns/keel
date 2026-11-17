@@ -29,6 +29,7 @@ from keel.providers import base
 
 _OVERFLOW_MARKERS = ("prompt is too long", "context window", "too many tokens")
 _RATE_TYPES = frozenset({"rate_limit_error", "overloaded_error"})
+_AUTH_TYPES = frozenset({"authentication_error", "permission_error"})
 
 
 def _retry_after(error: anthropic.APIStatusError) -> float | None:
@@ -73,6 +74,8 @@ def _classify_status(error: anthropic.APIStatusError) -> errors.ProviderError:
         status == 400 and any(m in lowered for m in _OVERFLOW_MARKERS)
     ):
         return errors.ContextOverflowError(message)
+    if status in {401, 403} or error.type in _AUTH_TYPES:
+        return errors.ProviderAuthError(message)
     if status >= 500 or error.type == "api_error":
         return errors.ProviderUnavailableError(message)
     return errors.ProviderRequestError(message)
@@ -122,9 +125,30 @@ class AnthropicProvider:  # pylint: disable=too-many-instance-attributes
         """
         if settings.anthropic_api_key is None:
             raise errors.ProviderRequestError("ANTHROPIC_API_KEY is not set")
+        return cls.with_key(
+            settings, settings.anthropic_api_key.get_secret_value(), model
+        )
+
+    @classmethod
+    def with_key(
+        cls, settings: config.Settings, api_key: str, model: str | None = None
+    ) -> AnthropicProvider:
+        """Build the adapter with a given key, such as a visitor's key.
+
+        The key lives only in the client of this adapter; nothing logs or
+        stores it.
+
+        Args:
+            settings: The loaded settings.
+            api_key: The Anthropic API key.
+            model: The model, or None for `llm.model`.
+
+        Returns:
+            The adapter.
+        """
         llm = settings.llm
         client = anthropic.AsyncAnthropic(
-            api_key=settings.anthropic_api_key.get_secret_value(),
+            api_key=api_key,
             max_retries=0,
             timeout=anthropic.Timeout(
                 llm.timeout_seconds,

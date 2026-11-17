@@ -75,7 +75,7 @@ async def understand(
     body: DebugRequest,
     request: fastapi.Request,
     services: routes.Services,
-    caller: routes.Caller,
+    caller: routes.Member,
 ) -> dict[str, Any]:
     """The question analysis, as `keel understand` prints it.
 
@@ -176,7 +176,7 @@ async def retrieve(
     body: DebugRequest,
     request: fastapi.Request,
     services: routes.Services,
-    caller: routes.Caller,
+    caller: routes.Member,
 ) -> dict[str, Any]:
     """The retrieval of a question without a model call.
 

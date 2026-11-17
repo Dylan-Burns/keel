@@ -105,6 +105,7 @@ limits:
 
 auth:
   users_file: config/users.yaml  # chapter 27.2: name, role, token hash; `keel users add`; /data/users.yaml in the pilot
+  public: false                # true on the public site (KEEL_AUTH__PUBLIC=1 in docker-compose.yml): visitors ask with their own Anthropic key (X-Anthropic-Api-Key) or read the answer cache; admins keep their tokens
 
 pilot:
   db: null                     # comp sets and feedback (chapter 27.2); null is pilot.sqlite in logs.dir

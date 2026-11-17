@@ -234,9 +234,16 @@ class LlmConfig(_Section):
 
 
 class AuthConfig(_Section):
-    """The pilot users file (chapter 27.2): names, roles, token hashes."""
+    """The users file and the public mode.
+
+    Attributes:
+        users_file: Names, roles, and token hashes (chapter 27.2).
+        public: True lets a visitor without a token ask with their own
+            Anthropic API key, or read the answer cache without one.
+    """
 
     users_file: pathlib.Path = pathlib.Path("config/users.yaml")
+    public: bool = False
 
 
 class PilotConfig(_Section):
@@ -259,6 +266,10 @@ class LimitsConfig(_Section):
     question_max_chars: int = 1000
     rate_per_minute: int = 10
     rate_per_hour: int = 100
+    # All visitors of a public service together (auth.public), on top of
+    # the bucket of each visitor.
+    public_rate_per_minute: int = 60
+    public_rate_per_hour: int = 600
     daily_budget_usd: float = 20.0
 
 

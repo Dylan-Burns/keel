@@ -200,7 +200,7 @@ async def save_comp_set(
     name: CompSetName,
     body: CompSetBody,
     services: routes.Services,
-    caller: routes.Caller,
+    caller: routes.Member,
 ) -> CompSetItem:
     """Create or replace a comp set.
 
@@ -244,7 +244,7 @@ async def save_comp_set(
 
 @router.delete("/compsets/{name}", status_code=204)
 async def delete_comp_set(
-    name: CompSetName, services: routes.Services, caller: routes.Caller
+    name: CompSetName, services: routes.Services, caller: routes.Member
 ) -> fastapi.Response:
     """Delete a comp set.
 
