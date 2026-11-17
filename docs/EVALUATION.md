@@ -5,9 +5,9 @@ The full results:
 - [`eval/report.md`](../eval/report.md): the last full run, with every
   metric, the ablations, and the result of each question.
 - The **Eval report** page of the live site
-  (<https://d1otueg71oygkx.cloudfront.net/eval>, with the access token):
+  (<https://www.keeldd.com/eval>):
   the same report as metric bars, beside the prompt log.
-- [`docs/18_evaluation.md`](18_evaluation.md): the method in full.
+- [`docs/ARCHITECTURE.md`](ARCHITECTURE.md): where the eval harness sits.
 - [`docs/PROMPT_LOG.md`](PROMPT_LOG.md): how each result changed the prompt.
 
 ## The last run
